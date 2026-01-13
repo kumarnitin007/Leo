@@ -4,7 +4,7 @@
  * Handles encrypted and unencrypted export/import of safe entries
  */
 
-import { SafeEntry, SafeEntryEncryptedData, SafeTag } from '../types';
+import { SafeEntry, SafeEntryEncryptedData, Tag } from '../types';
 import { CryptoKey } from './encryption';
 import { encryptData, decryptData } from './encryption';
 
@@ -94,7 +94,7 @@ export async function exportEncrypted(
 export async function exportUnencrypted(
   entries: SafeEntry[],
   encryptionKey: CryptoKey,
-  tags: SafeTag[]
+  tags: Tag[]
 ): Promise<UnencryptedExport> {
   const entriesWithDecrypted = await Promise.all(
     entries.map(async (entry) => {
@@ -143,7 +143,7 @@ export async function exportUnencrypted(
 export async function exportCSV(
   entries: SafeEntry[],
   encryptionKey: CryptoKey,
-  tags: SafeTag[]
+  tags: Tag[]
 ): Promise<string> {
   const headers = [
     'Title', 'URL', 'Category', 'Tags', 'Favorite', 'Expires At',

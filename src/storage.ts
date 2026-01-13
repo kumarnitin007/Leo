@@ -7,7 +7,7 @@
  */
 
 import { getSupabaseClient } from './lib/supabase';
-import { AppData, Task, TaskCompletion, Event, JournalEntry, Routine, Tag, TagSection, UserSettings, DashboardLayout, Item, SafeEntry, SafeTag, SafeMasterKey } from './types';
+import { AppData, Task, TaskCompletion, Event, JournalEntry, Routine, Tag, TagSection, UserSettings, DashboardLayout, Item, SafeEntry, SafeMasterKey } from './types';
 import { getTodayString } from './utils';
 import { hashMasterPassword, generateSalt, verifyMasterPassword as verifyMasterPasswordUtil, deriveKeyFromPassword, encryptData, decryptData } from './utils/encryption';
 

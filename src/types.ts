@@ -287,6 +287,6 @@ export interface AppData {
   routines: Routine[];
   items: Item[];
   safeEntries: SafeEntry[];
-  safeTags: SafeTag[];
+  safeTags: Tag[];
 }
 

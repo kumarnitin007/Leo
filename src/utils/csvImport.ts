@@ -4,7 +4,7 @@
  * Handles parsing KeePass CSV format and auto-detecting categories
  */
 
-import { SafeEntry, SafeEntryEncryptedData, SafeTag } from '../types';
+import { SafeEntry, SafeEntryEncryptedData, Tag } from '../types';
 import { encryptData } from './encryption';
 import { CryptoKey } from './encryption';
 
@@ -62,7 +62,7 @@ const CATEGORY_KEYWORDS: Record<string, string[]> = {
 /**
  * Detect category from title, comments, and URL
  */
-function detectCategory(row: ParsedCSVRow, categoryTags: SafeTag[]): { categoryId: string | undefined; confidence: 'high' | 'medium' | 'low' } {
+function detectCategory(row: ParsedCSVRow, categoryTags: Tag[]): { categoryId: string | undefined; confidence: 'high' | 'medium' | 'low' } {
   const searchText = `${row.account} ${row.comments} ${row.webSite}`.toLowerCase();
   
   let bestMatch: { categoryId: string | undefined; score: number } = { categoryId: undefined, score: 0 };
@@ -206,7 +206,7 @@ export function parseKeePassCSV(csvContent: string): ParsedCSVRow[] {
  */
 export function generatePreview(
   rows: ParsedCSVRow[],
-  categoryTags: SafeTag[],
+  categoryTags: Tag[],
   limit: number = 10
 ): PreviewEntry[] {
   return rows.slice(0, limit).map(row => {
@@ -254,7 +254,7 @@ export function getCategoryMapping(
 export async function importCSVEntries(
   rows: ParsedCSVRow[],
   encryptionKey: CryptoKey,
-  categoryTags: SafeTag[],
+  categoryTags: Tag[],
   selectedTagId: string,
   existingEntries: SafeEntry[]
 ): Promise<ImportSummary> {
@@ -317,7 +317,7 @@ export async function importCSVEntries(
 export async function convertCSVRowsToEntries(
   rows: ParsedCSVRow[],
   encryptionKey: CryptoKey,
-  categoryTags: SafeTag[],
+  categoryTags: Tag[],
   selectedTagId: string,
   existingEntries: SafeEntry[]
 ): Promise<SafeEntry[]> {
