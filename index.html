@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Leo Planner - Plan with the strength of a lion</title>
+    
+    <!-- PWA Meta Tags -->
+    <meta name="description" content="Plan with the strength of a lion. Beautiful daily task tracking and event management." />
+    <meta name="theme-color" content="#14b8a6" />
+    <link rel="manifest" href="/manifest.json" />
+    
+    <!-- Apple Touch Icons -->
+    <link rel="apple-touch-icon" href="/icon-192x192.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Leo Planner" />
+    
+    <!-- Microsoft Tiles -->
+    <meta name="msapplication-TileColor" content="#14b8a6" />
+    <meta name="msapplication-TileImage" content="/icon-144x144.png" />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+    
+    <!-- Service Worker Registration -->
+    <!-- Note: Service Worker uses network-first strategy in development (localhost) -->
+    <!-- To completely disable Service Worker during dev, set DISABLE_SW to true below or comment out this script block -->
+    <script>
+      const DISABLE_SW = true; // Set to true to disable service worker (disabled for dev to allow HMR)
+      
+      if (DISABLE_SW && 'serviceWorker' in navigator) {
+        // Unregister any existing service workers
+        navigator.serviceWorker.getRegistrations().then((registrations) => {
+          registrations.forEach((registration) => {
+            registration.unregister().then((success) => {
+              if (success) {
+                console.log('✅ Service Worker unregistered successfully');
+              }
+            });
+          });
+        });
+        console.log('⚠️ Service Worker is disabled (DISABLE_SW = true)');
+      } else if (!DISABLE_SW && 'serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/service-worker.js')
+            .then((registration) => {
+              console.log('✅ Service Worker registered successfully:', registration.scope);
+              console.log('💡 Dev Mode: Using network-first strategy for hot reload');
+              console.log('🔧 To unregister SW: Run in console: navigator.serviceWorker.getRegistrations().then(r => r.forEach(reg => reg.unregister()))');
+            })
+            .catch((error) => {
+              console.log('Service Worker registration failed:', error);
+            });
+        });
+      }
+    </script>
+  </body>
+</html>
+

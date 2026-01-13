@@ -1,0 +1,139 @@
+/**
+ * Combined Tasks & Events View Component
+ * 
+ * Consolidates task management and event tracking into one unified interface
+ * Sub-tabs: Tasks | Events | Routines
+ */
+
+import React, { useState } from 'react';
+import ConfigureView from './ConfigureView';
+import EventsView from './EventsView';
+import RoutinesView from './RoutinesView';
+
+interface TasksAndEventsViewProps {
+  onNavigate?: (view: string) => void;
+}
+
+type SubTab = 'tasks' | 'events' | 'routines';
+
+const TasksAndEventsView: React.FC<TasksAndEventsViewProps> = () => {
+  const [activeSubTab, setActiveSubTab] = useState<SubTab>('tasks');
+
+  return (
+    <div className="tasks-events-view">
+      {/* Header */}
+      <div className="view-header" style={{
+        background: 'rgba(255, 255, 255, 0.9)',
+        backdropFilter: 'blur(10px)',
+        borderRadius: '16px',
+        padding: '1.5rem 2rem',
+        marginBottom: '1.5rem',
+        boxShadow: '0 2px 8px rgba(0, 0, 0, 0.05)'
+      }}>
+        <h2 style={{
+          margin: 0,
+          fontSize: '2rem',
+          fontWeight: 700,
+          background: 'linear-gradient(135deg, #14b8a6 0%, #0d9488 100%)',
+          WebkitBackgroundClip: 'text',
+          WebkitTextFillColor: 'transparent',
+          backgroundClip: 'text'
+        }}>
+          🎯 Tasks & Events
+        </h2>
+        <p style={{ margin: '0.5rem 0 0 0', color: '#6b7280', fontSize: '0.95rem' }}>
+          Manage your tasks, routines, and special occasions
+        </p>
+      </div>
+
+      {/* Sub-tabs Navigation */}
+      <div className="sub-tabs" style={{
+        background: 'rgba(255, 255, 255, 0.9)',
+        backdropFilter: 'blur(10px)',
+        borderRadius: '12px',
+        padding: '0.5rem',
+        marginBottom: '1.5rem',
+        display: 'flex',
+        gap: '0.5rem',
+        boxShadow: '0 2px 8px rgba(0, 0, 0, 0.05)'
+      }}>
+        <button
+          onClick={() => setActiveSubTab('tasks')}
+          className={`sub-tab ${activeSubTab === 'tasks' ? 'active' : ''}`}
+          style={{
+            flex: 1,
+            padding: '0.75rem 1.5rem',
+            borderRadius: '8px',
+            border: 'none',
+            background: activeSubTab === 'tasks' 
+              ? 'linear-gradient(135deg, #14b8a6 0%, #0d9488 100%)'
+              : 'transparent',
+            color: activeSubTab === 'tasks' ? 'white' : '#6b7280',
+            fontWeight: 600,
+            cursor: 'pointer',
+            transition: 'all 0.2s',
+            boxShadow: activeSubTab === 'tasks' ? '0 4px 12px rgba(20, 184, 166, 0.35)' : 'none',
+            transform: activeSubTab === 'tasks' ? 'translateY(-2px)' : 'translateY(0)'
+          }}
+        >
+          <span style={{ marginRight: '0.5rem' }}>✅</span>
+          Tasks
+        </button>
+        <button
+          onClick={() => setActiveSubTab('events')}
+          className={`sub-tab ${activeSubTab === 'events' ? 'active' : ''}`}
+          style={{
+            flex: 1,
+            padding: '0.75rem 1.5rem',
+            borderRadius: '8px',
+            border: 'none',
+            background: activeSubTab === 'events' 
+              ? 'linear-gradient(135deg, #14b8a6 0%, #0d9488 100%)'
+              : 'transparent',
+            color: activeSubTab === 'events' ? 'white' : '#6b7280',
+            fontWeight: 600,
+            cursor: 'pointer',
+            transition: 'all 0.2s',
+            boxShadow: activeSubTab === 'events' ? '0 4px 12px rgba(20, 184, 166, 0.35)' : 'none',
+            transform: activeSubTab === 'events' ? 'translateY(-2px)' : 'translateY(0)'
+          }}
+        >
+          <span style={{ marginRight: '0.5rem' }}>📅</span>
+          Events
+        </button>
+        <button
+          onClick={() => setActiveSubTab('routines')}
+          className={`sub-tab ${activeSubTab === 'routines' ? 'active' : ''}`}
+          style={{
+            flex: 1,
+            padding: '0.75rem 1.5rem',
+            borderRadius: '8px',
+            border: 'none',
+            background: activeSubTab === 'routines' 
+              ? 'linear-gradient(135deg, #14b8a6 0%, #0d9488 100%)'
+              : 'transparent',
+            color: activeSubTab === 'routines' ? 'white' : '#6b7280',
+            fontWeight: 600,
+            cursor: 'pointer',
+            transition: 'all 0.2s',
+            boxShadow: activeSubTab === 'routines' ? '0 4px 12px rgba(20, 184, 166, 0.35)' : 'none',
+            transform: activeSubTab === 'routines' ? 'translateY(-2px)' : 'translateY(0)'
+          }}
+        >
+          <span style={{ marginRight: '0.5rem' }}>🎯</span>
+          Routines
+        </button>
+      </div>
+
+      {/* Content Area */}
+      <div className="sub-tab-content">
+        {activeSubTab === 'tasks' && <ConfigureView />}
+        {activeSubTab === 'events' && <EventsView />}
+        {activeSubTab === 'routines' && <RoutinesView />}
+      </div>
+    </div>
+  );
+};
+
+export default TasksAndEventsView;
+
