@@ -7,7 +7,7 @@
  */
 
 import { getSupabaseClient } from './lib/supabase';
-import { AppData, Task, TaskCompletion, Event, JournalEntry, Routine, Tag, UserSettings, DashboardLayout, Item, SafeEntry, SafeTag, SafeMasterKey } from './types';
+import { AppData, Task, TaskCompletion, Event, JournalEntry, Routine, Tag, TagSection, UserSettings, DashboardLayout, Item, SafeEntry, SafeTag, SafeMasterKey } from './types';
 import { getTodayString } from './utils';
 import { hashMasterPassword, generateSalt, verifyMasterPassword as verifyMasterPasswordUtil, deriveKeyFromPassword, encryptData, decryptData } from './utils/encryption';
 
@@ -927,6 +927,92 @@ export const getTags = async (): Promise<Tag[]> => {
     color: tag.color,
     trackable: tag.trackable || false,
     description: tag.description,
+    allowedSections: tag.allowed_sections || undefined,
+    isSafeOnly: tag.is_safe_only || false,
+    isSystemCategory: tag.is_system_category || false,
+    parentId: tag.parent_id || undefined,
+    createdAt: tag.created_at || new Date().toISOString()
+  }));
+};
+
+/**
+ * Get tags available for a specific section
+ * @param section - The section to get tags for ('tasks', 'events', 'journals', 'items', 'safe')
+ */
+export const getTagsForSection = async (section: TagSection): Promise<Tag[]> => {
+  const { client, userId } = await requireAuth();
+
+  let query = client
+    .from('myday_tags')
+    .select('*')
+    .eq('user_id', userId);
+
+  if (section === 'safe') {
+    // For safe section, only show safe-only tags
+    query = query.eq('is_safe_only', true);
+  } else {
+    // For regular sections, exclude safe-only tags
+    // Include tags where allowed_sections is null (backward compatible) or contains the section
+    query = query
+      .or('is_safe_only.is.null,is_safe_only.eq.false');
+    
+    // Filter by allowed_sections: null means available in all, or array contains the section
+    // Note: Supabase array contains uses cs (contains) operator
+    const { data: allTags, error: fetchError } = await query;
+    
+    if (fetchError) {
+      console.error('Error fetching tags for section:', fetchError);
+      return [];
+    }
+    
+    // Filter in memory for allowed_sections (more reliable than complex query)
+    const filteredTags = (allTags || []).filter(tag => {
+      // If is_safe_only is true, exclude it
+      if (tag.is_safe_only) return false;
+      
+      // If allowed_sections is null/empty, include it (backward compatible)
+      if (!tag.allowed_sections || tag.allowed_sections.length === 0) {
+        return true;
+      }
+      
+      // Check if section is in allowed_sections array
+      return tag.allowed_sections.includes(section);
+    });
+    
+    // Sort and map
+    return filteredTags
+      .sort((a, b) => (a.name || '').localeCompare(b.name || ''))
+      .map(tag => ({
+        id: tag.id,
+        name: tag.name,
+        color: tag.color,
+        trackable: tag.trackable || false,
+        description: tag.description,
+        allowedSections: tag.allowed_sections || undefined,
+        isSafeOnly: tag.is_safe_only || false,
+        isSystemCategory: tag.is_system_category || false,
+        parentId: tag.parent_id || undefined,
+        createdAt: tag.created_at || new Date().toISOString()
+      }));
+  }
+
+  const { data, error } = await query.order('name', { ascending: true });
+
+  if (error) {
+    console.error('Error fetching tags for section:', error);
+    return [];
+  }
+
+  return (data || []).map(tag => ({
+    id: tag.id,
+    name: tag.name,
+    color: tag.color,
+    trackable: tag.trackable || false,
+    description: tag.description,
+    allowedSections: tag.allowed_sections || undefined,
+    isSafeOnly: tag.is_safe_only || false,
+    isSystemCategory: tag.is_system_category || false,
+    parentId: tag.parent_id || undefined,
     createdAt: tag.created_at || new Date().toISOString()
   }));
 };
@@ -942,7 +1028,11 @@ export const saveTag = async (tag: Tag): Promise<void> => {
       name: tag.name,
       color: tag.color,
       trackable: tag.trackable,
-      description: tag.description
+      description: tag.description,
+      allowed_sections: tag.allowedSections || null,
+      is_safe_only: tag.isSafeOnly || false,
+      is_system_category: tag.isSystemCategory || false,
+      parent_id: tag.parentId || null
     }], {
       onConflict: 'user_id,name'
     });
@@ -1864,6 +1954,7 @@ export const clearAllData = async (): Promise<void> => {
 
 /**
  * Initialize default system categories for safe section
+ * Now uses unified myday_tags table
  */
 export const initializeSafeCategories = async (): Promise<void> => {
   const { client, userId } = await requireAuth();
@@ -1883,11 +1974,12 @@ export const initializeSafeCategories = async (): Promise<void> => {
     { name: 'Other', color: '#6b7280' }
   ];
 
-  // Check if categories already exist
+  // Check if categories already exist in unified tags table
   const { data: existingTags } = await client
-    .from('myday_safe_tags')
+    .from('myday_tags')
     .select('name')
     .eq('user_id', userId)
+    .eq('is_safe_only', true)
     .in('name', systemCategories.map(c => c.name));
 
   const existingNames = new Set(existingTags?.map(t => t.name) || []);
@@ -1901,12 +1993,13 @@ export const initializeSafeCategories = async (): Promise<void> => {
       name: cat.name,
       is_system_category: true,
       is_safe_only: true,
+      allowed_sections: ['safe'],
       color: cat.color,
       created_at: now.toISOString()
     }));
 
     const { error } = await client
-      .from('myday_safe_tags')
+      .from('myday_tags')
       .insert(tagsToInsert);
 
     if (error) {
@@ -1917,68 +2010,35 @@ export const initializeSafeCategories = async (): Promise<void> => {
 
 /**
  * Get all safe tags (categories and custom tags)
+ * Now uses unified tags system - returns Tag[] but compatible with SafeTag interface
  */
-export const getSafeTags = async (): Promise<SafeTag[]> => {
-  const { client, userId } = await requireAuth();
-  
-  const { data, error } = await client
-    .from('myday_safe_tags')
-    .select('*')
-    .eq('user_id', userId)
-    .order('is_system_category', { ascending: false })
-    .order('name', { ascending: true });
-
-  if (error) {
-    console.error('Error fetching safe tags:', error);
-    return [];
-  }
-
-  return (data || []).map(tag => ({
-    id: tag.id,
-    name: tag.name,
-    isSystemCategory: tag.is_system_category,
-    isSafeOnly: tag.is_safe_only,
-    color: tag.color,
-    createdAt: tag.created_at
-  }));
+export const getSafeTags = async (): Promise<Tag[]> => {
+  // Use getTagsForSection which filters for safe-only tags
+  return await getTagsForSection('safe');
 };
 
 /**
  * Create a custom safe tag
+ * Now uses unified tags system
  */
-export const createSafeTag = async (name: string, color: string = '#667eea'): Promise<SafeTag | null> => {
-  const { client, userId } = await requireAuth();
-  
-  const now = new Date();
-  const tag = {
+export const createSafeTag = async (name: string, color: string = '#667eea'): Promise<Tag | null> => {
+  const tag: Tag = {
     id: generateUUID(),
-    user_id: userId,
     name: name.trim(),
-    is_system_category: false,
-    is_safe_only: true,
     color: color,
-    created_at: now.toISOString()
+    isSafeOnly: true,
+    isSystemCategory: false,
+    allowedSections: ['safe'],
+    createdAt: new Date().toISOString()
   };
 
-  const { data, error } = await client
-    .from('myday_safe_tags')
-    .insert(tag)
-    .select()
-    .single();
-
-  if (error) {
+  try {
+    await saveTag(tag);
+    return tag;
+  } catch (error) {
     console.error('Error creating safe tag:', error);
     return null;
   }
-
-  return {
-    id: data.id,
-    name: data.name,
-    isSystemCategory: data.is_system_category,
-    isSafeOnly: data.is_safe_only,
-    color: data.color,
-    createdAt: data.created_at
-  };
 };
 
 /**

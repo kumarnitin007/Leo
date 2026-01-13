@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Task, FrequencyType, IntervalUnit, Tag } from './types';
-import { loadData, addTask, updateTask, deleteTask, importSampleTasks, clearAllData, getTags } from './storage';
+import { loadData, addTask, updateTask, deleteTask, importSampleTasks, clearAllData, getTagsForSection } from './storage';
 import { generateId, getColorForTask } from './utils';
 
 const ConfigureView: React.FC = () => {
@@ -45,8 +45,9 @@ const ConfigureView: React.FC = () => {
 
   const loadTags = async () => {
     try {
-      const allTags = await getTags();
-      setTags(allTags);
+      // Get tags available for tasks section
+      const taskTags = await getTagsForSection('tasks');
+      setTags(taskTags);
     } catch (error) {
       console.error('Error loading tags:', error);
     }

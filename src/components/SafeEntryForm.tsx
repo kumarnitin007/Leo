@@ -5,7 +5,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { SafeEntry, SafeTag, SafeEntryEncryptedData, SafeCustomField } from '../types';
+import { SafeEntry, Tag, SafeEntryEncryptedData, SafeCustomField } from '../types';
 import { CryptoKey } from '../utils/encryption';
 import { addSafeEntry, updateSafeEntry, decryptSafeEntry } from '../storage';
 import { generatePassword } from '../utils/encryption';
@@ -15,7 +15,7 @@ import TOTPQRCode from './TOTPQRCode';
 
 interface SafeEntryFormProps {
   entry?: SafeEntry;
-  tags: SafeTag[];
+  tags: Tag[];
   encryptionKey: CryptoKey;
   onSave: () => void;
   onCancel: () => void;

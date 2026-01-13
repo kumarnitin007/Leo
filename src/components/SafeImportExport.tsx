@@ -5,7 +5,7 @@
  */
 
 import React, { useState } from 'react';
-import { SafeEntry, SafeTag } from '../types';
+import { SafeEntry, Tag } from '../types';
 import { CryptoKey } from '../utils/encryption';
 import { 
   exportEncrypted, 
@@ -29,7 +29,7 @@ import {
 interface SafeImportExportProps {
   entries: SafeEntry[];
   encryptionKey: CryptoKey;
-  tags: SafeTag[];
+  tags: Tag[];
   onImportComplete: () => void;
   onClose: () => void;
   onTagsRefresh?: () => void;

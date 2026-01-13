@@ -17,7 +17,7 @@ import {
   getJournalEntryByDate,
   saveJournalEntry,
   deleteJournalEntry,
-  getTags
+  getTagsForSection
 } from './storage';
 import { formatDate } from './utils';
 
@@ -35,8 +35,9 @@ const JournalView: React.FC = () => {
   useEffect(() => {
     const loadTagsAndEntries = async () => {
       try {
-        const tags = await getTags();
-        setAvailableTags(tags);
+        // Get tags available for journals section
+        const journalTags = await getTagsForSection('journals');
+        setAvailableTags(journalTags);
         await loadEntries();
       } catch (error) {
         console.error('Error loading tags and entries:', error);

@@ -5,13 +5,13 @@
  */
 
 import React, { useState } from 'react';
-import { SafeEntryEncryptedData, SafeTag } from '../types';
+import { SafeEntryEncryptedData, Tag } from '../types';
 import { generateTOTPSecret, generateTOTPURI } from '../utils/totp';
 import { QRCodeSVG } from 'qrcode.react';
 
 interface SafeCategoryFieldsProps {
   categoryTagId: string | undefined;
-  tags: SafeTag[];
+  tags: Tag[];
   encryptedData: SafeEntryEncryptedData;
   onDataChange: (data: Partial<SafeEntryEncryptedData>) => void;
 }

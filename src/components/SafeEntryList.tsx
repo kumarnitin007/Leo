@@ -5,13 +5,13 @@
  */
 
 import React, { useState, useMemo } from 'react';
-import { SafeEntry, SafeTag } from '../types';
+import { SafeEntry, Tag } from '../types';
 import { CryptoKey } from '../utils/encryption';
 import { deleteSafeEntriesByTag } from '../storage';
 
 interface SafeEntryListProps {
   entries: SafeEntry[];
-  tags: SafeTag[];
+  tags: Tag[];
   encryptionKey: CryptoKey;
   viewMode: 'grid' | 'list';
   onEntrySelect: (entry: SafeEntry) => void;

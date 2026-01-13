@@ -19,7 +19,7 @@ import {
   deleteEvent,
   getUpcomingEvents,
   importSampleEvents,
-  getTags
+  getTagsForSection
 } from './storage';
 import { importFromICalendar, filterPersonalEvents } from './icalParser';
 import { Tag } from './types';
@@ -64,8 +64,9 @@ const EventsView: React.FC<EventsViewProps> = () => {
 
   const loadTags = async () => {
     try {
-      const allTags = await getTags();
-      setTags(allTags);
+      // Get tags available for events section
+      const eventTags = await getTagsForSection('events');
+      setTags(eventTags);
     } catch (error) {
       console.error('Error loading tags:', error);
     }

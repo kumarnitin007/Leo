@@ -9,22 +9,57 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { Tag } from './types';
+import { Tag, TagSection } from './types';
 import { getTags, addTag, updateTag, deleteTag, loadData } from './storage';
+import { useTheme } from './contexts/ThemeContext';
 
 interface TagsManagerProps {
   onClose?: () => void;
 }
 
 const TagsManager: React.FC<TagsManagerProps> = ({ onClose }) => {
+  const { theme } = useTheme();
   const [tags, setTags] = useState<Tag[]>([]);
   const [isCreating, setIsCreating] = useState(false);
   const [editingTag, setEditingTag] = useState<Tag | null>(null);
+  
+  // Helper function to create theme-appropriate colors for sections
+  const getSectionStyles = () => {
+    // Create a light tint of the primary color for background
+    const primaryRgb = hexToRgb(theme.colors.primary);
+    const lightBg = `rgba(${primaryRgb.r}, ${primaryRgb.g}, ${primaryRgb.b}, 0.1)`;
+    const lighterBg = `rgba(${primaryRgb.r}, ${primaryRgb.g}, ${primaryRgb.b}, 0.15)`;
+    const borderColor = `rgba(${primaryRgb.r}, ${primaryRgb.g}, ${primaryRgb.b}, 0.3)`;
+    const innerBorderColor = `rgba(${primaryRgb.r}, ${primaryRgb.g}, ${primaryRgb.b}, 0.2)`;
+    
+    return {
+      containerBg: `linear-gradient(135deg, ${lightBg} 0%, ${lighterBg} 100%)`,
+      border: `2px solid ${theme.colors.primary}`,
+      shadow: `0 2px 8px rgba(${primaryRgb.r}, ${primaryRgb.g}, ${primaryRgb.b}, 0.15)`,
+      innerBg: 'rgba(255, 255, 255, 0.7)',
+      innerBorder: `2px solid ${innerBorderColor}`,
+      textColor: theme.colors.primary,
+      accentColor: theme.colors.primary
+    };
+  };
+  
+  // Helper to convert hex to RGB
+  const hexToRgb = (hex: string) => {
+    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+    return result ? {
+      r: parseInt(result[1], 16),
+      g: parseInt(result[2], 16),
+      b: parseInt(result[3], 16)
+    } : { r: 102, g: 126, b: 234 }; // fallback to purple
+  };
+  
+  const sectionStyles = getSectionStyles();
   const [formData, setFormData] = useState({
     name: '',
     color: '#667eea',
     trackable: false,
-    description: ''
+    description: '',
+    allowedSections: ['tasks', 'events', 'journals', 'items'] as TagSection[]
   });
 
   const predefinedColors = [
@@ -42,7 +77,9 @@ const TagsManager: React.FC<TagsManagerProps> = ({ onClose }) => {
   const loadTags = async () => {
     try {
       const allTags = await getTags();
-      setTags(allTags);
+      // Filter out safe-only tags (they're managed in Safe section)
+      const regularTags = allTags.filter(tag => !tag.isSafeOnly);
+      setTags(regularTags);
       
       // Calculate usage for all tags
       const data = await loadData();
@@ -84,7 +121,8 @@ const TagsManager: React.FC<TagsManagerProps> = ({ onClose }) => {
       name: '',
       color: predefinedColors[Math.floor(Math.random() * predefinedColors.length)],
       trackable: false,
-      description: ''
+      description: '',
+      allowedSections: ['tasks', 'events', 'journals', 'items']
     });
   };
 
@@ -95,7 +133,8 @@ const TagsManager: React.FC<TagsManagerProps> = ({ onClose }) => {
       name: tag.name,
       color: tag.color,
       trackable: tag.trackable || false,
-      description: tag.description || ''
+      description: tag.description || '',
+      allowedSections: tag.allowedSections || ['tasks', 'events', 'journals', 'items']
     });
   };
 
@@ -107,7 +146,10 @@ const TagsManager: React.FC<TagsManagerProps> = ({ onClose }) => {
 
     try {
       if (editingTag) {
-        await updateTag(editingTag.id, formData);
+        await updateTag(editingTag.id, {
+          ...formData,
+          allowedSections: formData.allowedSections.length > 0 ? formData.allowedSections : undefined
+        });
       } else {
         const newTag: Tag = {
           id: crypto.randomUUID(),
@@ -115,6 +157,7 @@ const TagsManager: React.FC<TagsManagerProps> = ({ onClose }) => {
           color: formData.color,
           trackable: formData.trackable,
           description: formData.description.trim() || undefined,
+          allowedSections: formData.allowedSections.length > 0 ? formData.allowedSections : undefined,
           createdAt: new Date().toISOString()
         };
         await addTag(newTag);
@@ -212,18 +255,73 @@ const TagsManager: React.FC<TagsManagerProps> = ({ onClose }) => {
             </div>
 
             <div className="form-group">
-              <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
-                <input
-                  type="checkbox"
-                  checked={formData.trackable}
-                  onChange={(e) => setFormData({ ...formData, trackable: e.target.checked })}
-                  style={{ cursor: 'pointer' }}
-                />
-                <span>📊 Track this tag in analytics (auto-count occurrences)</span>
-              </label>
-              <p style={{ fontSize: '0.85rem', color: '#6b7280', margin: '0.25rem 0 0 1.75rem' }}>
-                Enable this to see counts per month in Insights & Analytics
-              </p>
+              <div style={{ 
+                marginTop: '1.5rem', 
+                padding: '1.5rem', 
+                background: sectionStyles.containerBg,
+                borderRadius: '12px',
+                border: sectionStyles.border,
+                boxShadow: sectionStyles.shadow
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
+                  <span style={{ fontSize: '1.25rem' }}>📊</span>
+                  <h4 style={{ margin: 0, fontSize: '1.1rem', color: sectionStyles.textColor, fontWeight: 600 }}>
+                    Track this tag in analytics (auto-count occurrences)
+                  </h4>
+                </div>
+                
+                <div style={{
+                  padding: '1rem',
+                  background: sectionStyles.innerBg,
+                  borderRadius: '8px',
+                  border: sectionStyles.innerBorder,
+                  marginBottom: '0.75rem'
+                }}>
+                  <label style={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    gap: '0.75rem', 
+                    cursor: 'pointer',
+                    marginBottom: '0.5rem'
+                  }}>
+                    <input
+                      type="checkbox"
+                      checked={formData.trackable}
+                      onChange={(e) => setFormData({ ...formData, trackable: e.target.checked })}
+                      style={{
+                        width: '20px',
+                        height: '20px',
+                        cursor: 'pointer',
+                        accentColor: sectionStyles.accentColor
+                      }}
+                    />
+                    <span style={{ 
+                      fontWeight: 600, 
+                      fontSize: '0.95rem',
+                      color: sectionStyles.textColor
+                    }}>
+                      Enable analytics tracking
+                    </span>
+                  </label>
+                  <div style={{ 
+                    marginLeft: '2rem',
+                    padding: '0.5rem',
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                    gap: '0.5rem'
+                  }}>
+                    <span style={{ fontSize: '1rem', color: sectionStyles.textColor }}>ℹ️</span>
+                    <span style={{ 
+                      fontSize: '0.85rem', 
+                      color: sectionStyles.textColor,
+                      lineHeight: '1.4',
+                      opacity: 0.8
+                    }}>
+                      Enable this to see counts per month in Insights & Analytics
+                    </span>
+                  </div>
+                </div>
+              </div>
             </div>
 
             {formData.trackable && (
@@ -241,6 +339,94 @@ const TagsManager: React.FC<TagsManagerProps> = ({ onClose }) => {
                 </p>
               </div>
             )}
+
+            <div className="form-group">
+              <div style={{ 
+                marginTop: '1.5rem', 
+                padding: '1.5rem', 
+                background: sectionStyles.containerBg,
+                borderRadius: '12px',
+                border: sectionStyles.border,
+                boxShadow: sectionStyles.shadow
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
+                  <span style={{ fontSize: '1.25rem' }}>📋</span>
+                  <h4 style={{ margin: 0, fontSize: '1.1rem', color: sectionStyles.textColor, fontWeight: 600 }}>
+                    Available in Sections
+                  </h4>
+                </div>
+                
+                <div style={{
+                  padding: '1rem',
+                  background: sectionStyles.innerBg,
+                  borderRadius: '8px',
+                  border: sectionStyles.innerBorder,
+                  marginBottom: '0.75rem'
+                }}>
+                  {(['tasks', 'events', 'journals', 'items'] as TagSection[]).map(section => (
+                    <label key={section} style={{ 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      gap: '0.75rem', 
+                      cursor: 'pointer',
+                      marginBottom: section !== 'items' ? '0.75rem' : '0'
+                    }}>
+                      <input
+                        type="checkbox"
+                        checked={formData.allowedSections.includes(section)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setFormData({
+                              ...formData,
+                              allowedSections: [...formData.allowedSections, section]
+                            });
+                          } else {
+                            setFormData({
+                              ...formData,
+                              allowedSections: formData.allowedSections.filter(s => s !== section)
+                            });
+                          }
+                        }}
+                        style={{
+                          width: '20px',
+                          height: '20px',
+                          cursor: 'pointer',
+                          accentColor: sectionStyles.accentColor
+                        }}
+                      />
+                      <span style={{ 
+                        fontWeight: 600, 
+                        fontSize: '0.95rem',
+                        color: sectionStyles.textColor
+                      }}>
+                        {section === 'tasks' && '📋 Tasks'}
+                        {section === 'events' && '📅 Events'}
+                        {section === 'journals' && '📔 Journals'}
+                        {section === 'items' && '📦 Items'}
+                      </span>
+                    </label>
+                  ))}
+                  <div style={{ 
+                    marginLeft: '2rem',
+                    padding: '0.5rem',
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                    gap: '0.5rem',
+                    marginTop: '0.75rem'
+                  }}>
+                    <span style={{ fontSize: '1rem', color: sectionStyles.textColor }}>ℹ️</span>
+                    <span style={{ 
+                      fontSize: '0.85rem', 
+                      color: sectionStyles.textColor,
+                      lineHeight: '1.4',
+                      opacity: 0.8
+                    }}>
+                      Select which sections can use this tag. Leave all unchecked to allow in all sections.
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
 
             <div className="form-actions">
               <button type="submit" className="btn-primary">
@@ -297,6 +483,22 @@ const TagsManager: React.FC<TagsManagerProps> = ({ onClose }) => {
                           {tag.description}
                         </p>
                       )}
+                      <div style={{ marginTop: '0.5rem', display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                        {!tag.allowedSections || tag.allowedSections.length === 0 ? (
+                          <span style={{ fontSize: '0.75rem', color: '#6b7280' }}>
+                            📋 Tasks 📅 Events 📔 Journals 📦 Items
+                          </span>
+                        ) : (
+                          tag.allowedSections.map(section => (
+                            <span key={section} style={{ fontSize: '0.75rem', color: '#6b7280' }}>
+                              {section === 'tasks' && '📋 Tasks'}
+                              {section === 'events' && '📅 Events'}
+                              {section === 'journals' && '📔 Journals'}
+                              {section === 'items' && '📦 Items'}
+                            </span>
+                          ))
+                        )}
+                      </div>
                     </div>
                   </div>
                   <div className="tag-usage">

@@ -5,14 +5,14 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { SafeEntry, SafeTag, SafeEntryEncryptedData } from '../types';
+import { SafeEntry, Tag, SafeEntryEncryptedData } from '../types';
 import { CryptoKey } from '../utils/encryption';
 import { decryptSafeEntry, deleteSafeEntry, markSafeEntryAccessed } from '../storage';
 import { generateTOTP, getTOTPRemainingSeconds } from '../utils/totp';
 
 interface SafeEntryDetailProps {
   entry: SafeEntry;
-  tags: SafeTag[];
+  tags: Tag[];
   encryptionKey: CryptoKey;
   onEdit: (entry: SafeEntry) => void;
   onDelete: () => void;

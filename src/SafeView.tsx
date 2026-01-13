@@ -21,7 +21,7 @@ import {
   getSafeTags,
   initializeSafeCategories
 } from './storage';
-import { SafeEntry, SafeTag } from './types';
+import { SafeEntry, Tag } from './types';
 import { CryptoKey } from './utils/encryption';
 import MasterPasswordSetup from './components/MasterPasswordSetup';
 import SafeLockScreen from './components/SafeLockScreen';
@@ -41,7 +41,7 @@ const SafeView: React.FC = () => {
   const [isUnlocking, setIsUnlocking] = useState(false);
   const [encryptionKey, setEncryptionKey] = useState<CryptoKey | null>(null);
   const [entries, setEntries] = useState<SafeEntry[]>([]);
-  const [tags, setTags] = useState<SafeTag[]>([]);
+  const [tags, setTags] = useState<Tag[]>([]);
   const [entryCount, setEntryCount] = useState(0);
   const [selectedEntry, setSelectedEntry] = useState<SafeEntry | null>(null);
   const [isAdding, setIsAdding] = useState(false);

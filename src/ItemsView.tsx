@@ -24,7 +24,7 @@ import {
   updateItem, 
   deleteItem,
   getExpiringItems,
-  getTags,
+  getTagsForSection,
   importSampleItems
 } from './storage';
 
@@ -68,8 +68,9 @@ const ItemsView: React.FC<ItemsViewProps> = () => {
 
   const loadTags = async () => {
     try {
-      const allTags = await getTags();
-      setTags(allTags);
+      // Get tags available for items section
+      const itemTags = await getTagsForSection('items');
+      setTags(itemTags);
     } catch (error) {
       console.error('Error loading tags:', error);
     }

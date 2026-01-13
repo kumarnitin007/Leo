@@ -1,12 +1,24 @@
 export type FrequencyType = 'daily' | 'weekly' | 'monthly' | 'custom' | 'count-based' | 'interval';
 export type IntervalUnit = 'days' | 'weeks' | 'months' | 'years';
 
+export type TagSection = 'tasks' | 'events' | 'journals' | 'items' | 'safe';
+
 export interface Tag {
   id: string;
   name: string;
   color: string;
   trackable?: boolean; // If true, tag will be auto-counted in analytics
   description?: string; // Optional description of what this tag tracks
+  
+  // Section assignment - which sections can use this tag
+  // If null/undefined, tag is available in all sections (backward compatible)
+  allowedSections?: TagSection[];
+  
+  // Safe tag fields (only for safe-only tags)
+  isSafeOnly?: boolean; // True = exclusive to safe section
+  isSystemCategory?: boolean; // True for system categories (Login, Identity, etc.)
+  parentId?: string; // For tree hierarchy - reference to parent tag ID
+  
   createdAt: string;
 }
 
