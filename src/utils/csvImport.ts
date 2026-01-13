@@ -232,7 +232,7 @@ export function generatePreview(
  */
 export function getCategoryMapping(
   rows: ParsedCSVRow[],
-  categoryTags: SafeTag[]
+  categoryTags: Tag[]
 ): Record<string, number> {
   const mapping: Record<string, number> = {};
   
