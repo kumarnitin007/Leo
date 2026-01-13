@@ -108,62 +108,94 @@ function detectCategory(row: ParsedCSVRow, categoryTags: SafeTag[]): { categoryI
 /**
  * Parse CSV content (KeePass format)
  * Format: "Account","Login Name","Password","Web Site","Comments"
+ * Properly handles multi-line content within quoted fields
  */
 export function parseKeePassCSV(csvContent: string): ParsedCSVRow[] {
-  const lines = csvContent.split('\n').filter(line => line.trim());
-  if (lines.length === 0) {
+  if (!csvContent || !csvContent.trim()) {
     throw new Error('CSV file is empty');
   }
   
-  // Skip header row
-  const dataLines = lines.slice(1);
   const rows: ParsedCSVRow[] = [];
+  const fields: string[] = [];
+  let currentField = '';
+  let inQuotes = false;
+  let isFirstRow = true; // Track header row
   
-  for (const line of dataLines) {
-    if (!line.trim()) continue;
+  // Normalize line endings to \n
+  const normalizedContent = csvContent.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+  
+  for (let i = 0; i < normalizedContent.length; i++) {
+    const char = normalizedContent[i];
+    const nextChar = normalizedContent[i + 1];
     
-    // Parse CSV line (handling quoted fields with commas)
-    const fields: string[] = [];
-    let currentField = '';
-    let inQuotes = false;
-    
-    for (let i = 0; i < line.length; i++) {
-      const char = line[i];
-      const nextChar = line[i + 1];
-      
-      if (char === '"') {
-        if (inQuotes && nextChar === '"') {
-          // Escaped quote
-          currentField += '"';
-          i++; // Skip next quote
-        } else {
-          // Toggle quote state
-          inQuotes = !inQuotes;
-        }
-      } else if (char === ',' && !inQuotes) {
-        // Field separator
-        fields.push(currentField.trim());
-        currentField = '';
+    if (char === '"') {
+      if (inQuotes && nextChar === '"') {
+        // Escaped quote (double quote)
+        currentField += '"';
+        i++; // Skip next quote
       } else {
-        currentField += char;
+        // Toggle quote state
+        inQuotes = !inQuotes;
       }
+    } else if (char === ',' && !inQuotes) {
+      // Field separator (only when not in quotes)
+      fields.push(currentField);
+      currentField = '';
+    } else if ((char === '\n' || char === '\r') && !inQuotes) {
+      // End of record (newline outside quotes)
+      // Add the last field before the newline
+      if (currentField !== '' || fields.length > 0) {
+        fields.push(currentField);
+        currentField = '';
+      }
+      
+      // Process the row if we have fields
+      if (fields.length > 0) {
+        if (isFirstRow) {
+          // Skip header row
+          isFirstRow = false;
+        } else {
+          // Ensure we have at least 5 fields (pad with empty strings if needed)
+          while (fields.length < 5) {
+            fields.push('');
+          }
+          
+          rows.push({
+            account: fields[0] || '',
+            loginName: fields[1] || '',
+            password: fields[2] || '',
+            webSite: fields[3] || '',
+            comments: fields[4] || ''
+          });
+        }
+        
+        // Reset for next row
+        fields.length = 0;
+      }
+    } else {
+      // Regular character (including newlines inside quotes)
+      currentField += char;
     }
+  }
+  
+  // Handle last row if file doesn't end with newline
+  if (currentField !== '' || fields.length > 0) {
+    fields.push(currentField);
     
-    // Add last field
-    fields.push(currentField.trim());
-    
-    // Ensure we have at least 5 fields (pad with empty strings if needed)
-    while (fields.length < 5) {
-      fields.push('');
+    if (fields.length > 0 && !isFirstRow) {
+      // Ensure we have at least 5 fields
+      while (fields.length < 5) {
+        fields.push('');
+      }
+      
+      rows.push({
+        account: fields[0] || '',
+        loginName: fields[1] || '',
+        password: fields[2] || '',
+        webSite: fields[3] || '',
+        comments: fields[4] || ''
+      });
     }
-    
-    rows.push({
-      account: fields[0] || '',
-      loginName: fields[1] || '',
-      password: fields[2] || '',
-      webSite: fields[3] || '',
-      comments: fields[4] || ''
-    });
   }
   
   return rows;
