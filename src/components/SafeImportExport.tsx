@@ -195,6 +195,26 @@ const SafeImportExport: React.FC<SafeImportExportProps> = ({
     }
   };
 
+  const handleDownloadSampleCSV = () => {
+    // Simple KeePass-style sample matching the expected structure
+    const headers = ['Title','Username','Password','URL','Notes','Category'];
+    const sampleRow = [
+      'Acme Email',
+      'user@acme.com',
+      'hunter2',
+      'https://mail.acme.com',
+      'Work account',
+      'Email'
+    ];
+
+    const csvContent = [
+      headers.join(','),
+      sampleRow.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',')
+    ].join('\n');
+
+    downloadFile(csvContent, 'leo-safe-sample.csv', 'text/csv');
+  };
+
   const handleCSVImport = async () => {
     if (!csvFile) {
       setImportError('Please select a CSV file');
@@ -518,6 +538,44 @@ const SafeImportExport: React.FC<SafeImportExportProps> = ({
                   <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>
                     CSV File (KeePass Format)
                   </label>
+
+                  {/* Expected CSV Structure - show columns and a sample row to the user */}
+                  <div style={{
+                    padding: '0.75rem',
+                    backgroundColor: '#f3f4f6',
+                    border: '1px solid #e5e7eb',
+                    borderRadius: '0.5rem',
+                    marginBottom: '0.75rem',
+                    fontSize: '0.9rem'
+                  }}>
+                    <strong style={{ display: 'block', marginBottom: '0.5rem' }}>Expected CSV structure</strong>
+                    <div style={{ marginBottom: '0.5rem' }}>
+                      Columns (first row / header): <em>Title, Username, Password, URL, Notes, Category</em>
+                    </div>
+                    <div style={{ fontFamily: 'monospace', fontSize: '0.85rem', color: '#374151' }}>
+                      Example header: Title,Username,Password,URL,Notes,Category
+                    </div>
+                    <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginTop: '0.25rem' }}>
+                      <div style={{ flex: 1, fontFamily: 'monospace', fontSize: '0.85rem', color: '#6b7280' }}>
+                        Example row: "Acme Email","user@acme.com","hunter2","https://mail.acme.com","Work account","Email"
+                      </div>
+                      <button
+                        onClick={handleDownloadSampleCSV}
+                        style={{
+                          padding: '0.5rem 0.75rem',
+                          backgroundColor: '#3b82f6',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '0.5rem',
+                          cursor: 'pointer',
+                          fontSize: '0.85rem'
+                        }}
+                      >
+                        Download sample CSV
+                      </button>
+                    </div>
+                  </div>
+
                   <input
                     type="file"
                     accept=".csv"

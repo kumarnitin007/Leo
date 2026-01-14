@@ -30,6 +30,7 @@ import SafeEntryForm from './components/SafeEntryForm';
 import SafeEntryDetail from './components/SafeEntryDetail';
 import SafeImportExport from './components/SafeImportExport';
 import ChangeMasterPasswordModal from './components/ChangeMasterPasswordModal';
+import SafeTags from './components/SafeTags';
 
 const AUTO_LOCK_TIMEOUT = 15 * 60 * 1000; // 15 minutes in milliseconds
 const LOCK_WARNING_TIME = 60 * 1000; // 1 minute before lock
@@ -48,6 +49,7 @@ const SafeView: React.FC = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [timeUntilLock, setTimeUntilLock] = useState<number | null>(null);
   const [showImportExport, setShowImportExport] = useState(false);
+  const [showSafeTags, setShowSafeTags] = useState(false);
   const [showChangePassword, setShowChangePassword] = useState(false);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   
@@ -510,6 +512,20 @@ const SafeView: React.FC = () => {
             📥 Import/Export
           </button>
           <button
+            onClick={() => setShowSafeTags(true)}
+            style={{
+              padding: '0.75rem 1.5rem',
+              backgroundColor: '#f59e0b',
+              color: 'white',
+              border: 'none',
+              borderRadius: '0.5rem',
+              cursor: 'pointer',
+              fontSize: '1rem'
+            }}
+          >
+            🏷️ Safe Tags
+          </button>
+          <button
             onClick={handleLock}
             style={{
               padding: '0.75rem 1.5rem',
@@ -570,6 +586,14 @@ const SafeView: React.FC = () => {
           }}
           onClose={() => setShowImportExport(false)}
           onTagsRefresh={loadTags}
+        />
+      )}
+
+      {/* Safe Tags Modal */}
+      {showSafeTags && (
+        <SafeTags
+          onClose={() => setShowSafeTags(false)}
+          onTagsChange={loadTags}
         />
       )}
 

@@ -294,7 +294,7 @@ const SafeEntryForm: React.FC<SafeEntryFormProps> = ({
             }}
           >
             <option value="">Select category</option>
-            {tags.map(tag => (
+            {tags.filter(t => t.isSystemCategory).map(tag => (
               <option key={tag.id} value={tag.id}>{tag.name}</option>
             ))}
           </select>
@@ -305,7 +305,7 @@ const SafeEntryForm: React.FC<SafeEntryFormProps> = ({
             Tags
           </label>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
-            {tags.map(tag => (
+            {tags.filter(t => !t.isSystemCategory).map(tag => (
               <label key={tag.id} style={{
                 display: 'flex',
                 alignItems: 'center',

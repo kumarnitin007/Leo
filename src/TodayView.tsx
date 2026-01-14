@@ -20,7 +20,7 @@ import SmartCoachSection from './components/SmartCoachSection';
 import { getUnderperformingTasks, isInsightDismissed, TaskInsight } from './services/aiInsights';
 import LayoutSelector from './components/LayoutSelector';
 import { DashboardLayout } from './types';
-import { getDashboardLayout, setDashboardLayout, bulkHoldTasks, bulkUnholdTasks } from './storage';
+import { getDashboardLayout, setDashboardLayout, bulkHoldTasks, bulkUnholdTasks, getUserSettings } from './storage';
 import { useAuth } from './contexts/AuthContext';
 import MonthlyView from './MonthlyView';
 import WeatherWidget from './components/WeatherWidget';
@@ -53,6 +53,8 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [isReorderMode, setIsReorderMode] = useState(false);
   const [showProgressAndReview, setShowProgressAndReview] = useState(false);
+  const [showOpenAIPrompt, setShowOpenAIPrompt] = useState(false);
+  const [openAIPromptText, setOpenAIPromptText] = useState('');
   const [showSmartCoachModal, setShowSmartCoachModal] = useState(false);
   const [showBulkHoldModal, setShowBulkHoldModal] = useState(false);
   const [showTimer, setShowTimer] = useState(false);
@@ -284,6 +286,43 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
       eventDate: formatEventDateForCard(event) // Add formatted event date
     }));
     
+    // Now ensure pinned items stay visible until completed
+    const pinnedTag = data.tags.find(t => t.name && t.name.toLowerCase() === 'pinned');
+    if (pinnedTag) {
+      // Pinned tasks: include tasks with pinned tag that have no completions yet
+      const pinnedTasks = data.tasks.filter(t => t.tags && t.tags.includes(pinnedTag.id));
+      const uncompletedPinnedTasks = pinnedTasks.filter(t => !data.completions.some(c => c.taskId === t.id));
+      // Add any pinned tasks that are not already in combinedTasks
+      for (const pt of uncompletedPinnedTasks) {
+        if (!combinedTasks.find(ct => ct.id === pt.id)) {
+          combinedTasks.push(pt);
+        }
+      }
+
+      // Pinned events: include events with pinned tag that are not acknowledged for selectedDate
+      const pinnedEvents = data.events.filter(e => e.tags && e.tags.includes(pinnedTag.id));
+      for (const pe of pinnedEvents) {
+        // If not already in upcomingEvents (by id) and not acknowledged, include it
+        const already = upcomingEvents.some(u => u.event.id === pe.id);
+        const acknowledged = isEventAcknowledged(pe.id, selectedDate);
+        if (!already && !acknowledged) {
+          eventItems.push({
+            type: 'event',
+            event: pe,
+            id: pe.id,
+            name: pe.name,
+            description: pe.description,
+            category: pe.category,
+            isCompleted: false,
+            weightage: pe.priority || 5,
+            color: pe.color,
+            daysUntil: undefined,
+            eventDate: pe.frequency === 'yearly' ? pe.date : pe.date
+          });
+        }
+      }
+    }
+
     // Combine tasks and events into main dashboard items
     let allItems = [...taskItems, ...eventItems];
     
@@ -304,6 +343,113 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
       setIsLoading(false);
     }
   };
+
+    // Build OpenAI prompt text based on user data and tasks/events
+    const buildOpenAIPrompt = async (): Promise<string> => {
+      // Gather user settings and app data
+      const settings = await getUserSettings().catch(() => ({} as any));
+      const dateNow = new Date();
+      const last7: { date: string; tasks: { name: string; status: string }[] }[] = [];
+      const next7: { date: string; tasks: { name: string }[] }[] = [];
+
+      // Ensure appData is loaded
+      const data = appData || (await loadData());
+
+      // Helper to map tag ids to names
+      const tagMap = (data.tags || []).reduce((acc: any, t: any) => { acc[t.id] = t.name; return acc; }, {} as Record<string,string>);
+
+      // Helper: ordinal for day numbers (1 -> 1st)
+      const ordinal = (n: number) => {
+        const s = ["th","st","nd","rd"], v = n%100;
+        return n + (s[(v-20)%10] || s[v] || s[0]);
+      };
+
+      const todayDayName = dateNow.toLocaleDateString('en-US', { weekday: 'long' });
+      const todayDayIndex = dateNow.getDay() + 1; // Sunday=1, Monday=2, ...
+
+      // Last 7 days tasks with status (include category, tags, frequency info)
+      for (let i = 7; i >= 1; i--) {
+        const d = new Date(dateNow);
+        d.setDate(d.getDate() - i);
+        const dateStr = formatDate(d);
+        const tasksForDay = data.tasks.filter((t: Task) => shouldTaskShowOnDate(t, dateStr));
+        const tasksStatus = tasksForDay.map((t: Task) => {
+          const completed = data.completions.some((c: any) => c.taskId === t.id && c.date === dateStr);
+          const tagNames = (t.tags || []).map(id => tagMap[id] || id);
+          const frequencyDesc = (() => {
+            if (t.frequency === 'count-based' && t.frequencyCount) {
+              return `${t.frequencyCount} times per ${t.frequencyPeriod || 'period'}`;
+            }
+            if (t.frequency === 'weekly' && t.daysOfWeek && t.daysOfWeek.length > 0) {
+              const days = t.daysOfWeek.map(d => ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][d]).join(', ');
+              return `Weekly on ${days}`;
+            }
+            if (t.frequency === 'monthly' && t.dayOfMonth) return `Monthly on day ${t.dayOfMonth}`;
+            if (t.frequency === 'interval' && t.intervalValue && t.intervalUnit) return `Every ${t.intervalValue} ${t.intervalUnit}`;
+            return t.frequency;
+          })();
+
+          return { name: t.name, status: completed ? 'Completed' : 'Missed', category: t.category || 'N/A', tags: tagNames, frequency: frequencyDesc, createdAt: t.createdAt || 'N/A' };
+        });
+        last7.push({ date: dateStr, tasks: tasksStatus });
+      }
+
+      // Next 7 days active tasks (include metadata)
+      for (let i = 0; i < 7; i++) {
+        const d = new Date(dateNow);
+        d.setDate(d.getDate() + i);
+        const dateStr = formatDate(d);
+        const tasksForDay = data.tasks.filter((t: Task) => shouldTaskShowOnDate(t, dateStr));
+        const taskDetails = tasksForDay.map((t: Task) => ({ name: t.name, category: t.category || 'N/A', tags: (t.tags || []).map(id => tagMap[id] || id), frequency: (t.frequency === 'count-based' && t.frequencyCount) ? `${t.frequencyCount} times per ${t.frequencyPeriod || 'period'}` : t.frequency, createdAt: t.createdAt || 'N/A' }));
+        next7.push({ date: dateStr, tasks: taskDetails });
+      }
+
+      const location = settings.location ? `${settings.location.zipCode || 'N/A'} ${settings.location.city || ''}`.trim() : 'N/A';
+      const age = 'N/A';
+      const gender = 'N/A';
+
+      // Weather hint: include zip if available
+      const weatherHint = settings.location && settings.location.zipCode ? `Please consider weather for ZIP ${settings.location.zipCode} when advising.` : 'Weather: N/A';
+
+      const promptObj: any = {
+        role: 'time-management-expert',
+        user: {
+          location: location || 'N/A',
+          age,
+          gender,
+        },
+        last7days: last7,
+        upcoming7days: next7,
+        weatherHint,
+        instructions: `You are a time management expert. Start your response with 2-3 short appreciations/comments celebrating recent progress (these should appear first and be brief). Then analyze the user's recent activity and upcoming schedule. Provide a concise assessment of how the user is doing, any bottlenecks or overloaded days, and concrete suggestions to improve time allocation. Also include health-based habit recommendations (sleep, exercise, hydration, breaks). Consider weather at the user's location when relevant. IMPORTANT: If a task was created on the system date shown in this prompt, do NOT mark it as "Missed" for prior days — treat it as newly added. Respond ONLY in JSON with the following keys: { summary: string, appreciations: string[], observations: string[], recommendations: {taskChanges: Array<{task: string, suggestion: string}>, habitSuggestions: string[]}, priorityActions: string[] }`
+      };
+
+  // Build a human-readable prompt combining context and JSON instruction
+  const promptText = `You are an expert time-management coach.
+
+Today is ${todayDayName}, the ${ordinal(todayDayIndex)} day of the week.
+
+User info:
+- Location: ${promptObj.user.location}
+- Age: ${age}
+- Gender: ${gender}
+
+${weatherHint}
+
+Tasks - Last 7 days:
+${last7.map(d => `Date: ${d.date}
+${d.tasks.map((t: any) => `- ${t.name} — ${t.status} (Category: ${t.category}; Tags: ${t.tags.join(', ') || 'None'}; Frequency: ${t.frequency}; CreatedAt: ${t.createdAt || 'N/A'})`).join('\n')}`).join('\n\n')}
+
+Active tasks for coming 7 days:
+${next7.map(d => `Date: ${d.date}
+${d.tasks.map((t: any) => `- ${t.name} (Category: ${t.category}; Tags: ${t.tags.join(', ') || 'None'}; Frequency: ${t.frequency}; CreatedAt: ${t.createdAt || 'N/A'})`).join('\n')}`).join('\n\n')}
+
+Instructions: ${promptObj.instructions}
+
+Return only JSON as described.`;
+
+      return promptText;
+    };
 
   const applyCustomOrderToItems = (itemList: DashboardItem[], order: string[]): DashboardItem[] => {
     const orderedTasks: DashboardItem[] = [];
@@ -920,6 +1066,18 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
               <span>📊</span>
               <span>Progress & Review</span>
             </button>
+            <button
+              onClick={async () => {
+                const prompt = await buildOpenAIPrompt();
+                setOpenAIPromptText(prompt);
+                setShowOpenAIPrompt(true);
+              }}
+              className="btn-secondary"
+              style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+            >
+              <span>🤖</span>
+              <span>Ask AI</span>
+            </button>
             {aiInsight && (
               <button 
                 onClick={() => setShowSmartCoachModal(true)}
@@ -1437,6 +1595,27 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
       )}
 
       {/* Weather Widget - Bottom of Dashboard */}
+      {/* OpenAI Prompt Modal */}
+      {showOpenAIPrompt && (
+        <div className="modal-overlay" onClick={() => setShowOpenAIPrompt(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '900px', maxHeight: '80vh', overflow: 'auto' }}>
+            <div className="modal-header" style={{ background: '#111827', color: 'white' }}>
+              <h2>🧭 Generated OpenAI Prompt</h2>
+              <button className="modal-close" onClick={() => setShowOpenAIPrompt(false)} style={{ color: 'white' }}>×</button>
+            </div>
+            <div style={{ padding: '1rem' }}>
+              <p style={{ marginBottom: '0.5rem' }}>This prompt is ready to send to OpenAI. It includes your recent tasks and upcoming schedule. (We do not call OpenAI from the app yet.)</p>
+              <textarea readOnly value={openAIPromptText} style={{ width: '100%', height: '320px', padding: '0.75rem', borderRadius: '8px', border: '1px solid #e5e7eb', fontFamily: 'monospace' }} />
+              <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.75rem' }}>
+                <button onClick={() => { navigator.clipboard?.writeText(openAIPromptText); alert('Prompt copied to clipboard'); }} style={{ padding: '0.5rem 0.75rem', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '6px' }}>Copy Prompt</button>
+                <button onClick={() => { const blob = new Blob([openAIPromptText], { type: 'text/plain' }); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = 'openai-prompt.txt'; a.click(); URL.revokeObjectURL(url); }} style={{ padding: '0.5rem 0.75rem', background: '#10b981', color: 'white', border: 'none', borderRadius: '6px' }}>Download</button>
+                <button onClick={() => setShowOpenAIPrompt(false)} style={{ padding: '0.5rem 0.75rem', background: '#6b7280', color: 'white', border: 'none', borderRadius: '6px' }}>Close</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <WeatherWidget />
 
     </div>

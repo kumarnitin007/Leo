@@ -27,6 +27,8 @@ import TimerView from './TimerView';
 import FloatingTimerButton from './components/FloatingTimerButton';
 import FloatingGiftCardsButton from './components/FloatingGiftCardsButton';
 import FloatingMilestonesButton from './components/FloatingMilestonesButton';
+import FloatingPinnedButton from './components/FloatingPinnedButton';
+import PinnedModal from './components/PinnedModal';
 import GiftCardsModal from './components/GiftCardsModal';
 import MilestonesModal from './components/MilestonesModal';
 import AboutModal from './components/AboutModal';
@@ -53,6 +55,7 @@ const AppContent: React.FC = () => {
   const [showTimerModal, setShowTimerModal] = useState(false);
   const [showGiftCardsModal, setShowGiftCardsModal] = useState(false);
   const [showMilestonesModal, setShowMilestonesModal] = useState(false);
+  const [showPinnedModal, setShowPinnedModal] = useState(false);
   
   const { theme } = useTheme();
   const { avatar, username } = useUser();
@@ -335,6 +338,9 @@ const AppContent: React.FC = () => {
       {/* Floating Milestones Button */}
       <FloatingMilestonesButton onClick={() => setShowMilestonesModal(true)} />
 
+  {/* Floating Pinned Button */}
+  <FloatingPinnedButton onClick={() => setShowPinnedModal(true)} />
+
       {/* Timer Modal */}
       {showTimerModal && (
         <div className="modal-overlay active" onClick={() => setShowTimerModal(false)}>
@@ -358,6 +364,15 @@ const AppContent: React.FC = () => {
         <div className="modal-overlay active" onClick={() => setShowMilestonesModal(false)}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <MilestonesModal onClose={() => setShowMilestonesModal(false)} />
+          </div>
+        </div>
+      )}
+
+      {/* Pinned Modal */}
+      {showPinnedModal && (
+        <div className="modal-overlay active" onClick={() => setShowPinnedModal(false)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <PinnedModal onClose={() => setShowPinnedModal(false)} />
           </div>
         </div>
       )}

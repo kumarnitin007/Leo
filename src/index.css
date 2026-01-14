@@ -4911,6 +4911,37 @@ body {
   font-size: 1.75rem;
 }
 
+.floating-pinned-button {
+  position: fixed;
+  bottom: 20rem;
+  right: 2rem;
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  border: none;
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4);
+  cursor: pointer;
+  z-index: 1000;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.floating-pinned-button:hover {
+  transform: scale(1.08);
+  box-shadow: 0 6px 16px rgba(239, 68, 68, 0.5);
+}
+
+.floating-pinned-button:active {
+  transform: scale(0.95);
+}
+
+.floating-pinned-button .pinned-icon {
+  font-size: 1.5rem;
+}
+
 @media (max-width: 768px) {
   .floating-milestones-button {
     bottom: 13rem;
