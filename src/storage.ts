@@ -1553,11 +1553,148 @@ export const clearLocalStorage = (): void => {
 // ===== SAMPLE DATA =====
 
 export const importSampleTasks = async (replace: boolean = false): Promise<boolean> => {
-  throw new Error('Sample tasks import not supported in Supabase mode. Please create tasks manually or import from file.');
+  try {
+    const { client, userId } = await requireAuth();
+
+    if (replace) {
+      const { error: deleteError } = await client
+        .from('myday_tasks')
+        .delete()
+        .eq('user_id', userId);
+      if (deleteError) {
+        console.error('Error deleting existing tasks:', deleteError);
+        return false;
+      }
+    }
+
+    // Load sample tasks from utility
+    const { loadSampleTasks } = await import('./utils/sampleData');
+    const samples = loadSampleTasks();
+    const now = new Date().toISOString();
+
+    const rows = samples.map(t => ({
+      id: generateUUID(),
+      user_id: userId,
+      name: t.name,
+      description: t.description || null,
+      category: t.category || null,
+      tags: t.tags || [],
+      weightage: t.weightage || 5,
+      frequency: t.frequency || 'daily',
+      days_of_week: t.daysOfWeek || null,
+      day_of_month: t.dayOfMonth || null,
+      custom_frequency: t.customFrequency || null,
+      frequency_count: t.frequencyCount || null,
+      frequency_period: t.frequencyPeriod || null,
+      interval_value: t.intervalValue || null,
+      interval_unit: t.intervalUnit || null,
+      interval_start_date: t.intervalStartDate || null,
+      start_date: t.startDate || null,
+      end_date: t.endDate || null,
+      specific_date: t.specificDate || null,
+      end_time: t.endTime || null,
+      dependent_task_ids: t.dependentTaskIds || null,
+      on_hold: t.onHold || false,
+      hold_start_date: t.holdStartDate || null,
+      hold_end_date: t.holdEndDate || null,
+      hold_reason: t.holdReason || null,
+      color: t.color || null,
+      custom_background_color: t.customBackgroundColor || null,
+      created_at: t.createdAt || now
+    }));
+
+    const { error } = await client
+      .from('myday_tasks')
+      .insert(rows);
+
+    if (error) {
+      console.error('Error inserting sample tasks:', error);
+      return false;
+    }
+
+    return true;
+  } catch (err) {
+    console.error('importSampleTasks error:', err);
+    return false;
+  }
 };
 
 export const importSampleEvents = async (replace: boolean = false): Promise<boolean> => {
-  throw new Error('Sample events import not supported in Supabase mode. Please create events manually or import from file.');
+  try {
+    const { client, userId } = await requireAuth();
+
+    if (replace) {
+      const { error: deleteError } = await client
+        .from('myday_events')
+        .delete()
+        .eq('user_id', userId);
+      if (deleteError) {
+        console.error('Error deleting existing events:', deleteError);
+        return false;
+      }
+    }
+
+    const now = new Date().toISOString();
+    const sampleEvents: any[] = [
+      { name: '🎂 Demo User Birthday', category: 'Birthday', date: '01-01', frequency: 'yearly', notify_days_before: 3, color: '#ef4444' },
+      { name: '💍 Anniversary', category: 'Anniversary', date: '06-15', frequency: 'yearly', notify_days_before: 3, color: '#f59e0b' },
+      { name: '📅 Product Launch', category: 'Special Event', date: new Date().toISOString().split('T')[0], frequency: 'one-time', notify_days_before: 0, color: '#3b82f6' }
+    ];
+
+    const rows = sampleEvents.map(ev => ({
+      id: generateUUID(),
+      user_id: userId,
+      name: ev.name,
+      description: ev.description || null,
+      category: ev.category || null,
+      tags: ev.tags || [],
+      event_date: ev.date,
+      date_text: ev.date,
+      notify_days_before: ev.notify_days_before || 0,
+      color: ev.color || null,
+      priority: ev.priority || 5,
+      hide_from_dashboard: ev.hide_from_dashboard || false,
+  frequency: ev.frequency || 'yearly',
+      custom_frequency: ev.customFrequency || null,
+      year: ev.year || null,
+      created_at: now
+    }));
+
+    const { error } = await client
+      .from('myday_events')
+      .insert(rows);
+
+    if (error) {
+      console.error('Error inserting sample events:', error);
+      return false;
+    }
+
+    // Generate reminders for events with notify_days_before
+    for (const ev of rows) {
+      if (ev.notify_days_before && ev.notify_days_before > 0) {
+        try {
+          // Build a minimal Event-shaped object for reminder generation
+          const reminderEvent = {
+            id: ev.id,
+            name: ev.name,
+            date: ev.event_date,
+            frequency: ev.frequency as any,
+            notifyDaysBefore: ev.notify_days_before || 0,
+            createdAt: ev.created_at || now
+          } as any;
+
+          await generateEventReminders(reminderEvent, ev.id);
+        } catch (remErr) {
+          // non-fatal
+        }
+      }
+    }
+
+    return true;
+  } catch (err) {
+    console.error('importSampleEvents error:', err);
+    return false;
+  }
 };
 
 export const importSampleItems = async (replace: boolean = false): Promise<boolean> => {
@@ -1946,6 +2083,323 @@ export const importSampleItems = async (replace: boolean = false): Promise<boole
   }
 };
 
+export const importSampleTags = async (replace: boolean = false): Promise<boolean> => {
+  try {
+    const { client, userId } = await requireAuth();
+
+    if (replace) {
+      const { error: deleteError } = await client
+        .from('myday_tags')
+        .delete()
+        .eq('user_id', userId);
+      if (deleteError) {
+        console.error('Error deleting existing tags:', deleteError);
+        return false;
+      }
+    }
+
+    const now = new Date().toISOString();
+    const sampleTags = [
+      { name: 'Health', color: '#ef4444', allowed_sections: ['tasks', 'journals'] },
+      { name: 'Work', color: '#3b82f6', allowed_sections: ['tasks', 'events'] },
+      { name: 'Personal', color: '#f59e0b', allowed_sections: ['tasks', 'journals'] },
+      { name: 'Finance', color: '#10b981', allowed_sections: ['items'] }
+    ];
+
+    const rows = sampleTags.map(t => ({
+      id: generateUUID(),
+      user_id: userId,
+      name: t.name,
+      color: t.color,
+      trackable: false,
+      description: null,
+      allowed_sections: t.allowed_sections,
+      is_safe_only: false,
+      is_system_category: false,
+      created_at: now
+    }));
+
+    const { error } = await client
+      .from('myday_tags')
+      .insert(rows);
+
+    if (error) {
+      console.error('Error inserting sample tags:', error);
+      return false;
+    }
+
+    return true;
+  } catch (err) {
+    console.error('importSampleTags error:', err);
+    return false;
+  }
+};
+
+export const importSampleJournals = async (replace: boolean = false): Promise<boolean> => {
+  try {
+    const { client, userId } = await requireAuth();
+
+    if (replace) {
+      const { error: deleteError } = await client
+        .from('myday_journal_entries')
+        .delete()
+        .eq('user_id', userId);
+      if (deleteError) {
+        console.error('Error deleting existing journal entries:', deleteError);
+        return false;
+      }
+    }
+
+    const now = new Date().toISOString();
+    const sampleJournals = [
+      { date: new Date().toISOString().split('T')[0], content: 'Today I started exploring the demo of the app. Great first impressions!', mood: 'good' },
+      { date: new Date(new Date().setDate(new Date().getDate()-1)).toISOString().split('T')[0], content: 'A productive day. Completed several tasks and felt accomplished.', mood: 'great' }
+    ];
+
+    for (const j of sampleJournals) {
+      const { error } = await client
+        .from('myday_journal_entries')
+        .insert([{
+          id: generateUUID(),
+          user_id: userId,
+          entry_date: j.date,
+          content: j.content,
+          mood: j.mood,
+          tags: [] ,
+          created_at: now,
+          updated_at: now
+        }]);
+
+      if (error) {
+        console.error('Error inserting sample journal entry:', error);
+        return false;
+      }
+    }
+
+    return true;
+  } catch (err) {
+    console.error('importSampleJournals error:', err);
+    return false;
+  }
+};
+
+export const importSampleSafe = async (replace: boolean = false): Promise<boolean> => {
+  try {
+    const { client, userId } = await requireAuth();
+
+    if (replace) {
+      const { error: deleteError } = await client
+        .from('myday_encrypted_entries')
+        .delete()
+        .eq('user_id', userId);
+      if (deleteError) {
+        console.error('Error deleting existing safe entries:', deleteError);
+        return false;
+      }
+    }
+
+    // Try to derive encryption key using demo safe password if available
+    const demoSafeFromEnv = (import.meta.env.VITE_DEMO_SAFE_PASSWORD as string) || null;
+    const demoSafeFromLocal = localStorage.getItem('myday-demo-safe-password') || null;
+    const demoSafe = demoSafeFromEnv || demoSafeFromLocal;
+
+    if (demoSafe) {
+      try {
+        await setMasterPassword(demoSafe);
+      } catch (e) {
+        // ignore if already set
+      }
+    }
+
+    // Get encryption key
+    let encryptionKey: any = null;
+    if (demoSafe) {
+      try {
+        encryptionKey = await getEncryptionKey(demoSafe);
+      } catch (e) {
+        console.warn('Could not derive encryption key for demo safe:', e);
+      }
+    }
+
+    // Prepare a larger set (15-20) of sample safe entries with varied categories
+    const sampleEntries = [
+      {
+        title: 'Demo Login - example.com',
+        url: 'https://example.com',
+        tags: [],
+        is_favorite: true,
+        expires_at: null,
+        encryptedData: { username: 'demo.user', password: 'demo1234', notes: 'This is a demo credential.' }
+      },
+      {
+        title: 'Work Email - acme',
+        url: 'https://mail.acme.com',
+        tags: [],
+        is_favorite: false,
+        expires_at: null,
+        encryptedData: { username: 'employee@acme.com', password: 'Acme!Pass2024', notes: 'Work email access.' }
+      },
+      {
+        title: 'Personal Bank Account',
+        url: null,
+        tags: [],
+        is_favorite: false,
+        expires_at: null,
+        encryptedData: { accountNumber: '****1234', routingNumber: '110000', bankName: 'Demo Bank', notes: 'Checking account (demo).' }
+      },
+      {
+        title: 'Demo Credit Card',
+        url: null,
+        tags: [],
+        is_favorite: false,
+        expires_at: '2027-08-01',
+        encryptedData: { cardNumber: '4111 1111 1111 1111', cvv: '123', cardholderName: 'Demo User', billingAddress: '123 Demo St' }
+      },
+      {
+        title: 'GitHub Token',
+        url: 'https://github.com',
+        tags: [],
+        is_favorite: true,
+        expires_at: null,
+        encryptedData: { apiKey: 'ghp_demo_token_XXXXXXXXXXXXXXXX', apiSecret: '', notes: 'Demo GitHub PAT (read-only)' }
+      },
+      {
+        title: 'AWS Console (Demo)',
+        url: 'https://console.aws.amazon.com',
+        tags: [],
+        is_favorite: false,
+        expires_at: null,
+        encryptedData: { username: 'aws-demo', password: 'AwsDemo!234', apiKey: 'AKIADEMO', apiSecret: 'secret' }
+      },
+      {
+        title: 'Home WiFi',
+        url: null,
+        tags: [],
+        is_favorite: false,
+        expires_at: null,
+        encryptedData: { networkName: 'DemoNet', securityType: 'WPA2', password: 'DemoWifiPass' }
+      },
+      {
+        title: 'Licensing - Photoshop',
+        url: null,
+        tags: [],
+        is_favorite: false,
+        expires_at: null,
+        encryptedData: { licenseKey: 'PHSP-DEMO-XXXX-XXXX', productName: 'Photoshop 2024', vendor: 'Adobe' }
+      },
+      {
+        title: 'Insurance Policy',
+        url: null,
+        tags: [],
+        is_favorite: false,
+        expires_at: null,
+        encryptedData: { policyNumber: 'INS-000-DEMO', provider: 'Demo Insurance Co.', agentName: 'Jane Agent', agentPhone: '555-0100' }
+      },
+      {
+        title: 'Medical Member ID',
+        url: null,
+        tags: [],
+        is_favorite: false,
+        expires_at: null,
+        encryptedData: { memberId: 'MED-DEMO-123', medicalProvider: 'Demo Health', planName: 'Demo Plan' }
+      },
+      {
+        title: 'Gift Card - DemoShop',
+        url: 'https://demoshop.example',
+        tags: [],
+        is_favorite: false,
+        expires_at: null,
+        encryptedData: { giftCardNumber: 'GC-DEMO-0001', giftCardPin: '9999', balance: 25, merchant: 'DemoShop' }
+      },
+      {
+        title: 'TOTP - Demo Service',
+        url: null,
+        tags: [],
+        is_favorite: false,
+        expires_at: null,
+        encryptedData: { totpSecret: 'JBSWY3DPEHPK3PXP', totpIssuer: 'DemoService', totpAccount: 'demo@example.com' }
+      },
+      {
+        title: 'Passport (Demo)',
+        url: null,
+        tags: [],
+        is_favorite: false,
+        expires_at: null,
+        encryptedData: { documentNumber: 'P-DEMO-7890', issueDate: '2018-01-01', issueAuthority: 'Demo Country' }
+      },
+      {
+        title: 'VPN Account',
+        url: 'https://vpn.demo',
+        tags: [],
+        is_favorite: false,
+        expires_at: null,
+        encryptedData: { username: 'vpn-demo', password: 'VpnDemoPass', endpoint: 'vpn.demo:443' }
+      },
+      {
+        title: 'Bank Routing Info',
+        url: null,
+        tags: [],
+        is_favorite: false,
+        expires_at: null,
+        encryptedData: { routingNumber: '110000', accountNumber: '****5678', notes: 'Routing for wire transfers (demo)' }
+      },
+      {
+        title: 'Software License - Demo App',
+        url: null,
+        tags: [],
+        is_favorite: false,
+        expires_at: null,
+        encryptedData: { licenseKey: 'DEMO-APP-KEY-1234', productName: 'Demo App', vendor: 'DemoSoft' }
+      }
+    ];
+
+    for (const e of sampleEntries) {
+      if (encryptionKey) {
+        // Use existing addSafeEntry helper to handle encryption and insertion
+        try {
+          await addSafeEntry({
+            title: e.title,
+            url: e.url,
+            categoryTagId: null,
+            tags: e.tags,
+            isFavorite: e.is_favorite,
+            expiresAt: e.expires_at,
+            encryptedData: JSON.stringify(e.encryptedData)
+          }, encryptionKey);
+        } catch (err) {
+          console.error('Error adding safe entry:', err);
+        }
+      } else {
+        // As fallback, store a plaintext placeholder entry in myday_encrypted_entries (not encrypted) so demo users can see entries
+        const now = new Date().toISOString();
+        try {
+          await client.from('myday_encrypted_entries').insert([{
+            id: generateUUID(),
+            user_id: userId,
+            title: e.title,
+            url: e.url || null,
+            category_tag_id: null,
+            tags: e.tags || [],
+            is_favorite: e.is_favorite,
+            expires_at: e.expires_at || null,
+            encrypted_data: JSON.stringify(e.encryptedData),
+            encrypted_data_iv: null,
+            created_at: now,
+            updated_at: now
+          }]);
+        } catch (err) {
+          console.error('Error inserting plaintext demo safe entry:', err);
+        }
+      }
+    }
+
+    return true;
+  } catch (err) {
+    console.error('importSampleSafe error:', err);
+    return false;
+  }
+};
+
 export const clearAllData = async (): Promise<void> => {
   throw new Error('Clear all data not supported. Please delete tasks individually or sign out and delete your account.');
 };
@@ -2279,7 +2733,7 @@ export const getSafeEntriesCount = async (): Promise<number> => {
  * Add a new safe entry
  */
 export const addSafeEntry = async (
-  entry: Omit<SafeEntry, 'id' | 'createdAt' | 'updatedAt' | 'lastAccessedAt'>,
+  entry: Omit<SafeEntry, 'id' | 'createdAt' | 'updatedAt' | 'lastAccessedAt' | 'encryptedDataIv'> & { encryptedDataIv?: string },
   encryptionKey: CryptoKey
 ): Promise<SafeEntry | null> => {
   const { client, userId } = await requireAuth();

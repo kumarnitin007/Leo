@@ -309,6 +309,24 @@ const ChangeMasterPasswordModal: React.FC<ChangeMasterPasswordModalProps> = ({ o
               Cancel
             </button>
             <button
+              type="button"
+              onClick={() => {
+                // Close modal and return to unlock screen (if locked)
+                onClose();
+              }}
+              style={{
+                padding: '0.75rem 1.5rem',
+                backgroundColor: '#f3f4f6',
+                color: '#374151',
+                border: '1px solid #d1d5db',
+                borderRadius: '0.5rem',
+                cursor: 'pointer',
+                fontSize: '0.95rem'
+              }}
+            >
+              Go to Unlock Screen
+            </button>
+            <button
               type="submit"
               disabled={isSubmitting}
               style={{

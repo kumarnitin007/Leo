@@ -10,7 +10,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Tag, TagSection } from './types';
-import { getTags, addTag, updateTag, deleteTag, loadData } from './storage';
+import { getTags, addTag, updateTag, deleteTag, loadData, importSampleTags } from './storage';
 import { useTheme } from './contexts/ThemeContext';
 
 interface TagsManagerProps {
@@ -21,6 +21,7 @@ const TagsManager: React.FC<TagsManagerProps> = ({ onClose }) => {
   const { theme } = useTheme();
   const [tags, setTags] = useState<Tag[]>([]);
   const [isCreating, setIsCreating] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
   const [editingTag, setEditingTag] = useState<Tag | null>(null);
   
   // Helper function to create theme-appropriate colors for sections
@@ -204,6 +205,25 @@ const TagsManager: React.FC<TagsManagerProps> = ({ onClose }) => {
         <div style={{ display: 'flex', gap: '0.5rem' }}>
           <button onClick={handleCreate} className="btn-primary">
             + New Tag
+          </button>
+          <button
+            onClick={async () => {
+              const clearFirst = confirm('Load sample tags? Click OK to clear existing tags and load samples, or Cancel to add to existing tags.');
+              if (clearFirst && !confirm('⚠️ This will delete ALL your existing tags. Are you sure?')) return;
+              setIsImporting(true);
+              const success = await importSampleTags(clearFirst);
+              setIsImporting(false);
+              if (success) {
+                await loadTags();
+                alert(`Sample tags ${clearFirst ? 'loaded' : 'added'} successfully!`);
+              } else {
+                alert('Error importing sample tags. Please try again.');
+              }
+            }}
+            className="btn-secondary"
+            disabled={isImporting}
+          >
+            Load Demo Tags
           </button>
           {onClose && (
             <button onClick={onClose} className="btn-secondary">

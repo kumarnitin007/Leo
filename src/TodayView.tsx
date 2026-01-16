@@ -389,7 +389,7 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
             return t.frequency;
           })();
 
-          return { name: t.name, status: completed ? 'Completed' : 'Missed', category: t.category || 'N/A', tags: tagNames, frequency: frequencyDesc, createdAt: t.createdAt || 'N/A' };
+          return { id: t.id, name: t.name, status: completed ? 'Completed' : 'Missed', category: t.category || 'N/A', tags: tagNames, frequency: frequencyDesc, createdAt: t.createdAt || 'N/A' };
         });
         last7.push({ date: dateStr, tasks: tasksStatus });
       }
@@ -400,7 +400,7 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
         d.setDate(d.getDate() + i);
         const dateStr = formatDate(d);
         const tasksForDay = data.tasks.filter((t: Task) => shouldTaskShowOnDate(t, dateStr));
-        const taskDetails = tasksForDay.map((t: Task) => ({ name: t.name, category: t.category || 'N/A', tags: (t.tags || []).map(id => tagMap[id] || id), frequency: (t.frequency === 'count-based' && t.frequencyCount) ? `${t.frequencyCount} times per ${t.frequencyPeriod || 'period'}` : t.frequency, createdAt: t.createdAt || 'N/A' }));
+        const taskDetails = tasksForDay.map((t: Task) => ({ id: t.id, name: t.name, category: t.category || 'N/A', tags: (t.tags || []).map(id => tagMap[id] || id), frequency: (t.frequency === 'count-based' && t.frequencyCount) ? `${t.frequencyCount} times per ${t.frequencyPeriod || 'period'}` : t.frequency, createdAt: t.createdAt || 'N/A' }));
         next7.push({ date: dateStr, tasks: taskDetails });
       }
 
@@ -411,42 +411,140 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
       // Weather hint: include zip if available
       const weatherHint = settings.location && settings.location.zipCode ? `Please consider weather for ZIP ${settings.location.zipCode} when advising.` : 'Weather: N/A';
 
-      const promptObj: any = {
-        role: 'time-management-expert',
-        user: {
-          location: location || 'N/A',
-          age,
-          gender,
-        },
-        last7days: last7,
-        upcoming7days: next7,
-        weatherHint,
-        instructions: `You are a time management expert. Start your response with 2-3 short appreciations/comments celebrating recent progress (these should appear first and be brief). Then analyze the user's recent activity and upcoming schedule. Provide a concise assessment of how the user is doing, any bottlenecks or overloaded days, and concrete suggestions to improve time allocation. Also include health-based habit recommendations (sleep, exercise, hydration, breaks). Consider weather at the user's location when relevant. IMPORTANT: If a task was created on the system date shown in this prompt, do NOT mark it as "Missed" for prior days — treat it as newly added. Respond ONLY in JSON with the following keys: { summary: string, appreciations: string[], observations: string[], recommendations: {taskChanges: Array<{task: string, suggestion: string}>, habitSuggestions: string[]}, priorityActions: string[] }`
+      // Collect unique task IDs referenced in history/upcoming
+      const referencedTaskIds = new Set<string>();
+      last7.forEach(d => d.tasks.forEach((t: any) => { if (t && t.id) referencedTaskIds.add(t.id); }));
+      next7.forEach(d => d.tasks.forEach((t: any) => { if (t && t.id) referencedTaskIds.add(t.id); }));
+
+      // Build task metadata block (one entry per referenced task)
+      const taskMetadataLines: string[] = [];
+      // Create a stable mapping from real IDs to simple labels: Task #01, Task #02, ...
+      const referencedArray = Array.from(referencedTaskIds);
+      const simpleIdMap: Record<string,string> = {};
+      referencedArray.forEach((tid, idx) => {
+        const label = `Task #${String(idx+1).padStart(2,'0')}`;
+        simpleIdMap[tid] = label;
+      });
+
+      referencedArray.forEach(tid => {
+        const task = data.tasks.find((x: Task) => x.id === tid);
+        if (task) {
+          const tagNames = (task.tags || []).map(id => tagMap[id] || id).join(', ') || 'None';
+          const freqDesc = (() => {
+            if (task.frequency === 'count-based' && task.frequencyCount) return `${task.frequencyCount} times per ${task.frequencyPeriod || 'period'}`;
+            if (task.frequency === 'weekly' && task.daysOfWeek && task.daysOfWeek.length) return `Weekly on ${task.daysOfWeek.map(d => ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][d]).join(', ')}`;
+            if (task.frequency === 'monthly' && task.dayOfMonth) return `Monthly on day ${task.dayOfMonth}`;
+            if (task.frequency === 'interval' && task.intervalValue && task.intervalUnit) return `Every ${task.intervalValue} ${task.intervalUnit}`;
+            return task.frequency;
+          })();
+          const simpleId = simpleIdMap[tid] || tid;
+          taskMetadataLines.push(`${simpleId}: Name: ${task.name}; Category: ${task.category || 'N/A'}; Tags: ${tagNames}; Frequency: ${freqDesc}; CreatedAt: ${task.createdAt || 'N/A'}`);
+        }
+      });
+
+      // Build history and upcoming blocks (use task IDs to avoid repeating metadata)
+  const historyLines = last7.map(d => `Date: ${d.date}\n${d.tasks.map((t: any) => `- ${simpleIdMap[t.id] || t.id}: ${t.status}`).join('\n')}`).join('\n\n');
+  const upcomingLines = next7.map(d => `Date: ${d.date}\n${d.tasks.map((t: any) => `- ${simpleIdMap[t.id] || t.id}`).join('\n')}`).join('\n\n');
+
+      // Build a compact, human-friendly data block as requested
+      // TASKS block: list all referenced tasks with their simple IDs and metadata
+      const taskListLines = referencedArray.map((tid, idx) => {
+        const task = data.tasks.find((x: Task) => x.id === tid);
+        const simpleId = simpleIdMap[tid];
+        if (!task) return '';
+  // short frequency
+  let freqShort: string = String(task.frequency);
+        if (task.frequency === 'count-based' && task.frequencyCount && task.frequencyPeriod === 'week') {
+          freqShort = `${task.frequencyCount}x/week`;
+        } else if (task.frequency === 'count-based' && task.frequencyCount) {
+          freqShort = `${task.frequencyCount}x/${task.frequencyPeriod || 'period'}`;
+        } else if (task.frequency === 'weekly' && task.frequencyCount) {
+          freqShort = `${task.frequencyCount}x/week`;
+        }
+        const created = task.createdAt ? task.createdAt.split('T')[0] : 'N/A';
+        return `${simpleId} ${task.name} | ${task.category || 'N/A'} | ${freqShort} | Created ${created}`;
+      }).filter(Boolean);
+
+      // HISTORY (Last 7 days, valid tasks only): include only tasks whose CreatedAt <= date
+      const historyDateLines: string[] = [];
+      last7.forEach(d => {
+        const lines: string[] = [];
+        const dateStr = d.date;
+        d.tasks.forEach((t: any) => {
+          const task = data.tasks.find((x: Task) => x.id === t.id);
+          if (!task) return;
+          const created = task.createdAt ? task.createdAt.split('T')[0] : null;
+          if (created && created > dateStr) return; // skip mentions before CreatedAt
+          const simple = simpleIdMap[t.id] || t.id;
+          const statusShort = (t.status || '').toString().toUpperCase().startsWith('C') ? 'C' : 'M';
+          lines.push(`${simple} ${task.name}: ${statusShort}`);
+        });
+        if (lines.length > 0) {
+          historyDateLines.push(`${dateStr}:\n${lines.join('\n')}`);
+        }
+      });
+
+      // TASK SUMMARY: for each referenced task, count C and M across last7 where CreatedAt <= date
+      const summaryLines: string[] = [];
+      referencedArray.forEach(tid => {
+        const task = data.tasks.find((x: Task) => x.id === tid);
+        if (!task) return;
+        let c = 0, m = 0;
+        last7.forEach(d => {
+          d.tasks.forEach((t: any) => {
+            if (t.id !== tid) return;
+            const created = task.createdAt ? task.createdAt.split('T')[0] : null;
+            if (created && created > d.date) return; // ignore before created
+            const isCompleted = (t.status || '').toString().toLowerCase().startsWith('c');
+            if (isCompleted) c++; else m++;
+          });
+        });
+        const simple = simpleIdMap[tid] || tid;
+        summaryLines.push(`${simple} ${task.name} → C:${c} | M:${m}`);
+      });
+
+      const dataBlock = [`NOTE: Tasks evaluated only on/after CreatedAt.`, ``, `TASKS:`, ...taskListLines, ``, `HISTORY (Last 7 days, valid tasks only):`, ...historyDateLines, ``, `TASK SUMMARY:`, ...summaryLines].join('\n');
+
+      // Determine timezone: prefer stored timezone, fall back to ZIP-derived, then browser timezone
+      const zip = settings.location?.zipCode || null;
+
+      const getTimezoneFromZip = (z?: string | null) => {
+        if (!z) return null;
+        const clean = z.toString().trim();
+        // If user provided a 3-digit prefix like '995' we still handle it
+        const asNum3 = parseInt(clean.slice(0, 3), 10);
+        if (!isNaN(asNum3)) {
+          // Alaska ZIPs: 995-999
+          if (asNum3 >= 995 && asNum3 <= 999) return 'America/Anchorage';
+          // Hawaii ZIPs: 967-968
+          if (asNum3 >= 967 && asNum3 <= 968) return 'Pacific/Honolulu';
+        }
+        const first = clean.charAt(0);
+        switch (first) {
+          case '0':
+          case '1':
+          case '2':
+          case '3':
+            return 'America/New_York'; // Eastern
+          case '4':
+          case '5':
+          case '6':
+          case '7':
+            return 'America/Chicago'; // Central (approx)
+          case '8':
+            return 'America/Denver'; // Mountain (approx)
+          case '9':
+            return 'America/Los_Angeles'; // Pacific (incl. CA; AK/HI handled above)
+          default:
+            return null;
+        }
       };
 
-  // Build a human-readable prompt combining context and JSON instruction
-  const promptText = `You are an expert time-management coach.
+      const tzFromZip = getTimezoneFromZip(zip);
+      const detectedTZ = (settings.location && (settings.location.timezone as string)) || tzFromZip || Intl.DateTimeFormat().resolvedOptions().timeZone || 'N/A';
+      const timezoneLine = zip ? `Timezone: ${detectedTZ} (derived from ZIP ${zip} → ${tzFromZip || detectedTZ})` : `Timezone: ${detectedTZ}`;
 
-Today is ${todayDayName}, the ${ordinal(todayDayIndex)} day of the week.
-
-User info:
-- Location: ${promptObj.user.location}
-- Age: ${age}
-- Gender: ${gender}
-
-${weatherHint}
-
-Tasks - Last 7 days:
-${last7.map(d => `Date: ${d.date}
-${d.tasks.map((t: any) => `- ${t.name} — ${t.status} (Category: ${t.category}; Tags: ${t.tags.join(', ') || 'None'}; Frequency: ${t.frequency}; CreatedAt: ${t.createdAt || 'N/A'})`).join('\n')}`).join('\n\n')}
-
-Active tasks for coming 7 days:
-${next7.map(d => `Date: ${d.date}
-${d.tasks.map((t: any) => `- ${t.name} (Category: ${t.category}; Tags: ${t.tags.join(', ') || 'None'}; Frequency: ${t.frequency}; CreatedAt: ${t.createdAt || 'N/A'})`).join('\n')}`).join('\n\n')}
-
-Instructions: ${promptObj.instructions}
-
-Return only JSON as described.`;
+  const promptText = `You are a senior productivity consultant and behavioral systems coach with expertise in Time management, Habit formation (behavioral science–based), Energy management, and Work–life balance for working professionals.\n\nYour role is to analyze my real task data and behavior patterns, not just give generic advice.\n\nContext:\n- Assume standard Mon–Fri workweek unless noted.\n- Today's date is ${formatDate(dateNow)} (${todayDayName}).\n- ${timezoneLine}.\n- Location: ${location || 'N/A'}. ${weatherHint}\n- Legend: C = Completed, M = Missed\n\nPlease respond following the previously specified JSON schema.\n\nData Begins Below:\n\n${dataBlock}\n`;
 
       return promptText;
     };

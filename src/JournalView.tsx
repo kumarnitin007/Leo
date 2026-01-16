@@ -17,7 +17,8 @@ import {
   getJournalEntryByDate,
   saveJournalEntry,
   deleteJournalEntry,
-  getTagsForSection
+  getTagsForSection,
+  importSampleJournals
 } from './storage';
 import { formatDate } from './utils';
 
@@ -172,8 +173,35 @@ const JournalView: React.FC = () => {
   return (
     <div className="journal-view">
       <div className="journal-header">
-        <h2>📔 Daily Journal</h2>
-        <p>Reflect on your day, track your thoughts and feelings</p>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+          <div>
+            <h2>📔 Daily Journal</h2>
+            <p>Reflect on your day, track your thoughts and feelings</p>
+          </div>
+          <div>
+            <button
+              onClick={async () => {
+                const clearFirst = confirm('Load sample journal entries? Click OK to clear existing entries and load samples, or Cancel to add to existing entries.');
+                if (clearFirst && !confirm('⚠️ This will delete ALL your existing journal entries. Are you sure?')) return;
+                try {
+                  const success = await importSampleJournals(clearFirst);
+                  if (success) {
+                    await loadEntries();
+                    alert(`Sample journal entries ${clearFirst ? 'loaded' : 'added'} successfully!`);
+                  } else {
+                    alert('Error importing sample journal entries. Please try again.');
+                  }
+                } catch (err) {
+                  console.error(err);
+                  alert('Error importing sample journal entries.');
+                }
+              }}
+              className="btn-secondary"
+            >
+              Load Demo Journals
+            </button>
+          </div>
+        </div>
       </div>
 
       <div className="journal-container">

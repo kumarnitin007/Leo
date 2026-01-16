@@ -10,9 +10,13 @@ interface SafeLockScreenProps {
   entryCount: number;
   onUnlock: (password: string) => void;
   isUnlocking: boolean;
+  // Optional: when user is a demo user, show a demo-unlock button
+  isDemoUser?: boolean;
+  demoSafePassword?: string | null;
+  onOpenChangePassword?: () => void;
 }
 
-const SafeLockScreen: React.FC<SafeLockScreenProps> = ({ entryCount, onUnlock, isUnlocking }) => {
+const SafeLockScreen: React.FC<SafeLockScreenProps> = ({ entryCount, onUnlock, isUnlocking, isDemoUser, demoSafePassword, onOpenChangePassword }) => {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
@@ -115,6 +119,48 @@ const SafeLockScreen: React.FC<SafeLockScreenProps> = ({ entryCount, onUnlock, i
           {isUnlocking ? 'Unlocking...' : '🔓 Unlock Safe'}
         </button>
       </form>
+
+      {/* Demo unlock & change password actions */}
+      <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem' }}>
+        {isDemoUser && demoSafePassword && (
+          <button
+            type="button"
+            onClick={async () => {
+              // Use demo safe password to unlock without typing
+              await onUnlock(demoSafePassword);
+            }}
+            style={{
+              flex: 1,
+              padding: '0.75rem',
+              backgroundColor: '#10b981',
+              color: 'white',
+              border: 'none',
+              borderRadius: '0.5rem',
+              fontSize: '0.95rem',
+              cursor: 'pointer'
+            }}
+          >
+            Enter Safe (Demo)
+          </button>
+        )}
+
+        <button
+          type="button"
+          onClick={() => onOpenChangePassword && onOpenChangePassword()}
+          style={{
+            flex: 1,
+            padding: '0.75rem',
+            backgroundColor: 'transparent',
+            color: '#374151',
+            border: '1px solid #d1d5db',
+            borderRadius: '0.5rem',
+            fontSize: '0.95rem',
+            cursor: 'pointer'
+          }}
+        >
+          Change Master Password
+        </button>
+      </div>
 
       <p style={{ 
         margin: '1.5rem 0 0 0', 

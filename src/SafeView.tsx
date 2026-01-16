@@ -37,6 +37,7 @@ const LOCK_WARNING_TIME = 60 * 1000; // 1 minute before lock
 
 const SafeView: React.FC = () => {
   const { isAuthenticated } = useAuth();
+  const { user } = useAuth();
   const [isSetup, setIsSetup] = useState<boolean | null>(null);
   const [isLocked, setIsLocked] = useState(true);
   const [isUnlocking, setIsUnlocking] = useState(false);
@@ -378,11 +379,22 @@ const SafeView: React.FC = () => {
 
   // Locked state
   if (isLocked) {
+    // Determine demo user state based on env or local demo flag
+    const DEMO_EMAIL = (import.meta.env.VITE_DEMO_EMAIL as string) || '';
+    const demoSafeFromEnv = (import.meta.env.VITE_DEMO_SAFE_PASSWORD as string) || null;
+    const demoSafeFromLocal = localStorage.getItem('myday-demo-safe-password') || null;
+    const demoSafePassword = demoSafeFromEnv || demoSafeFromLocal;
+    const isLocalDemoFlag = localStorage.getItem('myday-demo') === 'true';
+    const isDemoUser = !!(isLocalDemoFlag || (user && DEMO_EMAIL && user.email === DEMO_EMAIL));
+
     return (
       <SafeLockScreen
         entryCount={entryCount}
         onUnlock={handleUnlock}
         isUnlocking={isUnlocking}
+        isDemoUser={isDemoUser}
+        demoSafePassword={demoSafePassword}
+        onOpenChangePassword={() => setShowChangePassword(true)}
       />
     );
   }

@@ -16,7 +16,7 @@ import {
   readFile,
   EncryptedExport
 } from '../utils/safeImportExport';
-import { getEncryptionKey, importSafeEntries, getSafeEntries, createSafeTag } from '../storage';
+import { getEncryptionKey, importSafeEntries, getSafeEntries, createSafeTag, importSampleSafe } from '../storage';
 import { 
   parseKeePassCSV, 
   generatePreview, 
@@ -319,7 +319,32 @@ const SafeImportExport: React.FC<SafeImportExportProps> = ({
         overflow: 'auto'
       }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
-          <h2 style={{ margin: 0, fontSize: '1.5rem' }}>🦁 Import/Export Safe Data</h2>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+            <h2 style={{ margin: 0, fontSize: '1.5rem' }}>🦁 Import/Export Safe Data</h2>
+            <button
+              onClick={async () => {
+                const clearFirst = confirm('Load demo safe entries? Click OK to clear existing safe entries and load samples, or Cancel to add to existing entries.');
+                if (clearFirst && !confirm('⚠️ This will delete ALL your existing safe entries. Are you sure?')) return;
+                try {
+                  const success = await importSampleSafe(clearFirst);
+                  if (success) {
+                    alert(`Sample safe entries ${clearFirst ? 'loaded' : 'added'} successfully!`);
+                    onImportComplete();
+                    onClose();
+                  } else {
+                    alert('Error importing sample safe entries. Please try again.');
+                  }
+                } catch (err) {
+                  console.error(err);
+                  alert('Error importing sample safe entries.');
+                }
+              }}
+              className="btn-secondary"
+              style={{ fontSize: '0.9rem' }}
+            >
+              Load Demo Safe
+            </button>
+          </div>
           <button
             onClick={onClose}
             style={{

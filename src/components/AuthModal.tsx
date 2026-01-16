@@ -5,7 +5,8 @@
  */
 
 import React, { useState } from 'react';
-import { signIn, signUp } from '../lib/supabase';
+import { signIn, signUp, getSupabaseClient } from '../lib/supabase';
+import { setMasterPassword } from '../storage';
 
 interface AuthModalProps {
   onClose: () => void;
@@ -139,7 +140,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ onClose, onSuccess }) => {
               signInError.message?.includes('invalid_credentials')) {
             setError('Invalid email or password. Forgot your password?');
           } else if (signInError.message?.includes('Email not confirmed')) {
-            setError('Please confirm your email address first.');
+            setError('Please confirm your email address first — check your mailbox for the verification email sent by Supabase.');
           } else {
             throw signInError;
           }
@@ -150,6 +151,126 @@ const AuthModal: React.FC<AuthModalProps> = ({ onClose, onSuccess }) => {
       if (!error) { // Only set if we haven't already set a better error message
         setError(err.message || 'Authentication failed');
       }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Demo account credentials: prefer env-provided values for production demo flow
+  const DEMO_EMAIL = (import.meta.env.VITE_DEMO_EMAIL as string) || 'demo@example.com';
+  const DEMO_PASSWORD = (import.meta.env.VITE_DEMO_PASSWORD as string) || 'demo-password-1234';
+  const DEMO_SAFE_PASSWORD = (import.meta.env.VITE_DEMO_SAFE_PASSWORD as string) || undefined;
+
+  const attemptDemoLogin = async () => {
+    // Try a Supabase-backed demo login if Supabase is configured and env vars were provided.
+    setLoading(true);
+    setError('');
+    try {
+      const supabase = getSupabaseClient();
+      if (supabase && DEMO_EMAIL && DEMO_PASSWORD) {
+        // Attempt sign in with demo creds
+        try {
+          const data = await signIn(DEMO_EMAIL, DEMO_PASSWORD);
+
+          // Ensure profile exists in myday_users
+          try {
+            const { data: existingProfile } = await supabase
+              .from('myday_users')
+              .select('id')
+              .eq('id', data.user.id)
+              .single();
+
+            if (!existingProfile) {
+              await supabase.from('myday_users').insert({
+                id: data.user.id,
+                username: 'Demo User',
+                email: DEMO_EMAIL,
+                avatar_emoji: '🎯'
+              });
+            }
+          } catch (profileError) {
+            console.error('Demo profile create error:', profileError);
+          }
+
+          // If a demo safe password is provided, try to set it (idempotent check inside)
+          if (DEMO_SAFE_PASSWORD) {
+            try {
+              await setMasterPassword(DEMO_SAFE_PASSWORD);
+            } catch (mpErr) {
+              // ignore if already set or other issues
+              console.warn('Could not set demo master password (might already exist):', mpErr);
+            }
+          }
+
+          onSuccess();
+          onClose();
+          return;
+        } catch (signinErr: any) {
+          // If sign in failed, try sign up then sign in
+          try {
+            const { data, error: signUpError } = await signUp(DEMO_EMAIL, DEMO_PASSWORD);
+            if (signUpError && !/already registered|already exists|User already registered/i.test(signUpError.message || '')) {
+              throw signUpError;
+            }
+
+            if (data?.user) {
+              try {
+                await supabase.from('myday_users').insert({
+                  id: data.user.id,
+                  username: 'Demo User',
+                  email: DEMO_EMAIL,
+                  avatar_emoji: '🎯'
+                });
+              } catch (profileError: any) {
+                if (!profileError.message?.includes('duplicate') && !profileError.message?.includes('unique')) {
+                  console.error('Error creating demo profile after signup:', profileError);
+                }
+              }
+            }
+
+            // Attempt sign in again
+            const signinResult = await signIn(DEMO_EMAIL, DEMO_PASSWORD);
+            if (signinResult?.user) {
+              if (DEMO_SAFE_PASSWORD) {
+                try { await setMasterPassword(DEMO_SAFE_PASSWORD); } catch {
+                  /* ignore */
+                }
+              }
+              onSuccess();
+              onClose();
+              return;
+            }
+          } catch (suErr) {
+            console.error('Demo supabase signup/signin error:', suErr);
+            // fall through to local mode
+          }
+        }
+      }
+
+      // Fall back to local demo mode: set demo flag and demo profile in localStorage
+      localStorage.setItem('myday-demo', 'true');
+      const demoLocal = {
+        id: 'demo',
+        username: 'Demo User',
+        email: DEMO_EMAIL,
+        avatarEmoji: '🎯'
+      };
+      localStorage.setItem('myday-demo-profile', JSON.stringify(demoLocal));
+      // Store demo safe password locally so Safe UI can use it (app currently uses Supabase for Safe; this is best-effort)
+      if (DEMO_SAFE_PASSWORD) {
+        try {
+          localStorage.setItem('myday-demo-safe-password', DEMO_SAFE_PASSWORD);
+        } catch (e) {
+          console.warn('Failed to store demo safe password locally:', e);
+        }
+      }
+      localStorage.setItem('myday-load-sample-data', 'true');
+
+      onSuccess();
+      onClose();
+    } catch (err: any) {
+      console.error('Demo login error:', err);
+      setError(err.message || 'Demo login failed');
     } finally {
       setLoading(false);
     }
@@ -269,6 +390,46 @@ const AuthModal: React.FC<AuthModalProps> = ({ onClose, onSuccess }) => {
              'Send Reset Email'}
           </button>
 
+          {/* Prominent signup & demo buttons (shown on sign-in view) */}
+          {mode === 'signin' && (
+            <div style={{ marginTop: '0.75rem', display: 'grid', gap: '0.5rem' }}>
+              <button
+                type="button"
+                onClick={() => { setMode('signup'); setError(''); setMessage(''); }}
+                style={{
+                  width: '100%',
+                  padding: '0.75rem',
+                  fontSize: '1rem',
+                  background: 'transparent',
+                  border: '2px solid #667eea',
+                  color: '#334155',
+                  borderRadius: '8px',
+                  cursor: 'pointer'
+                }}
+              >
+                Create a new account
+              </button>
+
+              <button
+                type="button"
+                onClick={attemptDemoLogin}
+                disabled={loading}
+                style={{
+                  width: '100%',
+                  padding: '0.75rem',
+                  fontSize: '1rem',
+                  background: '#f3f4f6',
+                  border: '1px solid #e5e7eb',
+                  color: '#374151',
+                  borderRadius: '8px',
+                  cursor: loading ? 'not-allowed' : 'pointer'
+                }}
+              >
+                {loading ? 'Please wait...' : 'Try demo account (no setup)'}
+              </button>
+            </div>
+          )}
+
           <div style={{
             marginTop: '1.5rem',
             textAlign: 'center',
@@ -297,29 +458,71 @@ const AuthModal: React.FC<AuthModalProps> = ({ onClose, onSuccess }) => {
                 >
                   Sign up
                 </button>
+                  {/* On signup screen we also show a prominent back-to-sign-in button; nothing here for signin */}
               </>
             ) : mode === 'signup' ? (
               <>
                 Already have an account?{' '}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setMode('signin');
-                    setError('');
-                    setMessage('');
-                  }}
-                  style={{
-                    background: 'none',
-                    border: 'none',
-                    color: '#667eea',
-                    textDecoration: 'underline',
-                    cursor: 'pointer',
-                    fontSize: '0.9rem',
-                    padding: 0
-                  }}
-                >
-                  Sign in
-                </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMode('signin');
+                      setError('');
+                      setMessage('');
+                    }}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: '#667eea',
+                      textDecoration: 'underline',
+                      cursor: 'pointer',
+                      fontSize: '0.9rem',
+                      padding: 0
+                    }}
+                  >
+                    Sign in
+                  </button>
+
+                  {/* Prominent back-to-sign-in button for the signup view to mirror the signin view's prominence */}
+                  <div style={{ marginTop: '0.75rem' }}>
+                    <button
+                      type="button"
+                      onClick={() => { setMode('signin'); setError(''); setMessage(''); }}
+                      style={{
+                        width: '100%',
+                        padding: '0.75rem',
+                        fontSize: '1rem',
+                        background: 'transparent',
+                        border: '2px solid #667eea',
+                        color: '#334155',
+                        borderRadius: '8px',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      Back to Sign In
+                    </button>
+                  </div>
+
+                  {/* Also surface the demo button on the signup screen */}
+                  <div style={{ marginTop: '0.75rem' }}>
+                    <button
+                      type="button"
+                      onClick={attemptDemoLogin}
+                      disabled={loading}
+                      style={{
+                        width: '100%',
+                        padding: '0.75rem',
+                        fontSize: '1rem',
+                        background: '#f3f4f6',
+                        border: '1px solid #e5e7eb',
+                        color: '#374151',
+                        borderRadius: '8px',
+                        cursor: loading ? 'not-allowed' : 'pointer'
+                      }}
+                    >
+                      {loading ? 'Please wait...' : 'Try demo account (no setup)'}
+                    </button>
+                  </div>
               </>
             ) : (
               <>

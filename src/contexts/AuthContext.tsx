@@ -27,6 +27,22 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   useEffect(() => {
     const loadUser = async () => {
       try {
+        // If demo mode is enabled locally, synthesize a demo user and skip Supabase calls
+        const demoFlag = localStorage.getItem('myday-demo');
+        if (demoFlag === 'true') {
+          const demoProfileRaw = localStorage.getItem('myday-demo-profile');
+          const demoProfile = demoProfileRaw ? JSON.parse(demoProfileRaw) : { id: 'demo', username: 'Demo User', email: 'demo@example.com' };
+          // Create a minimal synthetic User object to satisfy downstream checks
+          const demoUser: any = {
+            id: demoProfile.id,
+            email: demoProfile.email,
+            user_metadata: { username: demoProfile.username }
+          };
+          setUser(demoUser as unknown as User);
+          setLoading(false);
+          return;
+        }
+
         const currentUser = await getCurrentUser();
         setUser(currentUser);
       } catch (error) {
