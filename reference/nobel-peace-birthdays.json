@@ -1,0 +1,32 @@
+{
+  "calendar": {
+    "id": "nobel-peace-birthdays",
+    "name": "Nobel Peace Prize Winners – Birthdays",
+    "domain": "birthday",
+    "geography": "GLOBAL",
+    "isPreloaded": true,
+    "version": "v1"
+  },
+  "days": [
+    {
+      "day": {
+        "id": "GLOBAL-07-18",
+        "date": "07-18",
+        "calendarSystem": "Gregorian"
+      },
+      "event": {
+        "name": "Nelson Mandela – Birthday",
+        "category": "Birthday",
+        "significance": "Nobel Peace Prize (1993)",
+        "culturalNotes": [
+          "Observed globally as Nelson Mandela International Day",
+          "Encourages acts of service and social justice"
+        ],
+        "urls": {
+          "bio": "https://www.nobelprize.org/prizes/peace/1993/mandela/biographical/",
+          "video": "https://youtu.be/3wz1P0C3X6k"
+        }
+      }
+    }
+  ]
+}

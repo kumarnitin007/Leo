@@ -1,0 +1,106 @@
+{
+  "calendar": {
+    "id": "india-state-holidays",
+    "name": "India State & Union Territory Holidays",
+    "country": "IN",
+    "calendarType": "regional",
+    "isPreloaded": true,
+    "deduplicationStrategy": "day.id",
+    "description": "Official state and UT holidays and major region-specific observances of India.",
+    "version": "2.0"
+  },
+
+  "events": [
+
+    { "day": { "id": "IN-AP-STATE-DAY", "monthDay": "11-01", "recurrence": "YEARLY" },
+      "event": { "name": "Andhra Pradesh Formation Day", "states": ["Andhra Pradesh"], "importanceLevel": 90 } },
+
+    { "day": { "id": "IN-AR-STATE-DAY", "monthDay": "02-20", "recurrence": "YEARLY" },
+      "event": { "name": "Arunachal Pradesh Statehood Day", "states": ["Arunachal Pradesh"], "importanceLevel": 85 } },
+
+    { "day": { "id": "IN-AS-STATE-DAY", "monthDay": "12-02", "recurrence": "YEARLY" },
+      "event": { "name": "Assam Day", "states": ["Assam"], "importanceLevel": 85 } },
+
+    { "day": { "id": "IN-BR-STATE-DAY", "monthDay": "03-22", "recurrence": "YEARLY" },
+      "event": { "name": "Bihar Diwas", "states": ["Bihar"], "importanceLevel": 90 } },
+
+    { "day": { "id": "IN-CG-STATE-DAY", "monthDay": "11-01", "recurrence": "YEARLY" },
+      "event": { "name": "Chhattisgarh Rajyotsava", "states": ["Chhattisgarh"], "importanceLevel": 85 } },
+
+    { "day": { "id": "IN-GA-STATE-DAY", "monthDay": "05-30", "recurrence": "YEARLY" },
+      "event": { "name": "Goa Statehood Day", "states": ["Goa"], "importanceLevel": 85 } },
+
+    { "day": { "id": "IN-GJ-STATE-DAY", "monthDay": "05-01", "recurrence": "YEARLY" },
+      "event": { "name": "Gujarat Day", "states": ["Gujarat"], "importanceLevel": 90 } },
+
+    { "day": { "id": "IN-HR-STATE-DAY", "monthDay": "11-01", "recurrence": "YEARLY" },
+      "event": { "name": "Haryana Day", "states": ["Haryana"], "importanceLevel": 85 } },
+
+    { "day": { "id": "IN-HP-STATE-DAY", "monthDay": "04-15", "recurrence": "YEARLY" },
+      "event": { "name": "Himachal Pradesh Day", "states": ["Himachal Pradesh"], "importanceLevel": 85 } },
+
+    { "day": { "id": "IN-JH-STATE-DAY", "monthDay": "11-15", "recurrence": "YEARLY" },
+      "event": { "name": "Jharkhand Foundation Day", "states": ["Jharkhand"], "importanceLevel": 85 } },
+
+    { "day": { "id": "IN-KA-KANNADA", "monthDay": "11-01", "recurrence": "YEARLY" },
+      "event": { "name": "Kannada Rajyotsava", "states": ["Karnataka"], "importanceLevel": 95 } },
+
+    { "day": { "id": "IN-KL-STATE-DAY", "monthDay": "11-01", "recurrence": "YEARLY" },
+      "event": { "name": "Kerala Piravi", "states": ["Kerala"], "importanceLevel": 95 } },
+
+    { "day": { "id": "IN-MP-STATE-DAY", "monthDay": "11-01", "recurrence": "YEARLY" },
+      "event": { "name": "Madhya Pradesh Foundation Day", "states": ["Madhya Pradesh"], "importanceLevel": 85 } },
+
+    { "day": { "id": "IN-MH-STATE-DAY", "monthDay": "05-01", "recurrence": "YEARLY" },
+      "event": { "name": "Maharashtra Day", "states": ["Maharashtra"], "importanceLevel": 95 } },
+
+    { "day": { "id": "IN-MN-STATE-DAY", "monthDay": "01-21", "recurrence": "YEARLY" },
+      "event": { "name": "Manipur Statehood Day", "states": ["Manipur"], "importanceLevel": 85 } },
+
+    { "day": { "id": "IN-ML-STATE-DAY", "monthDay": "01-21", "recurrence": "YEARLY" },
+      "event": { "name": "Meghalaya Statehood Day", "states": ["Meghalaya"], "importanceLevel": 85 } },
+
+    { "day": { "id": "IN-MZ-STATE-DAY", "monthDay": "02-20", "recurrence": "YEARLY" },
+      "event": { "name": "Mizoram Statehood Day", "states": ["Mizoram"], "importanceLevel": 85 } },
+
+    { "day": { "id": "IN-NL-HORN", "monthDay": "12-01", "recurrence": "YEARLY" },
+      "event": { "name": "Hornbill Festival", "states": ["Nagaland"], "importanceLevel": 90 } },
+
+    { "day": { "id": "IN-OD-STATE-DAY", "monthDay": "04-01", "recurrence": "YEARLY" },
+      "event": { "name": "Odisha Day (Utkala Dibasa)", "states": ["Odisha"], "importanceLevel": 90 } },
+
+    { "day": { "id": "IN-PB-STATE-DAY", "monthDay": "11-01", "recurrence": "YEARLY" },
+      "event": { "name": "Punjab Day", "states": ["Punjab"], "importanceLevel": 85 } },
+
+    { "day": { "id": "IN-RJ-STATE-DAY", "monthDay": "03-30", "recurrence": "YEARLY" },
+      "event": { "name": "Rajasthan Day", "states": ["Rajasthan"], "importanceLevel": 90 } },
+
+    { "day": { "id": "IN-SK-STATE-DAY", "monthDay": "05-16", "recurrence": "YEARLY" },
+      "event": { "name": "Sikkim Statehood Day", "states": ["Sikkim"], "importanceLevel": 85 } },
+
+    { "day": { "id": "IN-TN-STATE-DAY", "monthDay": "11-01", "recurrence": "YEARLY" },
+      "event": { "name": "Tamil Nadu Formation Day", "states": ["Tamil Nadu"], "importanceLevel": 90 } },
+
+    { "day": { "id": "IN-TS-STATE-DAY", "monthDay": "06-02", "recurrence": "YEARLY" },
+      "event": { "name": "Telangana Formation Day", "states": ["Telangana"], "importanceLevel": 95 } },
+
+    { "day": { "id": "IN-UP-STATE-DAY", "monthDay": "01-24", "recurrence": "YEARLY" },
+      "event": { "name": "Uttar Pradesh Day", "states": ["Uttar Pradesh"], "importanceLevel": 85 } },
+
+    { "day": { "id": "IN-UK-STATE-DAY", "monthDay": "11-09", "recurrence": "YEARLY" },
+      "event": { "name": "Uttarakhand Foundation Day", "states": ["Uttarakhand"], "importanceLevel": 85 } },
+
+    { "day": { "id": "IN-WB-STATE-DAY", "monthDay": "04-01", "recurrence": "YEARLY" },
+      "event": { "name": "West Bengal Day", "states": ["West Bengal"], "importanceLevel": 90 } },
+
+    { "day": { "id": "IN-DL-UT-DAY", "monthDay": "11-01", "recurrence": "YEARLY" },
+      "event": { "name": "Delhi Foundation Day", "states": ["Delhi"], "importanceLevel": 85 } },
+
+    { "day": { "id": "IN-JK-UT-DAY", "monthDay": "10-31", "recurrence": "YEARLY" },
+      "event": { "name": "Jammu & Kashmir UT Day", "states": ["Jammu and Kashmir"], "importanceLevel": 85 } },
+
+    { "day": { "id": "IN-LA-UT-DAY", "monthDay": "10-31", "recurrence": "YEARLY" },
+      "event": { "name": "Ladakh UT Day", "states": ["Ladakh"], "importanceLevel": 85 } }
+
+  ]
+}

@@ -1,0 +1,89 @@
+{
+  "_instructions": "Use this template to add new calendars and days to the system. Replace example values with your data. All fields marked with * are required.",
+  
+  "calendar": {
+    "id": "example-calendar-name",
+    "name": "Example Calendar Name",
+    "description": "Description of what this calendar represents",
+    "country": "IN",
+    "calendarType": "holiday|festival|religious|cultural|birthday|observance|regional",
+    "domain": "holiday|festival|religious|cultural|birthday|observance",
+    "geography": "IN|US|JP|GLOBAL|<country-code>",
+    "religion": "Hindu|Islamic|Christian|Buddhist|Sikh|Jewish|NULL",
+    "isPreloaded": true,
+    "deduplicationStrategy": "day.id",
+    "version": "1.0",
+    "source": "Source/Authority (e.g., 'Government of India', 'US Office of Personnel Management')"
+  },
+
+  "events": [
+    {
+      "day": {
+        "id": "UNIQUE-EVENT-ID",
+        "date": "2026-01-26",
+        "monthDay": "01-26",
+        "month": 1,
+        "day": 26,
+        "recurrence": "YEARLY|MONTHLY|WEEKLY|ONCE",
+        "calendarSystem": "gregorian|lunar|solar|hindu-panchang",
+        "approxMonth": "01",
+        "rule": "First Monday of May OR 'Third Sunday of June' (for moveable holidays)"
+      },
+      "event": {
+        "name": "Event Name",
+        "category": "holiday|festival|religious|cultural|birthday|observance|social|family|memorial",
+        "importanceLevel": 95,
+        "significance": "Why this day is important",
+        "description": "Detailed description of the event",
+        "states": ["State Name", "State Name"],
+        "regions": ["Region Name"],
+        "localCustoms": ["Custom 1", "Custom 2", "Custom 3"],
+        "aliases": ["Alternative name 1", "Alternative name 2"],
+        "crossAssociationTags": ["tag1", "tag2"],
+        "fasting": false,
+        "durationDays": 1,
+        "panchangElements": {
+          "tithi": "Purnima",
+          "paksha": "Krishna Paksha",
+          "masa": "Phalguna",
+          "nakshatra": "Nakshatra name",
+          "yoga": "Yoga name"
+        },
+        "lunarMetadata": {
+          "lunarMonth": "Phalguna",
+          "lunarDay": 15,
+          "isLunarNew": true
+        },
+        "visualTheme": {
+          "primaryColor": "#E91E63",
+          "mood": "celebratory|solemn|joyful|festive",
+          "icon": "colors|fireworks|lights|flowers"
+        },
+        "media": {
+          "imageUrl": "https://example.com/image.jpg",
+          "audioUrl": "https://example.com/audio.mp3",
+          "infoUrl": "https://example.com/info",
+          "wikiUrl": "https://en.wikipedia.org/wiki/Event"
+        },
+        "metadata": {
+          "customField1": "value",
+          "customField2": "value"
+        }
+      }
+    },
+    {
+      "day": {
+        "id": "ANOTHER-EVENT-ID",
+        "monthDay": "03-25",
+        "recurrence": "YEARLY"
+      },
+      "event": {
+        "name": "Another Event",
+        "category": "festival",
+        "importanceLevel": 90,
+        "significance": "Festival of colors",
+        "states": ["Pan-India"]
+      }
+    }
+  ]
+}

@@ -1,0 +1,186 @@
+{
+  "calendar": {
+    "id": "india-state-holidays",
+    "name": "India State & UT Holidays",
+    "country": "IN",
+    "calendarType": "regional",
+    "isPreloaded": true,
+    "deduplicationStrategy": "day.id",
+    "description": "State and Union Territory specific public holidays of India.",
+    "version": "2.0"
+  },
+
+  "events": [
+
+    {
+      "day": { "id": "IN-PONGAL", "recurrence": "YEARLY", "approxMonth": "01" },
+      "event": {
+        "name": "Pongal",
+        "category": "regional",
+        "states": ["Tamil Nadu"],
+        "importanceLevel": 95,
+        "significance": "Harvest festival of Tamil Nadu.",
+        "localCustoms": ["Pongal cooking", "Kolam decorations"],
+        "media": { "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/3/32/Pongal_festival.jpg" }
+      }
+    },
+
+    {
+      "day": { "id": "IN-THAI-PUSAM", "recurrence": "YEARLY", "calendarSystem": "LUNAR" },
+      "event": {
+        "name": "Thaipusam",
+        "category": "regional",
+        "states": ["Tamil Nadu"],
+        "importanceLevel": 85,
+        "significance": "Devotional festival dedicated to Lord Murugan."
+      }
+    },
+
+    {
+      "day": { "id": "IN-UGADI", "recurrence": "YEARLY", "calendarSystem": "LUNAR" },
+      "event": {
+        "name": "Ugadi",
+        "category": "regional",
+        "states": ["Karnataka", "Andhra Pradesh", "Telangana"],
+        "importanceLevel": 90,
+        "significance": "New Year in Deccan regions.",
+        "media": { "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/6/6f/Ugadi_pachadi.jpg" }
+      }
+    },
+
+    {
+      "day": { "id": "IN-KANNADA-RAJYOTSAVA", "recurrence": "YEARLY", "monthDay": "11-01" },
+      "event": {
+        "name": "Kannada Rajyotsava",
+        "category": "regional",
+        "states": ["Karnataka"],
+        "importanceLevel": 95,
+        "significance": "Formation day of Karnataka state."
+      }
+    },
+
+    {
+      "day": { "id": "IN-ONAM", "recurrence": "YEARLY", "calendarSystem": "LUNAR" },
+      "event": {
+        "name": "Onam",
+        "category": "regional",
+        "states": ["Kerala"],
+        "importanceLevel": 100,
+        "significance": "Harvest festival celebrating King Mahabali.",
+        "media": { "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/9/9c/Onam_Pookalam.jpg" }
+      }
+    },
+
+    {
+      "day": { "id": "IN-VISHU", "recurrence": "YEARLY", "approxMonth": "04" },
+      "event": {
+        "name": "Vishu",
+        "category": "regional",
+        "states": ["Kerala"],
+        "importanceLevel": 90,
+        "significance": "Malayalam New Year."
+      }
+    },
+
+    {
+      "day": { "id": "IN-BIHU", "recurrence": "YEARLY" },
+      "event": {
+        "name": "Bihu",
+        "category": "regional",
+        "states": ["Assam"],
+        "importanceLevel": 95,
+        "significance": "Assamese New Year and harvest festival.",
+        "media": { "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/2/2b/Bihu_dance.jpg" }
+      }
+    },
+
+    {
+      "day": { "id": "IN-CHHATH", "recurrence": "YEARLY", "calendarSystem": "LUNAR" },
+      "event": {
+        "name": "Chhath Puja",
+        "category": "regional",
+        "states": ["Bihar", "Jharkhand", "Uttar Pradesh"],
+        "importanceLevel": 95,
+        "significance": "Sun worship festival of eastern India."
+      }
+    },
+
+    {
+      "day": { "id": "IN-GANGOUR", "recurrence": "YEARLY", "calendarSystem": "LUNAR" },
+      "event": {
+        "name": "Gangaur",
+        "category": "regional",
+        "states": ["Rajasthan"],
+        "importanceLevel": 85,
+        "significance": "Festival celebrating marital harmony."
+      }
+    },
+
+    {
+      "day": { "id": "IN-GUJARAT-DAY", "recurrence": "YEARLY", "monthDay": "05-01" },
+      "event": {
+        "name": "Gujarat Day",
+        "category": "regional",
+        "states": ["Gujarat"],
+        "importanceLevel": 90,
+        "significance": "Formation day of Gujarat."
+      }
+    },
+
+    {
+      "day": { "id": "IN-BAISAKHI", "recurrence": "YEARLY", "monthDay": "04-13" },
+      "event": {
+        "name": "Baisakhi",
+        "category": "regional",
+        "states": ["Punjab", "Haryana"],
+        "importanceLevel": 95,
+        "significance": "Harvest festival and Sikh New Year.",
+        "media": { "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/5/56/Baisakhi_festival.jpg" }
+      }
+    },
+
+    {
+      "day": { "id": "IN-HORN BILL", "recurrence": "YEARLY", "approxMonth": "12" },
+      "event": {
+        "name": "Hornbill Festival",
+        "category": "regional",
+        "states": ["Nagaland"],
+        "importanceLevel": 85,
+        "significance": "Celebration of Naga tribal culture."
+      }
+    },
+
+    {
+      "day": { "id": "IN-LOSAR", "recurrence": "YEARLY", "calendarSystem": "LUNAR" },
+      "event": {
+        "name": "Losar",
+        "category": "regional",
+        "states": ["Ladakh", "Sikkim", "Arunachal Pradesh"],
+        "importanceLevel": 85,
+        "significance": "Tibetan New Year."
+      }
+    },
+
+    {
+      "day": { "id": "IN-ODISHA-DAY", "recurrence": "YEARLY", "monthDay": "04-01" },
+      "event": {
+        "name": "Odisha Day (Utkala Dibasa)",
+        "category": "regional",
+        "states": ["Odisha"],
+        "importanceLevel": 90,
+        "significance": "Formation day of Odisha."
+      }
+    },
+
+    {
+      "day": { "id": "IN-TELANGANA-DAY", "recurrence": "YEARLY", "monthDay": "06-02" },
+      "event": {
+        "name": "Telangana Formation Day",
+        "category": "regional",
+        "states": ["Telangana"],
+        "importanceLevel": 95
+      }
+    }
+
+  ]
+}

@@ -64,6 +64,8 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [appData, setAppData] = useState<AppData | null>(null);
   const [selectedDate, setSelectedDate] = useState<string>(getTodayString());
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [datePickerDate, setDatePickerDate] = useState<string>(getTodayString());
   const today = getTodayString();
 
   const handleLayoutChange = async (layout: DashboardLayout) => {
@@ -1096,19 +1098,6 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
               </div>
               {/* Day Navigation Buttons */}
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <button
-                  onClick={() => {
-                    const date = new Date(selectedDate + 'T00:00:00');
-                    date.setDate(date.getDate() - 1);
-                    setSelectedDate(formatDate(date));
-                    loadItems();
-                  }}
-                  className="btn-secondary"
-                  style={{ padding: '0.5rem', minWidth: '40px' }}
-                  title="Previous Day"
-                >
-                  ←
-                </button>
                 {selectedDate !== today && (
                   <button
                     onClick={() => {
@@ -1124,16 +1113,14 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
                 )}
                 <button
                   onClick={() => {
-                    const date = new Date(selectedDate + 'T00:00:00');
-                    date.setDate(date.getDate() + 1);
-                    setSelectedDate(formatDate(date));
-                    loadItems();
+                    setDatePickerDate(selectedDate);
+                    setShowDatePicker(true);
                   }}
                   className="btn-secondary"
-                  style={{ padding: '0.5rem', minWidth: '40px' }}
-                  title="Next Day"
+                  style={{ padding: '0.5rem 1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+                  title="Pick a Date"
                 >
-                  →
+                  📅
                 </button>
               </div>
             </div>
@@ -1686,6 +1673,127 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
                     ▶️ Resume All Tasks
                   </button>
                 </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Date Picker Modal */}
+      {showDatePicker && (
+        <div className="modal-overlay" onClick={() => setShowDatePicker(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '500px', width: '90%' }}>
+            <div className="modal-header" style={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', color: 'white' }}>
+              <h2>📅 Select Date</h2>
+              <button className="modal-close" onClick={() => setShowDatePicker(false)} style={{ color: 'white' }}>×</button>
+            </div>
+            <div style={{ padding: '2rem' }}>
+              {/* Today's Date Display - Takes up at least 50% */}
+              <div style={{
+                background: 'linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%)',
+                borderRadius: '16px',
+                padding: '3rem 2rem',
+                marginBottom: '2rem',
+                textAlign: 'center',
+                border: '2px solid #d1d5db',
+                minHeight: '200px',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'center',
+                alignItems: 'center'
+              }}>
+                <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>📅</div>
+                <div style={{ fontSize: '2rem', fontWeight: 700, color: '#1f2937', marginBottom: '0.5rem' }}>
+                  {new Date(datePickerDate + 'T00:00:00').toLocaleDateString('en-US', { 
+                    weekday: 'long', 
+                    year: 'numeric', 
+                    month: 'long', 
+                    day: 'numeric' 
+                  })}
+                </div>
+                <div style={{ fontSize: '1.25rem', color: '#6b7280', fontWeight: 500 }}>
+                  {datePickerDate === today ? 'Today' : datePickerDate < today ? 'Past Date' : 'Future Date'}
+                </div>
+              </div>
+
+              {/* Navigation Buttons */}
+              <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '2rem', justifyContent: 'center' }}>
+                <button
+                  onClick={() => {
+                    const date = new Date(datePickerDate + 'T00:00:00');
+                    date.setDate(date.getDate() - 1);
+                    setDatePickerDate(formatDate(date));
+                  }}
+                  className="btn-secondary"
+                  style={{ padding: '0.75rem 1.5rem', flex: 1 }}
+                  title="Previous Day"
+                >
+                  ← Back
+                </button>
+                <button
+                  onClick={() => {
+                    setDatePickerDate(today);
+                  }}
+                  className="btn-primary"
+                  style={{ padding: '0.75rem 1.5rem', flex: 1 }}
+                  title="Go to Today"
+                >
+                  Today
+                </button>
+                <button
+                  onClick={() => {
+                    const date = new Date(datePickerDate + 'T00:00:00');
+                    date.setDate(date.getDate() + 1);
+                    setDatePickerDate(formatDate(date));
+                  }}
+                  className="btn-secondary"
+                  style={{ padding: '0.75rem 1.5rem', flex: 1 }}
+                  title="Next Day"
+                >
+                  Front →
+                </button>
+              </div>
+
+              {/* Date Input */}
+              <div style={{ marginBottom: '2rem' }}>
+                <label style={{ display: 'block', marginBottom: '0.75rem', fontWeight: 600, color: '#1f2937' }}>
+                  Change Date
+                </label>
+                <input
+                  type="date"
+                  value={datePickerDate}
+                  onChange={(e) => setDatePickerDate(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '0.75rem',
+                    fontSize: '1rem',
+                    borderRadius: '8px',
+                    border: '2px solid #d1d5db',
+                    cursor: 'pointer'
+                  }}
+                />
+              </div>
+
+              {/* Action Buttons */}
+              <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
+                <button
+                  onClick={() => setShowDatePicker(false)}
+                  className="btn-secondary"
+                  style={{ padding: '0.75rem 1.5rem' }}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    setSelectedDate(datePickerDate);
+                    setShowDatePicker(false);
+                    loadItems();
+                  }}
+                  className="btn-primary"
+                  style={{ padding: '0.75rem 1.5rem' }}
+                >
+                  Reload
+                </button>
               </div>
             </div>
           </div>

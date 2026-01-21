@@ -65,6 +65,27 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
    */
   useEffect(() => {
     const loadProfile = async () => {
+      // If running in local demo mode (synthetic demo user), load profile from localStorage
+      const demoFlag = localStorage.getItem('myday-demo') === 'true';
+      if (demoFlag && !isLoaded) {
+        try {
+          const demoRaw = localStorage.getItem('myday-demo-profile');
+          if (demoRaw) {
+            const profile = JSON.parse(demoRaw);
+            const avatar = avatars.find(a => a.emoji === profile.avatarEmoji);
+            setSettings({
+              username: profile.username || 'Demo User',
+              email: profile.email || '',
+              avatarId: avatar?.id || DEFAULT_AVATAR_ID
+            });
+          }
+        } catch (e) {
+          console.warn('Failed to load local demo profile:', e);
+        }
+        setIsLoaded(true);
+        return;
+      }
+
       if (user && !isLoaded) {
         try {
           const profile = await getUserProfile();
@@ -79,7 +100,7 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           }
           setIsLoaded(true);
         } catch (error) {
-          console.error('Error loading user profile:', error);
+          // getUserProfile logs errors internally; treat as not-available and mark loaded
           setIsLoaded(true);
         }
       } else if (!user) {

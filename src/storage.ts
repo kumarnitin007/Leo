@@ -7,7 +7,7 @@
  */
 
 import { getSupabaseClient } from './lib/supabase';
-import { AppData, Task, TaskCompletion, Event, JournalEntry, Routine, Tag, TagSection, UserSettings, DashboardLayout, Item, SafeEntry, SafeMasterKey } from './types';
+import { AppData, Task, TaskCompletion, Event, JournalEntry, Routine, Tag, TagSection, UserSettings, DashboardLayout, Item, SafeEntry, SafeMasterKey, Resolution, ResolutionMilestone } from './types';
 import { getTodayString } from './utils';
 import { hashMasterPassword, generateSalt, verifyMasterPassword as verifyMasterPasswordUtil, deriveKeyFromPassword, encryptData, decryptData } from './utils/encryption';
 
@@ -25,15 +25,26 @@ const generateUUID = (): string => {
 const requireAuth = async () => {
   const client = getSupabaseClient();
   if (!client) {
+    console.debug('requireAuth: Supabase client not available (likely missing VITE vars)');
     throw new Error('Supabase not configured. Please check your .env file.');
   }
-  
-  const { data: { user } } = await client.auth.getUser();
-  if (!user) {
-    throw new Error('User must be signed in to access data.');
+
+  // Log caller context lightly to help debug auth ordering without exposing tokens
+  try {
+    console.debug('requireAuth: calling client.auth.getUser()');
+    const { data: { user } } = await client.auth.getUser();
+    if (!user) {
+      console.debug('requireAuth: no authenticated user found');
+      throw new Error('User must be signed in to access data.');
+    }
+
+    console.debug('requireAuth: authenticated user id=', user.id);
+    return { client, userId: user.id };
+  } catch (err) {
+    // Re-throw after logging so callers see expected error message
+    console.debug('requireAuth: error while checking auth:', err?.message || err);
+    throw err;
   }
-  
-  return { client, userId: user.id };
 };
 
 // ===== TASKS =====
@@ -1635,10 +1646,69 @@ export const importSampleEvents = async (replace: boolean = false): Promise<bool
     }
 
     const now = new Date().toISOString();
+
+    // Ensure demo tag IDs exist for 'Pinned' and 'Milestone'
+    const demoTagNames = ['Pinned', 'Milestone'];
+    const { data: existingTags } = await client
+      .from('myday_tags')
+      .select('id,name')
+      .eq('user_id', userId)
+      .in('name', demoTagNames);
+
+    const tagMap = new Map<string, string>();
+    if (existingTags && Array.isArray(existingTags)) {
+      for (const t of existingTags as any[]) {
+        tagMap.set(t.name, t.id);
+      }
+    }
+
+    const tagsToInsert = demoTagNames.filter(n => !tagMap.has(n)).map(n => ({
+      id: generateUUID(),
+      user_id: userId,
+      name: n,
+      color: n === 'Pinned' ? '#f59e0b' : '#10b981',
+      trackable: false,
+      description: null,
+      allowed_sections: ['tasks', 'events', 'journals', 'items'],
+      is_safe_only: false,
+      is_system_category: false,
+      created_at: now
+    }));
+
+    if (tagsToInsert.length > 0) {
+      const { error: tagInsertError } = await client.from('myday_tags').insert(tagsToInsert);
+      if (tagInsertError) {
+        console.warn('Failed to insert demo tags:', tagInsertError);
+      } else {
+        // Refresh existing tags
+        const { data: reloaded } = await client
+          .from('myday_tags')
+          .select('id,name')
+          .eq('user_id', userId)
+          .in('name', demoTagNames);
+        if (reloaded && Array.isArray(reloaded)) {
+          for (const t of reloaded as any[]) tagMap.set(t.name, t.id);
+        }
+      }
+    }
+
+    const pinnedId = tagMap.get('Pinned') || null;
+    const milestoneId = tagMap.get('Milestone') || null;
+
+    // Create a richer set of sample events (12 items)
     const sampleEvents: any[] = [
-      { name: '🎂 Demo User Birthday', category: 'Birthday', date: '01-01', frequency: 'yearly', notify_days_before: 3, color: '#ef4444' },
-      { name: '💍 Anniversary', category: 'Anniversary', date: '06-15', frequency: 'yearly', notify_days_before: 3, color: '#f59e0b' },
-      { name: '📅 Product Launch', category: 'Special Event', date: new Date().toISOString().split('T')[0], frequency: 'one-time', notify_days_before: 0, color: '#3b82f6' }
+      { name: '🎂 Demo User Birthday', category: 'Birthday', date: '01-01', frequency: 'yearly', notify_days_before: 3, color: '#ef4444', tags: pinnedId ? [pinnedId] : [] },
+      { name: '💍 Anniversary', category: 'Anniversary', date: '06-15', frequency: 'yearly', notify_days_before: 3, color: '#f59e0b', tags: milestoneId ? [milestoneId] : [] },
+      { name: '📅 Product Launch', category: 'Special Event', date: new Date().toISOString().split('T')[0], frequency: 'one-time', notify_days_before: 0, color: '#3b82f6' },
+      { name: '📌 Team Offsite', category: 'Work', date: new Date(new Date().setDate(new Date().getDate() + 10)).toISOString().split('T')[0], frequency: 'one-time', notify_days_before: 2, color: '#06b6d4', tags: pinnedId ? [pinnedId] : [] },
+      { name: '🏁 Sprint Deadline', category: 'Milestone', date: new Date(new Date().setDate(new Date().getDate() + 20)).toISOString().split('T')[0], frequency: 'one-time', notify_days_before: 5, color: '#a855f7', tags: milestoneId ? [milestoneId] : [] },
+      { name: '🎉 Product Beta Release', category: 'Release', date: new Date(new Date().setDate(new Date().getDate() + 30)).toISOString().split('T')[0], frequency: 'one-time', notify_days_before: 7, color: '#10b981' },
+      { name: '📅 Monthly Book Club', category: 'Community', date: '15', frequency: 'monthly', notify_days_before: 1, color: '#3b82f6' },
+      { name: '🔁 Payroll Day', category: 'Finance', date: '2026-01-31', frequency: 'monthly', notify_days_before: 2, color: '#f97316' },
+      { name: '🛠️ Maintenance Window', category: 'Ops', date: new Date(new Date().setDate(new Date().getDate() + 7)).toISOString().split('T')[0], frequency: 'one-time', notify_days_before: 1, color: '#ef4444' },
+      { name: '📚 Course Enrollment Ends', category: 'Education', date: new Date(new Date().setDate(new Date().getDate() + 14)).toISOString().split('T')[0], frequency: 'one-time', notify_days_before: 3, color: '#6366f1' },
+      { name: '🏆 Quarterly Review', category: 'Work', date: new Date(new Date().setMonth(new Date().getMonth() + 2)).toISOString().split('T')[0], frequency: 'one-time', notify_days_before: 5, color: '#f59e0b' },
+      { name: '🎈 Anniversary Celebration', category: 'Personal', date: new Date(new Date().setFullYear(new Date().getFullYear() - 1)).toISOString().split('T')[0], frequency: 'yearly', notify_days_before: 7, color: '#ec4899' }
     ];
 
     const rows = sampleEvents.map(ev => ({
@@ -2992,5 +3062,342 @@ export const importSafeEntries = async (
   }
 
   return { success, failed };
+};
+
+// ===== RESOLUTIONS =====
+
+export const getResolutions = async (): Promise<Resolution[]> => {
+  const { client } = await requireAuth();
+  
+  const { data, error } = await client
+    .from('myday_resolutions')
+    .select('*')
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    console.error('Error fetching resolutions:', error);
+    return [];
+  }
+
+  return (data || []).map(row => ({
+    id: row.id,
+    title: row.title,
+    description: row.description,
+    category: row.category,
+    tags: row.tags || [],
+    targetYear: row.target_year,
+    startDate: row.start_date,
+    endDate: row.end_date,
+    progressMetric: row.progress_metric,
+    targetValue: row.target_value,
+    currentValue: row.current_value,
+    milestones: row.milestones || [],
+    linkedTaskIds: row.linked_task_ids || [],
+    priority: row.priority || 5,
+    color: row.color,
+    status: row.status,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at
+  }));
+};
+
+export const addResolution = async (resolution: Resolution): Promise<void> => {
+  const { client, userId } = await requireAuth();
+
+  const resolutionData = {
+    id: resolution.id || generateUUID(),
+    user_id: userId,
+    title: resolution.title,
+    description: resolution.description,
+    category: resolution.category,
+    tags: resolution.tags || [],
+    target_year: resolution.targetYear,
+    start_date: resolution.startDate,
+    end_date: resolution.endDate,
+    progress_metric: resolution.progressMetric,
+    target_value: resolution.targetValue,
+    current_value: resolution.currentValue || 0,
+    milestones: resolution.milestones || [],
+    linked_task_ids: resolution.linkedTaskIds || [],
+    priority: resolution.priority || 5,
+    color: resolution.color,
+    status: resolution.status || 'active',
+    created_at: resolution.createdAt || new Date().toISOString(),
+    updated_at: resolution.updatedAt || new Date().toISOString()
+  };
+  
+  const { error } = await client
+    .from('myday_resolutions')
+    .insert([resolutionData]);
+
+  if (error) throw error;
+};
+
+export const updateResolution = async (resolutionId: string, updates: Partial<Resolution>): Promise<void> => {
+  const { client } = await requireAuth();
+
+  const dbUpdates: any = {
+    updated_at: new Date().toISOString()
+  };
+
+  if (updates.title !== undefined) dbUpdates.title = updates.title;
+  if (updates.description !== undefined) dbUpdates.description = updates.description;
+  if (updates.category !== undefined) dbUpdates.category = updates.category;
+  if (updates.tags !== undefined) dbUpdates.tags = updates.tags;
+  if (updates.targetYear !== undefined) dbUpdates.target_year = updates.targetYear;
+  if (updates.startDate !== undefined) dbUpdates.start_date = updates.startDate;
+  if (updates.endDate !== undefined) dbUpdates.end_date = updates.endDate;
+  if (updates.progressMetric !== undefined) dbUpdates.progress_metric = updates.progressMetric;
+  if (updates.targetValue !== undefined) dbUpdates.target_value = updates.targetValue;
+  if (updates.currentValue !== undefined) dbUpdates.current_value = updates.currentValue;
+  if (updates.milestones !== undefined) dbUpdates.milestones = updates.milestones;
+  if (updates.linkedTaskIds !== undefined) dbUpdates.linked_task_ids = updates.linkedTaskIds;
+  if (updates.priority !== undefined) dbUpdates.priority = updates.priority;
+  if (updates.color !== undefined) dbUpdates.color = updates.color;
+  if (updates.status !== undefined) dbUpdates.status = updates.status;
+
+  const { error } = await client
+    .from('myday_resolutions')
+    .update(dbUpdates)
+    .eq('id', resolutionId);
+
+  if (error) throw error;
+};
+
+export const deleteResolution = async (resolutionId: string): Promise<void> => {
+  const { client } = await requireAuth();
+
+  const { error } = await client
+    .from('myday_resolutions')
+    .delete()
+    .eq('id', resolutionId);
+
+  if (error) throw error;
+};
+
+// ===== HOLIDAY & BULK EVENT IMPORT =====
+
+interface ImportedEventFile {
+  version: string;
+  description: string;
+  events: Array<{
+    name: string;
+    description?: string;
+    category: string;
+    date: string;
+    frequency: 'yearly' | 'one-time' | 'monthly' | 'custom';
+    notifyDaysBefore?: number;
+    priority?: number;
+    color?: string;
+    tags?: string[];
+  }>;
+}
+
+interface TagSelectionMap {
+  [tagName: string]: string | 'CREATE_NEW'; // tag ID or 'CREATE_NEW' signal
+}
+
+/**
+ * Imports events from a JSON file with optional tag creation/selection
+ * @param fileUrl URL to the JSON file (e.g., '/sample-indian-holidays-national.json')
+ * @param selectedTags Map of tag names to IDs. If tag name maps to 'CREATE_NEW', a new tag will be created
+ * @param replace If true, deletes all existing events before importing
+ */
+export const importEventsFromFile = async (
+  fileUrl: string,
+  selectedTags: TagSelectionMap = {},
+  replace: boolean = false
+): Promise<{ success: boolean; message: string; importedCount: number }> => {
+  try {
+    const { client, userId } = await requireAuth();
+
+    // Fetch the JSON file
+    const response = await fetch(fileUrl);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch ${fileUrl}: ${response.statusText}`);
+    }
+
+    const fileData: ImportedEventFile = await response.json();
+
+    // Validate file structure
+    if (!fileData.events || !Array.isArray(fileData.events)) {
+      throw new Error('Invalid event file format: missing events array');
+    }
+
+    if (replace) {
+      const { error: deleteError } = await client
+        .from('myday_events')
+        .delete()
+        .eq('user_id', userId);
+      if (deleteError) {
+        console.error('Error deleting existing events:', deleteError);
+        return {
+          success: false,
+          message: 'Failed to delete existing events',
+          importedCount: 0
+        };
+      }
+    }
+
+    const now = new Date().toISOString();
+    const tagMap = new Map<string, string>();
+
+    // Get all existing tags for the user
+    const { data: existingTags } = await client
+      .from('myday_tags')
+      .select('id,name')
+      .eq('user_id', userId)
+      .eq('allowed_sections', 'events'); // Filter for event tags
+
+    if (existingTags && Array.isArray(existingTags)) {
+      for (const t of existingTags as any[]) {
+        tagMap.set(t.name, t.id);
+      }
+    }
+
+    // Process tag selections and create new tags if needed
+    const tagsToCreate: any[] = [];
+    const finalTagMap = new Map<string, string>(tagMap);
+
+    for (const [tagName, tagValue] of Object.entries(selectedTags)) {
+      if (tagValue === 'CREATE_NEW' && !finalTagMap.has(tagName)) {
+        // Need to create this tag
+        const newTagId = generateUUID();
+        tagsToCreate.push({
+          id: newTagId,
+          user_id: userId,
+          name: tagName,
+          color: '#3b82f6', // Default blue color
+          trackable: false,
+          description: null,
+          allowed_sections: ['events'],
+          is_safe_only: false,
+          is_system_category: false,
+          created_at: now
+        });
+        finalTagMap.set(tagName, newTagId);
+      } else if (typeof tagValue === 'string' && tagValue !== 'CREATE_NEW') {
+        // Use provided tag ID
+        finalTagMap.set(tagName, tagValue);
+      }
+    }
+
+    // Insert new tags if any
+    if (tagsToCreate.length > 0) {
+      const { error: tagInsertError } = await client.from('myday_tags').insert(tagsToCreate);
+      if (tagInsertError) {
+        console.warn('Failed to insert new tags:', tagInsertError);
+      }
+    }
+
+    // Convert imported events to database format
+    const eventRows = fileData.events.map(ev => {
+      // Resolve tag IDs from event tag names
+      const resolvedTagIds = (ev.tags || [])
+        .map(tagName => finalTagMap.get(tagName))
+        .filter((id): id is string => !!id);
+
+      return {
+        id: generateUUID(),
+        user_id: userId,
+        name: ev.name,
+        description: ev.description || null,
+        category: ev.category || null,
+        tags: resolvedTagIds,
+        event_date: ev.date,
+        date_text: ev.date,
+        notify_days_before: ev.notifyDaysBefore || 0,
+        color: ev.color || null,
+        priority: ev.priority || 5,
+        hide_from_dashboard: false,
+        frequency: ev.frequency || 'yearly',
+        custom_frequency: null,
+        year: null,
+        created_at: now
+      };
+    });
+
+    // Insert events
+    const { error: insertError } = await client
+      .from('myday_events')
+      .insert(eventRows);
+
+    if (insertError) {
+      console.error('Error inserting events:', insertError);
+      return {
+        success: false,
+        message: `Failed to insert events: ${insertError.message}`,
+        importedCount: 0
+      };
+    }
+
+    // Generate reminders for events with notify_days_before
+    for (const ev of eventRows) {
+      if (ev.notify_days_before && ev.notify_days_before > 0) {
+        try {
+          const reminderEvent = {
+            id: ev.id,
+            name: ev.name,
+            date: ev.event_date,
+            frequency: ev.frequency as any,
+            notifyDaysBefore: ev.notify_days_before || 0,
+            createdAt: ev.created_at || now
+          } as any;
+
+          await generateEventReminders(reminderEvent, ev.id);
+        } catch (remErr) {
+          // Non-fatal reminder generation error
+          console.warn('Failed to generate reminders for event:', ev.name, remErr);
+        }
+      }
+    }
+
+    return {
+      success: true,
+      message: `Successfully imported ${eventRows.length} events from ${fileData.description}`,
+      importedCount: eventRows.length
+    };
+  } catch (err) {
+    console.error('importEventsFromFile error:', err);
+    return {
+      success: false,
+      message: err instanceof Error ? err.message : 'Unknown error occurred',
+      importedCount: 0
+    };
+  }
+};
+
+/**
+ * Get all unique tags from imported event file (without importing events)
+ * Useful for showing user what tags will be created/used
+ */
+export const getEventFileTagPreview = async (fileUrl: string): Promise<string[]> => {
+  try {
+    const response = await fetch(fileUrl);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch ${fileUrl}`);
+    }
+
+    const fileData: ImportedEventFile = await response.json();
+    
+    if (!fileData.events || !Array.isArray(fileData.events)) {
+      return [];
+    }
+
+    // Collect all unique tags from events
+    const uniqueTags = new Set<string>();
+    for (const event of fileData.events) {
+      if (event.tags && Array.isArray(event.tags)) {
+        for (const tag of event.tags) {
+          uniqueTags.add(tag);
+        }
+      }
+    }
+
+    return Array.from(uniqueTags).sort();
+  } catch (err) {
+    console.error('getEventFileTagPreview error:', err);
+    return [];
+  }
 };
 

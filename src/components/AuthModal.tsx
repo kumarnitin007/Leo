@@ -162,115 +162,91 @@ const AuthModal: React.FC<AuthModalProps> = ({ onClose, onSuccess }) => {
   const DEMO_SAFE_PASSWORD = (import.meta.env.VITE_DEMO_SAFE_PASSWORD as string) || undefined;
 
   const attemptDemoLogin = async () => {
-    // Try a Supabase-backed demo login if Supabase is configured and env vars were provided.
+    // Use server-side demo-login endpoint so demo credentials never reach the browser
     setLoading(true);
     setError('');
     try {
-      const supabase = getSupabaseClient();
-      if (supabase && DEMO_EMAIL && DEMO_PASSWORD) {
-        // Attempt sign in with demo creds
-        try {
-          const data = await signIn(DEMO_EMAIL, DEMO_PASSWORD);
-
-          // Ensure profile exists in myday_users
+  console.debug('AuthModal: attempting demo login via /api/demo-login');
+  const resp = await fetch('/api/demo-login', { method: 'POST' });
+      if (!resp.ok) {
+        // If endpoint not present in dev, fall back to local demo without raising an error
+        if (resp.status === 404) {
+          console.info('/api/demo-login not found (dev). Falling back to local demo mode.');
+          // Local demo fallback (same as catch fallback) — keep consistent behavior
           try {
-            const { data: existingProfile } = await supabase
-              .from('myday_users')
-              .select('id')
-              .eq('id', data.user.id)
-              .single();
+            localStorage.setItem('myday-demo', 'true');
+            const demoLocal = { id: 'demo', username: 'Demo User', email: DEMO_EMAIL, avatarEmoji: '🎯' };
+            localStorage.setItem('myday-demo-profile', JSON.stringify(demoLocal));
+            localStorage.setItem('myday-load-sample-data', 'true');
+            console.debug('AuthModal: local demo fallback written to localStorage');
+            onSuccess();
+            onClose();
+            return;
+          } catch (e) {
+            // If localStorage fails, fall through to error handling below
+            console.warn('Failed to write local demo profile during fallback:', e);
+            throw new Error('Demo login fallback failed');
+          }
+        } else {
+          const body = await resp.json().catch(() => ({}));
+          console.error('Demo login server error:', body?.error || resp.statusText || resp.status);
+          throw new Error('Demo login failed on server');
+        }
+      }
 
-            if (!existingProfile) {
-              await supabase.from('myday_users').insert({
-                id: data.user.id,
+      const json = await resp.json();
+      console.debug('AuthModal: /api/demo-login response parsed', { hasSession: !!json?.session });
+      const session = json?.session;
+
+      if (session && session.access_token && session.refresh_token) {
+        const client = getSupabaseClient();
+        if (!client) throw new Error('Supabase client not configured');
+
+        // Set session in client (password never touched by browser)
+        await client.auth.setSession({
+          access_token: session.access_token,
+          refresh_token: session.refresh_token
+        });
+
+        // Trigger profile creation check (server may have created profile already)
+        try {
+          const { data: user } = await client.auth.getUser();
+          if (user?.user) {
+            try {
+              await client.from('myday_users').upsert({
+                id: user.user.id,
                 username: 'Demo User',
-                email: DEMO_EMAIL,
+                email: user.user.email,
                 avatar_emoji: '🎯'
               });
-            }
-          } catch (profileError) {
-            console.error('Demo profile create error:', profileError);
-          }
-
-          // If a demo safe password is provided, try to set it (idempotent check inside)
-          if (DEMO_SAFE_PASSWORD) {
-            try {
-              await setMasterPassword(DEMO_SAFE_PASSWORD);
-            } catch (mpErr) {
-              // ignore if already set or other issues
-              console.warn('Could not set demo master password (might already exist):', mpErr);
+            } catch (e) {
+              // ignore
             }
           }
-
-          onSuccess();
-          onClose();
-          return;
-        } catch (signinErr: any) {
-          // If sign in failed, try sign up then sign in
-          try {
-            const { data, error: signUpError } = await signUp(DEMO_EMAIL, DEMO_PASSWORD);
-            if (signUpError && !/already registered|already exists|User already registered/i.test(signUpError.message || '')) {
-              throw signUpError;
-            }
-
-            if (data?.user) {
-              try {
-                await supabase.from('myday_users').insert({
-                  id: data.user.id,
-                  username: 'Demo User',
-                  email: DEMO_EMAIL,
-                  avatar_emoji: '🎯'
-                });
-              } catch (profileError: any) {
-                if (!profileError.message?.includes('duplicate') && !profileError.message?.includes('unique')) {
-                  console.error('Error creating demo profile after signup:', profileError);
-                }
-              }
-            }
-
-            // Attempt sign in again
-            const signinResult = await signIn(DEMO_EMAIL, DEMO_PASSWORD);
-            if (signinResult?.user) {
-              if (DEMO_SAFE_PASSWORD) {
-                try { await setMasterPassword(DEMO_SAFE_PASSWORD); } catch {
-                  /* ignore */
-                }
-              }
-              onSuccess();
-              onClose();
-              return;
-            }
-          } catch (suErr) {
-            console.error('Demo supabase signup/signin error:', suErr);
-            // fall through to local mode
-          }
-        }
-      }
-
-      // Fall back to local demo mode: set demo flag and demo profile in localStorage
-      localStorage.setItem('myday-demo', 'true');
-      const demoLocal = {
-        id: 'demo',
-        username: 'Demo User',
-        email: DEMO_EMAIL,
-        avatarEmoji: '🎯'
-      };
-      localStorage.setItem('myday-demo-profile', JSON.stringify(demoLocal));
-      // Store demo safe password locally so Safe UI can use it (app currently uses Supabase for Safe; this is best-effort)
-      if (DEMO_SAFE_PASSWORD) {
-        try {
-          localStorage.setItem('myday-demo-safe-password', DEMO_SAFE_PASSWORD);
         } catch (e) {
-          console.warn('Failed to store demo safe password locally:', e);
+          // ignore
         }
-      }
-      localStorage.setItem('myday-load-sample-data', 'true');
 
-      onSuccess();
-      onClose();
+        onSuccess();
+        onClose();
+        return;
+      }
+
+      throw new Error('Demo login returned no session');
     } catch (err: any) {
       console.error('Demo login error:', err);
-      setError(err.message || 'Demo login failed');
+      // Fall back to local demo mode if server-side fails
+      try {
+        localStorage.setItem('myday-demo', 'true');
+        const demoLocal = { id: 'demo', username: 'Demo User', email: DEMO_EMAIL, avatarEmoji: '🎯' };
+        localStorage.setItem('myday-demo-profile', JSON.stringify(demoLocal));
+        localStorage.setItem('myday-load-sample-data', 'true');
+        onSuccess();
+        onClose();
+        return;
+      } catch (e) {
+        setError(err.message || 'Demo login failed');
+      }
     } finally {
       setLoading(false);
     }

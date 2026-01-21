@@ -38,12 +38,15 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             email: demoProfile.email,
             user_metadata: { username: demoProfile.username }
           };
+          console.debug('AuthProvider: demo mode enabled, using synthetic demo user', { demoProfile: { id: demoProfile.id, email: demoProfile.email } });
           setUser(demoUser as unknown as User);
           setLoading(false);
           return;
         }
 
+        console.debug('AuthProvider: calling getCurrentUser()');
         const currentUser = await getCurrentUser();
+        console.debug('AuthProvider: getCurrentUser returned', !!currentUser);
         setUser(currentUser);
       } catch (error) {
         console.error('Error loading user:', error);
@@ -59,12 +62,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   // Listen to auth state changes
   useEffect(() => {
     const unsubscribe = onAuthStateChange((event, session) => {
+      console.debug('AuthProvider:onAuthStateChange', { event, hasSession: !!session });
       if (session?.user) {
         setUser(session.user);
       } else {
         setUser(null);
       }
-      
+
       setLoading(false);
     });
 

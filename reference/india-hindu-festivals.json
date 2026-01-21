@@ -1,0 +1,259 @@
+{
+  "calendar": {
+    "id": "india-hindu-festivals",
+    "name": "India Hindu Religious Festivals",
+    "country": "IN",
+    "calendarType": "religious",
+    "religion": "Hinduism",
+    "isPreloaded": true,
+    "deduplicationStrategy": "day.id",
+    "description": "Major Hindu festivals of India based on the Hindu Panchang (lunar calendar).",
+    "version": "1.0"
+  },
+
+  "events": [
+
+    {
+      "day": {
+        "id": "IN-MAKAR-SANKRANTI",
+        "recurrence": "YEARLY",
+        "monthDay": "01-14"
+      },
+      "event": {
+        "name": "Makar Sankranti",
+        "category": "religious",
+        "importanceLevel": 95,
+        "significance": "Marks the Sun’s transition into Capricorn (Makara).",
+        "localCustoms": ["Kite flying", "Til-gud sweets", "Holy river dips"],
+        "states": ["Pan-India"],
+        "media": {
+          "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/0/03/Makar_Sankranti_kites.jpg",
+          "infoUrl": "https://en.wikipedia.org/wiki/Makar_Sankranti"
+        }
+      }
+    },
+
+    {
+      "day": {
+        "id": "IN-MAHA-SHIVRATRI",
+        "recurrence": "YEARLY",
+        "calendarSystem": "HINDU_PANCHANG",
+        "approxMonth": "02"
+      },
+      "event": {
+        "name": "Maha Shivratri",
+        "category": "religious",
+        "importanceLevel": 100,
+        "significance": "Dedicated to Lord Shiva; night of cosmic dance.",
+        "panchangElements": {
+          "tithi": "Chaturdashi",
+          "paksha": "Krishna Paksha",
+          "masa": "Phalguna"
+        },
+        "localCustoms": ["Night vigil", "Abhishekam", "Fasting"],
+        "fasting": true,
+        "media": {
+          "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/5/55/Mahashivratri_Linga.jpg",
+          "infoUrl": "https://en.wikipedia.org/wiki/Maha_Shivaratri"
+        }
+      }
+    },
+
+    {
+      "day": {
+        "id": "IN-HOLI",
+        "recurrence": "YEARLY",
+        "calendarSystem": "HINDU_PANCHANG",
+        "approxMonth": "03"
+      },
+      "event": {
+        "name": "Holi",
+        "category": "religious",
+        "importanceLevel": 100,
+        "significance": "Festival of colors celebrating victory of good over evil.",
+        "panchangElements": {
+          "tithi": "Purnima",
+          "masa": "Phalguna"
+        },
+        "localCustoms": ["Holika Dahan", "Color play"],
+        "media": {
+          "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/6/6f/Holi_festival_colors.jpg",
+          "infoUrl": "https://en.wikipedia.org/wiki/Holi"
+        }
+      }
+    },
+
+    {
+      "day": {
+        "id": "IN-RAM-NAVAMI",
+        "recurrence": "YEARLY",
+        "calendarSystem": "HINDU_PANCHANG",
+        "approxMonth": "04"
+      },
+      "event": {
+        "name": "Ram Navami",
+        "category": "religious",
+        "importanceLevel": 95,
+        "significance": "Birth of Lord Rama.",
+        "panchangElements": {
+          "tithi": "Navami",
+          "masa": "Chaitra"
+        },
+        "localCustoms": ["Temple visits", "Ramayana recitations"],
+        "media": {
+          "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/2/2d/Ram_Navami_celebration.jpg",
+          "infoUrl": "https://en.wikipedia.org/wiki/Rama_Navami"
+        }
+      }
+    },
+
+    {
+      "day": {
+        "id": "IN-HANUMAN-JAYANTI",
+        "recurrence": "YEARLY",
+        "calendarSystem": "HINDU_PANCHANG",
+        "approxMonth": "04"
+      },
+      "event": {
+        "name": "Hanuman Jayanti",
+        "category": "religious",
+        "importanceLevel": 90,
+        "significance": "Birth of Lord Hanuman.",
+        "localCustoms": ["Hanuman Chalisa chanting"],
+        "media": {
+          "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/3/3a/Hanuman_statue.jpg"
+        }
+      }
+    },
+
+    {
+      "day": {
+        "id": "IN-JANMASHTAMI",
+        "recurrence": "YEARLY",
+        "calendarSystem": "HINDU_PANCHANG",
+        "approxMonth": "08"
+      },
+      "event": {
+        "name": "Krishna Janmashtami",
+        "category": "religious",
+        "importanceLevel": 100,
+        "significance": "Birth of Lord Krishna.",
+        "panchangElements": {
+          "tithi": "Ashtami",
+          "paksha": "Krishna Paksha",
+          "masa": "Bhadrapada"
+        },
+        "localCustoms": ["Midnight celebrations", "Dahi Handi"],
+        "fasting": true,
+        "media": {
+          "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/1/1f/Dahi_Handi_Mumbai.jpg",
+          "infoUrl": "https://en.wikipedia.org/wiki/Krishna_Janmashtami"
+        }
+      }
+    },
+
+    {
+      "day": {
+        "id": "IN-GANESH-CHATURTHI",
+        "recurrence": "YEARLY",
+        "calendarSystem": "HINDU_PANCHANG",
+        "approxMonth": "09"
+      },
+      "event": {
+        "name": "Ganesh Chaturthi",
+        "category": "religious",
+        "importanceLevel": 100,
+        "significance": "Birth of Lord Ganesha.",
+        "panchangElements": {
+          "tithi": "Chaturthi",
+          "masa": "Bhadrapada"
+        },
+        "localCustoms": ["Idol installation", "Visarjan"],
+        "media": {
+          "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/7/77/Ganesh_Visarjan.jpg",
+          "infoUrl": "https://en.wikipedia.org/wiki/Ganesh_Chaturthi"
+        }
+      }
+    },
+
+    {
+      "day": {
+        "id": "IN-NAVRATRI",
+        "recurrence": "YEARLY",
+        "calendarSystem": "HINDU_PANCHANG",
+        "approxMonth": "10"
+      },
+      "event": {
+        "name": "Sharad Navratri",
+        "category": "religious",
+        "importanceLevel": 100,
+        "significance": "Nine nights dedicated to Goddess Durga.",
+        "durationDays": 9,
+        "localCustoms": ["Garba", "Durga Puja", "Fasting"],
+        "media": {
+          "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/1/15/Navratri_Garba.jpg",
+          "infoUrl": "https://en.wikipedia.org/wiki/Navaratri"
+        }
+      }
+    },
+
+    {
+      "day": {
+        "id": "IN-DUSSEHRA",
+        "recurrence": "YEARLY",
+        "calendarSystem": "HINDU_PANCHANG",
+        "approxMonth": "10"
+      },
+      "event": {
+        "name": "Dussehra (Vijayadashami)",
+        "category": "religious",
+        "importanceLevel": 100,
+        "significance": "Victory of good over evil.",
+        "media": {
+          "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/6/6b/Dussehra_Ravana_burning.jpg",
+          "infoUrl": "https://en.wikipedia.org/wiki/Vijayadashami"
+        }
+      }
+    },
+
+    {
+      "day": {
+        "id": "IN-DIWALI",
+        "recurrence": "YEARLY",
+        "calendarSystem": "HINDU_PANCHANG",
+        "approxMonth": "10"
+      },
+      "event": {
+        "name": "Diwali",
+        "category": "religious",
+        "importanceLevel": 100,
+        "significance": "Festival of lights.",
+        "durationDays": 5,
+        "localCustoms": ["Lakshmi Puja", "Fireworks", "Diyas"],
+        "media": {
+          "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/3/3f/Diwali_lamps.jpg",
+          "infoUrl": "https://en.wikipedia.org/wiki/Diwali"
+        }
+      }
+    },
+
+    {
+      "day": {
+        "id": "IN-CHHATH",
+        "recurrence": "YEARLY",
+        "calendarSystem": "HINDU_PANCHANG",
+        "approxMonth": "11"
+      },
+      "event": {
+        "name": "Chhath Puja",
+        "category": "religious",
+        "importanceLevel": 95,
+        "significance": "Sun worship festival of eastern India.",
+        "media": {
+          "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/4/45/Chhath_Puja_river.jpg"
+        }
+      }
+    }
+
+  ]
+}

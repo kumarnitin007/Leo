@@ -17,17 +17,24 @@ let supabaseClient: SupabaseClient | null = null;
  */
 export const getSupabaseClient = (): SupabaseClient | null => {
   if (!supabaseUrl || !supabaseAnonKey) {
+    // Helpful debug information for local dev
+    console.debug('getSupabaseClient: SUPABASE_URL or SUPABASE_ANON_KEY missing', {
+      supabaseUrlPresent: !!supabaseUrl,
+      supabaseAnonKeyPresent: !!supabaseAnonKey
+    });
     console.warn('Supabase credentials not found. Using localStorage fallback.');
     return null;
   }
 
   if (!supabaseClient) {
+    console.debug('getSupabaseClient: creating new Supabase client (anon)');
     supabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
       auth: {
         persistSession: true,
         autoRefreshToken: true,
       },
     });
+    console.debug('getSupabaseClient: supabase client created');
   }
 
   return supabaseClient;

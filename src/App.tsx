@@ -24,6 +24,7 @@ import SettingsView from './SettingsView';
 import ItemsView from './ItemsView';
 import SafeView from './SafeView';
 import TimerView from './TimerView';
+import ResolutionsView from './ResolutionsView';
 import FloatingTimerButton from './components/FloatingTimerButton';
 import FloatingGiftCardsButton from './components/FloatingGiftCardsButton';
 import FloatingMilestonesButton from './components/FloatingMilestonesButton';
@@ -39,7 +40,7 @@ import AuthModal from './components/AuthModal';
 import { isFirstTimeUser, markOnboardingComplete } from './storage';
 import { loadSampleTasks } from './utils/sampleData';
 
-type View = 'today' | 'tasks-events' | 'items' | 'journal' | 'analytics' | 'settings' | 'safe';
+type View = 'today' | 'tasks-events' | 'items' | 'journal' | 'resolutions' | 'analytics' | 'settings' | 'safe';
 
 /**
  * Main App Content Component
@@ -162,6 +163,8 @@ const AppContent: React.FC = () => {
         return <ItemsView key={`items-${key}`} onNavigate={handleNavigate} />;
       case 'journal':
         return <JournalView key={`journal-${key}`} />;
+      case 'resolutions':
+        return <ResolutionsView key={`resolutions-${key}`} />;
       case 'analytics':
         return <AnalyticsView key={`analytics-${key}`} />;
       case 'settings':
@@ -238,6 +241,15 @@ const AppContent: React.FC = () => {
           >
             <span className="nav-icon">📔</span>
             <span className="nav-text">Journal</span>
+          </button>
+          <button
+            className={`nav-button ${currentView === 'resolutions' ? 'active' : ''}`}
+            onClick={() => handleNavigate('resolutions')}
+            title="Resolutions & Goals"
+            style={currentView === 'resolutions' ? { backgroundColor: theme.colors.primary } : {}}
+          >
+            <span className="nav-icon">🎯</span>
+            <span className="nav-text">Resolutions</span>
           </button>
           <button
             className={`nav-button ${currentView === 'analytics' ? 'active' : ''}`}

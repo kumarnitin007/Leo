@@ -1,0 +1,204 @@
+{
+  "version": "1.0",
+  "description": "Business & Important Dates - Professional & Personal Milestones",
+  "events": [
+    {
+      "name": "New Year's Day",
+      "description": "Start of the calendar year",
+      "category": "Important Date",
+      "date": "01-01",
+      "frequency": "yearly",
+      "notifyDaysBefore": 3,
+      "priority": 10,
+      "color": "#4169e1",
+      "tags": ["Milestone", "New Year"]
+    },
+    {
+      "name": "Fiscal Year Start (India)",
+      "description": "Start of financial year in India",
+      "category": "Business",
+      "date": "04-01",
+      "frequency": "yearly",
+      "notifyDaysBefore": 7,
+      "priority": 9,
+      "color": "#1e90ff",
+      "tags": ["Business", "Financial"]
+    },
+    {
+      "name": "Mid-Year Review",
+      "description": "Time to review first half progress and plan second half",
+      "category": "Business",
+      "date": "07-01",
+      "frequency": "yearly",
+      "notifyDaysBefore": 0,
+      "priority": 7,
+      "color": "#ff8c00",
+      "tags": ["Business", "Review", "Milestone"]
+    },
+    {
+      "name": "World Environment Day",
+      "description": "Global day to encourage awareness about the environment",
+      "category": "Important Date",
+      "date": "06-05",
+      "frequency": "yearly",
+      "notifyDaysBefore": 2,
+      "priority": 6,
+      "color": "#228b22",
+      "tags": ["Awareness", "Environment"]
+    },
+    {
+      "name": "International Women's Day",
+      "description": "Celebrates the achievements and contributions of women",
+      "category": "Important Date",
+      "date": "03-08",
+      "frequency": "yearly",
+      "notifyDaysBefore": 1,
+      "priority": 7,
+      "color": "#ff1493",
+      "tags": ["Awareness", "Milestone"]
+    },
+    {
+      "name": "World Health Day",
+      "description": "Global health awareness day",
+      "category": "Important Date",
+      "date": "04-07",
+      "frequency": "yearly",
+      "notifyDaysBefore": 2,
+      "priority": 6,
+      "color": "#32cd32",
+      "tags": ["Health", "Awareness"]
+    },
+    {
+      "name": "International Day of Yoga",
+      "description": "Global day to promote yoga and wellness",
+      "category": "Important Date",
+      "date": "06-21",
+      "frequency": "yearly",
+      "notifyDaysBefore": 3,
+      "priority": 7,
+      "color": "#ff6347",
+      "tags": ["Health", "Wellness", "Awareness"]
+    },
+    {
+      "name": "Teachers' Day",
+      "description": "Celebrates the role of teachers in society",
+      "category": "Important Date",
+      "date": "09-05",
+      "frequency": "yearly",
+      "notifyDaysBefore": 1,
+      "priority": 6,
+      "color": "#4169e1",
+      "tags": ["Appreciation", "Education"]
+    },
+    {
+      "name": "Cyber Security Awareness Day",
+      "description": "Promotes awareness about online safety and security",
+      "category": "Business",
+      "date": "10-30",
+      "frequency": "yearly",
+      "notifyDaysBefore": 3,
+      "priority": 6,
+      "color": "#ff0000",
+      "tags": ["Business", "Security", "Awareness"]
+    },
+    {
+      "name": "World Mental Health Day",
+      "description": "Global focus on mental health and well-being",
+      "category": "Important Date",
+      "date": "10-10",
+      "frequency": "yearly",
+      "notifyDaysBefore": 2,
+      "priority": 8,
+      "color": "#9370db",
+      "tags": ["Health", "Wellness", "Awareness"]
+    },
+    {
+      "name": "Black Friday & Cyber Monday",
+      "description": "Major shopping and business event",
+      "category": "Business",
+      "date": "11-29",
+      "frequency": "yearly",
+      "notifyDaysBefore": 7,
+      "priority": 5,
+      "color": "#000000",
+      "tags": ["Business", "Shopping"]
+    },
+    {
+      "name": "Year-End Planning",
+      "description": "Final quarter review and plan for next year",
+      "category": "Business",
+      "date": "12-01",
+      "frequency": "yearly",
+      "notifyDaysBefore": 0,
+      "priority": 9,
+      "color": "#ff6347",
+      "tags": ["Business", "Review", "Planning", "Milestone"]
+    },
+    {
+      "name": "Financial Year-End (India)",
+      "description": "End of financial year in India - important for taxes and filings",
+      "category": "Business",
+      "date": "03-31",
+      "frequency": "yearly",
+      "notifyDaysBefore": 14,
+      "priority": 10,
+      "color": "#1e90ff",
+      "tags": ["Business", "Financial", "Important"]
+    },
+    {
+      "name": "Income Tax Filing Deadline (India)",
+      "description": "Last date for filing income tax returns",
+      "category": "Business",
+      "date": "07-31",
+      "frequency": "yearly",
+      "notifyDaysBefore": 30,
+      "priority": 10,
+      "color": "#dc143c",
+      "tags": ["Business", "Financial", "Important", "Deadline"]
+    },
+    {
+      "name": "Quarterly Business Review Q1",
+      "description": "First quarter review meeting",
+      "category": "Business",
+      "date": "04-10",
+      "frequency": "yearly",
+      "notifyDaysBefore": 5,
+      "priority": 7,
+      "color": "#1e90ff",
+      "tags": ["Business", "Review"]
+    },
+    {
+      "name": "Quarterly Business Review Q2",
+      "description": "Second quarter review meeting",
+      "category": "Business",
+      "date": "07-10",
+      "frequency": "yearly",
+      "notifyDaysBefore": 5,
+      "priority": 7,
+      "color": "#1e90ff",
+      "tags": ["Business", "Review"]
+    },
+    {
+      "name": "Quarterly Business Review Q3",
+      "description": "Third quarter review meeting",
+      "category": "Business",
+      "date": "10-10",
+      "frequency": "yearly",
+      "notifyDaysBefore": 5,
+      "priority": 7,
+      "color": "#1e90ff",
+      "tags": ["Business", "Review"]
+    },
+    {
+      "name": "Quarterly Business Review Q4",
+      "description": "Fourth quarter review meeting",
+      "category": "Business",
+      "date": "01-10",
+      "frequency": "yearly",
+      "notifyDaysBefore": 5,
+      "priority": 7,
+      "color": "#1e90ff",
+      "tags": ["Business", "Review"]
+    }
+  ]
+}

@@ -1,0 +1,61 @@
+{
+  "calendar": {
+    "id": "india-national-holidays",
+    "name": "India National Holidays",
+    "country": "IN",
+    "calendarType": "national",
+    "isPreloaded": true,
+    "deduplicationStrategy": "day.id",
+    "description": "Official national public holidays observed across India.",
+    "version": "1.0"
+  },
+
+  "events": [
+
+    {
+      "day": { "id": "IN-01-26", "monthDay": "01-26", "recurrence": "YEARLY" },
+      "event": {
+        "name": "Republic Day",
+        "category": "national",
+        "importanceLevel": 100,
+        "significance": "Adoption of the Constitution of India in 1950.",
+        "localCustoms": ["Republic Day Parade", "Flag hoisting"],
+        "media": {
+          "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/5/5b/Republic_Day_Parade.jpg",
+          "infoUrl": "https://en.wikipedia.org/wiki/Republic_Day_(India)"
+        },
+        "crossAssociationTags": ["constitution", "patriotism"]
+      }
+    },
+
+    {
+      "day": { "id": "IN-08-15", "monthDay": "08-15", "recurrence": "YEARLY" },
+      "event": {
+        "name": "Independence Day",
+        "category": "national",
+        "importanceLevel": 100,
+        "significance": "Independence from British rule in 1947.",
+        "localCustoms": ["Flag hoisting", "Cultural programs"],
+        "media": {
+          "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/6/6b/Independence_Day_Red_Fort.jpg",
+          "infoUrl": "https://en.wikipedia.org/wiki/Independence_Day_(India)"
+        }
+      }
+    },
+
+    {
+      "day": { "id": "IN-10-02", "monthDay": "10-02", "recurrence": "YEARLY" },
+      "event": {
+        "name": "Gandhi Jayanti",
+        "category": "national",
+        "importanceLevel": 95,
+        "significance": "Birth anniversary of Mahatma Gandhi.",
+        "media": {
+          "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/1/1e/Mahatma_Gandhi.jpg",
+          "infoUrl": "https://en.wikipedia.org/wiki/Gandhi_Jayanti"
+        }
+      }
+    }
+
+  ]
+}

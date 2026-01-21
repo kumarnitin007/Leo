@@ -1,0 +1,73 @@
+calendar_id,calendar_name,calendar_description,calendar_domain,calendar_type,geography,religion,day_id,date,month,day_of_month,event_name,event_category,importance_level,event_description,tags,states,local_customs,primary_color,mood,icon,image_url,source,notes
+india-national-holidays,India National Holidays,Official national public holidays observed across India.,holiday,reference,IN,,IN-01-26,2026-01-26,1,26,Republic Day,holiday,100,Adoption of the Constitution of India,constitution|patriotism,Pan-India,National celebration,#FF9800,patriotic,flag,https://example.com/republic-day.jpg,Government of India,National holiday
+india-national-holidays,India National Holidays,Official national public holidays observed across India.,holiday,reference,IN,,IN-03-25,2026-03-25,3,25,Holi,festival,95,Festival of colors marking arrival of spring,hindu|religious|spring,Pan-India,Color play|Holika Dahan,#E91E63,celebratory,colors,https://example.com/holi.jpg,Government of India,Festival of lights and colors
+us-federal-holidays,United States Federal Holidays,Official public holidays recognized by the United States federal government.,holiday,reference,US,,US-07-04,2026-07-04,7,4,Independence Day,holiday,100,Declaration of Independence from Britain,national|patriotic,Pan-US,Fireworks|Family gatherings,#1976D2,patriotic,fireworks,https://example.com/july-4th.jpg,U.S. Office of Personnel Management,National federal holiday
+japan-national-holidays,Japan National Holidays,Official public holidays in Japan.,holiday,reference,JP,,JP-05-05,2026-05-05,5,5,Children's Day,holiday,85,Celebrates children and youth,national|family,Pan-Japan,Koinobori (flying carp),#4CAF50,celebratory,children,https://example.com/childrens-day.jpg,Government of Japan,National holiday
+us-cultural-holidays,US Cultural & Social Observances,Cultural and social observances widely followed in the United States.,cultural,reference,US,,US-02-14,2026-02-14,2,14,Valentine's Day,social,85,Celebration of love and affection,love|romance|celebration,Pan-US,Cards|Flowers|Chocolates,#E91E63,romantic,heart,https://example.com/valentines.jpg,Cultural Observance,Social observance
+india-hindu-festivals,India Hindu Religious Festivals,Major Hindu festivals of India based on the Hindu Panchang (lunar calendar).,religious,reference,IN,Hindu,IN-10-29,2026-10-29,10,29,Diwali,festival,100,Festival of lights and prosperity,hindu|religious|lights,Pan-India,Diyas|Fireworks|Lakshmi Puja,#FFD700,celebratory,lights,https://example.com/diwali.jpg,Hindu Calendar,Major 5-day festival
+india-state-holidays,India State & UT Holidays,State and Union Territory specific public holidays of India.,holiday,reference,IN,,IN-ONAM,2026-09-15,9,15,Onam,festival,100,Harvest festival celebrating King Mahabali,kerala|regional|harvest,Kerala,Pookalam|Boat races,#008000,celebratory,flowers,https://example.com/onam.jpg,Government of India,State-specific holiday
+
+# ============================================================
+# CSV COLUMN DEFINITIONS
+# ============================================================
+# calendar_id: Unique identifier for the calendar (lowercase-hyphenated)
+# calendar_name: Display name of the calendar
+# calendar_description: What this calendar represents
+# calendar_domain: holiday, festival, religious, cultural, birthday, observance
+# calendar_type: reference, user-created
+# geography: Country code (IN, US, JP, GLOBAL, etc.)
+# religion: Religion (Hindu, Islamic, Christian, Buddhist, etc.) - leave blank for secular
+# day_id: Unique identifier for the day (COUNTRY-MONTH-DAY or GLOBAL-MONTH-DAY)
+# date: Full date in YYYY-MM-DD format (e.g., 2026-01-26)
+# month: Month number 1-12
+# day_of_month: Day of month 1-31
+# event_name: Display name of the event/holiday
+# event_category: holiday, festival, religious, cultural, birthday, observance, social, family, memorial
+# importance_level: 1-100 scale (100=most important)
+# event_description: Detailed description of the event
+# tags: Pipe-separated list of tags (tag1|tag2|tag3)
+# states: Pipe-separated list of states/regions (e.g., "Tamil Nadu|Maharashtra")
+# local_customs: Pipe-separated list of customs (e.g., "Kite flying|Food traditions")
+# primary_color: Hex color code for UI display (e.g., #FF9800)
+# mood: celebratory, solemn, joyful, festive, patriotic, romantic
+# icon: Descriptive icon name (flag, colors, lights, fireworks, heart, flowers, etc.)
+# image_url: URL to representative image
+# source: Source/Authority (e.g., 'Government of India', 'Wikipedia')
+# notes: Any additional notes or context
+
+# ============================================================
+# INSTRUCTIONS FOR USING THIS CSV TEMPLATE
+# ============================================================
+# 1. Each row represents a DAY linked to a CALENDAR
+# 2. If the same day appears in multiple calendars, create separate rows
+# 3. Use consistent calendar_id for all days in the same calendar
+# 4. Dates must be in YYYY-MM-DD format
+# 5. Tags and customs are pipe-separated (|) with NO SPACES
+# 6. Importance level: 1-50 (minor), 51-75 (moderate), 76-100 (major)
+# 7. Leave blank fields empty (just use commas)
+# 8. Do NOT include quotes around values unless they contain commas
+# 9. For future imports, copy this template and fill in your data
+
+# ============================================================
+# COLUMN MAPPING TO DATABASE
+# ============================================================
+# calendar_id → myday_reference_calendars.id
+# calendar_name → myday_reference_calendars.name
+# calendar_description → myday_reference_calendars.description
+# calendar_domain → myday_reference_calendars.domain
+# geography → myday_reference_calendars.geography
+# religion → myday_reference_calendars.religion
+# day_id → myday_reference_days.id
+# date → myday_reference_days.date
+# month → myday_reference_days.month
+# day_of_month → myday_reference_days.day_of_month
+# event_name → myday_reference_days.event_name
+# event_category → myday_reference_days.event_category
+# importance_level → myday_reference_days.importance_level
+# event_description → myday_reference_days.event_description
+# tags → myday_reference_days.tags (converted to array)
+# states → myday_reference_days.tags (if applicable)
+# primary_color → myday_reference_days.primary_color
+# mood → myday_reference_days.mood
+# icon → myday_reference_days.icon
+# image_url → myday_reference_days.image_url

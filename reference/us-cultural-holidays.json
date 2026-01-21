@@ -1,0 +1,199 @@
+{
+  "calendar": {
+    "id": "us-cultural-holidays",
+    "name": "US Cultural & Social Observances",
+    "country": "US",
+    "calendarType": "culture",
+    "isPreloaded": true,
+    "deduplicationStrategy": "day.id",
+    "description": "Cultural, social, lifestyle, and awareness observances widely followed in the United States.",
+    "version": "1.0"
+  },
+
+  "events": [
+
+    {
+      "day": {
+        "id": "US-02-14",
+        "monthDay": "02-14",
+        "recurrence": "YEARLY"
+      },
+      "event": {
+        "name": "Valentine’s Day",
+        "category": "social",
+        "importanceLevel": 85,
+        "significance": "Celebration of love, romance, and affection.",
+        "localCustoms": ["Exchanging cards", "Flowers and chocolates", "Romantic dinners"],
+        "crossAssociationTags": ["love", "relationships"],
+        "media": {
+          "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/3/3e/Valentine%27s_Day_candies.jpg",
+          "infoUrl": "https://en.wikipedia.org/wiki/Valentine%27s_Day"
+        },
+        "visualTheme": {
+          "primaryColor": "#E91E63",
+          "icon": "heart",
+          "mood": "romantic"
+        }
+      }
+    },
+
+    {
+      "day": {
+        "id": "US-BLACK-HISTORY-MONTH",
+        "month": "02",
+        "recurrence": "YEARLY",
+        "duration": "MONTH"
+      },
+      "event": {
+        "name": "Black History Month",
+        "category": "cultural",
+        "importanceLevel": 95,
+        "significance": "Honors the achievements and contributions of African Americans.",
+        "localCustoms": ["Educational programs", "Community events"],
+        "crossAssociationTags": ["history", "civil-rights"],
+        "media": {
+          "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/8/84/Black_History_Month_banner.jpg",
+          "infoUrl": "https://en.wikipedia.org/wiki/Black_History_Month"
+        }
+      }
+    },
+
+    {
+      "day": {
+        "id": "US-MOTHERS-DAY",
+        "recurrence": "YEARLY",
+        "rule": "Second Sunday of May"
+      },
+      "event": {
+        "name": "Mother’s Day",
+        "category": "family",
+        "importanceLevel": 95,
+        "significance": "Honors mothers and mother figures.",
+        "localCustoms": ["Cards", "Flowers", "Family meals"],
+        "crossAssociationTags": ["family"],
+        "media": {
+          "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/1/1e/Mothers_Day_flowers.jpg",
+          "infoUrl": "https://en.wikipedia.org/wiki/Mother%27s_Day"
+        }
+      }
+    },
+
+    {
+      "day": {
+        "id": "US-FATHERS-DAY",
+        "recurrence": "YEARLY",
+        "rule": "Third Sunday of June"
+      },
+      "event": {
+        "name": "Father’s Day",
+        "category": "family",
+        "importanceLevel": 90,
+        "significance": "Honors fathers and father figures.",
+        "localCustoms": ["Cards", "Gifts", "Family gatherings"],
+        "crossAssociationTags": ["family"],
+        "media": {
+          "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/5/57/Fathers_Day_card.jpg",
+          "infoUrl": "https://en.wikipedia.org/wiki/Father%27s_Day"
+        }
+      }
+    },
+
+    {
+      "day": {
+        "id": "US-SISTERS-DAY",
+        "monthDay": "08-04",
+        "recurrence": "YEARLY"
+      },
+      "event": {
+        "name": "National Sisters Day",
+        "category": "family",
+        "importanceLevel": 70,
+        "significance": "Celebrates the bond between sisters.",
+        "localCustoms": ["Messages", "Photos", "Family appreciation posts"],
+        "media": {
+          "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/9/9c/Sisters_hugging.jpg",
+          "infoUrl": "https://nationaltoday.com/national-sisters-day/"
+        }
+      }
+    },
+
+    {
+      "day": {
+        "id": "US-GRANDPARENTS-DAY",
+        "recurrence": "YEARLY",
+        "rule": "First Sunday after Labor Day"
+      },
+      "event": {
+        "name": "National Grandparents Day",
+        "category": "family",
+        "importanceLevel": 75,
+        "significance": "Honors grandparents and intergenerational relationships.",
+        "localCustoms": ["Family visits", "Cards"],
+        "media": {
+          "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/6/6e/Grandparents_with_grandchild.jpg",
+          "infoUrl": "https://en.wikipedia.org/wiki/National_Grandparents_Day"
+        }
+      }
+    },
+
+    {
+      "day": {
+        "id": "US-HALLOWEEN",
+        "monthDay": "10-31",
+        "recurrence": "YEARLY"
+      },
+      "event": {
+        "name": "Halloween",
+        "category": "cultural",
+        "importanceLevel": 90,
+        "significance": "Celebration with costumes, trick-or-treating, and spooky themes.",
+        "localCustoms": ["Costumes", "Candy", "Pumpkin carving"],
+        "media": {
+          "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/6/6b/Halloween_pumpkins.jpg",
+          "infoUrl": "https://en.wikipedia.org/wiki/Halloween"
+        }
+      }
+    },
+
+    {
+      "day": {
+        "id": "US-PRIDE-MONTH",
+        "month": "06",
+        "recurrence": "YEARLY",
+        "duration": "MONTH"
+      },
+      "event": {
+        "name": "Pride Month",
+        "category": "cultural",
+        "importanceLevel": 95,
+        "significance": "Celebrates LGBTQ+ communities and rights.",
+        "localCustoms": ["Parades", "Community events"],
+        "crossAssociationTags": ["diversity", "inclusion"],
+        "media": {
+          "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/5/5b/Pride_parade_rainbow_flag.jpg",
+          "infoUrl": "https://en.wikipedia.org/wiki/Pride_Month"
+        }
+      }
+    },
+
+    {
+      "day": {
+        "id": "US-911-REMEMBRANCE",
+        "monthDay": "09-11",
+        "recurrence": "YEARLY"
+      },
+      "event": {
+        "name": "September 11 Remembrance Day",
+        "category": "memorial",
+        "importanceLevel": 100,
+        "significance": "Commemorates the victims of the September 11 attacks.",
+        "localCustoms": ["Moments of silence", "Memorial ceremonies"],
+        "media": {
+          "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/7/72/9-11_Memorial.jpg",
+          "infoUrl": "https://en.wikipedia.org/wiki/September_11_attacks"
+        }
+      }
+    }
+
+  ]
+}

@@ -1,0 +1,235 @@
+{
+  "calendar": {
+    "id": "india-religious-hindu",
+    "name": "Indian Hindu Religious Festivals",
+    "description": "Complete list of major Hindu religious festivals observed across India with Panchang-based calculations",
+    "domain": "festival",
+    "religion": "Hindu",
+    "geography": "IN",
+    "calendarType": "reference",
+    "isPreloaded": true,
+    "isUserEditable": false,
+    "version": "2026",
+    "source": "Drik Panchang / Hindu Almanac"
+  },
+  "days": [
+
+    {
+      "day": { "id": "IN-2026-01-14", "date": "2026-01-14", "calendarSystem": "Hindu Solar" },
+      "event": {
+        "name": "Makar Sankranti",
+        "category": "Religious Festival",
+        "type": "solar",
+        "importanceLevel": 90,
+        "timeRelevance": "sunrise",
+        "panchang": {
+          "event": "Surya enters Makara (Capricorn)",
+          "source": "Solar Sankranti"
+        },
+        "significance": "Marks the sun’s northward journey (Uttarayana).",
+        "localCustoms": ["Holy dips", "Til-gud sweets", "Kite flying"],
+        "visualTheme": { "primaryColor": "#FFA000", "mood": "auspicious", "icon": "sun" },
+        "media": {
+          "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/8/8e/Makar_Sankranti_kites.jpg"
+        },
+        "approxFutureRule": "Always January 14 or 15",
+        "tags": ["harvest", "sun", "renewal"]
+      }
+    },
+
+    {
+      "day": { "id": "IN-2026-02-15", "date": "2026-02-15", "calendarSystem": "Hindu Lunar" },
+      "event": {
+        "name": "Vasant Panchami",
+        "category": "Religious Festival",
+        "type": "lunar",
+        "importanceLevel": 70,
+        "panchang": {
+          "tithi": "Panchami",
+          "paksha": "Shukla",
+          "masa": "Magha"
+        },
+        "significance": "Dedicated to Goddess Saraswati.",
+        "localCustoms": ["Saraswati Puja", "Wearing yellow"],
+        "media": {
+          "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/6/6f/Vasant_Panchami_Saraswati_Puja.jpg"
+        },
+        "tags": ["knowledge", "arts"]
+      }
+    },
+
+    {
+      "day": { "id": "IN-2026-02-17", "date": "2026-02-17", "calendarSystem": "Hindu Lunar" },
+      "event": {
+        "name": "Maha Shivaratri",
+        "category": "Religious Festival",
+        "importanceLevel": 95,
+        "timeRelevance": "night",
+        "panchang": {
+          "tithi": "Chaturdashi",
+          "paksha": "Krishna",
+          "masa": "Phalguna"
+        },
+        "significance": "Great night of Lord Shiva.",
+        "localCustoms": ["Night-long vigil", "Abhishekam", "Fasting"],
+        "media": {
+          "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/3/3e/Shivaratri_Puja.jpg"
+        },
+        "tags": ["shiva", "meditation"]
+      }
+    },
+
+    {
+      "day": { "id": "IN-2026-03-04", "date": "2026-03-04", "calendarSystem": "Hindu Lunar" },
+      "event": {
+        "name": "Holi",
+        "importanceLevel": 95,
+        "panchang": {
+          "tithi": "Purnima",
+          "masa": "Phalguna"
+        },
+        "significance": "Victory of good over evil; arrival of spring.",
+        "media": {
+          "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/6/6b/Holi_festival_of_colors.jpg"
+        },
+        "tags": ["colors", "spring"]
+      }
+    },
+
+    {
+      "day": { "id": "IN-2026-03-30", "date": "2026-03-30", "calendarSystem": "Hindu Lunar" },
+      "event": {
+        "name": "Ugadi / Gudi Padwa",
+        "importanceLevel": 80,
+        "panchang": {
+          "tithi": "Pratipada",
+          "masa": "Chaitra"
+        },
+        "significance": "Hindu New Year in many regions.",
+        "media": {
+          "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/4/4b/Gudi_Padwa_Gudi.jpg"
+        },
+        "tags": ["new-year"]
+      }
+    },
+
+    {
+      "day": { "id": "IN-2026-04-10", "date": "2026-04-10", "calendarSystem": "Hindu Lunar" },
+      "event": {
+        "name": "Rama Navami",
+        "importanceLevel": 85,
+        "panchang": {
+          "tithi": "Navami",
+          "masa": "Chaitra"
+        },
+        "significance": "Birth of Lord Rama.",
+        "media": {
+          "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/2/2f/Rama_Navami_celebration.jpg"
+        },
+        "tags": ["ram", "dharma"]
+      }
+    },
+
+    {
+      "day": { "id": "IN-2026-08-19", "date": "2026-08-19", "calendarSystem": "Hindu Lunar" },
+      "event": {
+        "name": "Raksha Bandhan",
+        "importanceLevel": 85,
+        "panchang": {
+          "tithi": "Purnima",
+          "masa": "Shravana"
+        },
+        "significance": "Celebrates sibling bond.",
+        "media": {
+          "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/7/7e/Raksha_Bandhan.jpg"
+        },
+        "tags": ["family"]
+      }
+    },
+
+    {
+      "day": { "id": "IN-2026-08-26", "date": "2026-08-26", "calendarSystem": "Hindu Lunar" },
+      "event": {
+        "name": "Janmashtami",
+        "importanceLevel": 95,
+        "panchang": {
+          "tithi": "Ashtami",
+          "masa": "Bhadrapada"
+        },
+        "significance": "Birth of Lord Krishna.",
+        "media": {
+          "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/5/5b/Janmashtami_dahi_handi.jpg"
+        },
+        "tags": ["krishna"]
+      }
+    },
+
+    {
+      "day": { "id": "IN-2026-09-17", "date": "2026-09-17", "calendarSystem": "Hindu Lunar" },
+      "event": {
+        "name": "Ganesh Chaturthi",
+        "importanceLevel": 95,
+        "panchang": {
+          "tithi": "Chaturthi",
+          "masa": "Bhadrapada"
+        },
+        "significance": "Birth of Lord Ganesha.",
+        "media": {
+          "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/5/55/Ganesh_Chaturthi_Mumbai.jpg"
+        },
+        "tags": ["ganesha"]
+      }
+    },
+
+    {
+      "day": { "id": "IN-2026-10-20", "date": "2026-10-20", "calendarSystem": "Hindu Lunar" },
+      "event": {
+        "name": "Dussehra (Vijaya Dashami)",
+        "importanceLevel": 95,
+        "panchang": {
+          "tithi": "Dashami",
+          "masa": "Ashwin"
+        },
+        "significance": "Victory of Rama over Ravana.",
+        "media": {
+          "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/6/6d/Dussehra_Ravana_effigy.jpg"
+        },
+        "tags": ["victory"]
+      }
+    },
+
+    {
+      "day": { "id": "IN-2026-11-08", "date": "2026-11-08", "calendarSystem": "Hindu Lunar" },
+      "event": {
+        "name": "Diwali",
+        "importanceLevel": 100,
+        "panchang": {
+          "tithi": "Amavasya",
+          "masa": "Kartika"
+        },
+        "significance": "Festival of lights.",
+        "approxFutureRule": "Late October or early November",
+        "media": {
+          "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/3/3f/Diwali_Diya.jpg"
+        },
+        "tags": ["lights", "prosperity"]
+      }
+    },
+
+    {
+      "day": { "id": "IN-2026-11-22", "date": "2026-11-22", "calendarSystem": "Hindu Lunar" },
+      "event": {
+        "name": "Chhath Puja",
+        "importanceLevel": 85,
+        "panchang": {
+          "masa": "Kartika"
+        },
+        "significance": "Worship of the Sun God.",
+        "media": {
+          "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/0/03/Chhath_Puja_Sunrise.jpg"
+        },
+        "tags": ["sun"]
+      }
+    }
+  ]
+}

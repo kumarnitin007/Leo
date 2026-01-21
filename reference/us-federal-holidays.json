@@ -1,0 +1,227 @@
+{
+  "calendar": {
+    "id": "us-federal-holidays",
+    "name": "United States Federal Holidays",
+    "country": "US",
+    "calendarType": "federal",
+    "isPreloaded": true,
+    "deduplicationStrategy": "day.id",
+    "description": "Official public holidays recognized by the United States federal government.",
+    "source": "U.S. Office of Personnel Management (OPM)",
+    "version": "1.0"
+  },
+
+  "events": [
+
+    {
+      "day": {
+        "id": "US-01-01",
+        "monthDay": "01-01",
+        "recurrence": "YEARLY",
+        "observedRule": "If Sunday, observed Monday; if Saturday, observed Friday"
+      },
+      "event": {
+        "name": "New Year’s Day",
+        "category": "federal",
+        "importanceLevel": 100,
+        "significance": "Marks the beginning of the calendar year.",
+        "crossAssociationTags": ["new-year", "global"],
+        "media": {
+          "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/7/7b/New_Year%27s_Fireworks_NYC.jpg",
+          "infoUrl": "https://en.wikipedia.org/wiki/New_Year%27s_Day"
+        },
+        "visualTheme": { "icon": "fireworks", "mood": "celebration" }
+      }
+    },
+
+    {
+      "day": {
+        "id": "US-MLK-DAY",
+        "recurrence": "YEARLY",
+        "rule": "Third Monday of January"
+      },
+      "event": {
+        "name": "Martin Luther King Jr. Day",
+        "category": "federal",
+        "importanceLevel": 95,
+        "significance": "Honors the life and legacy of Dr. Martin Luther King Jr.",
+        "crossAssociationTags": ["civil-rights", "cultural"],
+        "media": {
+          "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/5/5c/Martin_Luther_King_Jr_NYWTS.jpg",
+          "infoUrl": "https://en.wikipedia.org/wiki/Martin_Luther_King_Jr._Day"
+        }
+      }
+    },
+
+    {
+      "day": {
+        "id": "US-WASHINGTON-BDAY",
+        "recurrence": "YEARLY",
+        "rule": "Third Monday of February"
+      },
+      "event": {
+        "name": "Washington’s Birthday (Presidents’ Day)",
+        "category": "federal",
+        "importanceLevel": 90,
+        "significance": "Honors George Washington and U.S. presidents.",
+        "crossAssociationTags": ["presidents"],
+        "media": {
+          "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/6/6f/George_Washington.jpg",
+          "infoUrl": "https://en.wikipedia.org/wiki/Washington%27s_Birthday"
+        }
+      }
+    },
+
+    {
+      "day": {
+        "id": "US-MEMORIAL-DAY",
+        "recurrence": "YEARLY",
+        "rule": "Last Monday of May"
+      },
+      "event": {
+        "name": "Memorial Day",
+        "category": "federal",
+        "importanceLevel": 100,
+        "significance": "Honors U.S. military personnel who died in service.",
+        "crossAssociationTags": ["military", "remembrance"],
+        "media": {
+          "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/3/3c/Memorial_Day_Cemetery.jpg",
+          "infoUrl": "https://en.wikipedia.org/wiki/Memorial_Day"
+        }
+      }
+    },
+
+    {
+      "day": {
+        "id": "US-JUNETEENTH",
+        "monthDay": "06-19",
+        "recurrence": "YEARLY"
+      },
+      "event": {
+        "name": "Juneteenth National Independence Day",
+        "category": "federal",
+        "importanceLevel": 95,
+        "significance": "Commemorates the end of slavery in the United States.",
+        "crossAssociationTags": ["civil-rights", "cultural"],
+        "media": {
+          "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/6/6e/Juneteenth_celebration.jpg",
+          "infoUrl": "https://en.wikipedia.org/wiki/Juneteenth"
+        }
+      }
+    },
+
+    {
+      "day": {
+        "id": "US-07-04",
+        "monthDay": "07-04",
+        "recurrence": "YEARLY",
+        "observedRule": "If Sunday, observed Monday; if Saturday, observed Friday"
+      },
+      "event": {
+        "name": "Independence Day",
+        "category": "federal",
+        "importanceLevel": 100,
+        "significance": "Celebrates the Declaration of Independence.",
+        "media": {
+          "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/1/16/Independence_Day_fireworks.jpg",
+          "infoUrl": "https://en.wikipedia.org/wiki/Independence_Day_(United_States)"
+        }
+      }
+    },
+
+    {
+      "day": {
+        "id": "US-LABOR-DAY",
+        "recurrence": "YEARLY",
+        "rule": "First Monday of September"
+      },
+      "event": {
+        "name": "Labor Day",
+        "category": "federal",
+        "importanceLevel": 90,
+        "significance": "Honors American workers and labor movement.",
+        "media": {
+          "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/7/7c/Labor_Day_parade.jpg",
+          "infoUrl": "https://en.wikipedia.org/wiki/Labor_Day"
+        }
+      }
+    },
+
+    {
+      "day": {
+        "id": "US-COLUMBUS-INDIGENOUS",
+        "recurrence": "YEARLY",
+        "rule": "Second Monday of October"
+      },
+      "event": {
+        "name": "Columbus Day",
+        "category": "federal",
+        "importanceLevel": 80,
+        "significance": "Commemorates Christopher Columbus’s arrival in the Americas.",
+        "crossAssociationTags": ["indigenous-peoples"],
+        "media": {
+          "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/0/0f/Columbus_monument.jpg",
+          "infoUrl": "https://en.wikipedia.org/wiki/Columbus_Day"
+        }
+      }
+    },
+
+    {
+      "day": {
+        "id": "US-VETERANS-DAY",
+        "monthDay": "11-11",
+        "recurrence": "YEARLY"
+      },
+      "event": {
+        "name": "Veterans Day",
+        "category": "federal",
+        "importanceLevel": 95,
+        "significance": "Honors all military veterans.",
+        "media": {
+          "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/9/9e/Veterans_Day_ceremony.jpg",
+          "infoUrl": "https://en.wikipedia.org/wiki/Veterans_Day"
+        }
+      }
+    },
+
+    {
+      "day": {
+        "id": "US-THANKSGIVING",
+        "recurrence": "YEARLY",
+        "rule": "Fourth Thursday of November"
+      },
+      "event": {
+        "name": "Thanksgiving Day",
+        "category": "federal",
+        "importanceLevel": 100,
+        "significance": "Day of gratitude and family gatherings.",
+        "crossAssociationTags": ["family", "cultural"],
+        "media": {
+          "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/1/1c/Thanksgiving_dinner.jpg",
+          "infoUrl": "https://en.wikipedia.org/wiki/Thanksgiving_(United_States)"
+        }
+      }
+    },
+
+    {
+      "day": {
+        "id": "US-12-25",
+        "monthDay": "12-25",
+        "recurrence": "YEARLY",
+        "observedRule": "If Sunday, observed Monday; if Saturday, observed Friday"
+      },
+      "event": {
+        "name": "Christmas Day",
+        "category": "federal",
+        "importanceLevel": 100,
+        "significance": "Celebrates the birth of Jesus Christ.",
+        "crossAssociationTags": ["religious", "cultural"],
+        "media": {
+          "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/7/74/Christmas_tree_Rockefeller.jpg",
+          "infoUrl": "https://en.wikipedia.org/wiki/Christmas"
+        }
+      }
+    }
+
+  ]
+}

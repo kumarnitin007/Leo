@@ -1,0 +1,193 @@
+{
+  "version": "1.0",
+  "description": "Indian National Holidays 2024-2026",
+  "events": [
+    {
+      "name": "Republic Day",
+      "description": "Celebrates the adoption of the Indian Constitution",
+      "category": "National Holiday",
+      "date": "01-26",
+      "frequency": "yearly",
+      "notifyDaysBefore": 1,
+      "priority": 10,
+      "color": "#ff6b35",
+      "tags": ["Holiday", "National"]
+    },
+    {
+      "name": "Holi",
+      "description": "Festival of Colors - Spring festival celebrating colors and new beginnings",
+      "category": "Festival",
+      "date": "03-25",
+      "frequency": "yearly",
+      "notifyDaysBefore": 3,
+      "priority": 9,
+      "color": "#ff1493",
+      "tags": ["Festival", "Holiday"]
+    },
+    {
+      "name": "Good Friday",
+      "description": "Christian festival observed across India",
+      "category": "Festival",
+      "date": "03-29",
+      "frequency": "yearly",
+      "notifyDaysBefore": 2,
+      "priority": 7,
+      "color": "#8b0000",
+      "tags": ["Festival", "Religious"]
+    },
+    {
+      "name": "Eid ul-Fitr",
+      "description": "Islamic festival marking end of Ramadan",
+      "category": "Festival",
+      "date": "04-10",
+      "frequency": "yearly",
+      "notifyDaysBefore": 2,
+      "priority": 8,
+      "color": "#228b22",
+      "tags": ["Festival", "Religious"]
+    },
+    {
+      "name": "Ambedkar Jayanti",
+      "description": "Birth anniversary of Dr. B.R. Ambedkar",
+      "category": "National Holiday",
+      "date": "04-14",
+      "frequency": "yearly",
+      "notifyDaysBefore": 1,
+      "priority": 6,
+      "color": "#4169e1",
+      "tags": ["Holiday", "National"]
+    },
+    {
+      "name": "Mahavir Jayanti",
+      "description": "Birth anniversary of Mahavira, founder of Jainism",
+      "category": "Festival",
+      "date": "04-21",
+      "frequency": "yearly",
+      "notifyDaysBefore": 1,
+      "priority": 7,
+      "color": "#ffd700",
+      "tags": ["Festival", "Religious"]
+    },
+    {
+      "name": "Labour Day",
+      "description": "Celebrates the contributions of workers",
+      "category": "National Holiday",
+      "date": "05-01",
+      "frequency": "yearly",
+      "notifyDaysBefore": 1,
+      "priority": 6,
+      "color": "#dc143c",
+      "tags": ["Holiday", "National"]
+    },
+    {
+      "name": "Buddha Purnima",
+      "description": "Birth anniversary of Gautama Buddha",
+      "category": "Festival",
+      "date": "05-23",
+      "frequency": "yearly",
+      "notifyDaysBefore": 2,
+      "priority": 8,
+      "color": "#ffa500",
+      "tags": ["Festival", "Religious"]
+    },
+    {
+      "name": "Eid ul-Adha",
+      "description": "Islamic festival of sacrifice",
+      "category": "Festival",
+      "date": "06-17",
+      "frequency": "yearly",
+      "notifyDaysBefore": 2,
+      "priority": 8,
+      "color": "#228b22",
+      "tags": ["Festival", "Religious"]
+    },
+    {
+      "name": "Independence Day",
+      "description": "Celebrates India's independence from British rule",
+      "category": "National Holiday",
+      "date": "08-15",
+      "frequency": "yearly",
+      "notifyDaysBefore": 2,
+      "priority": 10,
+      "color": "#ff6b35",
+      "tags": ["Holiday", "National"]
+    },
+    {
+      "name": "Janmashtami",
+      "description": "Birth anniversary of Lord Krishna",
+      "category": "Festival",
+      "date": "08-26",
+      "frequency": "yearly",
+      "notifyDaysBefore": 2,
+      "priority": 8,
+      "color": "#4169e1",
+      "tags": ["Festival", "Religious"]
+    },
+    {
+      "name": "Ganesh Chaturthi",
+      "description": "Festival celebrating Lord Ganesha",
+      "category": "Festival",
+      "date": "09-07",
+      "frequency": "yearly",
+      "notifyDaysBefore": 3,
+      "priority": 9,
+      "color": "#ff6347",
+      "tags": ["Festival", "Religious"]
+    },
+    {
+      "name": "Mahatma Gandhi Jayanti",
+      "description": "Birth anniversary of Mahatma Gandhi",
+      "category": "National Holiday",
+      "date": "10-02",
+      "frequency": "yearly",
+      "notifyDaysBefore": 1,
+      "priority": 9,
+      "color": "#ffffff",
+      "tags": ["Holiday", "National"]
+    },
+    {
+      "name": "Dussehra",
+      "description": "Victory of good over evil, Hindu festival",
+      "category": "Festival",
+      "date": "10-12",
+      "frequency": "yearly",
+      "notifyDaysBefore": 3,
+      "priority": 9,
+      "color": "#ff4500",
+      "tags": ["Festival", "Religious"]
+    },
+    {
+      "name": "Diwali",
+      "description": "Festival of Lights - most important Hindu festival",
+      "category": "Festival",
+      "date": "11-01",
+      "frequency": "yearly",
+      "notifyDaysBefore": 5,
+      "priority": 10,
+      "color": "#ffd700",
+      "tags": ["Festival", "Religious", "Milestone"]
+    },
+    {
+      "name": "Guru Nanak Jayanti",
+      "description": "Birth anniversary of Guru Nanak Dev Ji",
+      "category": "Festival",
+      "date": "11-15",
+      "frequency": "yearly",
+      "notifyDaysBefore": 2,
+      "priority": 8,
+      "color": "#ff8c00",
+      "tags": ["Festival", "Religious"]
+    },
+    {
+      "name": "Christmas",
+      "description": "Christian festival celebrating the birth of Jesus Christ",
+      "category": "Festival",
+      "date": "12-25",
+      "frequency": "yearly",
+      "notifyDaysBefore": 7,
+      "priority": 8,
+      "color": "#228b22",
+      "tags": ["Festival", "Religious"]
+    }
+  ]
+}

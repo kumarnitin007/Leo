@@ -23,6 +23,9 @@ import {
 } from './storage';
 import { importFromICalendar, filterPersonalEvents } from './icalParser';
 import { Tag } from './types';
+import { ReferenceCalendarModal } from './components/ReferenceCalendarModal';
+import { ReferenceCalendarTemplateModal } from './components/ReferenceCalendarTemplateModal';
+import packageJson from '../package.json';
 
 interface EventsViewProps {
   onNavigate?: (view: string) => void;
@@ -35,6 +38,8 @@ const EventsView: React.FC<EventsViewProps> = () => {
   const [editingEvent, setEditingEvent] = useState<Event | null>(null);
   const [isImporting, setIsImporting] = useState(false);
   const [importProgress, setImportProgress] = useState('');
+  const [isReferenceCalendarModalOpen, setIsReferenceCalendarModalOpen] = useState(false);
+  const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [filterCategory, setFilterCategory] = useState<string>('all');
   const [filterFrequency, setFilterFrequency] = useState<string>('all');
@@ -451,11 +456,20 @@ const EventsView: React.FC<EventsViewProps> = () => {
         >
           📤 {isImporting ? importProgress : 'Import Calendar'}
         </button>
-        {events.length === 0 && (
-          <button className="btn-secondary" onClick={handleImportSample}>
-            📥 Import Sample Events
-          </button>
-        )}
+        <button className="btn-secondary" onClick={handleImportSample}>
+          📥 Import Sample Events
+        </button>
+        <span style={{
+          fontSize: '0.75rem',
+          color: '#9ca3af',
+          padding: '0.25rem 0.75rem',
+          backgroundColor: '#f3f4f6',
+          borderRadius: '4px',
+          fontFamily: 'monospace',
+          marginLeft: 'auto'
+        }}>
+          v{packageJson.version}
+        </span>
         <input
           ref={fileInputRef}
           type="file"
@@ -463,6 +477,73 @@ const EventsView: React.FC<EventsViewProps> = () => {
           style={{ display: 'none' }}
           onChange={handleFileImport}
         />
+      </div>
+
+      {/* Reference Calendars Button */}
+      <div style={{
+        display: 'flex',
+        gap: '1rem',
+        marginBottom: '1.5rem',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+        padding: '1rem',
+        borderRadius: '12px',
+        border: '1px solid rgba(59, 130, 246, 0.2)'
+      }}>
+        <div>
+          <h3 style={{
+            fontSize: '1rem',
+            fontWeight: '600',
+            color: '#1f2937',
+            margin: '0 0 0.25rem 0'
+          }}>Reference Calendars</h3>
+          <p style={{
+            fontSize: '0.875rem',
+            color: '#6b7280',
+            margin: 0
+          }}>Link holidays and special occasions from global calendars</p>
+        </div>
+        <div style={{ display: 'flex', gap: '0.5rem' }}>
+          <button
+            onClick={() => setIsReferenceCalendarModalOpen(true)}
+            style={{
+              padding: '0.75rem 1.5rem',
+              backgroundColor: '#3b82f6',
+              color: 'white',
+              border: 'none',
+              borderRadius: '8px',
+              fontSize: '0.875rem',
+              fontWeight: '600',
+              cursor: 'pointer',
+              whiteSpace: 'nowrap',
+              transition: 'background-color 0.2s'
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#2563eb')}
+            onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#3b82f6')}
+          >
+            📅 Manage
+          </button>
+          <button
+            onClick={() => setIsTemplateModalOpen(true)}
+            style={{
+              padding: '0.75rem 1.5rem',
+              backgroundColor: '#10b981',
+              color: 'white',
+              border: 'none',
+              borderRadius: '8px',
+              fontSize: '0.875rem',
+              fontWeight: '600',
+              cursor: 'pointer',
+              whiteSpace: 'nowrap',
+              transition: 'background-color 0.2s'
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#059669')}
+            onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#10b981')}
+          >
+            📋 Templates
+          </button>
+        </div>
       </div>
 
       {/* Filter Section */}
@@ -993,6 +1074,19 @@ const EventsView: React.FC<EventsViewProps> = () => {
             </>
           );
         })()}
+
+      {/* Reference Calendar Modal */}
+      <ReferenceCalendarModal
+        isOpen={isReferenceCalendarModalOpen}
+        onClose={() => setIsReferenceCalendarModalOpen(false)}
+        onDaysChange={loadEvents}
+      />
+
+      {/* Template Modal */}
+      <ReferenceCalendarTemplateModal
+        isOpen={isTemplateModalOpen}
+        onClose={() => setIsTemplateModalOpen(false)}
+      />
       </div>
     </div>
   );

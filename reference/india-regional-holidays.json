@@ -1,0 +1,149 @@
+{
+  "calendar": {
+    "id": "india-regional-holidays",
+    "name": "Indian State & Union Territory Holidays",
+    "domain": "holiday",
+    "geography": "IN-STATE",
+    "calendarType": "reference",
+    "isPreloaded": true,
+    "version": "2026",
+    "deduplicationStrategy": "day.id",
+    "source": "State Government Gazettes (canonical holidays)"
+  },
+
+  "states": [
+
+    {
+      "stateCode": "MH",
+      "stateName": "Maharashtra",
+      "days": [
+        { "day": { "id": "IN-MH-2026-05-01", "date": "2026-05-01" }, "event": { "name": "Maharashtra Day", "importanceLevel": 100 } },
+        { "day": { "id": "IN-MH-2026-09-17", "date": "2026-09-17" }, "event": { "name": "Ganesh Chaturthi", "importanceLevel": 95 } },
+        { "day": { "id": "IN-MH-2026-10-20", "date": "2026-10-20" }, "event": { "name": "Dussehra", "importanceLevel": 90 } }
+      ]
+    },
+
+    {
+      "stateCode": "TN",
+      "stateName": "Tamil Nadu",
+      "days": [
+        { "day": { "id": "IN-TN-2026-01-15", "date": "2026-01-15" }, "event": { "name": "Thai Pongal", "importanceLevel": 100 } },
+        { "day": { "id": "IN-TN-2026-04-14", "date": "2026-04-14" }, "event": { "name": "Tamil New Year", "importanceLevel": 95 } },
+        { "day": { "id": "IN-TN-2026-10-23", "date": "2026-10-23" }, "event": { "name": "Ayudha Puja", "importanceLevel": 85 } }
+      ]
+    },
+
+    {
+      "stateCode": "KA",
+      "stateName": "Karnataka",
+      "days": [
+        { "day": { "id": "IN-KA-2026-11-01", "date": "2026-11-01" }, "event": { "name": "Karnataka Rajyotsava", "importanceLevel": 100 } },
+        { "day": { "id": "IN-KA-2026-10-20", "date": "2026-10-20" }, "event": { "name": "Mysuru Dussehra", "importanceLevel": 95 } }
+      ]
+    },
+
+    {
+      "stateCode": "WB",
+      "stateName": "West Bengal",
+      "days": [
+        { "day": { "id": "IN-WB-2026-10-20", "date": "2026-10-20" }, "event": { "name": "Durga Puja (Vijaya Dashami)", "importanceLevel": 100 } },
+        { "day": { "id": "IN-WB-2026-04-14", "date": "2026-04-14" }, "event": { "name": "Poila Boishakh", "importanceLevel": 95 } }
+      ]
+    },
+
+    {
+      "stateCode": "PB",
+      "stateName": "Punjab",
+      "days": [
+        { "day": { "id": "IN-PB-2026-04-14", "date": "2026-04-14" }, "event": { "name": "Vaisakhi", "importanceLevel": 100 } },
+        { "day": { "id": "IN-PB-2026-11-24", "date": "2026-11-24" }, "event": { "name": "Guru Nanak Jayanti", "importanceLevel": 95 } }
+      ]
+    },
+
+    {
+      "stateCode": "GJ",
+      "stateName": "Gujarat",
+      "days": [
+        { "day": { "id": "IN-GJ-2026-10-20", "date": "2026-10-20" }, "event": { "name": "Navratri / Dussehra", "importanceLevel": 100 } },
+        { "day": { "id": "IN-GJ-2026-10-24", "date": "2026-10-24" }, "event": { "name": "Gujarati New Year", "importanceLevel": 95 } }
+      ]
+    },
+
+    {
+      "stateCode": "RJ",
+      "stateName": "Rajasthan",
+      "days": [
+        { "day": { "id": "IN-RJ-2026-03-30", "date": "2026-03-30" }, "event": { "name": "Gangaur", "importanceLevel": 85 } },
+        { "day": { "id": "IN-RJ-2026-10-20", "date": "2026-10-20" }, "event": { "name": "Dussehra", "importanceLevel": 90 } }
+      ]
+    },
+
+    {
+      "stateCode": "UP",
+      "stateName": "Uttar Pradesh",
+      "days": [
+        { "day": { "id": "IN-UP-2026-03-04", "date": "2026-03-04" }, "event": { "name": "Holi", "importanceLevel": 100 } },
+        { "day": { "id": "IN-UP-2026-11-08", "date": "2026-11-08" }, "event": { "name": "Diwali", "importanceLevel": 100 } }
+      ]
+    },
+
+    {
+      "stateCode": "BR",
+      "stateName": "Bihar",
+      "days": [
+        { "day": { "id": "IN-BR-2026-11-22", "date": "2026-11-22" }, "event": { "name": "Chhath Puja", "importanceLevel": 100 } },
+        { "day": { "id": "IN-BR-2026-04-06", "date": "2026-04-06" }, "event": { "name": "Mahavir Jayanti", "importanceLevel": 85 } }
+      ]
+    },
+
+    {
+      "stateCode": "KL",
+      "stateName": "Kerala",
+      "days": [
+        { "day": { "id": "IN-KL-2026-09-03", "date": "2026-09-03" }, "event": { "name": "Onam", "importanceLevel": 100 } },
+        { "day": { "id": "IN-KL-2026-04-14", "date": "2026-04-14" }, "event": { "name": "Vishu", "importanceLevel": 95 } }
+      ]
+    },
+
+    {
+      "stateCode": "AP",
+      "stateName": "Andhra Pradesh",
+      "days": [
+        { "day": { "id": "IN-AP-2026-03-30", "date": "2026-03-30" }, "event": { "name": "Ugadi", "importanceLevel": 100 } }
+      ]
+    },
+
+    {
+      "stateCode": "TS",
+      "stateName": "Telangana",
+      "days": [
+        { "day": { "id": "IN-TS-2026-06-02", "date": "2026-06-02" }, "event": { "name": "Telangana Formation Day", "importanceLevel": 100 } }
+      ]
+    },
+
+    {
+      "stateCode": "AS",
+      "stateName": "Assam",
+      "days": [
+        { "day": { "id": "IN-AS-2026-04-15", "date": "2026-04-15" }, "event": { "name": "Bohag Bihu", "importanceLevel": 100 } }
+      ]
+    },
+
+    {
+      "stateCode": "OD",
+      "stateName": "Odisha",
+      "days": [
+        { "day": { "id": "IN-OD-2026-06-27", "date": "2026-06-27" }, "event": { "name": "Rath Yatra", "importanceLevel": 100 } }
+      ]
+    },
+
+    {
+      "stateCode": "JK",
+      "stateName": "Jammu & Kashmir",
+      "days": [
+        { "day": { "id": "IN-JK-2026-03-27", "date": "2026-03-27" }, "event": { "name": "Shab-e-Qadr", "importanceLevel": 90 } }
+      ]
+    }
+
+  ]
+}

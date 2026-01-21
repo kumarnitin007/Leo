@@ -1,0 +1,117 @@
+{
+  "calendar": {
+    "id": "corporate-earnings-major-tech",
+    "name": "Major Tech Company Earnings",
+    "domain": "finance",
+    "calendarType": "reference",
+    "isPreloaded": true,
+    "deduplicationStrategy": "day.id"
+  },
+
+  "companies": [
+    {
+      "ticker": "NVDA",
+      "company": "NVIDIA",
+      "earningsPattern": "Late Feb, May, Aug, Nov",
+      "events": [
+        {
+          "day": { "id": "FIN-Q1", "recurrence": "QUARTERLY" },
+          "event": {
+            "name": "NVIDIA Earnings Release",
+            "importanceLevel": 100,
+            "sector": "Semiconductors",
+            "volatilityImpact": "Very High",
+            "media": {
+              "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/2/21/Nvidia_logo.svg"
+            }
+          }
+        }
+      ]
+    },
+
+    {
+      "ticker": "AAPL",
+      "company": "Apple",
+      "earningsPattern": "Late Jan, Apr, Jul, Oct",
+      "events": [
+        {
+          "day": { "id": "FIN-Q1", "recurrence": "QUARTERLY" },
+          "event": {
+            "name": "Apple Earnings Release",
+            "importanceLevel": 95,
+            "sector": "Consumer Technology",
+            "media": {
+              "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/f/fa/Apple_logo_black.svg"
+            }
+          }
+        }
+      ]
+    },
+
+    {
+      "ticker": "MSFT",
+      "company": "Microsoft",
+      "earningsPattern": "Late Jan, Apr, Jul, Oct"
+    },
+    {
+      "ticker": "GOOGL",
+      "company": "Alphabet",
+      "earningsPattern": "Late Jan, Apr, Jul, Oct"
+    },
+    {
+      "ticker": "AMZN",
+      "company": "Amazon",
+      "earningsPattern": "Early Feb, Apr, Jul, Oct"
+    },
+    {
+      "ticker": "META",
+      "company": "Meta Platforms",
+      "earningsPattern": "Late Jan, Apr, Jul, Oct"
+    },
+    {
+      "ticker": "TSLA",
+      "company": "Tesla",
+      "earningsPattern": "Mid Jan, Apr, Jul, Oct"
+    },
+    {
+      "ticker": "AMD",
+      "company": "AMD",
+      "earningsPattern": "Late Jan, Apr, Jul, Oct"
+    },
+    {
+      "ticker": "INTC",
+      "company": "Intel",
+      "earningsPattern": "Late Jan, Apr, Jul, Oct"
+    },
+    {
+      "ticker": "NFLX",
+      "company": "Netflix",
+      "earningsPattern": "Mid Jan, Apr, Jul, Oct"
+    },
+    {
+      "ticker": "ORCL",
+      "company": "Oracle",
+      "earningsPattern": "Mar, Jun, Sep, Dec"
+    },
+    {
+      "ticker": "ADBE",
+      "company": "Adobe",
+      "earningsPattern": "Mar, Jun, Sep, Dec"
+    },
+    {
+      "ticker": "CRM",
+      "company": "Salesforce",
+      "earningsPattern": "Mar, Jun, Sep, Dec"
+    },
+    {
+      "ticker": "QCOM",
+      "company": "Qualcomm",
+      "earningsPattern": "Late Jan, Apr, Jul, Oct"
+    },
+    {
+      "ticker": "AVGO",
+      "company": "Broadcom",
+      "earningsPattern": "Mar, Jun, Sep, Dec"
+    }
+  ]
+}

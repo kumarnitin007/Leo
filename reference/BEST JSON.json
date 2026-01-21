@@ -1,0 +1,242 @@
+{
+  "calendar": {
+    "id": "india-religious-hindu",
+    "name": "Indian Hindu Religious Festivals",
+    "description": "Major Hindu festivals observed across India with Panchang-based observance rules",
+    "domain": "festival",
+    "religion": "Hindu",
+    "geography": "IN",
+    "calendarType": "reference",
+    "isPreloaded": true,
+    "isUserEditable": false,
+    "version": "2026",
+    "source": "Drik Panchang / Hindu Calendar"
+  },
+  "days": [
+    {
+      "day": {
+        "id": "IN-2026-03-04",
+        "date": "2026-03-04",
+        "year": 2026,
+        "month": 3,
+        "dayOfMonth": 4,
+        "calendarSystem": "Hindu Lunar",
+        "anchorType": "country",
+        "anchorKey": "IN"
+      },
+      "event": {
+        "name": "Holi",
+        "alternateNames": ["Festival of Colors"],
+        "category": "Religious Festival",
+        "type": "lunar",
+        "importanceLevel": 95,
+        "timeRelevance": "all-day",
+        "dateType": "lunar",
+        "observanceRule": "sunrise-based",
+
+        "panchang": {
+          "tithi": "Purnima",
+          "paksha": "Shukla",
+          "masa": "Phalguna",
+          "tithiStart": "2026-03-03T09:58:00+05:30",
+          "tithiEnd": "2026-03-04T12:34:00+05:30",
+          "nakshatra": "Uttara Phalguni",
+          "yoga": "Siddha",
+          "karana": "Bava",
+          "source": "Drik Panchang"
+        },
+
+        "significance": "Celebrates the victory of good over evil and the arrival of spring.",
+        "mythology": [
+          "Holika Dahan",
+          "Devotion of Prahlada to Lord Vishnu"
+        ],
+
+        "localCustoms": [
+          "Holika Dahan bonfire the previous night",
+          "Playing with colors",
+          "Singing and dancing"
+        ],
+
+        "regionalVariations": [
+          {
+            "state": "UP",
+            "custom": "Lathmar Holi in Barsana and Nandgaon"
+          },
+          {
+            "state": "WB",
+            "custom": "Dol Jatra with devotional songs"
+          }
+        ],
+
+        "visualTheme": {
+          "primaryColor": "#EC407A",
+          "mood": "celebratory",
+          "icon": "colors"
+        },
+
+        "media": {
+          "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/6/6b/Holi_festival_of_colors.jpg",
+          "audioUrl": "https://upload.wikimedia.org/wikipedia/commons/5/5c/Holi_song_traditional.ogg"
+        },
+
+        "observance": {
+          "isPublicHoliday": true,
+          "bankHoliday": true,
+          "schoolHoliday": true
+        },
+
+        "sourceConfidence": "religious-calendar",
+        "urls": {
+          "info": "https://en.wikipedia.org/wiki/Holi"
+        },
+
+        "tags": ["spring", "colors", "joy"]
+      }
+    },
+
+    {
+      "day": {
+        "id": "IN-2026-04-10",
+        "date": "2026-04-10",
+        "year": 2026,
+        "month": 4,
+        "dayOfMonth": 10,
+        "calendarSystem": "Hindu Lunar",
+        "anchorType": "country",
+        "anchorKey": "IN"
+      },
+      "event": {
+        "name": "Rama Navami",
+        "category": "Religious Festival",
+        "type": "lunar",
+        "importanceLevel": 85,
+        "timeRelevance": "midday",
+        "dateType": "lunar",
+        "observanceRule": "midday-based",
+
+        "panchang": {
+          "tithi": "Navami",
+          "paksha": "Shukla",
+          "masa": "Chaitra",
+          "tithiStart": "2026-04-09T19:12:00+05:30",
+          "tithiEnd": "2026-04-10T21:44:00+05:30",
+          "nakshatra": "Punarvasu",
+          "yoga": "Shubha",
+          "karana": "Kaulava",
+          "source": "Drik Panchang"
+        },
+
+        "significance": "Birth anniversary of Lord Rama, the seventh avatar of Vishnu.",
+
+        "localCustoms": [
+          "Fasting",
+          "Reading Ramayana",
+          "Midday puja at temples"
+        ],
+
+        "visualTheme": {
+          "primaryColor": "#FFA726",
+          "mood": "devotional",
+          "icon": "temple"
+        },
+
+        "media": {
+          "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/2/2f/Rama_Navami_celebration.jpg"
+        },
+
+        "observance": {
+          "isPublicHoliday": false,
+          "bankHoliday": false,
+          "schoolHoliday": false
+        },
+
+        "sourceConfidence": "religious-calendar",
+        "urls": {
+          "info": "https://en.wikipedia.org/wiki/Rama_Navami"
+        },
+
+        "tags": ["ram", "devotion", "dharma"]
+      }
+    },
+
+    {
+      "day": {
+        "id": "IN-2026-11-08",
+        "date": "2026-11-08",
+        "year": 2026,
+        "month": 11,
+        "dayOfMonth": 8,
+        "calendarSystem": "Hindu Lunar",
+        "anchorType": "country",
+        "anchorKey": "IN"
+      },
+      "event": {
+        "name": "Diwali",
+        "alternateNames": ["Deepavali"],
+        "category": "Religious Festival",
+        "type": "lunar",
+        "importanceLevel": 100,
+        "timeRelevance": "evening",
+        "dateType": "lunar",
+        "observanceRule": "sunset-based",
+
+        "panchang": {
+          "tithi": "Amavasya",
+          "paksha": "Krishna",
+          "masa": "Kartika",
+          "tithiStart": "2026-11-07T14:17:00+05:30",
+          "tithiEnd": "2026-11-08T16:32:00+05:30",
+          "nakshatra": "Swati",
+          "yoga": "Siddhi",
+          "karana": "Chatushpada",
+          "source": "Drik Panchang"
+        },
+
+        "significance": "Celebrates the victory of light over darkness and the return of Lord Rama to Ayodhya.",
+
+        "localCustoms": [
+          "Lighting oil lamps (diyas)",
+          "Lakshmi–Ganesha puja in the evening",
+          "Fireworks and sweets"
+        ],
+
+        "regionalVariations": [
+          {
+            "state": "TN",
+            "custom": "Morning oil bath and early celebrations"
+          },
+          {
+            "state": "WB",
+            "custom": "Kali Puja performed at night"
+          }
+        ],
+
+        "visualTheme": {
+          "primaryColor": "#FFD700",
+          "mood": "celebratory",
+          "icon": "diya"
+        },
+
+        "media": {
+          "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/3/3f/Diwali_Diya.jpg",
+          "audioUrl": "https://upload.wikimedia.org/wikipedia/commons/3/30/Diwali_mantra.ogg"
+        },
+
+        "observance": {
+          "isPublicHoliday": true,
+          "bankHoliday": true,
+          "schoolHoliday": true
+        },
+
+        "approxFutureRule": "Late October or early November",
+        "sourceConfidence": "religious-calendar",
+        "urls": {
+          "info": "https://en.wikipedia.org/wiki/Diwali"
+        },
+
+        "tags": ["lights", "prosperity", "family"]
+      }
+    }
+  ]
+}

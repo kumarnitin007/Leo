@@ -238,6 +238,21 @@ const AboutModal: React.FC<AboutModalProps> = ({ show, onClose }) => {
               </button>
               {isAppsExpanded && (
                 <div style={{ marginTop: '1rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                  {/* Leo Planner - Current App */}
+                  <div style={{ background: 'linear-gradient(to right, #d1fae5, #a7f3d0)', padding: '1rem', borderRadius: '0.75rem', border: '1px solid #6ee7b7' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                      <p style={{ fontWeight: 'bold', margin: 0, fontSize: '1rem', color: '#065f46' }}>🦁 Leo Planner (You are here!)</p>
+                      <span style={{ fontSize: '0.75rem', fontWeight: 600, color: '#059669', background: 'rgba(255,255,255,0.7)', padding: '0.25rem 0.5rem', borderRadius: '0.25rem' }}>
+                        Current App
+                      </span>
+                    </div>
+                    <p style={{ fontSize: '0.875rem', margin: 0, color: '#374151', lineHeight: '1.5' }}>
+                      Your daily task manager and productivity companion! Track tasks with streaks, get AI-powered 
+                      coaching, manage events and journals, use focus timers, and stay organized with the strength 
+                      and precision of a lion! 🦁✨
+                    </p>
+                  </div>
+
                   {/* Bookshelf */}
                   <div style={{ background: 'linear-gradient(to right, #fef3c7, #fde68a)', padding: '1rem', borderRadius: '0.75rem', border: '1px solid #fbbf24' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
@@ -288,33 +303,36 @@ const AboutModal: React.FC<AboutModalProps> = ({ show, onClose }) => {
                     </p>
                   </div>
 
-                  {/* Leo Planner */}
-                  <div style={{ background: 'linear-gradient(to right, #d1fae5, #a7f3d0)', padding: '1rem', borderRadius: '0.75rem', border: '1px solid #6ee7b7' }}>
+                  {/* Helper Otto */}
+                  <div style={{ background: 'linear-gradient(to right, #dbeafe, #bfdbfe)', padding: '1rem', borderRadius: '0.75rem', border: '1px solid #93c5fd' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-                      <p style={{ fontWeight: 'bold', margin: 0, fontSize: '1rem', color: '#065f46' }}>🦁 Leo Planner (You are here!)</p>
-                      <span style={{ fontSize: '0.75rem', fontWeight: 600, color: '#059669', background: 'rgba(255,255,255,0.7)', padding: '0.25rem 0.5rem', borderRadius: '0.25rem' }}>
-                        Current App
-                      </span>
+                      <p style={{ fontWeight: 'bold', margin: 0, fontSize: '1rem', color: '#1e3a8a' }}>🤝 Helper Otto</p>
+                      <a 
+                        href="https://helperotto.vercel.app/" 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        style={{ fontSize: '0.875rem', fontWeight: 600, color: '#0ea5e9', textDecoration: 'underline' }}
+                      >
+                        Visit App (Beta) →
+                      </a>
                     </div>
                     <p style={{ fontSize: '0.875rem', margin: 0, color: '#374151', lineHeight: '1.5' }}>
-                      Your daily task manager and productivity companion! Track tasks with streaks, get AI-powered 
-                      coaching, manage events and journals, use focus timers, and stay organized with the strength 
-                      and precision of a lion! 🦁✨
+                      Find meaningful volunteer opportunities in your community! Connect with local organizations, 
+                      discover causes you care about, and make a real difference. Track your volunteer hours and impact!
                     </p>
                   </div>
 
-                  {/* Leo Planner */}
-                  <div style={{ background: 'linear-gradient(to right, #dbeafe, #bfdbfe)', padding: '1rem', borderRadius: '0.75rem', border: '1px solid #93c5fd' }}>
+                  {/* MyTrades - Coming Soon */}
+                  <div style={{ background: 'linear-gradient(to right, #fed7aa, #fde68a)', padding: '1rem', borderRadius: '0.75rem', border: '1px solid #fbbf24' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-                      <p style={{ fontWeight: 'bold', margin: 0, fontSize: '1rem', color: '#1e3a8a' }}>🦁 Leo Planner</p>
+                      <p style={{ fontWeight: 'bold', margin: 0, fontSize: '1rem', color: '#92400e' }}>📈 MyTrades</p>
                       <span style={{ fontSize: '0.75rem', color: '#6b7280', fontStyle: 'italic' }}>
                         Coming Soon
                       </span>
                     </div>
                     <p style={{ fontSize: '0.875rem', margin: 0, color: '#374151', lineHeight: '1.5' }}>
-                      Your personal task manager, event tracker, and gift card organizer! Keep track of your schedule, 
-                      share calendars with family, manage daily tasks with ease, and never forget important occasions. 
-                      Perfect for household organization!
+                      Your unified investment tracker! Connect Robinhood, Fidelity, and Empower accounts. View combined 
+                      portfolio performance, track gains/losses across platforms, and get insights all in one place!
                     </p>
                   </div>
                 </div>
@@ -325,10 +343,10 @@ const AboutModal: React.FC<AboutModalProps> = ({ show, onClose }) => {
             <div style={{ background: 'linear-gradient(to right, #d1fae5, #a7f3d0)', borderRadius: '1rem', padding: '1.5rem', marginBottom: '1.5rem', border: '1px solid #6ee7b7' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
                 <span style={{ fontSize: '1.25rem' }}>💚</span>
-                <h3 style={{ fontSize: '1.25rem', fontWeight: 'bold', margin: 0, color: '#065f46' }}>Support Leo Planner</h3>
+                <h3 style={{ fontSize: '1.25rem', fontWeight: 'bold', margin: 0, color: '#065f46' }}>Support Our Apps</h3>
               </div>
               <p style={{ fontSize: '0.875rem', marginBottom: '1rem', color: '#374151' }}>
-                Help keep this app free, ad-free, and running strong! Your support helps us continue building great features! 🌺
+                Help keep these apps free, ad-free, and running strong! Your support helps us continue building great features! 🌺
               </p>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                 <a href="https://venmo.com/Nitin-Kumar-22" target="_blank" rel="noopener noreferrer" style={{ padding: '0.75rem', borderRadius: '0.75rem', background: 'linear-gradient(to right, #3b82f6, #06b6d4)', color: 'white', fontWeight: 'bold', textAlign: 'center', textDecoration: 'none', display: 'block' }}>
@@ -338,6 +356,9 @@ const AboutModal: React.FC<AboutModalProps> = ({ show, onClose }) => {
                   💵 Donate via PayPal
                 </a>
               </div>
+              <p style={{ fontSize: '0.75rem', marginTop: '1rem', color: '#6b7280', textAlign: 'center' }}>
+                Questions? Contact us at <a href="mailto:leoplannerapp@gmail.com" style={{ color: '#0ea5e9', textDecoration: 'underline' }}>leoplannerapp@gmail.com</a>
+              </p>
             </div>
 
             {/* Close */}

@@ -276,6 +276,38 @@ export interface SafeMasterKey {
   updatedAt: string;
 }
 
+export type ProgressMetricType = 'count' | 'percentage' | 'milestone' | 'binary';
+
+export interface ResolutionMilestone {
+  id: string;
+  title: string;
+  targetDate: string; // YYYY-MM-DD
+  targetValue?: number; // For count/percentage metrics
+  completed: boolean;
+  completedAt?: string; // ISO timestamp
+}
+
+export interface Resolution {
+  id: string;
+  title: string;
+  description?: string;
+  category?: string; // e.g., "Health", "Career", "Personal", "Financial", "Relationships"
+  tags?: string[]; // Array of tag IDs
+  targetYear: number; // e.g., 2026
+  startDate: string; // YYYY-MM-DD (when the resolution starts, usually Jan 1)
+  endDate?: string; // YYYY-MM-DD (when the resolution ends, usually Dec 31)
+  progressMetric: ProgressMetricType;
+  targetValue?: number; // For count or percentage metrics (e.g., target 52 for weekly habit, 90 for percentage)
+  currentValue?: number; // Current progress (count or percentage)
+  milestones?: ResolutionMilestone[]; // Optional interim milestones
+  linkedTaskIds?: string[]; // References to tasks that help achieve this resolution
+  priority?: number; // 1-10, for display and sorting
+  color?: string;
+  status: 'active' | 'paused' | 'abandoned' | 'completed'; // Status of resolution
+  createdAt: string;
+  updatedAt?: string;
+}
+
 export interface AppData {
   tasks: Task[];
   completions: TaskCompletion[];
@@ -288,5 +320,164 @@ export interface AppData {
   items: Item[];
   safeEntries: SafeEntry[];
   safeTags: Tag[];
+  resolutions?: Resolution[];
+}
+
+// ===== REFERENCE CALENDARS TYPES =====
+
+export interface LunarCalendarMetadata {
+  tithi?: string; // e.g., "Purnima", "Amavasya"
+  paksha?: string; // "Shukla" (waxing) or "Krishna" (waning)
+  masa?: string; // Lunar month (e.g., "Phalguna", "Chaitra")
+  tithiStart?: string; // ISO timestamp
+  tithiEnd?: string; // ISO timestamp
+  nakshatra?: string; // Lunar mansion
+  yoga?: string; // Yoga (auspicious combination)
+  karana?: string; // Half of a tithi
+  source?: string; // e.g., "Drik Panchang"
+}
+
+export interface RegionalVariation {
+  state?: string; // State code
+  region?: string; // Region name
+  country?: string; // Country code
+  custom?: string; // Description of local custom
+}
+
+export interface DayURLs {
+  info?: string;
+  wiki?: string;
+  source?: string;
+  [key: string]: string | undefined;
+}
+
+export interface ReferenceDay {
+  id: string; // Deterministic key: e.g., "IN-2026-01-26", "GLOBAL-07-18"
+  date: string; // YYYY-MM-DD
+  year?: number;
+  month: number; // 1-12
+  dayOfMonth: number; // 1-31
+  
+  // Calendar system
+  calendarSystem: 'gregorian' | 'lunar' | 'solar' | 'combined'; // Default: 'gregorian'
+  
+  // Geographic/cultural anchor
+  anchorType?: 'country' | 'region' | 'global' | 'religious';
+  anchorKey?: string; // e.g., 'IN', 'US', 'HINDU', 'GLOBAL'
+  
+  // Event information
+  eventName: string;
+  eventDescription?: string;
+  eventCategory: 'holiday' | 'festival' | 'observance' | 'birthday' | 'earnings' | 'economic' | 'religious' | 'cultural';
+  eventType: 'fixed' | 'lunar' | 'solar' | 'moveable';
+  
+  // Importance and significance
+  importanceLevel: number; // 1-100 scale
+  significance?: string;
+  mythology?: string[]; // e.g., ["Holika Dahan", "Devotion of Prahlada"]
+  
+  // Lunar metadata (for religious/lunar calendars)
+  lunarMetadata?: LunarCalendarMetadata;
+  
+  // Regional variations
+  regionalVariations?: RegionalVariation[];
+  
+  // Local customs
+  localCustoms?: string[];
+  
+  // Observance rules
+  isPublicHoliday?: boolean;
+  isBankHoliday?: boolean;
+  isSchoolHoliday?: boolean;
+  observanceRule?: string; // e.g., "If Saturday → Friday; If Sunday → Monday"
+  
+  // Visual metadata
+  primaryColor?: string; // Hex color
+  mood?: string; // e.g., 'celebratory', 'solemn', 'joyful'
+  icon?: string; // e.g., 'colors', 'fireworks', 'lights'
+  
+  // Media
+  imageUrl?: string;
+  audioUrl?: string;
+  
+  // Metadata
+  source?: string; // Data source
+  sourceConfidence?: 'confirmed' | 'estimated' | 'religious-calendar';
+  urls?: DayURLs;
+  tags?: string[]; // e.g., ['spring', 'colors', 'joy']
+  
+  // Audit
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ReferenceCalendar {
+  id: string; // e.g., 'india-national-holidays', 'us-federal-holidays'
+  name: string;
+  description?: string;
+  
+  // Classification
+  domain: 'holiday' | 'festival' | 'religious' | 'financial' | 'observance';
+  calendarType: 'reference' | 'user-created';
+  
+  // Geographic/cultural scope
+  geography?: string; // e.g., 'IN', 'US', 'JP', 'GLOBAL'
+  religion?: string; // e.g., 'Hindu', 'Islamic'
+  
+  // Configuration
+  isPreloaded: boolean;
+  isUserEditable: boolean;
+  version?: string; // e.g., '2026', '2026-2027'
+  
+  // UI metadata
+  color?: string;
+  icon?: string;
+  source?: string;
+  documentationUrl?: string;
+  
+  // Audit
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CalendarDay {
+  calendarId: string;
+  dayId: string;
+  sequenceOrder?: number;
+  calendarSpecificMetadata?: Record<string, unknown>;
+  createdAt: string;
+}
+
+export interface UserReferenceCalendar {
+  id: string;
+  user_id: string;
+  calendar_id: string;
+  
+  // Configuration
+  is_enabled: boolean;
+  show_in_dashboard: boolean;
+  
+  // User preferences
+  color_override?: string;
+  notification_enabled: boolean;
+  
+  // Audit
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DayAssociation {
+  dayId: string;
+  calendarCount: number;
+  calendarIds: string[];
+  isDuplicate: boolean;
+  duplicateOf?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface UserVisibleDay extends ReferenceDay {
+  calendarCount: number;
+  calendarNames: string[];
 }
 

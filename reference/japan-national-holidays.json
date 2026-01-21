@@ -1,0 +1,233 @@
+{
+  "calendar": {
+    "id": "japan-national-holidays",
+    "name": "Japan National Holidays",
+    "country": "JP",
+    "calendarType": "reference",
+    "isPreloaded": true,
+    "deduplicationStrategy": "day.id",
+    "source": "Public Holiday Law of Japan"
+  },
+
+  "events": [
+
+    {
+      "day": { "id": "JP-01-01", "monthDay": "01-01", "recurrence": "YEARLY" },
+      "event": {
+        "name": "New Year’s Day (元日)",
+        "category": "national",
+        "importanceLevel": 100,
+        "observance": "public-holiday",
+        "significance": "Celebration of the New Year in Japan.",
+        "localCustoms": ["Hatsumode shrine visit", "Osechi meals"],
+        "media": {
+          "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/4/42/Hatsumode_Meiji_Shrine.jpg",
+          "infoUrl": "https://en.wikipedia.org/wiki/New_Year%27s_Day_(Japan)"
+        },
+        "visualTheme": { "mood": "renewal", "primaryColor": "#D32F2F", "icon": "sunrise" }
+      }
+    },
+
+    {
+      "day": { "id": "JP-COMING-OF-AGE", "recurrence": "YEARLY", "rule": "Second Monday of January" },
+      "event": {
+        "name": "Coming of Age Day (成人の日)",
+        "category": "national",
+        "importanceLevel": 90,
+        "observance": "public-holiday",
+        "significance": "Celebrates citizens who turned 20.",
+        "localCustoms": ["Seijin-shiki ceremonies", "Traditional kimono"],
+        "media": {
+          "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/1/19/Coming_of_Age_Day_Kimono.jpg"
+        }
+      }
+    },
+
+    {
+      "day": { "id": "JP-NATIONAL-FOUNDATION", "monthDay": "02-11", "recurrence": "YEARLY" },
+      "event": {
+        "name": "National Foundation Day (建国記念の日)",
+        "category": "national",
+        "importanceLevel": 85,
+        "observance": "public-holiday",
+        "significance": "Celebrates the founding of Japan.",
+        "media": {
+          "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/3/37/Japan_flag_flying.jpg"
+        }
+      }
+    },
+
+    {
+      "day": { "id": "JP-EMPEROR-BDAY", "monthDay": "02-23", "recurrence": "YEARLY" },
+      "event": {
+        "name": "Emperor’s Birthday (天皇誕生日)",
+        "category": "national",
+        "importanceLevel": 100,
+        "observance": "public-holiday",
+        "significance": "Birthday of Emperor Naruhito.",
+        "media": {
+          "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/4/4d/Naruhito_2019.jpg"
+        }
+      }
+    },
+
+    {
+      "day": {
+        "id": "JP-VERNAL-EQUINOX",
+        "recurrence": "YEARLY",
+        "calendarSystem": "ASTRONOMICAL",
+        "rule": "Around March 20–21"
+      },
+      "event": {
+        "name": "Vernal Equinox Day (春分の日)",
+        "category": "national",
+        "importanceLevel": 90,
+        "observance": "public-holiday",
+        "significance": "Marks the beginning of spring.",
+        "localCustoms": ["Family gatherings", "Grave visits"],
+        "media": {
+          "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/6/66/Cherry_blossoms_spring_Japan.jpg"
+        }
+      }
+    },
+
+    {
+      "day": { "id": "JP-SHOWA", "monthDay": "04-29", "recurrence": "YEARLY" },
+      "event": {
+        "name": "Shōwa Day (昭和の日)",
+        "category": "national",
+        "importanceLevel": 90,
+        "observance": "public-holiday",
+        "significance": "Honors the Shōwa era.",
+        "media": {
+          "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/8/8c/Showa_Emperor.jpg"
+        }
+      }
+    },
+
+    {
+      "day": { "id": "JP-CONSTITUTION", "monthDay": "05-03", "recurrence": "YEARLY" },
+      "event": {
+        "name": "Constitution Memorial Day (憲法記念日)",
+        "category": "national",
+        "importanceLevel": 95,
+        "observance": "public-holiday",
+        "significance": "Marks the enactment of Japan’s constitution.",
+        "media": {
+          "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/5/5e/Japanese_Constitution.jpg"
+        }
+      }
+    },
+
+    {
+      "day": { "id": "JP-GREENERY", "monthDay": "05-04", "recurrence": "YEARLY" },
+      "event": {
+        "name": "Greenery Day (みどりの日)",
+        "category": "national",
+        "importanceLevel": 85,
+        "observance": "public-holiday",
+        "significance": "Appreciation of nature.",
+        "media": {
+          "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/0/03/Japanese_garden_spring.jpg"
+        }
+      }
+    },
+
+    {
+      "day": { "id": "JP-CHILDREN", "monthDay": "05-05", "recurrence": "YEARLY" },
+      "event": {
+        "name": "Children’s Day (こどもの日)",
+        "category": "national",
+        "importanceLevel": 95,
+        "observance": "public-holiday",
+        "localCustoms": ["Koinobori carp flags"],
+        "media": {
+          "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/7/79/Koinobori.jpg"
+        }
+      }
+    },
+
+    {
+      "day": { "id": "JP-MARINE", "recurrence": "YEARLY", "rule": "Third Monday of July" },
+      "event": {
+        "name": "Marine Day (海の日)",
+        "category": "national",
+        "importanceLevel": 85,
+        "observance": "public-holiday",
+        "significance": "Gives thanks for the ocean.",
+        "media": {
+          "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/5/5f/Japanese_coast.jpg"
+        }
+      }
+    },
+
+    {
+      "day": { "id": "JP-MOUNTAIN", "monthDay": "08-11", "recurrence": "YEARLY" },
+      "event": {
+        "name": "Mountain Day (山の日)",
+        "category": "national",
+        "importanceLevel": 80,
+        "observance": "public-holiday",
+        "media": {
+          "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/1/12/Mount_Fuji.jpg"
+        }
+      }
+    },
+
+    {
+      "day": { "id": "JP-RESPECT-AGED", "recurrence": "YEARLY", "rule": "Third Monday of September" },
+      "event": {
+        "name": "Respect for the Aged Day (敬老の日)",
+        "category": "national",
+        "importanceLevel": 85,
+        "observance": "public-holiday"
+      }
+    },
+
+    {
+      "day": {
+        "id": "JP-AUTUMNAL-EQUINOX",
+        "recurrence": "YEARLY",
+        "calendarSystem": "ASTRONOMICAL",
+        "rule": "Around September 22–23"
+      },
+      "event": {
+        "name": "Autumnal Equinox Day (秋分の日)",
+        "category": "national",
+        "importanceLevel": 85,
+        "observance": "public-holiday"
+      }
+    },
+
+    {
+      "day": { "id": "JP-SPORTS", "recurrence": "YEARLY", "rule": "Second Monday of October" },
+      "event": {
+        "name": "Sports Day (スポーツの日)",
+        "category": "national",
+        "importanceLevel": 80,
+        "observance": "public-holiday"
+      }
+    },
+
+    {
+      "day": { "id": "JP-CULTURE", "monthDay": "11-03", "recurrence": "YEARLY" },
+      "event": {
+        "name": "Culture Day (文化の日)",
+        "category": "national",
+        "importanceLevel": 85,
+        "observance": "public-holiday"
+      }
+    },
+
+    {
+      "day": { "id": "JP-LABOR", "monthDay": "11-23", "recurrence": "YEARLY" },
+      "event": {
+        "name": "Labor Thanksgiving Day (勤労感謝の日)",
+        "category": "national",
+        "importanceLevel": 85,
+        "observance": "public-holiday"
+      }
+    }
+
+  ]
+}
