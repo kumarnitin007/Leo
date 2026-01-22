@@ -1,3 +1,7 @@
+---
+alwaysApply: true
+---
+
 Always start response with "RULES ACTIVE from .cursor/rules file" at the top of your every response. 
 # Cursor Low-Burn Rules
 

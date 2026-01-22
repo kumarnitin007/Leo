@@ -42,7 +42,11 @@ const SafeEntryList: React.FC<SafeEntryListProps> = ({
     }
 
     if (selectedCategory) {
-      filtered = filtered.filter(e => e.categoryTagId === selectedCategory);
+      if (selectedCategory === 'UNCATEGORIZED') {
+        filtered = filtered.filter(e => !e.categoryTagId);
+      } else {
+        filtered = filtered.filter(e => e.categoryTagId === selectedCategory);
+      }
     }
 
     if (selectedTag) {
@@ -133,6 +137,7 @@ const SafeEntryList: React.FC<SafeEntryListProps> = ({
 
         <select value={selectedCategory || ''} onChange={e => setSelectedCategory(e.target.value || null)} style={{ padding: '0.75rem', border: '1px solid #d1d5db', borderRadius: '8px' }}>
           <option value="">All Categories</option>
+          <option value="UNCATEGORIZED">Uncategorized</option>
           {tags.filter(t => t.isSystemCategory).map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
         </select>
 

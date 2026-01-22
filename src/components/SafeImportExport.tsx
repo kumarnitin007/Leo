@@ -16,7 +16,7 @@ import {
   readFile,
   EncryptedExport
 } from '../utils/safeImportExport';
-import { getEncryptionKey, importSafeEntries, getSafeEntries, createSafeTag, importSampleSafe } from '../storage';
+import { getEncryptionKey, importSafeEntries, getSafeEntries, createSafeTag, importSampleSafe, initializeSafeCategories, getSafeTags } from '../storage';
 import { 
   parseKeePassCSV, 
   generatePreview, 
@@ -260,15 +260,17 @@ const SafeImportExport: React.FC<SafeImportExportProps> = ({
       // Get existing entries to check for duplicates
       const existingEntries = await getSafeEntries();
       
-      // Use tags prop - if a new tag was created, onTagsRefresh should have updated it
-      // If not, the newly created tag ID will still work for the import
-      const currentTags = tags;
+      // Ensure all system categories are initialized (in case new categories were added)
+      await initializeSafeCategories();
+      
+      // Get fresh list of all categories including any new ones
+      const allTags = await getSafeTags();
       
       // Convert CSV rows to SafeEntry format
       const entriesToImport = await convertCSVRowsToEntries(
         rows,
         encryptionKey,
-        currentTags,
+        allTags,
         finalTagId,
         existingEntries
       );
@@ -281,7 +283,7 @@ const SafeImportExport: React.FC<SafeImportExportProps> = ({
         total: rows.length,
         imported: result.success,
         skipped: rows.length - entriesToImport.length,
-        categoryMapping: getCategoryMapping(rows, currentTags),
+        categoryMapping: getCategoryMapping(rows, allTags),
         errors: []
       };
       

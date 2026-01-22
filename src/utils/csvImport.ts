@@ -47,6 +47,7 @@ export interface ImportSummary {
  * Category detection keywords
  */
 const CATEGORY_KEYWORDS: Record<string, string[]> = {
+  'Login/Credentials': ['login', 'credential', 'username', 'password', 'email', 'account'],
   'Credit Card': ['credit card', 'cc ', 'amex', 'visa', 'mastercard', 'discover', 'card number', 'cvv', 'expiry'],
   'Bank Account': ['bank', 'checking', 'savings', 'account', 'icici', 'chase', 'sbi', 'hdfc', 'bofa', 'wells fargo', 'routing', 'account number'],
   'Insurance': ['insurance', 'lic', 'progressive', 'cigna', 'allstate', 'policy', 'premium'],
@@ -56,7 +57,8 @@ const CATEGORY_KEYWORDS: Record<string, string[]> = {
   'WiFi': ['wifi', 'wifi', 'network', 'router', 'ssid', 'wireless'],
   'Gift Card': ['gift card', 'giftcard', 'voucher', 'prepaid card'],
   'Identity Documents': ['passport', 'aadhar', 'aadhaar', 'pan', 'ssn', 'dl', 'driving license', 'license plate', 'vin'],
-  'Stock Trading Account': ['trading', 'broker', 'fidelity', 'etrade', 'robinhood', 'schwab', 'td ameritrade']
+  'Stock Trading Account': ['trading', 'broker', 'fidelity', 'etrade', 'robinhood', 'schwab', 'td ameritrade'],
+  'Address': ['address', 'street', 'zip code', 'zipcode', 'postal code', 'city', 'state', 'province', 'country', 'pin code', 'pincode', 'suite', 'apartment', 'apt', 'unit', 'building', 'locality', 'area', 'postcode', 'avenue', 'road', 'boulevard']
 };
 
 /**
@@ -212,8 +214,8 @@ export function generatePreview(
   return rows.slice(0, limit).map(row => {
     const { categoryId, confidence } = detectCategory(row, categoryTags);
     const categoryName = categoryId 
-      ? categoryTags.find(t => t.id === categoryId)?.name || 'Login/Credentials'
-      : 'Login/Credentials';
+      ? categoryTags.find(t => t.id === categoryId)?.name || 'Unknown'
+      : 'Uncategorized';
     
     return {
       title: row.account || 'Untitled',
@@ -239,8 +241,8 @@ export function getCategoryMapping(
   for (const row of rows) {
     const { categoryId } = detectCategory(row, categoryTags);
     const categoryName = categoryId 
-      ? categoryTags.find(t => t.id === categoryId)?.name || 'Login/Credentials'
-      : 'Login/Credentials';
+      ? categoryTags.find(t => t.id === categoryId)?.name || 'Unknown'
+      : 'Uncategorized';
     
     mapping[categoryName] = (mapping[categoryName] || 0) + 1;
   }
@@ -296,8 +298,8 @@ export async function importCSVEntries(
       
       // Track category mapping
       const categoryName = categoryId 
-        ? categoryTags.find(t => t.id === categoryId)?.name || 'Login/Credentials'
-        : 'Login/Credentials';
+        ? categoryTags.find(t => t.id === categoryId)?.name || 'Unknown'
+        : 'Uncategorized';
       summary.categoryMapping[categoryName] = (summary.categoryMapping[categoryName] || 0) + 1;
       
       // Note: The actual database insertion will be done in storage.ts

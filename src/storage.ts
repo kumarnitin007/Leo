@@ -2495,6 +2495,7 @@ export const initializeSafeCategories = async (): Promise<void> => {
     { name: 'API Key', color: '#84cc16' },
     { name: 'WiFi', color: '#a855f7' },
     { name: 'Gift Card', color: '#f43f5e' },
+    { name: 'Address', color: '#06b6d4' },
     { name: 'Other', color: '#6b7280' }
   ];
 
