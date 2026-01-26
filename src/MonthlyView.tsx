@@ -190,7 +190,7 @@ const MonthlyView: React.FC<MonthlyViewProps> = ({ onNavigate, onBackToDashboard
   return (
     <div className="monthly-view">
       <div className="view-header">
-        <h2>Monthly View</h2>
+        <h2>Monthly</h2>
       </div>
 
       <div className="calendar-container">

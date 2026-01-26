@@ -7,7 +7,7 @@
  */
 
 import { getSupabaseClient } from './lib/supabase';
-import { AppData, Task, TaskCompletion, Event, JournalEntry, Routine, Tag, TagSection, UserSettings, DashboardLayout, Item, SafeEntry, SafeMasterKey, Resolution, ResolutionMilestone } from './types';
+import { AppData, Task, TaskCompletion, Event, JournalEntry, Routine, Tag, TagSection, UserSettings, DashboardLayout, Item, SafeEntry, SafeMasterKey, Resolution, ResolutionMilestone, DocumentVault, DocumentVaultEncryptedData } from './types';
 import { getTodayString } from './utils';
 import { hashMasterPassword, generateSalt, verifyMasterPassword as verifyMasterPasswordUtil, deriveKeyFromPassword, encryptData, decryptData } from './utils/encryption';
 
@@ -3065,7 +3065,158 @@ export const importSafeEntries = async (
   return { success, failed };
 };
 
-// ===== RESOLUTIONS =====
+// ===== DOCUMENT VAULT =====
+
+export const getDocumentVaults = async (): Promise<DocumentVault[]> => {
+  const { client, userId } = await requireAuth();
+  
+  const { data, error } = await client
+    .from('myday_document_vaults')
+    .select('*')
+    .eq('user_id', userId)
+    .order('is_favorite', { ascending: false })
+    .order('updated_at', { ascending: false });
+
+  if (error) {
+    console.error('Error fetching document vaults:', error);
+    return [];
+  }
+
+  return (data || []).map(doc => ({
+    id: doc.id,
+    title: doc.title,
+    provider: doc.provider,
+    documentType: doc.document_type,
+    tags: doc.tags || [],
+    issueDate: doc.issue_date,
+    expiryDate: doc.expiry_date,
+    isFavorite: doc.is_favorite,
+    encryptedData: doc.encrypted_data,
+    encryptedDataIv: doc.encrypted_data_iv,
+    createdAt: doc.created_at,
+    updatedAt: doc.updated_at
+  }));
+};
+
+export const addDocumentVault = async (
+  vault: Omit<DocumentVault, 'id' | 'createdAt' | 'updatedAt' | 'encryptedDataIv'> & { encryptedDataIv?: string },
+  encryptionKey: CryptoKey
+): Promise<DocumentVault | null> => {
+  const { client, userId } = await requireAuth();
+  
+  // Encrypt the data
+  const { encrypted, iv } = await encryptData(vault.encryptedData, encryptionKey);
+
+  const now = new Date();
+  const dbVault = {
+    id: generateUUID(),
+    user_id: userId,
+    title: vault.title,
+    provider: vault.provider,
+    document_type: vault.documentType,
+    tags: vault.tags || [],
+    issue_date: vault.issueDate || null,
+    expiry_date: vault.expiryDate || null,
+    is_favorite: vault.isFavorite || false,
+    encrypted_data: encrypted,
+    encrypted_data_iv: iv,
+    created_at: now.toISOString(),
+    updated_at: now.toISOString()
+  };
+
+  const { data, error } = await client
+    .from('myday_document_vaults')
+    .insert(dbVault)
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error adding document vault:', error);
+    return null;
+  }
+
+  return {
+    id: data.id,
+    title: data.title,
+    provider: data.provider,
+    documentType: data.document_type,
+    tags: data.tags || [],
+    issueDate: data.issue_date,
+    expiryDate: data.expiry_date,
+    isFavorite: data.is_favorite,
+    encryptedData: data.encrypted_data,
+    encryptedDataIv: data.encrypted_data_iv,
+    createdAt: data.created_at,
+    updatedAt: data.updated_at
+  };
+};
+
+export const updateDocumentVault = async (
+  vaultId: string,
+  updates: Partial<Omit<DocumentVault, 'id' | 'createdAt' | 'updatedAt'>>,
+  encryptionKey?: CryptoKey
+): Promise<boolean> => {
+  const { client } = await requireAuth();
+  
+  const dbUpdates: any = {
+    updated_at: new Date().toISOString()
+  };
+
+  if (updates.title !== undefined) dbUpdates.title = updates.title;
+  if (updates.provider !== undefined) dbUpdates.provider = updates.provider;
+  if (updates.documentType !== undefined) dbUpdates.document_type = updates.documentType;
+  if (updates.tags !== undefined) dbUpdates.tags = updates.tags || [];
+  if (updates.issueDate !== undefined) dbUpdates.issue_date = updates.issueDate || null;
+  if (updates.expiryDate !== undefined) dbUpdates.expiry_date = updates.expiryDate || null;
+  if (updates.isFavorite !== undefined) dbUpdates.is_favorite = updates.isFavorite;
+
+  if (updates.encryptedData && encryptionKey) {
+    const { encrypted, iv } = await encryptData(updates.encryptedData, encryptionKey);
+    dbUpdates.encrypted_data = encrypted;
+    dbUpdates.encrypted_data_iv = iv;
+  }
+
+  const { error } = await client
+    .from('myday_document_vaults')
+    .update(dbUpdates)
+    .eq('id', vaultId);
+
+  if (error) {
+    console.error('Error updating document vault:', error);
+    return false;
+  }
+
+  return true;
+};
+
+export const deleteDocumentVault = async (vaultId: string): Promise<boolean> => {
+  const { client } = await requireAuth();
+
+  const { error } = await client
+    .from('myday_document_vaults')
+    .delete()
+    .eq('id', vaultId);
+
+  if (error) {
+    console.error('Error deleting document vault:', error);
+    return false;
+  }
+
+  return true;
+};
+
+export const decryptDocumentVault = async (
+  vault: DocumentVault,
+  encryptionKey: CryptoKey
+): Promise<DocumentVaultEncryptedData> => {
+  try {
+    const decryptedJson = await decryptData(vault.encryptedData, vault.encryptedDataIv, encryptionKey);
+    return JSON.parse(decryptedJson);
+  } catch (error) {
+    console.error('Error decrypting document vault:', error);
+    throw new Error('Failed to decrypt document vault data');
+  }
+};
 
 export const getResolutions = async (): Promise<Resolution[]> => {
   const { client } = await requireAuth();

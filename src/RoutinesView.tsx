@@ -190,7 +190,7 @@ const RoutinesView: React.FC<RoutinesViewProps> = ({ onApplyRoutine }) => {
     <div className="routines-view">
       <div className="routines-header">
         <div>
-          <h2>🎯 Task Routines & Templates</h2>
+          <h2>🎯 Routines</h2>
           <p>Create and manage task routines for different times of the day</p>
         </div>
         <button onClick={handleCreate} className="btn-primary">

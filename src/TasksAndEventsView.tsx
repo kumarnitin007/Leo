@@ -2,50 +2,27 @@
  * Combined Tasks & Events View Component
  * 
  * Consolidates task management and event tracking into one unified interface
- * Sub-tabs: Tasks | Events | Routines
+ * Sub-tabs: Tasks | Events | Routines | Items | Resolutions
  */
 
 import React, { useState } from 'react';
 import ConfigureView from './ConfigureView';
 import EventsView from './EventsView';
 import RoutinesView from './RoutinesView';
+import ItemsView from './ItemsView';
+import ResolutionsView from './ResolutionsView';
 
 interface TasksAndEventsViewProps {
   onNavigate?: (view: string) => void;
 }
 
-type SubTab = 'tasks' | 'events' | 'routines';
+type SubTab = 'tasks' | 'events' | 'routines' | 'items' | 'resolutions';
 
 const TasksAndEventsView: React.FC<TasksAndEventsViewProps> = () => {
   const [activeSubTab, setActiveSubTab] = useState<SubTab>('tasks');
 
   return (
     <div className="tasks-events-view">
-      {/* Header */}
-      <div className="view-header" style={{
-        background: 'rgba(255, 255, 255, 0.9)',
-        backdropFilter: 'blur(10px)',
-        borderRadius: '16px',
-        padding: '1.5rem 2rem',
-        marginBottom: '1.5rem',
-        boxShadow: '0 2px 8px rgba(0, 0, 0, 0.05)'
-      }}>
-        <h2 style={{
-          margin: 0,
-          fontSize: '2rem',
-          fontWeight: 700,
-          background: 'linear-gradient(135deg, #14b8a6 0%, #0d9488 100%)',
-          WebkitBackgroundClip: 'text',
-          WebkitTextFillColor: 'transparent',
-          backgroundClip: 'text'
-        }}>
-          🎯 Tasks & Events
-        </h2>
-        <p style={{ margin: '0.5rem 0 0 0', color: '#6b7280', fontSize: '0.95rem' }}>
-          Manage your tasks, routines, and special occasions
-        </p>
-      </div>
-
       {/* Sub-tabs Navigation */}
       <div className="sub-tabs" style={{
         background: 'rgba(255, 255, 255, 0.9)',
@@ -123,6 +100,50 @@ const TasksAndEventsView: React.FC<TasksAndEventsViewProps> = () => {
           <span style={{ marginRight: '0.5rem' }}>🎯</span>
           Routines
         </button>
+        <button
+          onClick={() => setActiveSubTab('items')}
+          className={`sub-tab ${activeSubTab === 'items' ? 'active' : ''}`}
+          style={{
+            flex: 1,
+            padding: '0.75rem 1.5rem',
+            borderRadius: '8px',
+            border: 'none',
+            background: activeSubTab === 'items' 
+              ? 'linear-gradient(135deg, #14b8a6 0%, #0d9488 100%)'
+              : 'transparent',
+            color: activeSubTab === 'items' ? 'white' : '#6b7280',
+            fontWeight: 600,
+            cursor: 'pointer',
+            transition: 'all 0.2s',
+            boxShadow: activeSubTab === 'items' ? '0 4px 12px rgba(20, 184, 166, 0.35)' : 'none',
+            transform: activeSubTab === 'items' ? 'translateY(-2px)' : 'translateY(0)'
+          }}
+        >
+          <span style={{ marginRight: '0.5rem' }}>📦</span>
+          Items
+        </button>
+        <button
+          onClick={() => setActiveSubTab('resolutions')}
+          className={`sub-tab ${activeSubTab === 'resolutions' ? 'active' : ''}`}
+          style={{
+            flex: 1,
+            padding: '0.75rem 1.5rem',
+            borderRadius: '8px',
+            border: 'none',
+            background: activeSubTab === 'resolutions' 
+              ? 'linear-gradient(135deg, #14b8a6 0%, #0d9488 100%)'
+              : 'transparent',
+            color: activeSubTab === 'resolutions' ? 'white' : '#6b7280',
+            fontWeight: 600,
+            cursor: 'pointer',
+            transition: 'all 0.2s',
+            boxShadow: activeSubTab === 'resolutions' ? '0 4px 12px rgba(20, 184, 166, 0.35)' : 'none',
+            transform: activeSubTab === 'resolutions' ? 'translateY(-2px)' : 'translateY(0)'
+          }}
+        >
+          <span style={{ marginRight: '0.5rem' }}>🎯</span>
+          Resolutions
+        </button>
       </div>
 
       {/* Content Area */}
@@ -130,6 +151,8 @@ const TasksAndEventsView: React.FC<TasksAndEventsViewProps> = () => {
         {activeSubTab === 'tasks' && <ConfigureView />}
         {activeSubTab === 'events' && <EventsView />}
         {activeSubTab === 'routines' && <RoutinesView />}
+        {activeSubTab === 'items' && <ItemsView />}
+        {activeSubTab === 'resolutions' && <ResolutionsView />}
       </div>
     </div>
   );

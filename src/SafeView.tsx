@@ -19,9 +19,10 @@ import {
   getEncryptionKey,
   getSafeEntries,
   getSafeTags,
-  initializeSafeCategories
+  initializeSafeCategories,
+  getDocumentVaults
 } from './storage';
-import { SafeEntry, Tag } from './types';
+import { SafeEntry, Tag, DocumentVault } from './types';
 import { CryptoKey } from './utils/encryption';
 import MasterPasswordSetup from './components/MasterPasswordSetup';
 import SafeLockScreen from './components/SafeLockScreen';
@@ -31,6 +32,8 @@ import SafeEntryDetail from './components/SafeEntryDetail';
 import SafeImportExport from './components/SafeImportExport';
 import ChangeMasterPasswordModal from './components/ChangeMasterPasswordModal';
 import SafeTags from './components/SafeTags';
+import SafeDocumentVault from './components/SafeDocumentVault';
+import SafeDocumentVaultForm from './components/SafeDocumentVaultForm';
 
 const AUTO_LOCK_TIMEOUT = 15 * 60 * 1000; // 15 minutes in milliseconds
 const LOCK_WARNING_TIME = 60 * 1000; // 1 minute before lock
@@ -43,6 +46,7 @@ const SafeView: React.FC = () => {
   const [isUnlocking, setIsUnlocking] = useState(false);
   const [encryptionKey, setEncryptionKey] = useState<CryptoKey | null>(null);
   const [entries, setEntries] = useState<SafeEntry[]>([]);
+  const [documents, setDocuments] = useState<DocumentVault[]>([]);
   const [tags, setTags] = useState<Tag[]>([]);
   const [entryCount, setEntryCount] = useState(0);
   const [selectedEntry, setSelectedEntry] = useState<SafeEntry | null>(null);
@@ -53,6 +57,9 @@ const SafeView: React.FC = () => {
   const [showSafeTags, setShowSafeTags] = useState(false);
   const [showChangePassword, setShowChangePassword] = useState(false);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [activeTab, setActiveTab] = useState<'entries' | 'documents'>('entries');
+  const [showDocumentForm, setShowDocumentForm] = useState(false);
+  const [editingDocument, setEditingDocument] = useState<DocumentVault | null>(null);
   
   const inactivityTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const warningTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -102,6 +109,7 @@ const SafeView: React.FC = () => {
         setEncryptionKey(key);
         setIsLocked(false);
         await loadEntries();
+        await loadDocuments();
         await loadTags();
         startInactivityTimer();
       }
@@ -122,6 +130,7 @@ const SafeView: React.FC = () => {
         setIsLocked(false);
         justUnlockedRef.current = true; // Mark that we just unlocked
         await loadEntries();
+        await loadDocuments();
         await loadTags();
         startInactivityTimer();
         
@@ -145,6 +154,12 @@ const SafeView: React.FC = () => {
     const safeEntries = await getSafeEntries();
     setEntries(safeEntries);
     setEntryCount(safeEntries.length);
+  };
+
+  // Load documents
+  const loadDocuments = async () => {
+    const docs = await getDocumentVaults();
+    setDocuments(docs);
   };
 
   // Handle activity (reset inactivity timer)
@@ -433,7 +448,7 @@ const SafeView: React.FC = () => {
             <h1 style={{ margin: 0, fontSize: '2rem' }}>Leo's Safe</h1>
           </div>
           <p style={{ margin: '0.5rem 0 0 0', opacity: 0.8, fontSize: '0.875rem' }}>
-            {entryCount} {entryCount === 1 ? 'entry' : 'entries'} protected by Leo
+            {entryCount} {entryCount === 1 ? 'entry' : 'entries'}, {documents.length} {documents.length === 1 ? 'document' : 'documents'}
           </p>
         </div>
         <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
@@ -479,21 +494,39 @@ const SafeView: React.FC = () => {
             </button>
           </div>
 
-          <button
-            onClick={handleAddNew}
-            style={{
-              padding: '0.75rem 1.5rem',
-              backgroundColor: '#3b82f6',
-              color: 'white',
-              border: 'none',
-              borderRadius: '0.5rem',
-              cursor: 'pointer',
-              fontSize: '1rem',
-              fontWeight: 500
-            }}
-          >
-            + Add Entry
-          </button>
+          {activeTab === 'entries' ? (
+            <button
+              onClick={() => setIsAdding(true)}
+              style={{
+                padding: '0.75rem 1.5rem',
+                backgroundColor: '#3b82f6',
+                color: 'white',
+                border: 'none',
+                borderRadius: '0.5rem',
+                cursor: 'pointer',
+                fontSize: '1rem',
+                fontWeight: 500
+              }}
+            >
+              + Add Entry
+            </button>
+          ) : (
+            <button
+              onClick={() => setShowDocumentForm(true)}
+              style={{
+                padding: '0.75rem 1.5rem',
+                backgroundColor: '#3b82f6',
+                color: 'white',
+                border: 'none',
+                borderRadius: '0.5rem',
+                cursor: 'pointer',
+                fontSize: '1rem',
+                fontWeight: 500
+              }}
+            >
+              + Add Document
+            </button>
+          )}
           <button
             onClick={() => setShowChangePassword(true)}
             style={{
@@ -554,36 +587,122 @@ const SafeView: React.FC = () => {
         </div>
       </div>
 
-      {/* Content */}
-      {isAdding || isEditing ? (
-        <SafeEntryForm
-          entry={isEditing ? selectedEntry : undefined}
-          tags={tags}
-          encryptionKey={encryptionKey!}
-          onSave={handleEntrySaved}
-          onCancel={handleFormClose}
-        />
-      ) : selectedEntry ? (
-        <SafeEntryDetail
-          entry={selectedEntry}
-          tags={tags}
-          encryptionKey={encryptionKey!}
-          onEdit={handleEdit}
-          onDelete={handleEntryDeleted}
-          onBack={() => {
-            setSelectedEntry(null);
-            handleActivity();
+      {/* Tab Navigation */}
+      <div style={{
+        display: 'flex',
+        gap: '1rem',
+        marginBottom: '2rem',
+        borderBottom: '2px solid #e5e7eb'
+      }}>
+        <button
+          onClick={() => setActiveTab('entries')}
+          style={{
+            padding: '1rem 1.5rem',
+            backgroundColor: 'transparent',
+            border: 'none',
+            borderBottom: activeTab === 'entries' ? '3px solid #3b82f6' : 'none',
+            color: activeTab === 'entries' ? '#3b82f6' : '#6b7280',
+            cursor: 'pointer',
+            fontSize: '1rem',
+            fontWeight: 500,
+            marginBottom: '-2px'
           }}
-        />
+        >
+          🔐 Passwords & Login
+        </button>
+        <button
+          onClick={() => setActiveTab('documents')}
+          style={{
+            padding: '1rem 1.5rem',
+            backgroundColor: 'transparent',
+            border: 'none',
+            borderBottom: activeTab === 'documents' ? '3px solid #3b82f6' : 'none',
+            color: activeTab === 'documents' ? '#3b82f6' : '#6b7280',
+            cursor: 'pointer',
+            fontSize: '1rem',
+            fontWeight: 500,
+            marginBottom: '-2px'
+          }}
+        >
+          📄 Documents Vault
+        </button>
+      </div>
+
+      {/* Content */}
+      {activeTab === 'entries' ? (
+        isAdding || isEditing ? (
+          <SafeEntryForm
+            entry={isEditing ? selectedEntry : undefined}
+            tags={tags}
+            encryptionKey={encryptionKey!}
+            onSave={async () => {
+              await loadEntries();
+              setIsAdding(false);
+              setIsEditing(false);
+              setSelectedEntry(null);
+            }}
+            onCancel={() => {
+              setIsAdding(false);
+              setIsEditing(false);
+              setSelectedEntry(null);
+            }}
+          />
+        ) : selectedEntry ? (
+          <SafeEntryDetail
+            entry={selectedEntry}
+            tags={tags}
+            encryptionKey={encryptionKey!}
+            onEdit={() => setIsEditing(true)}
+            onDelete={async () => {
+              await loadEntries();
+              setSelectedEntry(null);
+            }}
+            onBack={() => {
+              setSelectedEntry(null);
+              handleActivity();
+            }}
+          />
+        ) : (
+          <SafeEntryList
+            entries={entries}
+            tags={tags}
+            encryptionKey={encryptionKey!}
+            viewMode={viewMode}
+            onEntrySelect={(entry) => {
+              setSelectedEntry(entry);
+              setIsAdding(false);
+              setIsEditing(false);
+            }}
+            onEntrySaved={loadEntries}
+          />
+        )
       ) : (
-        <SafeEntryList
-          entries={entries}
-          tags={tags}
-          encryptionKey={encryptionKey!}
-          viewMode={viewMode}
-          onEntrySelect={handleEntrySelect}
-          onEntrySaved={loadEntries}
-        />
+        showDocumentForm || editingDocument ? (
+          <SafeDocumentVaultForm
+            document={editingDocument || undefined}
+            tags={tags}
+            encryptionKey={encryptionKey!}
+            onSave={async () => {
+              await loadDocuments();
+              setShowDocumentForm(false);
+              setEditingDocument(null);
+            }}
+            onCancel={() => {
+              setShowDocumentForm(false);
+              setEditingDocument(null);
+            }}
+          />
+        ) : (
+          <SafeDocumentVault
+            documents={documents}
+            tags={tags}
+            encryptionKey={encryptionKey!}
+            viewMode={viewMode}
+            onDocumentSaved={loadDocuments}
+            onAddDocument={() => setShowDocumentForm(true)}
+            onEditDocument={(doc) => setEditingDocument(doc)}
+          />
+        )
       )}
 
       {/* Import/Export Modal */}

@@ -276,6 +276,40 @@ export interface SafeMasterKey {
   updatedAt: string;
 }
 
+// ===== DOCUMENT VAULT TYPES =====
+
+export type DocumentProvider = 'google' | 'onedrive' | 'dropbox';
+export type DocumentType = 'invoice' | 'contract' | 'identity' | 'insurance' | 'medical' | 'tax' | 'warranty' | 'license' | 'other';
+
+export interface DocumentVaultEncryptedData {
+  // File reference (encrypted) - provider-specific ID or URL
+  fileReference: string;
+  
+  // Notes (encrypted) - 4-5 lines max
+  notes?: string;
+  
+  // Priority (encrypted)
+  priority?: number; // 1-10
+  
+  // Expiry date (encrypted)
+  expiryDate?: string; // YYYY-MM-DD
+}
+
+export interface DocumentVault {
+  id: string;
+  title: string; // Plaintext (for search)
+  provider: DocumentProvider; // google | onedrive | dropbox (plaintext)
+  documentType: DocumentType; // invoice, contract, identity, etc.
+  tags?: string[]; // Array of tag IDs (plaintext)
+  issueDate?: string; // YYYY-MM-DD (plaintext)
+  expiryDate?: string; // YYYY-MM-DD (plaintext for filtering)
+  isFavorite: boolean;
+  encryptedData: string; // Encrypted JSON blob (DocumentVaultEncryptedData)
+  encryptedDataIv: string; // IV for decryption
+  createdAt: string;
+  updatedAt: string;
+}
+
 export type ProgressMetricType = 'count' | 'percentage' | 'milestone' | 'binary';
 
 export interface ResolutionMilestone {

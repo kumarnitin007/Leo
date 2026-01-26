@@ -222,16 +222,7 @@ const AppContent: React.FC = () => {
             style={currentView === 'tasks-events' ? { backgroundColor: theme.colors.primary } : {}}
           >
             <span className="nav-icon">📋</span>
-            <span className="nav-text">Tasks & Events</span>
-          </button>
-          <button
-            className={`nav-button ${currentView === 'items' ? 'active' : ''}`}
-            onClick={() => handleNavigate('items')}
-            title="Items & Resources"
-            style={currentView === 'items' ? { backgroundColor: theme.colors.primary } : {}}
-          >
-            <span className="nav-icon">📦</span>
-            <span className="nav-text">Items</span>
+            <span className="nav-text">New</span>
           </button>
           <button
             className={`nav-button ${currentView === 'journal' ? 'active' : ''}`}
@@ -241,15 +232,6 @@ const AppContent: React.FC = () => {
           >
             <span className="nav-icon">📔</span>
             <span className="nav-text">Journal</span>
-          </button>
-          <button
-            className={`nav-button ${currentView === 'resolutions' ? 'active' : ''}`}
-            onClick={() => handleNavigate('resolutions')}
-            title="Resolutions & Goals"
-            style={currentView === 'resolutions' ? { backgroundColor: theme.colors.primary } : {}}
-          >
-            <span className="nav-icon">🎯</span>
-            <span className="nav-text">Resolutions</span>
           </button>
           <button
             className={`nav-button ${currentView === 'analytics' ? 'active' : ''}`}
@@ -269,17 +251,16 @@ const AppContent: React.FC = () => {
             <span className="nav-icon">🔒</span>
             <span className="nav-text">Safe</span>
           </button>
-          <button
-            className={`nav-button ${currentView === 'settings' ? 'active' : ''}`}
-            onClick={() => handleNavigate('settings')}
-            title="Settings & Configuration"
-            style={currentView === 'settings' ? { backgroundColor: theme.colors.primary } : {}}
-          >
-            <span className="nav-icon">⚙️</span>
-            <span className="nav-text">Settings</span>
-          </button>
         </nav>
         <div className="header-actions">
+          <button
+            className="icon-button"
+            onClick={() => handleNavigate('settings')}
+            title="Settings & Configuration"
+            style={{ color: theme.colors.primary }}
+          >
+            ⚙️
+          </button>
           <button
             className="icon-button"
             onClick={() => setShowAbout(true)}

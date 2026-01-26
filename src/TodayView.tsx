@@ -1137,7 +1137,7 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
               }}
             >
               <span>{viewMode === 'dashboard' ? '📅' : '🏠'}</span>
-              <span>{viewMode === 'dashboard' ? 'Monthly View' : 'Dashboard'}</span>
+              <span>{viewMode === 'dashboard' ? 'Monthly' : 'Dashboard'}</span>
             </button>
             <button 
               onClick={() => setShowProgressAndReview(true)}
@@ -1149,7 +1149,7 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
               }}
             >
               <span>📊</span>
-              <span>Progress & Review</span>
+              <span>Progress</span>
             </button>
             <button
               onClick={async () => {
@@ -1177,7 +1177,7 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
                 }}
               >
                 <span>🤖</span>
-                <span>Smart Coach</span>
+                <span>Coach</span>
               </button>
             )}
             <button 
@@ -1193,7 +1193,7 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
               }}
             >
               <span>{isReorderMode ? '✓' : '↕️'}</span>
-              <span>{isReorderMode ? 'Done Reordering' : 'Reorder Tasks'}</span>
+              <span>{isReorderMode ? 'Done Reordering' : 'Reorder'}</span>
             </button>
             <button 
               onClick={() => setShowBulkHoldModal(true)}
@@ -1208,7 +1208,7 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
               }}
             >
               <span>⏸️</span>
-              <span>Hold Tasks</span>
+              <span>Hold</span>
             </button>
           </div>
         </div>

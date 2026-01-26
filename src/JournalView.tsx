@@ -278,7 +278,7 @@ const JournalView: React.FC = () => {
             )}
           </div>
 
-          <div className="editor-controls">
+          <div className="editor-metadata">
             <div className="mood-selector">
               <label>How are you feeling?</label>
               <div className="mood-buttons">

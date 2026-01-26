@@ -1,0 +1,504 @@
+/* =========================================================================
+   ENHANCED MOBILE-FIRST RESPONSIVE IMPROVEMENTS
+   ========================================================================= */
+
+/* Base mobile improvements - prioritize touch and readability */
+@media (max-width: 768px) {
+  /* Header mobile optimization */
+  .header {
+    padding: 0.75rem !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+  }
+
+  .header-left {
+    flex-direction: column !important;
+    align-items: center !important;
+    gap: 0.75rem !important;
+    text-align: center !important;
+  }
+
+  .header h1 {
+    font-size: 1.25rem !important;
+  }
+
+  .user-badge {
+    width: 100% !important;
+    justify-content: center !important;
+    padding: 0.75rem !important;
+  }
+
+  /* Navigation - horizontal scroll with better touch targets */
+  .nav {
+    display: flex !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    scrollbar-width: none !important;
+    -ms-overflow-style: none !important;
+    padding: 0.5rem 0 !important;
+    gap: 0.5rem !important;
+    flex-wrap: nowrap !important;
+  }
+
+  .nav::-webkit-scrollbar {
+    display: none !important;
+  }
+
+  .nav-button {
+    flex-shrink: 0 !important;
+    min-width: 56px !important; /* Larger touch target */
+    min-height: 56px !important;
+    padding: 0.75rem !important;
+    flex-direction: column !important;
+    gap: 0.25rem !important;
+  }
+
+  .nav-icon {
+    font-size: 1.75rem !important;
+  }
+
+  .nav-text {
+    font-size: 0.7rem !important;
+    display: block !important;
+  }
+
+  /* Main content padding */
+  .main-content {
+    padding: 1rem !important;
+  }
+
+  /* Cards - full width on mobile */
+  .task-card,
+  .event-card,
+  .routine-card {
+    min-height: auto !important;
+    padding: 1.25rem !important;
+  }
+
+  /* Touch-friendly buttons */
+  button,
+  .btn-primary,
+  .btn-secondary,
+  .icon-button {
+    min-height: 48px !important;
+    min-width: 48px !important;
+    padding: 0.75rem 1rem !important;
+    font-size: 1rem !important;
+  }
+
+  /* Form inputs - larger for mobile */
+  input,
+  textarea,
+  select {
+    font-size: 16px !important; /* Prevents zoom on iOS */
+    min-height: 48px !important;
+  }
+
+  /* Modal improvements */
+  .modal-content {
+    margin: 1rem !important;
+    max-width: calc(100vw - 2rem) !important;
+    max-height: calc(100vh - 2rem) !important;
+  }
+
+  /* Floating buttons - better positioning */
+  .floating-timer-button,
+  .floating-giftcards-button,
+  .floating-milestones-button,
+  .floating-pinned-button {
+    width: 56px !important;
+    height: 56px !important;
+    right: 1rem !important;
+  }
+
+  .floating-timer-button {
+    bottom: 1rem !important;
+  }
+
+  .floating-giftcards-button {
+    bottom: 5rem !important;
+  }
+
+  .floating-milestones-button {
+    bottom: 9rem !important;
+  }
+
+  .floating-pinned-button {
+    bottom: 13rem !important;
+  }
+
+  /* Better spacing for mobile cards */
+  .tasks-grid,
+  .events-grid,
+  .routines-grid {
+    gap: 1rem !important;
+  }
+
+  /* Improve readability on mobile */
+  .task-name,
+  .event-card-header h4 {
+    font-size: 1.1rem !important;
+    line-height: 1.4 !important;
+  }
+
+  .task-description,
+  .event-description {
+    font-size: 0.95rem !important;
+    line-height: 1.5 !important;
+  }
+
+  /* Better modal headers on mobile */
+  .modal-header h2,
+  .modal-header h3 {
+    font-size: 1.25rem !important;
+  }
+
+  /* Improve form layouts on mobile */
+  .form-row {
+    grid-template-columns: 1fr !important;
+    gap: 1rem !important;
+  }
+
+  /* Better date headers */
+  .date-header h2 {
+    font-size: 1.5rem !important;
+  }
+
+  .date-header p {
+    font-size: 1rem !important;
+  }
+
+  /* Improve stats display */
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 1rem !important;
+  }
+
+  .stat-value {
+    font-size: 2rem !important;
+  }
+
+  /* Better calendar on mobile */
+  .calendar-day {
+    min-height: 70px !important;
+    padding: 0.5rem !important;
+  }
+
+  /* Improve journal layout */
+  .journal-container {
+    grid-template-columns: 1fr !important;
+    gap: 1rem !important;
+  }
+
+  .journal-sidebar {
+    max-height: 250px !important;
+  }
+
+  /* Better motivational section */
+  .motivational-section {
+    padding: 1.25rem !important;
+  }
+
+  .motivation-stats {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 0.75rem !important;
+  }
+
+  /* Improve sub-tabs on mobile */
+  .sub-tabs {
+    padding: 0.375rem !important;
+    gap: 0.5rem !important;
+    margin-bottom: 1.5rem !important;
+  }
+
+  .sub-tab {
+    padding: 0.625rem 1.25rem !important;
+    font-size: 0.875rem !important;
+  }
+
+  /* Chart responsive styles */
+  .view-mode-selector {
+    gap: 0.5rem !important;
+  }
+
+  .view-mode-button {
+    padding: 0.65rem 1rem !important;
+    font-size: 0.875rem !important;
+  }
+
+  .view-icon {
+    font-size: 1.1rem !important;
+  }
+
+  .view-label {
+    font-size: 0.85rem !important;
+  }
+
+  .chart-container {
+    padding: 1rem !important;
+  }
+
+  .chart-title {
+    font-size: 1.1rem !important;
+  }
+
+  .pie-chart-wrapper {
+    flex-direction: column !important;
+    gap: 2rem !important;
+  }
+
+  .pie-chart {
+    width: 100% !important;
+    height: auto !important;
+  }
+
+  .pie-legend {
+    width: 100% !important;
+    max-width: none !important;
+  }
+}
+
+/* Small phones - extra optimizations */
+@media (max-width: 480px) {
+  .header h1 {
+    font-size: 1.1rem !important;
+  }
+
+  .nav-button {
+    min-width: 48px !important;
+    min-height: 48px !important;
+    padding: 0.5rem !important;
+  }
+
+  .nav-text {
+    font-size: 0.65rem !important;
+  }
+
+  /* Stack floating buttons horizontally at bottom */
+  .floating-timer-button,
+  .floating-giftcards-button,
+  .floating-milestones-button,
+  .floating-pinned-button {
+    width: 48px !important;
+    height: 48px !important;
+    bottom: 1rem !important;
+    right: auto !important;
+  }
+
+  .floating-timer-button {
+    right: 1rem !important;
+  }
+
+  .floating-giftcards-button {
+    right: 4.5rem !important;
+  }
+
+  .floating-milestones-button {
+    right: 8rem !important;
+  }
+
+  .floating-pinned-button {
+    right: 11.5rem !important;
+  }
+
+  /* Smaller cards on very small screens */
+  .task-card,
+  .event-card {
+    padding: 1rem !important;
+  }
+
+  /* Single column stats */
+  .stats-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Smaller modal padding */
+  .modal-content {
+    padding: 1rem !important;
+  }
+
+  .modal-header {
+    padding: 1rem !important;
+  }
+
+  .modal-body {
+    padding: 1rem !important;
+  }
+
+  /* Better button groups */
+  .form-actions,
+  .task-actions,
+  .event-actions {
+    flex-direction: column !important;
+    gap: 0.75rem !important;
+  }
+
+  .form-actions button,
+  .task-actions button,
+  .event-actions button {
+    width: 100% !important;
+  }
+
+  /* Chart mobile styles */
+  .view-mode-button {
+    padding: 0.5rem 0.75rem !important;
+    flex-direction: column !important;
+    gap: 0.25rem !important;
+  }
+
+  .view-icon {
+    font-size: 1.5rem !important;
+  }
+
+  .view-label {
+    font-size: 0.7rem !important;
+  }
+
+  .chart-container {
+    padding: 0.75rem !important;
+  }
+
+  .bar-chart svg,
+  .line-chart svg {
+    min-width: 600px !important;
+  }
+
+  .legend-item {
+    font-size: 0.875rem !important;
+  }
+}
+
+/* Landscape mobile - optimize horizontal space */
+@media (max-width: 900px) and (orientation: landscape) {
+  .header {
+    padding: 0.5rem 1rem !important;
+  }
+
+  .nav {
+    flex-wrap: nowrap !important;
+    overflow-x: auto !important;
+  }
+
+  .main-content {
+    padding: 0.75rem !important;
+  }
+
+  /* Use horizontal space better */
+  .tasks-grid {
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)) !important;
+  }
+
+  /* Compact modals in landscape */
+  .modal-content {
+    max-height: 85vh !important;
+  }
+}
+
+/* Tablet improvements - bridge between mobile and desktop */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .header {
+    padding: 1rem 1.5rem !important;
+  }
+
+  .nav-button {
+    padding: 0.75rem 1.25rem !important;
+  }
+
+  .tasks-grid {
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)) !important;
+  }
+
+  .events-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+
+  /* Better use of tablet space */
+  .journal-container {
+    grid-template-columns: 250px 1fr !important;
+  }
+
+  .stats-grid {
+    grid-template-columns: repeat(3, 1fr) !important;
+  }
+}
+
+/* Touch device optimizations - applies to all touch devices */
+@media (hover: none) and (pointer: coarse) {
+  /* Increase all touch targets */
+  button,
+  a,
+  .nav-button,
+  .task-card,
+  .event-card {
+    min-height: 44px !important;
+  }
+
+  /* Remove hover effects on touch devices */
+  .task-card:hover,
+  .event-card:hover,
+  .nav-button:hover {
+    transform: none !important;
+  }
+
+  /* Add active states instead */
+  .task-card:active,
+  .event-card:active,
+  .nav-button:active {
+    transform: scale(0.98) !important;
+    opacity: 0.9 !important;
+  }
+
+  /* Better tap highlights */
+  * {
+    -webkit-tap-highlight-color: rgba(20, 184, 166, 0.2) !important;
+  }
+
+  /* Prevent text selection on buttons */
+  button,
+  .nav-button {
+    -webkit-user-select: none !important;
+    user-select: none !important;
+  }
+}
+
+/* High DPI screens - sharper rendering */
+@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+  .task-card,
+  .event-card,
+  .modal-content {
+    border-width: 0.5px !important;
+  }
+}
+
+/* Accessibility - reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Print styles - ensure app looks good when printed */
+@media print {
+  .header,
+  .nav,
+  .floating-timer-button,
+  .floating-giftcards-button,
+  .floating-milestones-button,
+  .floating-pinned-button {
+    display: none !important;
+  }
+
+  .main-content {
+    padding: 0 !important;
+  }
+
+  .task-card,
+  .event-card {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+}
