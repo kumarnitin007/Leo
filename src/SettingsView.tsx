@@ -12,7 +12,7 @@ const SettingsView: React.FC = () => {
   return (
     <div className="settings-view">
       <div className="view-header">
-        <h2>⚙️ Settings & Configuration</h2>
+        <h2>⚙️ Settings</h2>
       </div>
 
       <div className="sub-tabs">
@@ -40,7 +40,7 @@ const SettingsView: React.FC = () => {
         {activeTab === 'profile' && (
           <div className="profile-settings-container">
             <div className="settings-info">
-              <h3>User Profile & App Preferences</h3>
+              <h3>User Profile</h3>
               <p>Manage your account, theme, avatar, and dashboard layout.</p>
               <button 
                 className="btn-primary"
