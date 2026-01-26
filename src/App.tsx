@@ -37,6 +37,8 @@ import SettingsModal from './components/SettingsModal';
 import PWAInstallPrompt from './components/PWAInstallPrompt';
 import OnboardingFlow from './components/OnboardingFlow';
 import AuthModal from './components/AuthModal';
+import MobileBottomNav from './components/MobileBottomNav';
+import MobileBottomSheet from './components/MobileBottomSheet';
 import { isFirstTimeUser, markOnboardingComplete } from './storage';
 import { loadSampleTasks } from './utils/sampleData';
 
@@ -57,6 +59,8 @@ const AppContent: React.FC = () => {
   const [showGiftCardsModal, setShowGiftCardsModal] = useState(false);
   const [showMilestonesModal, setShowMilestonesModal] = useState(false);
   const [showPinnedModal, setShowPinnedModal] = useState(false);
+  const [showAddSheet, setShowAddSheet] = useState(false);
+  const [showMoreSheet, setShowMoreSheet] = useState(false);
   
   const { theme } = useTheme();
   const { avatar, username } = useUser();
@@ -369,6 +373,106 @@ const AppContent: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Mobile Bottom Navigation */}
+      <MobileBottomNav
+        currentView={currentView}
+        onNavigate={handleNavigate}
+        onAddClick={() => setShowAddSheet(true)}
+        onMoreClick={() => setShowMoreSheet(true)}
+      />
+
+      {/* Mobile Add Bottom Sheet */}
+      <MobileBottomSheet
+        isOpen={showAddSheet}
+        onClose={() => setShowAddSheet(false)}
+        title="Add New"
+        options={[
+          {
+            icon: '✅',
+            label: 'Task',
+            description: 'Quick task or to-do',
+            onClick: () => handleNavigate('tasks-events'),
+            primary: true,
+          },
+          {
+            icon: '📅',
+            label: 'Event',
+            description: 'Calendar event or reminder',
+            onClick: () => handleNavigate('tasks-events'),
+            primary: true,
+          },
+          {
+            icon: '📦',
+            label: 'Item',
+            description: 'Track an item or resource',
+            onClick: () => handleNavigate('items'),
+          },
+          {
+            icon: '🔄',
+            label: 'Routine',
+            description: 'Recurring habit or routine',
+            onClick: () => handleNavigate('tasks-events'),
+          },
+          {
+            icon: '🎯',
+            label: 'Resolution',
+            description: 'Goal or resolution',
+            onClick: () => handleNavigate('resolutions'),
+          },
+        ]}
+      />
+
+      {/* Mobile More Bottom Sheet */}
+      <MobileBottomSheet
+        isOpen={showMoreSheet}
+        onClose={() => setShowMoreSheet(false)}
+        title="More Options"
+        options={[
+          {
+            icon: '📊',
+            label: 'Analytics',
+            description: 'View your progress and stats',
+            onClick: () => handleNavigate('analytics'),
+          },
+          {
+            icon: '⏱️',
+            label: 'Timer',
+            description: 'Focus timer and stopwatch',
+            onClick: () => setShowTimerModal(true),
+          },
+          {
+            icon: '🎁',
+            label: 'Gift Cards',
+            description: 'Manage gift cards',
+            onClick: () => setShowGiftCardsModal(true),
+          },
+          {
+            icon: '🏆',
+            label: 'Milestones',
+            description: 'Track important milestones',
+            onClick: () => setShowMilestonesModal(true),
+          },
+          {
+            icon: '📌',
+            label: 'Pinned',
+            description: 'Quick access items',
+            onClick: () => setShowPinnedModal(true),
+          },
+          {
+            icon: '⚙️',
+            label: 'Settings',
+            description: 'App settings and preferences',
+            onClick: () => handleNavigate('settings'),
+          },
+          {
+            icon: 'ℹ️',
+            label: 'About',
+            description: 'About Leo Planner',
+            onClick: () => setShowAbout(true),
+          },
+        ]}
+      />
     </div>
   );
 };
