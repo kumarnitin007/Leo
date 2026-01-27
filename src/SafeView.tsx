@@ -436,7 +436,7 @@ const SafeView: React.FC = () => {
       )}
 
       {/* Header */}
-      <div style={{ 
+      <div className="safe-desktop-header" style={{ 
         display: 'flex', 
         justifyContent: 'space-between', 
         alignItems: 'center',
@@ -452,81 +452,6 @@ const SafeView: React.FC = () => {
           </p>
         </div>
         <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-          {/* View Toggle */}
-          <div style={{
-            display: 'flex',
-            gap: '0.25rem',
-            backgroundColor: '#f3f4f6',
-            borderRadius: '0.5rem',
-            padding: '0.25rem'
-          }}>
-            <button
-              onClick={() => setViewMode('grid')}
-              style={{
-                padding: '0.5rem 1rem',
-                backgroundColor: viewMode === 'grid' ? '#3b82f6' : 'transparent',
-                color: viewMode === 'grid' ? 'white' : '#6b7280',
-                border: 'none',
-                borderRadius: '0.375rem',
-                cursor: 'pointer',
-                fontSize: '0.875rem',
-                fontWeight: 500
-              }}
-              title="Grid View"
-            >
-              ⊞ Grid
-            </button>
-            <button
-              onClick={() => setViewMode('list')}
-              style={{
-                padding: '0.5rem 1rem',
-                backgroundColor: viewMode === 'list' ? '#3b82f6' : 'transparent',
-                color: viewMode === 'list' ? 'white' : '#6b7280',
-                border: 'none',
-                borderRadius: '0.375rem',
-                cursor: 'pointer',
-                fontSize: '0.875rem',
-                fontWeight: 500
-              }}
-              title="List View"
-            >
-              ☰ List
-            </button>
-          </div>
-
-          {activeTab === 'entries' ? (
-            <button
-              onClick={() => setIsAdding(true)}
-              style={{
-                padding: '0.75rem 1.5rem',
-                backgroundColor: '#3b82f6',
-                color: 'white',
-                border: 'none',
-                borderRadius: '0.5rem',
-                cursor: 'pointer',
-                fontSize: '1rem',
-                fontWeight: 500
-              }}
-            >
-              + Add Entry
-            </button>
-          ) : (
-            <button
-              onClick={() => setShowDocumentForm(true)}
-              style={{
-                padding: '0.75rem 1.5rem',
-                backgroundColor: '#3b82f6',
-                color: 'white',
-                border: 'none',
-                borderRadius: '0.5rem',
-                cursor: 'pointer',
-                fontSize: '1rem',
-                fontWeight: 500
-              }}
-            >
-              + Add Document
-            </button>
-          )}
           <button
             onClick={() => setShowChangePassword(true)}
             style={{
@@ -587,44 +512,122 @@ const SafeView: React.FC = () => {
         </div>
       </div>
 
-      {/* Tab Navigation */}
-      <div style={{
+      {/* Tab Navigation - Mobile-friendly */}
+      <div className="safe-tabs-wrapper" style={{
         display: 'flex',
-        gap: '1rem',
-        marginBottom: '2rem',
-        borderBottom: '2px solid #e5e7eb'
+        gap: '0.75rem',
+        marginBottom: '1.5rem'
       }}>
         <button
           onClick={() => setActiveTab('entries')}
+          className="safe-tab"
           style={{
-            padding: '1rem 1.5rem',
-            backgroundColor: 'transparent',
-            border: 'none',
-            borderBottom: activeTab === 'entries' ? '3px solid #3b82f6' : 'none',
-            color: activeTab === 'entries' ? '#3b82f6' : '#6b7280',
+            flex: 1,
+            padding: '0.75rem 1rem',
+            backgroundColor: activeTab === 'entries' ? '#3b82f6' : 'rgba(255,255,255,0.5)',
+            color: activeTab === 'entries' ? 'white' : '#6b7280',
+            border: activeTab === 'entries' ? 'none' : '2px solid rgba(0,0,0,0.1)',
+            borderRadius: '12px',
             cursor: 'pointer',
-            fontSize: '1rem',
-            fontWeight: 500,
-            marginBottom: '-2px'
+            fontSize: '0.875rem',
+            fontWeight: 600,
+            transition: 'all 0.3s ease',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: '0.25rem'
           }}
         >
-          🔐 Passwords & Login
+          <span style={{ fontSize: '1.25rem' }}>🔐</span>
+          <span>Passwords</span>
         </button>
         <button
           onClick={() => setActiveTab('documents')}
+          className="safe-tab"
           style={{
-            padding: '1rem 1.5rem',
-            backgroundColor: 'transparent',
-            border: 'none',
-            borderBottom: activeTab === 'documents' ? '3px solid #3b82f6' : 'none',
-            color: activeTab === 'documents' ? '#3b82f6' : '#6b7280',
+            flex: 1,
+            padding: '0.75rem 1rem',
+            backgroundColor: activeTab === 'documents' ? '#3b82f6' : 'rgba(255,255,255,0.5)',
+            color: activeTab === 'documents' ? 'white' : '#6b7280',
+            border: activeTab === 'documents' ? 'none' : '2px solid rgba(0,0,0,0.1)',
+            borderRadius: '12px',
             cursor: 'pointer',
-            fontSize: '1rem',
-            fontWeight: 500,
-            marginBottom: '-2px'
+            fontSize: '0.875rem',
+            fontWeight: 600,
+            transition: 'all 0.3s ease',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: '0.25rem'
           }}
         >
-          📄 Documents Vault
+          <span style={{ fontSize: '1.25rem' }}>📄</span>
+          <span>Documents</span>
+        </button>
+      </div>
+
+      {/* View Toggle and Add Button - After Tab Selection */}
+      <div style={{ 
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        alignItems: 'center',
+        marginBottom: '1.5rem'
+      }}>
+        <div style={{
+          display: 'flex',
+          gap: '0.25rem',
+          backgroundColor: '#f3f4f6',
+          borderRadius: '0.5rem',
+          padding: '0.25rem'
+        }}>
+          <button
+            onClick={() => setViewMode('grid')}
+            style={{
+              padding: '0.5rem 1rem',
+              backgroundColor: viewMode === 'grid' ? '#3b82f6' : 'transparent',
+              color: viewMode === 'grid' ? 'white' : '#6b7280',
+              border: 'none',
+              borderRadius: '0.375rem',
+              cursor: 'pointer',
+              fontSize: '0.875rem',
+              fontWeight: 500
+            }}
+            title="Grid View"
+          >
+            ⊞ Grid
+          </button>
+          <button
+            onClick={() => setViewMode('list')}
+            style={{
+              padding: '0.5rem 1rem',
+              backgroundColor: viewMode === 'list' ? '#3b82f6' : 'transparent',
+              color: viewMode === 'list' ? 'white' : '#6b7280',
+              border: 'none',
+              borderRadius: '0.375rem',
+              cursor: 'pointer',
+              fontSize: '0.875rem',
+              fontWeight: 500
+            }}
+            title="List View"
+          >
+            ☰ List
+          </button>
+        </div>
+
+        <button
+          onClick={activeTab === 'entries' ? () => setIsAdding(true) : () => setShowDocumentForm(true)}
+          style={{
+            padding: '0.75rem 1.5rem',
+            backgroundColor: '#3b82f6',
+            color: 'white',
+            border: 'none',
+            borderRadius: '0.5rem',
+            cursor: 'pointer',
+            fontSize: '1rem',
+            fontWeight: 500
+          }}
+        >
+          + Add New
         </button>
       </div>
 

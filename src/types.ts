@@ -94,6 +94,7 @@ export interface JournalEntry {
   content: string;
   mood?: 'great' | 'good' | 'okay' | 'bad' | 'terrible';
   tags?: string[]; // Array of tag IDs
+  isFavorite?: boolean;
   createdAt: string;
   updatedAt: string;
 }
