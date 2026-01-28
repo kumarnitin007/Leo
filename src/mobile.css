@@ -1116,6 +1116,12 @@
   .safe-desktop-header {
     display: none !important;
   }
+
+  /* Hide duplicate view toggles in SafeDocumentVault and SafeEntryList on mobile */
+  .safe-items + div > div:first-child > div:first-child,
+  div[style*="flexWrap: 'wrap'"] > div[style*="backgroundColor: '#f3f4f6'"] {
+    display: none !important;
+  }
 }
 
 /* Journal Mobile Styles */

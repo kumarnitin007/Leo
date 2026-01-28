@@ -213,36 +213,12 @@ const JournalView: React.FC = () => {
     <div className="journal-view">
       {/* Mobile Header */}
       <div className="journal-header mobile-journal-header">
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-            <span style={{ fontSize: '2rem' }}>📓</span>
-            <div>
-              <h2 style={{ margin: 0, fontSize: '1.875rem', fontWeight: 800 }}>Daily Journal</h2>
-              <p style={{ margin: 0, fontSize: '0.875rem', opacity: 0.85 }}>Reflect & track daily</p>
-            </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
+          <span style={{ fontSize: '2rem' }}>📓</span>
+          <div>
+            <h2 style={{ margin: 0, fontSize: '1.875rem', fontWeight: 800 }}>Daily Journal</h2>
+            <p style={{ margin: 0, fontSize: '0.875rem', opacity: 0.85 }}>Reflect & track daily</p>
           </div>
-          <button
-            onClick={async () => {
-              const clearFirst = confirm('Load sample journal entries? Click OK to clear existing entries and load samples, or Cancel to add to existing entries.');
-              if (clearFirst && !confirm('⚠️ This will delete ALL your existing journal entries. Are you sure?')) return;
-              try {
-                const success = await importSampleJournals(clearFirst);
-                if (success) {
-                  await loadEntries();
-                  alert(`Sample journal entries ${clearFirst ? 'loaded' : 'added'} successfully!`);
-                } else {
-                  alert('Error importing sample journal entries. Please try again.');
-                }
-              } catch (err) {
-                console.error(err);
-                alert('Error importing sample journal entries.');
-              }
-            }}
-            className="btn-secondary"
-            style={{ padding: '0.625rem 1rem', fontSize: '0.8125rem', whiteSpace: 'nowrap' }}
-          >
-            Load Demo
-          </button>
         </div>
 
         {/* Streak Counter */}
@@ -261,28 +237,7 @@ const JournalView: React.FC = () => {
         </div>
       </div>
 
-      {/* Mobile Search Section */}
-      <div className="journal-mobile-search">
-        <div style={{ position: 'relative', marginBottom: '1rem' }}>
-          <span style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', fontSize: '18px', color: '#6B7C8E' }}>🔍</span>
-          <input
-            type="text"
-            placeholder="Search past entries..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            style={{
-              width: '100%',
-              padding: '12px 14px 12px 44px',
-              border: '2px solid rgba(0, 180, 150, 0.15)',
-              borderRadius: '12px',
-              fontSize: '14px',
-              background: 'rgba(248, 252, 251, 1)',
-              transition: 'all 0.3s ease',
-              boxSizing: 'border-box'
-            }}
-          />
-        </div>
-      </div>
+
 
       {/* Desktop Header */}
       <div className="journal-header desktop-journal-header">
@@ -546,7 +501,27 @@ const JournalView: React.FC = () => {
             </div>
             
             {showRecentEntries && (
-              <div className="entries-list">
+              <>
+                <div style={{ position: 'relative', marginBottom: '1rem' }}>
+                  <span style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', fontSize: '18px', color: '#6B7C8E' }}>🔍</span>
+                  <input
+                    type="text"
+                    placeholder="Search past entries..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '12px 14px 12px 44px',
+                      border: '2px solid rgba(0, 180, 150, 0.15)',
+                      borderRadius: '12px',
+                      fontSize: '14px',
+                      background: 'rgba(248, 252, 251, 1)',
+                      transition: 'all 0.3s ease',
+                      boxSizing: 'border-box'
+                    }}
+                  />
+                </div>
+                <div className="entries-list">
                 {filteredEntries.length === 0 ? (
                   <div className="no-entries">
                     <p>No journal entries yet.</p>
@@ -625,7 +600,8 @@ const JournalView: React.FC = () => {
                     </div>
                   ))
                 )}
-              </div>
+                </div>
+              </>
             )}
           </div>
         </div>

@@ -211,6 +211,33 @@ export const completeTask = async (taskId: string, date: string, durationMinutes
 
   if (error) throw error;
 
+  // Update linked resolutions' progress
+  try {
+    const { data: resolutions } = await client
+      .from('myday_resolutions')
+      .select('*')
+      .contains('linked_task_ids', [taskId]);
+
+    if (resolutions && resolutions.length > 0) {
+      for (const resolution of resolutions) {
+        // Increment currentValue for count-based metrics
+        if (resolution.progress_metric === 'count' || resolution.progress_metric === 'percentage') {
+          const newValue = (resolution.current_value || 0) + 1;
+          await client
+            .from('myday_resolutions')
+            .update({ 
+              current_value: newValue,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', resolution.id);
+        }
+      }
+    }
+  } catch (resError) {
+    console.error('Error updating resolution progress:', resError);
+    // Don't throw - task completion should succeed even if resolution update fails
+  }
+
   // If task has dependents, mark them as complete too
   if (task?.dependent_task_ids && task.dependent_task_ids.length > 0) {
     for (const dependentId of task.dependent_task_ids) {
@@ -229,6 +256,33 @@ export const uncompleteTask = async (taskId: string, date: string): Promise<void
     .eq('completion_date', date);
 
   if (error) throw error;
+
+  // Update linked resolutions' progress (decrement)
+  try {
+    const { data: resolutions } = await client
+      .from('myday_resolutions')
+      .select('*')
+      .contains('linked_task_ids', [taskId]);
+
+    if (resolutions && resolutions.length > 0) {
+      for (const resolution of resolutions) {
+        // Decrement currentValue for count-based metrics
+        if (resolution.progress_metric === 'count' || resolution.progress_metric === 'percentage') {
+          const newValue = Math.max(0, (resolution.current_value || 0) - 1);
+          await client
+            .from('myday_resolutions')
+            .update({ 
+              current_value: newValue,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', resolution.id);
+        }
+      }
+    }
+  } catch (resError) {
+    console.error('Error updating resolution progress:', resError);
+    // Don't throw - task uncompletion should succeed even if resolution update fails
+  }
 };
 
 export const getCompletions = async (): Promise<TaskCompletion[]> => {
@@ -770,7 +824,7 @@ export const getRoutines = async (): Promise<Routine[]> => {
     description: routine.description,
     taskIds: routine.task_ids || [],
     timeOfDay: routine.time_of_day,
-    isPreDefined: routine.is_pre_defined || false,
+    isPreDefined: routine.is_predefined || false,
     isActive: routine.is_active !== false, // Default to true for backward compatibility
     createdAt: routine.created_at || new Date().toISOString()
   }));
@@ -788,7 +842,7 @@ export const saveRoutine = async (routine: Routine): Promise<void> => {
       description: routine.description,
       task_ids: routine.taskIds,
       time_of_day: routine.timeOfDay,
-      is_pre_defined: routine.isPreDefined || false,
+      is_predefined: routine.isPreDefined || false,
       is_active: routine.isActive !== false
     }], {
       onConflict: 'id'
@@ -826,7 +880,7 @@ export const initializeDefaultRoutines = async (): Promise<void> => {
       .from('myday_routines')
       .select('id')
       .eq('user_id', userId)
-      .eq('is_pre_defined', true);
+      .eq('is_predefined', true);
 
     if (checkError) throw checkError;
     
@@ -844,7 +898,7 @@ export const initializeDefaultRoutines = async (): Promise<void> => {
         description: 'Start your day with energy and focus',
         time_of_day: 'morning',
         task_ids: [],
-        is_pre_defined: true,
+        is_predefined: true,
         is_active: false,
         created_at: new Date().toISOString()
       },
@@ -855,7 +909,7 @@ export const initializeDefaultRoutines = async (): Promise<void> => {
         description: 'Relax and prepare for restful sleep',
         time_of_day: 'evening',
         task_ids: [],
-        is_pre_defined: true,
+        is_predefined: true,
         is_active: false,
         created_at: new Date().toISOString()
       },
@@ -866,7 +920,7 @@ export const initializeDefaultRoutines = async (): Promise<void> => {
         description: 'Complete workout and fitness routine',
         time_of_day: 'anytime',
         task_ids: [],
-        is_pre_defined: true,
+        is_predefined: true,
         is_active: false,
         created_at: new Date().toISOString()
       },
@@ -877,7 +931,7 @@ export const initializeDefaultRoutines = async (): Promise<void> => {
         description: 'Meditation, breathing, and mental reset',
         time_of_day: 'anytime',
         task_ids: [],
-        is_pre_defined: true,
+        is_predefined: true,
         is_active: false,
         created_at: new Date().toISOString()
       },
@@ -888,7 +942,7 @@ export const initializeDefaultRoutines = async (): Promise<void> => {
         description: 'Focused learning and skill development',
         time_of_day: 'afternoon',
         task_ids: [],
-        is_pre_defined: true,
+        is_predefined: true,
         is_active: false,
         created_at: new Date().toISOString()
       },
@@ -899,7 +953,7 @@ export const initializeDefaultRoutines = async (): Promise<void> => {
         description: 'Quick cleaning and organization routine',
         time_of_day: 'anytime',
         task_ids: [],
-        is_pre_defined: true,
+        is_predefined: true,
         is_active: false,
         created_at: new Date().toISOString()
       }

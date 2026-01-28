@@ -61,6 +61,7 @@ const AppContent: React.FC = () => {
   const [showPinnedModal, setShowPinnedModal] = useState(false);
   const [showAddSheet, setShowAddSheet] = useState(false);
   const [showMoreSheet, setShowMoreSheet] = useState(false);
+  const [tasksEventsInitialTab, setTasksEventsInitialTab] = useState<'tasks' | 'events' | 'routines' | 'items' | 'resolutions'>('tasks');
   
   const { theme } = useTheme();
   const { avatar, username } = useUser();
@@ -162,7 +163,7 @@ const AppContent: React.FC = () => {
       case 'today':
         return <TodayView key={`today-${key}`} onNavigate={handleNavigate} />;
       case 'tasks-events':
-        return <TasksAndEventsView key={`tasks-events-${key}`} onNavigate={handleNavigate} />;
+        return <TasksAndEventsView key={`tasks-events-${key}`} onNavigate={handleNavigate} initialTab={tasksEventsInitialTab} />;
       case 'items':
         return <ItemsView key={`items-${key}`} onNavigate={handleNavigate} />;
       case 'journal':
@@ -392,14 +393,20 @@ const AppContent: React.FC = () => {
             icon: '✅',
             label: 'Task',
             description: 'Quick task or to-do',
-            onClick: () => handleNavigate('tasks-events'),
+            onClick: () => {
+              setTasksEventsInitialTab('tasks');
+              handleNavigate('tasks-events');
+            },
             primary: true,
           },
           {
             icon: '📅',
             label: 'Event',
             description: 'Calendar event or reminder',
-            onClick: () => handleNavigate('tasks-events'),
+            onClick: () => {
+              setTasksEventsInitialTab('events');
+              handleNavigate('tasks-events');
+            },
             primary: true,
           },
           {
@@ -412,13 +419,19 @@ const AppContent: React.FC = () => {
             icon: '🔄',
             label: 'Routine',
             description: 'Recurring habit or routine',
-            onClick: () => handleNavigate('tasks-events'),
+            onClick: () => {
+              setTasksEventsInitialTab('routines');
+              handleNavigate('tasks-events');
+            },
           },
           {
             icon: '🎯',
             label: 'Resolution',
             description: 'Goal or resolution',
-            onClick: () => handleNavigate('resolutions'),
+            onClick: () => {
+              setTasksEventsInitialTab('resolutions');
+              handleNavigate('tasks-events');
+            },
           },
         ]}
       />

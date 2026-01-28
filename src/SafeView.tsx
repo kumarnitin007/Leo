@@ -56,7 +56,6 @@ const SafeView: React.FC = () => {
   const [showImportExport, setShowImportExport] = useState(false);
   const [showSafeTags, setShowSafeTags] = useState(false);
   const [showChangePassword, setShowChangePassword] = useState(false);
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [activeTab, setActiveTab] = useState<'entries' | 'documents'>('entries');
   const [showDocumentForm, setShowDocumentForm] = useState(false);
   const [editingDocument, setEditingDocument] = useState<DocumentVault | null>(null);
@@ -566,54 +565,12 @@ const SafeView: React.FC = () => {
         </button>
       </div>
 
-      {/* View Toggle and Add Button - After Tab Selection */}
+      {/* Add Button */}
       <div style={{ 
         display: 'flex', 
-        justifyContent: 'space-between', 
-        alignItems: 'center',
+        justifyContent: 'flex-end',
         marginBottom: '1.5rem'
       }}>
-        <div style={{
-          display: 'flex',
-          gap: '0.25rem',
-          backgroundColor: '#f3f4f6',
-          borderRadius: '0.5rem',
-          padding: '0.25rem'
-        }}>
-          <button
-            onClick={() => setViewMode('grid')}
-            style={{
-              padding: '0.5rem 1rem',
-              backgroundColor: viewMode === 'grid' ? '#3b82f6' : 'transparent',
-              color: viewMode === 'grid' ? 'white' : '#6b7280',
-              border: 'none',
-              borderRadius: '0.375rem',
-              cursor: 'pointer',
-              fontSize: '0.875rem',
-              fontWeight: 500
-            }}
-            title="Grid View"
-          >
-            ⊞ Grid
-          </button>
-          <button
-            onClick={() => setViewMode('list')}
-            style={{
-              padding: '0.5rem 1rem',
-              backgroundColor: viewMode === 'list' ? '#3b82f6' : 'transparent',
-              color: viewMode === 'list' ? 'white' : '#6b7280',
-              border: 'none',
-              borderRadius: '0.375rem',
-              cursor: 'pointer',
-              fontSize: '0.875rem',
-              fontWeight: 500
-            }}
-            title="List View"
-          >
-            ☰ List
-          </button>
-        </div>
-
         <button
           onClick={activeTab === 'entries' ? () => setIsAdding(true) : () => setShowDocumentForm(true)}
           style={{
@@ -670,7 +627,6 @@ const SafeView: React.FC = () => {
             entries={entries}
             tags={tags}
             encryptionKey={encryptionKey!}
-            viewMode={viewMode}
             onEntrySelect={(entry) => {
               setSelectedEntry(entry);
               setIsAdding(false);
@@ -700,7 +656,6 @@ const SafeView: React.FC = () => {
             documents={documents}
             tags={tags}
             encryptionKey={encryptionKey!}
-            viewMode={viewMode}
             onDocumentSaved={loadDocuments}
             onAddDocument={() => setShowDocumentForm(true)}
             onEditDocument={(doc) => setEditingDocument(doc)}

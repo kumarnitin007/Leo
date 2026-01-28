@@ -7,7 +7,6 @@ interface SafeEntryListProps {
   entries: SafeEntry[];
   tags: Tag[];
   encryptionKey: CryptoKey;
-  viewMode: 'grid' | 'list';
   onEntrySelect: (entry: SafeEntry) => void;
   onEntrySaved: () => void;
 }
@@ -16,7 +15,6 @@ const SafeEntryList: React.FC<SafeEntryListProps> = ({
   entries,
   tags,
   encryptionKey,
-  viewMode,
   onEntrySelect,
   onEntrySaved
 }) => {
@@ -194,7 +192,7 @@ const SafeEntryList: React.FC<SafeEntryListProps> = ({
           <p style={{ fontSize: '1.25rem', margin: 0 }}>No entries found</p>
           <p style={{ margin: '0.5rem 0 0 0' }}>{searchQuery || selectedCategory || showFavoritesOnly ? 'Try adjusting your filters' : 'Click "Add Entry" to create your first entry'}</p>
         </div>
-      ) : viewMode === 'grid' ? (
+      ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '1rem' }}>
           {filteredEntries.map(entry => {
             const categoryName = getCategoryName(entry.categoryTagId);
@@ -237,70 +235,6 @@ const SafeEntryList: React.FC<SafeEntryListProps> = ({
               </div>
             );
           })}
-        </div>
-      ) : (
-        <div style={{ backgroundColor: 'rgba(255,255,255,0.95)', borderRadius: '8px', overflow: 'hidden' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead>
-              <tr style={{ backgroundColor: '#f9fafb', borderBottom: '2px solid #e5e7eb' }}>
-                <th style={{ padding: '1rem', textAlign: 'left', fontSize: '0.875rem', fontWeight: 600, color: '#6b7280', width: '48px' }}></th>
-                <th style={{ padding: '1rem', textAlign: 'left', fontSize: '0.875rem', fontWeight: 600, color: '#6b7280' }}>Title</th>
-                <th style={{ padding: '1rem', textAlign: 'left', fontSize: '0.875rem', fontWeight: 600, color: '#6b7280' }}>Category</th>
-                <th style={{ padding: '1rem', textAlign: 'left', fontSize: '0.875rem', fontWeight: 600, color: '#6b7280' }}>URL</th>
-                <th style={{ padding: '1rem', textAlign: 'left', fontSize: '0.875rem', fontWeight: 600, color: '#6b7280' }}>Status</th>
-                <th style={{ padding: '1rem', textAlign: 'left', fontSize: '0.875rem', fontWeight: 600, color: '#6b7280' }}>Updated</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredEntries.map((entry, index) => {
-                const categoryName = getCategoryName(entry.categoryTagId);
-                const categoryTag = tags.find(t => t.id === entry.categoryTagId);
-                const expiringDays = getExpiringDays(entry);
-                const isExpiring = isExpiringSoon(entry);
-
-                return (
-                  <tr key={entry.id} style={{ borderBottom: index < filteredEntries.length - 1 ? '1px solid #e5e7eb' : 'none' }} onMouseEnter={e => (e.currentTarget as HTMLElement).style.backgroundColor = '#f9fafb'} onMouseLeave={e => (e.currentTarget as HTMLElement).style.backgroundColor = 'transparent'}>
-                    <td style={{ padding: '1rem' }}>
-                      <input type="checkbox" checked={selectedIds.includes(entry.id)} onChange={e => { if (e.target.checked) setSelectedIds(prev => [...prev, entry.id]); else setSelectedIds(prev => prev.filter(id => id !== entry.id)); }} />
-                    </td>
-                    <td style={{ padding: '1rem', cursor: 'pointer' }} onClick={() => onEntrySelect(entry)}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        <span style={{ fontSize: '1rem', fontWeight: 500 }}>{entry.title}</span>
-                        {entry.isFavorite && <span style={{ fontSize: '1rem' }}>⭐</span>}
-                      </div>
-                    </td>
-                    <td style={{ padding: '1rem' }}>
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', alignItems: 'center' }}>
-                        <div style={{ padding: '0.25rem 0.75rem', backgroundColor: categoryTag?.color || '#667eea', color: 'white', borderRadius: '6px', fontSize: '0.75rem' }}>{categoryName}</div>
-                        {entry.tags && entry.tags.length > 0 && entry.tags.map(tagId => {
-                          const tag = tags.find(t => t.id === tagId && !t.isSystemCategory);
-                          if (!tag) return null;
-                          return (
-                            <div key={tagId} style={{ padding: '0.25rem 0.75rem', backgroundColor: tag.color || '#667eea', color: 'white', borderRadius: '6px', fontSize: '0.75rem' }}>{tag.name}</div>
-                          );
-                        })}
-                      </div>
-                    </td>
-                    <td style={{ padding: '1rem' }}>
-                      {entry.url ? (
-                        <a href={entry.url} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()} style={{ color: '#3b82f6', textDecoration: 'none', fontSize: '0.875rem', wordBreak: 'break-all' }}>{entry.url}</a>
-                      ) : (
-                        <span style={{ color: '#9ca3af', fontSize: '0.875rem' }}>—</span>
-                      )}
-                    </td>
-                    <td style={{ padding: '1rem' }}>
-                      {isExpiring && expiringDays !== null ? (
-                        <div style={{ display: 'inline-block', padding: '0.25rem 0.75rem', backgroundColor: expiringDays <= 7 ? '#ef4444' : '#f59e0b', color: 'white', borderRadius: '6px', fontSize: '0.75rem' }}>⏰ {expiringDays} {expiringDays === 1 ? 'day' : 'days'}</div>
-                      ) : (
-                        <span style={{ color: '#9ca3af', fontSize: '0.875rem' }}>—</span>
-                      )}
-                    </td>
-                    <td style={{ padding: '1rem', fontSize: '0.875rem', color: '#6b7280' }}>{new Date(entry.updatedAt).toLocaleDateString()}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
         </div>
       )}
 

@@ -16,7 +16,6 @@ interface SafeDocumentVaultProps {
   documents: DocumentVault[];
   tags: Tag[];
   encryptionKey: CryptoKey;
-  viewMode: 'grid' | 'list';
   onDocumentSaved: () => void;
   onAddDocument: () => void;
   onEditDocument: (doc: DocumentVault) => void;
@@ -44,7 +43,6 @@ const SafeDocumentVault: React.FC<SafeDocumentVaultProps> = ({
   documents,
   tags,
   encryptionKey,
-  viewMode,
   onDocumentSaved,
   onAddDocument,
   onEditDocument
@@ -171,172 +169,130 @@ const SafeDocumentVault: React.FC<SafeDocumentVaultProps> = ({
     return new Date(expiryDate) < new Date();
   };
 
-  // Grid view
-  if (viewMode === 'grid') {
-    return (
-      <div>
-        {/* Toolbar */}
-        <div style={{
-          display: 'flex',
-          gap: '1rem',
-          marginBottom: '2rem',
-          flexWrap: 'wrap',
-          alignItems: 'center'
-        }}>
-          {/* View Toggle */}
-          <div style={{
-            display: 'flex',
-            gap: '0.25rem',
-            backgroundColor: '#f3f4f6',
+  return (
+    <div>
+      {/* Toolbar */}
+      <div style={{
+        display: 'flex',
+        gap: '1rem',
+        marginBottom: '2rem',
+        flexWrap: 'wrap',
+        alignItems: 'center'
+      }}>
+        {/* Search */}
+        <input
+          type="text"
+          placeholder="Search documents..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          style={{
+            flex: 1,
+            minWidth: '200px',
+            padding: '0.5rem 1rem',
+            border: '1px solid #d1d5db',
             borderRadius: '0.5rem',
-            padding: '0.25rem'
-          }}>
-            <button
-              onClick={() => {}}
-              style={{
-                padding: '0.5rem 1rem',
-                backgroundColor: (viewMode as string) === 'grid' ? '#3b82f6' : 'transparent',
-                color: (viewMode as string) === 'grid' ? 'white' : '#6b7280',
-                border: 'none',
-                borderRadius: '0.375rem',
-                cursor: 'pointer',
-                fontSize: '0.875rem',
-                fontWeight: 500
-              }}
-            >
-              ⊞ Grid
-            </button>
-            <button
-              onClick={() => {}}
-              style={{
-                padding: '0.5rem 1rem',
-                backgroundColor: (viewMode as string) === 'list' ? '#3b82f6' : 'transparent',
-                color: (viewMode as string) === 'list' ? 'white' : '#6b7280',
-                border: 'none',
-                borderRadius: '0.375rem',
-                cursor: 'pointer',
-                fontSize: '0.875rem',
-                fontWeight: 500
-              }}
-            >
-              ☰ List
-            </button>
-          </div>
+            fontSize: '0.875rem'
+          }}
+        />
 
-          {/* Search */}
-          <input
-            type="text"
-            placeholder="Search documents..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            style={{
-              flex: 1,
-              minWidth: '200px',
-              padding: '0.5rem 1rem',
-              border: '1px solid #d1d5db',
-              borderRadius: '0.5rem',
-              fontSize: '0.875rem'
-            }}
-          />
+        {/* Sort */}
+        <select
+          value={sortBy}
+          onChange={(e) => setSortBy(e.target.value as 'title' | 'expiry' | 'updated')}
+          style={{
+            padding: '0.5rem 1rem',
+            border: '1px solid #d1d5db',
+            borderRadius: '0.5rem',
+            fontSize: '0.875rem',
+            backgroundColor: 'white'
+          }}
+        >
+          <option value="updated">Latest</option>
+          <option value="title">Title A-Z</option>
+          <option value="expiry">Expiry Date</option>
+        </select>
 
-          {/* Sort */}
-          <select
-            value={sortBy}
-            onChange={(e) => setSortBy(e.target.value as 'title' | 'expiry' | 'updated')}
-            style={{
-              padding: '0.5rem 1rem',
-              border: '1px solid #d1d5db',
-              borderRadius: '0.5rem',
-              fontSize: '0.875rem',
-              backgroundColor: 'white'
-            }}
-          >
-            <option value="updated">Latest</option>
-            <option value="title">Title A-Z</option>
-            <option value="expiry">Expiry Date</option>
-          </select>
+        {/* Provider Filter */}
+        <select
+          value={selectedProvider || ''}
+          onChange={(e) => setSelectedProvider((e.target.value as DocumentProvider) || null)}
+          style={{
+            padding: '0.5rem 1rem',
+            border: '1px solid #d1d5db',
+            borderRadius: '0.5rem',
+            fontSize: '0.875rem',
+            backgroundColor: 'white'
+          }}
+        >
+          <option value="">All Providers</option>
+          <option value="google">Google Drive</option>
+          <option value="onedrive">OneDrive</option>
+          <option value="dropbox">Dropbox</option>
+        </select>
 
-          {/* Provider Filter */}
-          <select
-            value={selectedProvider || ''}
-            onChange={(e) => setSelectedProvider((e.target.value as DocumentProvider) || null)}
-            style={{
-              padding: '0.5rem 1rem',
-              border: '1px solid #d1d5db',
-              borderRadius: '0.5rem',
-              fontSize: '0.875rem',
-              backgroundColor: 'white'
-            }}
-          >
-            <option value="">All Providers</option>
-            <option value="google">Google Drive</option>
-            <option value="onedrive">OneDrive</option>
-            <option value="dropbox">Dropbox</option>
-          </select>
+        {/* Type Filter */}
+        <select
+          value={selectedType || ''}
+          onChange={(e) => setSelectedType((e.target.value as DocumentType) || null)}
+          style={{
+            padding: '0.5rem 1rem',
+            border: '1px solid #d1d5db',
+            borderRadius: '0.5rem',
+            fontSize: '0.875rem',
+            backgroundColor: 'white'
+          }}
+        >
+          <option value="">All Types</option>
+          {Object.entries(documentTypeLabels).map(([key, label]) => (
+            <option key={key} value={key}>{label}</option>
+          ))}
+        </select>
 
-          {/* Type Filter */}
-          <select
-            value={selectedType || ''}
-            onChange={(e) => setSelectedType((e.target.value as DocumentType) || null)}
-            style={{
-              padding: '0.5rem 1rem',
-              border: '1px solid #d1d5db',
-              borderRadius: '0.5rem',
-              fontSize: '0.875rem',
-              backgroundColor: 'white'
-            }}
-          >
-            <option value="">All Types</option>
-            {Object.entries(documentTypeLabels).map(([key, label]) => (
-              <option key={key} value={key}>{label}</option>
-            ))}
-          </select>
+        {/* Favorites */}
+        <button
+          onClick={() => setShowFavoritesOnly(!showFavoritesOnly)}
+          style={{
+            padding: '0.5rem 1rem',
+            backgroundColor: showFavoritesOnly ? '#fee2e2' : '#f3f4f6',
+            color: showFavoritesOnly ? '#dc2626' : '#6b7280',
+            border: 'none',
+            borderRadius: '0.5rem',
+            cursor: 'pointer',
+            fontSize: '0.875rem',
+            fontWeight: 500
+          }}
+        >
+          ♥ Favorites
+        </button>
+      </div>
 
-          {/* Favorites */}
+      {/* Grid */}
+      {filteredDocuments.length === 0 ? (
+        <div style={{
+          textAlign: 'center',
+          padding: '3rem 2rem',
+          backgroundColor: '#f9fafb',
+          borderRadius: '0.5rem'
+        }}>
+          <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>📄</div>
+          <p style={{ color: '#6b7280', marginBottom: '1rem' }}>No documents found</p>
           <button
-            onClick={() => setShowFavoritesOnly(!showFavoritesOnly)}
+            onClick={onAddDocument}
             style={{
-              padding: '0.5rem 1rem',
-              backgroundColor: showFavoritesOnly ? '#fee2e2' : '#f3f4f6',
-              color: showFavoritesOnly ? '#dc2626' : '#6b7280',
+              padding: '0.75rem 1.5rem',
+              backgroundColor: '#3b82f6',
+              color: 'white',
               border: 'none',
               borderRadius: '0.5rem',
               cursor: 'pointer',
-              fontSize: '0.875rem',
+              fontSize: '1rem',
               fontWeight: 500
             }}
           >
-            ♥ Favorites
+            + Add Your First Document
           </button>
         </div>
-
-        {/* Grid */}
-        {filteredDocuments.length === 0 ? (
-          <div style={{
-            textAlign: 'center',
-            padding: '3rem 2rem',
-            backgroundColor: '#f9fafb',
-            borderRadius: '0.5rem'
-          }}>
-            <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>📄</div>
-            <p style={{ color: '#6b7280', marginBottom: '1rem' }}>No documents found</p>
-            <button
-              onClick={onAddDocument}
-              style={{
-                padding: '0.75rem 1.5rem',
-                backgroundColor: '#3b82f6',
-                color: 'white',
-                border: 'none',
-                borderRadius: '0.5rem',
-                cursor: 'pointer',
-                fontSize: '1rem',
-                fontWeight: 500
-              }}
-            >
-              + Add Your First Document
-            </button>
-          </div>
-        ) : (
+      ) : (
           <div style={{
             display: 'grid',
             gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
@@ -351,10 +307,15 @@ const SafeDocumentVault: React.FC<SafeDocumentVaultProps> = ({
                   boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
                   padding: '1rem',
                   borderLeft: `4px solid ${tags.find(t => t.id === doc.tags?.[0])?.color || '#ccc'}`,
-                  transition: 'box-shadow 0.2s'
+                  transition: 'box-shadow 0.2s',
+                  cursor: 'pointer'
                 }}
                 onMouseEnter={(e) => e.currentTarget.style.boxShadow = '0 4px 6px rgba(0,0,0,0.15)'}
                 onMouseLeave={(e) => e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.1)'}
+                onClick={() => {
+                  // Show details in a modal/popup
+                  alert(`Document: ${doc.title}\n\nOpen in edit mode to view all details`);
+                }}
               >
                 {/* Header */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.75rem' }}>
@@ -437,7 +398,10 @@ const SafeDocumentVault: React.FC<SafeDocumentVaultProps> = ({
                 {/* Actions */}
                 <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.75rem' }}>
                   <button
-                    onClick={() => handleDecryptNotes(doc)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDecryptNotes(doc);
+                    }}
                     style={{
                       flex: 1,
                       padding: '0.5rem',
@@ -453,7 +417,10 @@ const SafeDocumentVault: React.FC<SafeDocumentVaultProps> = ({
                     👁 Notes
                   </button>
                   <button
-                    onClick={() => openFile(doc)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      openFile(doc);
+                    }}
                     style={{
                       flex: 1,
                       padding: '0.5rem',
@@ -469,7 +436,10 @@ const SafeDocumentVault: React.FC<SafeDocumentVaultProps> = ({
                     📥 Open
                   </button>
                   <button
-                    onClick={() => onEditDocument(doc)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onEditDocument(doc);
+                    }}
                     style={{
                       padding: '0.5rem',
                       backgroundColor: '#f3f4f6',
@@ -482,7 +452,10 @@ const SafeDocumentVault: React.FC<SafeDocumentVaultProps> = ({
                     ✎
                   </button>
                   <button
-                    onClick={() => setShowDeleteConfirm(doc.id)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowDeleteConfirm(doc.id);
+                    }}
                     style={{
                       padding: '0.5rem',
                       backgroundColor: '#fee2e2',
@@ -560,299 +533,6 @@ const SafeDocumentVault: React.FC<SafeDocumentVaultProps> = ({
         )}
       </div>
     );
-  }
-
-  // List view
-  return (
-    <div>
-      {/* Toolbar */}
-      <div style={{
-        display: 'flex',
-        gap: '1rem',
-        marginBottom: '2rem',
-        flexWrap: 'wrap',
-        alignItems: 'center'
-      }}>
-        {/* View Toggle */}
-        <div style={{
-          display: 'flex',
-          gap: '0.25rem',
-          backgroundColor: '#f3f4f6',
-          borderRadius: '0.5rem',
-          padding: '0.25rem'
-        }}>
-          <button
-            onClick={() => {}}
-            style={{
-              padding: '0.5rem 1rem',
-              backgroundColor: (viewMode as string) === 'grid' ? '#3b82f6' : 'transparent',
-              color: (viewMode as string) === 'grid' ? 'white' : '#6b7280',
-              border: 'none',
-              borderRadius: '0.375rem',
-              cursor: 'pointer',
-              fontSize: '0.875rem',
-              fontWeight: 500
-            }}
-          >
-            ⊞ Grid
-          </button>
-          <button
-            onClick={() => {}}
-            style={{
-              padding: '0.5rem 1rem',
-              backgroundColor: (viewMode as string) === 'list' ? '#3b82f6' : 'transparent',
-              color: (viewMode as string) === 'list' ? 'white' : '#6b7280',
-              border: 'none',
-              borderRadius: '0.375rem',
-              cursor: 'pointer',
-              fontSize: '0.875rem',
-              fontWeight: 500
-            }}
-          >
-            ☰ List
-          </button>
-        </div>
-
-        {/* Search */}
-        <input
-          type="text"
-          placeholder="Search documents..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          style={{
-            flex: 1,
-            minWidth: '200px',
-            padding: '0.5rem 1rem',
-            border: '1px solid #d1d5db',
-            borderRadius: '0.5rem',
-            fontSize: '0.875rem'
-          }}
-        />
-
-        {/* Sort */}
-        <select
-          value={sortBy}
-          onChange={(e) => setSortBy(e.target.value as 'title' | 'expiry' | 'updated')}
-          style={{
-            padding: '0.5rem 1rem',
-            border: '1px solid #d1d5db',
-            borderRadius: '0.5rem',
-            fontSize: '0.875rem',
-            backgroundColor: 'white'
-          }}
-        >
-          <option value="updated">Latest</option>
-          <option value="title">Title A-Z</option>
-          <option value="expiry">Expiry Date</option>
-        </select>
-
-        {/* Provider Filter */}
-        <select
-          value={selectedProvider || ''}
-          onChange={(e) => setSelectedProvider((e.target.value as DocumentProvider) || null)}
-          style={{
-            padding: '0.5rem 1rem',
-            border: '1px solid #d1d5db',
-            borderRadius: '0.5rem',
-            fontSize: '0.875rem',
-            backgroundColor: 'white'
-          }}
-        >
-          <option value="">All Providers</option>
-          <option value="google">Google Drive</option>
-          <option value="onedrive">OneDrive</option>
-          <option value="dropbox">Dropbox</option>
-        </select>
-
-        {/* Favorites */}
-        <button
-          onClick={() => setShowFavoritesOnly(!showFavoritesOnly)}
-          style={{
-            padding: '0.5rem 1rem',
-            backgroundColor: showFavoritesOnly ? '#fee2e2' : '#f3f4f6',
-            color: showFavoritesOnly ? '#dc2626' : '#6b7280',
-            border: 'none',
-            borderRadius: '0.5rem',
-            cursor: 'pointer',
-            fontSize: '0.875rem',
-            fontWeight: 500
-          }}
-        >
-          ♥ Favorites
-        </button>
-      </div>
-
-      {/* List */}
-      {filteredDocuments.length === 0 ? (
-        <div style={{
-          textAlign: 'center',
-          padding: '3rem 2rem',
-          backgroundColor: '#f9fafb',
-          borderRadius: '0.5rem'
-        }}>
-          <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>📄</div>
-          <p style={{ color: '#6b7280', marginBottom: '1rem' }}>No documents found</p>
-          <button
-            onClick={onAddDocument}
-            style={{
-              padding: '0.75rem 1.5rem',
-              backgroundColor: '#3b82f6',
-              color: 'white',
-              border: 'none',
-              borderRadius: '0.5rem',
-              cursor: 'pointer',
-              fontSize: '1rem',
-              fontWeight: 500
-            }}
-          >
-            + Add Your First Document
-          </button>
-        </div>
-      ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-          {filteredDocuments.map(doc => (
-            <div
-              key={doc.id}
-              style={{
-                backgroundColor: 'white',
-                borderRadius: '0.5rem',
-                boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
-                padding: '1rem',
-                borderLeft: `4px solid ${tags.find(t => t.id === doc.tags?.[0])?.color || '#ccc'}`,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                gap: '1rem',
-                flexWrap: 'wrap'
-              }}
-              onMouseEnter={(e) => e.currentTarget.style.boxShadow = '0 4px 6px rgba(0,0,0,0.15)'}
-              onMouseLeave={(e) => e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.1)'}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flex: 1, minWidth: 0 }}>
-                <span style={{ fontSize: '2rem', flexShrink: 0 }}>{providerInfo[doc.provider].icon}</span>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <h3 style={{ margin: '0 0 0.25rem 0', fontSize: '1rem', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {doc.title}
-                  </h3>
-                  <div style={{ display: 'flex', gap: '1rem', fontSize: '0.75rem', color: '#6b7280', flexWrap: 'wrap' }}>
-                    <span>{documentTypeLabels[doc.documentType]}</span>
-                    {doc.expiryDate && (
-                      <span style={{
-                        color: isExpired(doc.expiryDate) ? '#dc2626' : isExpiringSoon(doc.expiryDate) ? '#ea580c' : '#6b7280',
-                        fontWeight: isExpired(doc.expiryDate) || isExpiringSoon(doc.expiryDate) ? 600 : 400
-                      }}>
-                        Expires: {new Date(doc.expiryDate).toLocaleDateString()}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexShrink: 0 }}>
-                <button
-                  onClick={() => handleToggleFavorite(doc)}
-                  style={{
-                    padding: '0.5rem',
-                    backgroundColor: doc.isFavorite ? '#fee2e2' : '#f3f4f6',
-                    color: doc.isFavorite ? '#dc2626' : '#6b7280',
-                    border: 'none',
-                    borderRadius: '0.375rem',
-                    cursor: 'pointer',
-                    fontSize: '1rem'
-                  }}
-                >
-                  ♥
-                </button>
-                <button
-                  onClick={() => openFile(doc)}
-                  style={{
-                    padding: '0.5rem',
-                    backgroundColor: '#dbeafe',
-                    color: '#1e40af',
-                    border: 'none',
-                    borderRadius: '0.375rem',
-                    cursor: 'pointer'
-                  }}
-                >
-                  📥
-                </button>
-                <button
-                  onClick={() => onEditDocument(doc)}
-                  style={{
-                    padding: '0.5rem',
-                    backgroundColor: '#f3f4f6',
-                    color: '#4b5563',
-                    border: 'none',
-                    borderRadius: '0.375rem',
-                    cursor: 'pointer'
-                  }}
-                >
-                  ✎
-                </button>
-                <button
-                  onClick={() => setShowDeleteConfirm(doc.id)}
-                  style={{
-                    padding: '0.5rem',
-                    backgroundColor: '#fee2e2',
-                    color: '#dc2626',
-                    border: 'none',
-                    borderRadius: '0.375rem',
-                    cursor: 'pointer'
-                  }}
-                >
-                  🗑
-                </button>
-              </div>
-
-              {/* Delete Confirm */}
-              {showDeleteConfirm === doc.id && (
-                <div style={{
-                  width: '100%',
-                  padding: '0.75rem',
-                  backgroundColor: '#fee2e2',
-                  borderRadius: '0.375rem'
-                }}>
-                  <p style={{ margin: '0 0 0.5rem 0', fontSize: '0.875rem', color: '#991b1b' }}>Delete this document?</p>
-                  <div style={{ display: 'flex', gap: '0.5rem' }}>
-                    <button
-                      onClick={() => handleDelete(doc.id)}
-                      style={{
-                        flex: 1,
-                        padding: '0.375rem',
-                        backgroundColor: '#dc2626',
-                        color: 'white',
-                        fontSize: '0.875rem',
-                        border: 'none',
-                        borderRadius: '0.25rem',
-                        cursor: 'pointer'
-                      }}
-                    >
-                      Delete
-                    </button>
-                    <button
-                      onClick={() => setShowDeleteConfirm(null)}
-                      style={{
-                        flex: 1,
-                        padding: '0.375rem',
-                        backgroundColor: '#d1d5db',
-                        color: '#374151',
-                        fontSize: '0.875rem',
-                        border: 'none',
-                        borderRadius: '0.25rem',
-                        cursor: 'pointer'
-                      }}
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
 };
 
 export default SafeDocumentVault;

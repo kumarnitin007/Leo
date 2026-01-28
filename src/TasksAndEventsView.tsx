@@ -14,12 +14,13 @@ import ResolutionsView from './ResolutionsView';
 
 interface TasksAndEventsViewProps {
   onNavigate?: (view: string) => void;
+  initialTab?: SubTab;
 }
 
 type SubTab = 'tasks' | 'events' | 'routines' | 'items' | 'resolutions';
 
-const TasksAndEventsView: React.FC<TasksAndEventsViewProps> = () => {
-  const [activeSubTab, setActiveSubTab] = useState<SubTab>('tasks');
+const TasksAndEventsView: React.FC<TasksAndEventsViewProps> = ({ initialTab }) => {
+  const [activeSubTab, setActiveSubTab] = useState<SubTab>(initialTab || 'tasks');
 
   return (
     <div className="tasks-events-view">

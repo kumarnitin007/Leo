@@ -206,25 +206,6 @@ const TagsManager: React.FC<TagsManagerProps> = ({ onClose }) => {
           <button onClick={handleCreate} className="btn-primary">
             + New Tag
           </button>
-          <button
-            onClick={async () => {
-              const clearFirst = confirm('Load sample tags? Click OK to clear existing tags and load samples, or Cancel to add to existing tags.');
-              if (clearFirst && !confirm('⚠️ This will delete ALL your existing tags. Are you sure?')) return;
-              setIsImporting(true);
-              const success = await importSampleTags(clearFirst);
-              setIsImporting(false);
-              if (success) {
-                await loadTags();
-                alert(`Sample tags ${clearFirst ? 'loaded' : 'added'} successfully!`);
-              } else {
-                alert('Error importing sample tags. Please try again.');
-              }
-            }}
-            className="btn-secondary"
-            disabled={isImporting}
-          >
-            Load Demo Tags
-          </button>
           {onClose && (
             <button onClick={onClose} className="btn-secondary">
               ✕ Close
