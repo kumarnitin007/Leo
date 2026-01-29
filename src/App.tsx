@@ -39,6 +39,7 @@ import OnboardingFlow from './components/OnboardingFlow';
 import AuthModal from './components/AuthModal';
 import MobileBottomNav from './components/MobileBottomNav';
 import MobileBottomSheet from './components/MobileBottomSheet';
+import VoiceCommandButton from './components/VoiceCommand/VoiceCommandButton';
 import { isFirstTimeUser, markOnboardingComplete } from './storage';
 import { loadSampleTasks } from './utils/sampleData';
 
@@ -338,6 +339,9 @@ const AppContent: React.FC = () => {
 
   {/* Floating Pinned Button */}
   <FloatingPinnedButton onClick={() => setShowPinnedModal(true)} />
+
+        {/* Voice Command Floating Button (bottom-right) */}
+        <VoiceCommandButton />
 
       {/* Timer Modal */}
       {showTimerModal && (
