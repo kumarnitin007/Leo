@@ -1,14 +1,18 @@
-import { getSupabaseClient } from '../../lib/supabase';
+import { getSupabaseClient, getCurrentUser } from '../../lib/supabase';
 import { ParsedCommand } from './types';
 
 export class VoiceCommandLogger {
   private client = getSupabaseClient();
 
-  async logCommand(cmd: ParsedCommand, userId?: string, status: string = 'parsed') {
+  async logCommand(cmd: ParsedCommand, status: string = 'parsed') {
     if (!this.client) return;
     try {
+      // Auto-fetch current user ID from Supabase auth
+      const user = await getCurrentUser();
+      const userId = user?.id || null;
+
       await this.client.from('myday_voice_command_logs').insert([{
-        user_id: userId || null,
+        user_id: userId,
         raw_text: cmd.transcript,
         detected_category: cmd.intent.type,
         parsed_entities: cmd.entities,

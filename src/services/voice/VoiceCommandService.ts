@@ -4,6 +4,16 @@ import SpeechService from './SpeechService';
 import VoiceCommandLogger from './VoiceCommandLogger';
 import { ParsedCommand } from './types';
 import * as storage from '../../storage';
+import dbService from './VoiceCommandDatabaseService';
+
+// Small UUID v4 generator used for creating deterministic IDs for created items
+const generateUUID = (): string => {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    const r = Math.random() * 16 | 0;
+    const v = c === 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+};
 
 export class VoiceCommandService {
   classifier: IntentClassifier;
@@ -48,20 +58,82 @@ export class VoiceCommandService {
       const intent = parsed.intent.type;
       let createdId: string | null = null;
 
+      const sessionId = generateUUID();
       switch (intent) {
         case 'CREATE_TASK': {
           const title = parsed.entities.find(e=>e.type==='TITLE')?.normalizedValue || parsed.transcript;
-          const task = { id: undefined, name: title } as any;
+          const newId = generateUUID();
+          const task = { id: newId, name: title } as any;
+
           // call storage.addTask if available
           if ((storage as any).addTask) {
             await (storage as any).addTask(task);
+            createdId = newId;
           }
+
+          // Try to save command to DB and link back to task
+          try {
+            const cmdId = await dbService.saveCommand({
+              userId: userId || undefined,
+              sessionId,
+              rawTranscript: parsed.transcript,
+              intentType: parsed.intent.type as any,
+              entityType: 'TASK',
+              memoDate: parsed.entities.find(e=>e.type==='DATE')?.normalizedValue || null,
+              extractedTitle: title,
+              extractedPriority: parsed.entities.find(e=>e.type==='PRIORITY')?.normalizedValue || undefined,
+              extractedTags: parsed.entities.filter(e=>e.type==='TAG').map(e=>e.normalizedValue || e.value),
+              overallConfidence: parsed.overallConfidence,
+              isValid: true,
+              outcome: 'SUCCESS' as any,
+              createdItemType: 'task',
+              createdItemId: createdId
+            });
+
+            // Attempt to update task with voice metadata if updateTask exists
+            if ((storage as any).updateTask && createdId) {
+              await (storage as any).updateTask(createdId, { createdViaVoice: true, voiceCommandId: cmdId, voiceConfidence: parsed.overallConfidence });
+            }
+          } catch (err) {
+            console.warn('CREATE_TASK: db save/link failed', err);
+          }
+
           break;
         }
         case 'CREATE_EVENT': {
           const title = parsed.entities.find(e=>e.type==='TITLE')?.normalizedValue || parsed.transcript;
-          const ev = { id: undefined, title } as any;
-          if ((storage as any).addEvent) await (storage as any).addEvent(ev);
+          const newId = generateUUID();
+          const ev = { id: newId, title } as any;
+          if ((storage as any).addEvent) {
+            await (storage as any).addEvent(ev);
+            createdId = newId;
+          }
+
+          try {
+            const cmdId = await dbService.saveCommand({
+              userId: userId || undefined,
+              sessionId,
+              rawTranscript: parsed.transcript,
+              intentType: parsed.intent.type as any,
+              entityType: 'EVENT',
+              memoDate: parsed.entities.find(e=>e.type==='DATE')?.normalizedValue || null,
+              memoTime: parsed.entities.find(e=>e.type==='TIME')?.normalizedValue || null,
+              extractedTitle: title,
+              extractedTags: parsed.entities.filter(e=>e.type==='TAG').map(e=>e.normalizedValue || e.value),
+              overallConfidence: parsed.overallConfidence,
+              isValid: true,
+              outcome: 'SUCCESS' as any,
+              createdItemType: 'event',
+              createdItemId: createdId
+            });
+
+            if ((storage as any).updateEvent && createdId) {
+              await (storage as any).updateEvent(createdId, { createdViaVoice: true, voiceCommandId: cmdId, voiceConfidence: parsed.overallConfidence });
+            }
+          } catch (err) {
+            console.warn('CREATE_EVENT: db save/link failed', err);
+          }
+
           break;
         }
         default:

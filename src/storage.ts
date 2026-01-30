@@ -163,6 +163,10 @@ export const updateTask = async (taskId: string, updates: Partial<Task>): Promis
   if (updates.holdEndDate !== undefined) dbUpdates.hold_end_date = updates.holdEndDate;
   if (updates.holdReason !== undefined) dbUpdates.hold_reason = updates.holdReason;
   if (updates.tags !== undefined) dbUpdates.tags = updates.tags;
+  // Voice integration fields
+  if ((updates as any).createdViaVoice !== undefined) dbUpdates.created_via_voice = (updates as any).createdViaVoice;
+  if ((updates as any).voiceCommandId !== undefined) dbUpdates.voice_command_id = (updates as any).voiceCommandId;
+  if ((updates as any).voiceConfidence !== undefined) dbUpdates.voice_confidence = (updates as any).voiceConfidence;
 
   const { error } = await client
     .from('myday_tasks')
@@ -519,6 +523,11 @@ export const updateEvent = async (eventId: string, updates: Partial<Event>): Pro
   if (updates.frequency !== undefined) dbUpdates.frequency = updates.frequency;
   if (updates.customFrequency !== undefined) dbUpdates.custom_frequency = updates.customFrequency;
   if (updates.year !== undefined) dbUpdates.year = updates.year;
+
+  // Voice integration fields
+  if ((updates as any).createdViaVoice !== undefined) dbUpdates.created_via_voice = (updates as any).createdViaVoice;
+  if ((updates as any).voiceCommandId !== undefined) dbUpdates.voice_command_id = (updates as any).voiceCommandId;
+  if ((updates as any).voiceConfidence !== undefined) dbUpdates.voice_confidence = (updates as any).voiceConfidence;
 
   const { error } = await client
     .from('myday_events')

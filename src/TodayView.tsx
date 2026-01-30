@@ -24,7 +24,6 @@ import { getDashboardLayout, setDashboardLayout, bulkHoldTasks, bulkUnholdTasks,
 import { useAuth } from './contexts/AuthContext';
 import MonthlyView from './MonthlyView';
 import WeatherWidget from './components/WeatherWidget';
-import MobileContextHeader from './components/MobileContextHeader';
 
 type DashboardItem = {
   type: 'task' | 'event';
@@ -1087,27 +1086,9 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
     return <MonthlyView onNavigate={onNavigate} onBackToDashboard={() => setViewMode('dashboard')} />;
   }
 
-  const totalItems = items.length;
-  const completedItems = items.filter(i => i.isCompleted).length;
-  const progressPercentage = totalItems > 0 ? Math.round((completedItems / totalItems) * 100) : 0;
-
   return (
     <div className="today-view">
-      {/* Mobile Context Header - Only visible on mobile */}
-      <div className="mobile-only-header">
-        <MobileContextHeader
-          title={selectedDate === today ? "Today's Goals" : "Goals"}
-          subtitle={selectedDate === today ? formatDateLong() : new Date(selectedDate + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
-          progress={{
-            completed: completedItems,
-            total: totalItems,
-            percentage: progressPercentage,
-          }}
-        />
-      </div>
-
-      {/* Desktop Header - Only visible on desktop */}
-      <div className="date-header desktop-only-header">
+      <div className="date-header">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
           <div style={{ flex: 1 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
@@ -1545,58 +1526,6 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
         </div>
         </>
       )}
-
-      {/* Mobile Action Buttons - Show after tasks on mobile only */}
-      <div className="mobile-action-buttons">
-        <button
-          onClick={() => setViewMode(viewMode === 'dashboard' ? 'monthly' : 'dashboard')}
-          className="mobile-action-btn"
-        >
-          <span className="mobile-action-icon">{viewMode === 'dashboard' ? '📅' : '🏠'}</span>
-          <span className="mobile-action-text">{viewMode === 'dashboard' ? 'Monthly' : 'Dashboard'}</span>
-        </button>
-        <button
-          onClick={() => setShowProgressAndReview(true)}
-          className="mobile-action-btn"
-        >
-          <span className="mobile-action-icon">📊</span>
-          <span className="mobile-action-text">Progress</span>
-        </button>
-        <button
-          onClick={async () => {
-            const prompt = await buildOpenAIPrompt();
-            setOpenAIPromptText(prompt);
-            setShowOpenAIPrompt(true);
-          }}
-          className="mobile-action-btn"
-        >
-          <span className="mobile-action-icon">🤖</span>
-          <span className="mobile-action-text">Ask AI</span>
-        </button>
-        {aiInsight && (
-          <button
-            onClick={() => setShowSmartCoachModal(true)}
-            className="mobile-action-btn mobile-action-btn-coach"
-          >
-            <span className="mobile-action-icon">🤖</span>
-            <span className="mobile-action-text">Coach</span>
-          </button>
-        )}
-        <button
-          onClick={() => setIsReorderMode(!isReorderMode)}
-          className={`mobile-action-btn ${isReorderMode ? 'mobile-action-btn-active' : ''}`}
-        >
-          <span className="mobile-action-icon">{isReorderMode ? '✓' : '↕️'}</span>
-          <span className="mobile-action-text">{isReorderMode ? 'Done' : 'Reorder'}</span>
-        </button>
-        <button
-          onClick={() => setShowBulkHoldModal(true)}
-          className="mobile-action-btn mobile-action-btn-hold"
-        >
-          <span className="mobile-action-icon">⏸️</span>
-          <span className="mobile-action-text">Hold</span>
-        </button>
-      </div>
 
       {selectedItem && (
         <TaskActionModal
