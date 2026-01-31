@@ -44,10 +44,11 @@ import VoiceCommandButton from './components/VoiceCommand/VoiceCommandButton';
 import { isFirstTimeUser, markOnboardingComplete } from './storage';
 import { loadSampleTasks } from './utils/sampleData';
 import TodoView from './TodoView';
+import GroupsManager from './components/GroupsManager';
 import { ParsedCommand } from './services/voice/types';
 import { VoiceCommandLog } from './types/voice-command-db.types';
 
-type View = 'today' | 'tasks-events' | 'items' | 'journal' | 'resolutions' | 'analytics' | 'settings' | 'safe' | 'todo';
+type View = 'today' | 'tasks-events' | 'items' | 'journal' | 'resolutions' | 'analytics' | 'settings' | 'safe' | 'todo' | 'groups';
 
 /**
  * Main App Content Component
@@ -70,6 +71,7 @@ const AppContent: React.FC = () => {
   const [showVoiceAddModal, setShowVoiceAddModal] = useState(false);
   const [journalPrefillContent, setJournalPrefillContent] = useState<string | undefined>();
   const [journalPrefillMood, setJournalPrefillMood] = useState<'great' | 'good' | 'okay' | 'bad' | 'terrible' | undefined>();
+  const [showNewDropdown, setShowNewDropdown] = useState(false);
   
   const { theme } = useTheme();
   const { avatar, username } = useUser();
@@ -277,6 +279,8 @@ const AppContent: React.FC = () => {
         return <SafeView key={`safe-${key}`} />;
       case 'todo':
         return <TodoView key={`todo-${key}`} />;
+      case 'groups':
+        return <GroupsManager key={`groups-${key}`} onClose={() => handleNavigate('today')} />;
       default:
         return <TodayView key={`today-${key}`} onNavigate={handleNavigate} />;
     }
@@ -356,15 +360,6 @@ const AppContent: React.FC = () => {
           >
             <span className="nav-icon">🔒</span>
             <span className="nav-text">Safe</span>
-          </button>
-          <button
-            className={`nav-button ${currentView === 'todo' ? 'active' : ''}`}
-            onClick={() => handleNavigate('todo')}
-            title="To-Do Lists"
-            style={currentView === 'todo' ? { backgroundColor: theme.colors.primary } : {}}
-          >
-            <span className="nav-icon">✅</span>
-            <span className="nav-text">To-Do</span>
           </button>
         </nav>
         <div className="header-actions">

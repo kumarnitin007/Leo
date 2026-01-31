@@ -3,12 +3,14 @@ import IntegrationsView from './IntegrationsView';
 import TagsManager from './TagsManager';
 import SettingsModal from './components/SettingsModal';
 import DataExport from './components/DataExport';
+import GroupsManager from './components/GroupsManager';
 
-type SettingsTab = 'profile' | 'integrations' | 'tags' | 'export';
+type SettingsTab = 'profile' | 'integrations' | 'tags' | 'export' | 'groups';
 
 const SettingsView: React.FC = () => {
   const [activeTab, setActiveTab] = useState<SettingsTab>('profile');
   const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [showGroupsModal, setShowGroupsModal] = useState(false);
 
   return (
     <div className="settings-view">
@@ -34,6 +36,12 @@ const SettingsView: React.FC = () => {
           onClick={() => setActiveTab('export')}
         >
           📤 Export
+        </button>
+        <button
+          className={`sub-tab ${activeTab === 'groups' ? 'active' : ''}`}
+          onClick={() => setActiveTab('groups')}
+        >
+          👥 Groups
         </button>
         <button
           className={`sub-tab ${activeTab === 'integrations' ? 'active' : ''}`}
@@ -88,6 +96,40 @@ const SettingsView: React.FC = () => {
         {activeTab === 'integrations' && <IntegrationsView />}
         {activeTab === 'tags' && <TagsManager />}
         {activeTab === 'export' && <DataExport />}
+        {activeTab === 'groups' && (
+          <div className="groups-settings-container">
+            <div className="settings-info">
+              <h3>Sharing Groups</h3>
+              <p>Create groups and invite family members to share tasks and entries.</p>
+              <button 
+                className="btn-primary"
+                onClick={() => setShowGroupsModal(true)}
+                style={{ marginTop: '1rem' }}
+              >
+                Manage Groups
+              </button>
+            </div>
+
+            <div className="settings-quick-info" style={{ marginTop: '2rem' }}>
+              <div className="info-card">
+                <h4>👨‍👩‍👧‍👦 Family Groups</h4>
+                <p>Create groups for your family</p>
+              </div>
+              <div className="info-card">
+                <h4>📧 Invite Members</h4>
+                <p>Send invitations by email</p>
+              </div>
+              <div className="info-card">
+                <h4>🔗 Share Entries</h4>
+                <p>Share tasks and safe entries</p>
+              </div>
+            </div>
+
+            {showGroupsModal && (
+              <GroupsManager onClose={() => setShowGroupsModal(false)} />
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

@@ -11,13 +11,14 @@ import EventsView from './EventsView';
 import RoutinesView from './RoutinesView';
 import ItemsView from './ItemsView';
 import ResolutionsView from './ResolutionsView';
+import TodoView from './TodoView';
 
 interface TasksAndEventsViewProps {
   onNavigate?: (view: string) => void;
   initialTab?: SubTab;
 }
 
-type SubTab = 'tasks' | 'events' | 'routines' | 'items' | 'resolutions';
+type SubTab = 'tasks' | 'events' | 'routines' | 'items' | 'resolutions' | 'todo';
 
 const TasksAndEventsView: React.FC<TasksAndEventsViewProps> = ({ initialTab }) => {
   const [activeSubTab, setActiveSubTab] = useState<SubTab>(initialTab || 'tasks');
@@ -145,6 +146,28 @@ const TasksAndEventsView: React.FC<TasksAndEventsViewProps> = ({ initialTab }) =
           <span style={{ marginRight: '0.5rem' }}>🎯</span>
           Resolutions
         </button>
+        <button
+          onClick={() => setActiveSubTab('todo')}
+          className={`sub-tab ${activeSubTab === 'todo' ? 'active' : ''}`}
+          style={{
+            flex: 1,
+            padding: '0.75rem 1.5rem',
+            borderRadius: '8px',
+            border: 'none',
+            background: activeSubTab === 'todo' 
+              ? 'linear-gradient(135deg, #14b8a6 0%, #0d9488 100%)'
+              : 'transparent',
+            color: activeSubTab === 'todo' ? 'white' : '#6b7280',
+            fontWeight: 600,
+            cursor: 'pointer',
+            transition: 'all 0.2s',
+            boxShadow: activeSubTab === 'todo' ? '0 4px 12px rgba(20, 184, 166, 0.35)' : 'none',
+            transform: activeSubTab === 'todo' ? 'translateY(-2px)' : 'translateY(0)'
+          }}
+        >
+          <span style={{ marginRight: '0.5rem' }}>📝</span>
+          To-Do
+        </button>
       </div>
 
       {/* Content Area */}
@@ -154,6 +177,7 @@ const TasksAndEventsView: React.FC<TasksAndEventsViewProps> = ({ initialTab }) =
         {activeSubTab === 'routines' && <RoutinesView />}
         {activeSubTab === 'items' && <ItemsView />}
         {activeSubTab === 'resolutions' && <ResolutionsView />}
+        {activeSubTab === 'todo' && <TodoView />}
       </div>
     </div>
   );
