@@ -6,8 +6,15 @@
  * - myday_todo_items: Individual to-do items
  */
 
-import { supabase } from '../lib/supabase';
-import { TodoItem, TodoGroup, TodoPriority } from '../types';
+import getSupabaseClient from '../lib/supabase';
+import { TodoItem, TodoGroup } from '../types';
+
+// Get supabase client helper
+const getClient = () => {
+  const client = getSupabaseClient();
+  if (!client) throw new Error('Supabase not configured');
+  return client;
+};
 
 // Helper to generate unique IDs
 const generateId = (): string => {
@@ -17,6 +24,7 @@ const generateId = (): string => {
 // ===== GROUPS =====
 
 export async function getTodoGroups(): Promise<TodoGroup[]> {
+  const supabase = getClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('Not authenticated');
 
@@ -41,6 +49,7 @@ export async function getTodoGroups(): Promise<TodoGroup[]> {
 }
 
 export async function createTodoGroup(group: Partial<TodoGroup>): Promise<TodoGroup> {
+  const supabase = getClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('Not authenticated');
 
@@ -88,6 +97,7 @@ export async function createTodoGroup(group: Partial<TodoGroup>): Promise<TodoGr
 }
 
 export async function updateTodoGroup(id: string, updates: Partial<TodoGroup>): Promise<TodoGroup> {
+  const supabase = getClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('Not authenticated');
 
@@ -123,6 +133,7 @@ export async function updateTodoGroup(id: string, updates: Partial<TodoGroup>): 
 }
 
 export async function deleteTodoGroup(id: string): Promise<void> {
+  const supabase = getClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('Not authenticated');
 
@@ -145,6 +156,7 @@ export async function deleteTodoGroup(id: string): Promise<void> {
 // ===== ITEMS =====
 
 export async function getTodoItems(groupIds?: string[] | 'all' | 'ungrouped'): Promise<TodoItem[]> {
+  const supabase = getClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('Not authenticated');
 
@@ -180,6 +192,7 @@ export async function getTodoItems(groupIds?: string[] | 'all' | 'ungrouped'): P
 }
 
 export async function createTodoItem(item: Partial<TodoItem>): Promise<TodoItem> {
+  const supabase = getClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('Not authenticated');
 
@@ -241,6 +254,7 @@ export async function createTodoItem(item: Partial<TodoItem>): Promise<TodoItem>
 }
 
 export async function updateTodoItem(id: string, updates: Partial<TodoItem>): Promise<TodoItem> {
+  const supabase = getClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('Not authenticated');
 
@@ -284,6 +298,7 @@ export async function updateTodoItem(id: string, updates: Partial<TodoItem>): Pr
 }
 
 export async function deleteTodoItem(id: string): Promise<void> {
+  const supabase = getClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('Not authenticated');
 
@@ -297,6 +312,7 @@ export async function deleteTodoItem(id: string): Promise<void> {
 }
 
 export async function toggleTodoItem(id: string): Promise<TodoItem> {
+  const supabase = getClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('Not authenticated');
 
@@ -345,6 +361,7 @@ export async function toggleTodoItem(id: string): Promise<TodoItem> {
 // ===== BULK OPERATIONS =====
 
 export async function clearCompletedTodos(groupId?: string): Promise<void> {
+  const supabase = getClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('Not authenticated');
 

@@ -5,7 +5,7 @@
  * Supports paid vs unpaid user differentiation
  */
 
-import { supabase } from '../lib/supabase';
+import getSupabaseClient from '../lib/supabase';
 import {
   UserLevel,
   UserLevelId,
@@ -14,6 +14,13 @@ import {
   UserLevelAssignment,
   UserEffectiveLevel,
 } from '../types';
+
+// Get supabase client helper
+const getClient = () => {
+  const client = getSupabaseClient();
+  if (!client) throw new Error('Supabase not configured');
+  return client;
+};
 
 // Cache for levels and features (they don't change often)
 let levelsCache: UserLevel[] | null = null;
@@ -25,6 +32,7 @@ let levelFeaturesCache: Map<string, LevelFeature[]> | null = null;
 export async function getUserLevels(): Promise<UserLevel[]> {
   if (levelsCache) return levelsCache;
 
+  const supabase = getClient();
   const { data, error } = await supabase
     .from('myday_user_levels')
     .select('*')
@@ -63,6 +71,7 @@ export async function getDefaultLevel(): Promise<UserLevel> {
 export async function getFeatures(): Promise<AppFeature[]> {
   if (featuresCache) return featuresCache;
 
+  const supabase = getClient();
   const { data, error } = await supabase
     .from('myday_features')
     .select('*')
@@ -88,6 +97,7 @@ export async function getLevelFeatures(levelId: UserLevelId): Promise<LevelFeatu
     return levelFeaturesCache.get(levelId)!;
   }
 
+  const supabase = getClient();
   const { data, error } = await supabase
     .from('myday_level_features')
     .select('*')
@@ -111,6 +121,7 @@ export async function getLevelFeatures(levelId: UserLevelId): Promise<LevelFeatu
 // ===== USER LEVEL ASSIGNMENT =====
 
 export async function getCurrentUserLevel(): Promise<UserLevelId> {
+  const supabase = getClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return 'free';
 
@@ -132,6 +143,7 @@ export async function getCurrentUserLevel(): Promise<UserLevelId> {
 }
 
 export async function getUserLevelAssignment(): Promise<UserLevelAssignment | null> {
+  const supabase = getClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return null;
 
@@ -221,6 +233,7 @@ export async function assignUserLevel(
   expiresAt?: string,
   notes?: string
 ): Promise<UserLevelAssignment> {
+  const supabase = getClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('Not authenticated');
 

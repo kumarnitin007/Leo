@@ -21,7 +21,7 @@ import {
   getDocumentVaults
 } from '../storage';
 import { Task, Event, JournalEntry, Routine, Tag, Item, SafeEntry, DocumentVault } from '../types';
-import * as todoService from '../services/todoService';
+import { getTodoGroups, getTodoItems } from '../services/todoService';
 
 // Export format types
 type ExportFormat = 'json' | 'csv' | 'xlsx';
@@ -134,33 +134,43 @@ const DataExport: React.FC = () => {
 
     if (options.todos) {
       setExportProgress('Loading to-dos...');
-      const groups = await todoService.getGroups();
-      const items = await todoService.getItems();
+      const groups = await getTodoGroups();
+      const items = await getTodoItems();
       data.todos = { groups, items };
     }
 
     if (options.safeEntries) {
       setExportProgress('Loading safe entries metadata...');
       // Only export metadata, not encrypted content
-      const entries = await getSafeEntries(null as any); // Pass null key - we only want metadata
-      data.safeEntriesMetadata = entries.map(e => ({
-        id: e.id,
-        title: e.title,
-        category: e.category || 'unknown',
-        createdAt: e.createdAt,
-        updatedAt: e.updatedAt,
-      }));
+      try {
+        const entries = await getSafeEntries();
+        data.safeEntriesMetadata = entries.map(e => ({
+          id: e.id,
+          title: e.title,
+          categoryTagId: e.categoryTagId || 'unknown',
+          createdAt: e.createdAt,
+          updatedAt: e.updatedAt,
+        }));
+      } catch {
+        // Safe not unlocked, skip
+        data.safeEntriesMetadata = [];
+      }
     }
 
     if (options.documents) {
       setExportProgress('Loading document metadata...');
-      const docs = await getDocumentVaults(null as any);
-      data.documentsMetadata = docs.map(d => ({
-        id: d.id,
-        title: d.title,
-        createdAt: d.createdAt,
-        updatedAt: d.updatedAt,
-      }));
+      try {
+        const docs = await getDocumentVaults();
+        data.documentsMetadata = docs.map(d => ({
+          id: d.id,
+          title: d.title,
+          createdAt: d.createdAt,
+          updatedAt: d.updatedAt,
+        }));
+      } catch {
+        // Safe not unlocked, skip
+        data.documentsMetadata = [];
+      }
     }
 
     return data;

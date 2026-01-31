@@ -1,19 +1,37 @@
 /**
  * Timer View - Standalone timer access
  * 
- * Three modes:
+ * Four modes:
  * 1. Task-based timer with end time (countdown to task's scheduled end)
  * 2. Task-based timer with custom duration
  * 3. Standalone timer (no task) - countdown or count-up
+ * 4. Schedule Timer - Multi-activity timer with configurable schedule
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Task } from './types';
 import { loadData, completeTask } from './storage';
 import { getTodayString } from './utils';
 import CountdownTimer from './components/CountdownTimer';
 
-type TimerMode = 'select' | 'task-endtime' | 'task-duration' | 'standalone';
+type TimerMode = 'select' | 'task-endtime' | 'task-duration' | 'standalone' | 'schedule' | 'schedule-running';
+
+// Schedule Timer Types
+interface ScheduleActivity {
+  id: string;
+  name: string;
+  durationMinutes: number;
+}
+
+interface SavedSchedule {
+  id: string;
+  name: string;
+  activities: ScheduleActivity[];
+  createdAt: string;
+}
+
+// LocalStorage key for schedules
+const SCHEDULES_STORAGE_KEY = 'leo-timer-schedules';
 
 interface TimerViewProps {
   onClose?: () => void;
@@ -27,9 +45,229 @@ const TimerView: React.FC<TimerViewProps> = ({ onClose }) => {
   const [showTimer, setShowTimer] = useState(false);
   const [timerConfig, setTimerConfig] = useState<any>(null);
 
+  // Schedule Timer State
+  const [savedSchedules, setSavedSchedules] = useState<SavedSchedule[]>([]);
+  const [editingSchedule, setEditingSchedule] = useState<SavedSchedule | null>(null);
+  const [newScheduleName, setNewScheduleName] = useState('My Schedule');
+  const [scheduleActivities, setScheduleActivities] = useState<ScheduleActivity[]>([
+    { id: '1', name: '', durationMinutes: 25 }
+  ]);
+  
+  // Running Schedule State
+  const [runningSchedule, setRunningSchedule] = useState<SavedSchedule | null>(null);
+  const [currentActivityIndex, setCurrentActivityIndex] = useState(0);
+  const [activitySecondsRemaining, setActivitySecondsRemaining] = useState(0);
+  const [isSchedulePaused, setIsSchedulePaused] = useState(false);
+  const scheduleIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
   useEffect(() => {
     loadTasks();
+    loadSchedules();
   }, []);
+
+  // Load saved schedules from localStorage
+  const loadSchedules = () => {
+    try {
+      const saved = localStorage.getItem(SCHEDULES_STORAGE_KEY);
+      if (saved) {
+        setSavedSchedules(JSON.parse(saved));
+      }
+    } catch (e) {
+      console.error('Error loading schedules:', e);
+    }
+  };
+
+  // Save schedules to localStorage
+  const saveSchedulesToStorage = (schedules: SavedSchedule[]) => {
+    try {
+      localStorage.setItem(SCHEDULES_STORAGE_KEY, JSON.stringify(schedules));
+      setSavedSchedules(schedules);
+    } catch (e) {
+      console.error('Error saving schedules:', e);
+    }
+  };
+
+  // Add a new activity row
+  const addActivityRow = () => {
+    setScheduleActivities(prev => [
+      ...prev,
+      { id: Date.now().toString(), name: '', durationMinutes: 25 }
+    ]);
+  };
+
+  // Remove an activity row
+  const removeActivityRow = (id: string) => {
+    if (scheduleActivities.length <= 1) return;
+    setScheduleActivities(prev => prev.filter(a => a.id !== id));
+  };
+
+  // Update an activity
+  const updateActivity = (id: string, field: 'name' | 'durationMinutes', value: string | number) => {
+    setScheduleActivities(prev => prev.map(a => 
+      a.id === id ? { ...a, [field]: value } : a
+    ));
+  };
+
+  // Save the current schedule
+  const saveSchedule = () => {
+    const validActivities = scheduleActivities.filter(a => a.name.trim() && a.durationMinutes > 0);
+    if (validActivities.length === 0) {
+      alert('Please add at least one activity with a name and duration');
+      return;
+    }
+
+    const schedule: SavedSchedule = {
+      id: editingSchedule?.id || Date.now().toString(),
+      name: newScheduleName.trim() || 'My Schedule',
+      activities: validActivities,
+      createdAt: editingSchedule?.createdAt || new Date().toISOString()
+    };
+
+    let updated: SavedSchedule[];
+    if (editingSchedule) {
+      updated = savedSchedules.map(s => s.id === schedule.id ? schedule : s);
+    } else {
+      updated = [...savedSchedules, schedule];
+    }
+
+    saveSchedulesToStorage(updated);
+    resetScheduleEditor();
+    alert('Schedule saved!');
+  };
+
+  // Delete a schedule
+  const deleteSchedule = (id: string) => {
+    if (confirm('Delete this schedule?')) {
+      saveSchedulesToStorage(savedSchedules.filter(s => s.id !== id));
+    }
+  };
+
+  // Edit an existing schedule
+  const editSchedule = (schedule: SavedSchedule) => {
+    setEditingSchedule(schedule);
+    setNewScheduleName(schedule.name);
+    setScheduleActivities([...schedule.activities]);
+  };
+
+  // Reset editor
+  const resetScheduleEditor = () => {
+    setEditingSchedule(null);
+    setNewScheduleName('My Schedule');
+    setScheduleActivities([{ id: '1', name: '', durationMinutes: 25 }]);
+  };
+
+  // Start running a schedule
+  const startSchedule = (schedule: SavedSchedule) => {
+    setRunningSchedule(schedule);
+    setCurrentActivityIndex(0);
+    setActivitySecondsRemaining(schedule.activities[0].durationMinutes * 60);
+    setIsSchedulePaused(false);
+    setMode('schedule-running');
+  };
+
+  // Schedule timer tick
+  useEffect(() => {
+    if (mode === 'schedule-running' && runningSchedule && !isSchedulePaused) {
+      scheduleIntervalRef.current = setInterval(() => {
+        setActivitySecondsRemaining(prev => {
+          if (prev <= 1) {
+            // Move to next activity
+            const nextIndex = currentActivityIndex + 1;
+            if (nextIndex >= runningSchedule.activities.length) {
+              // Schedule complete
+              clearInterval(scheduleIntervalRef.current!);
+              playCompletionSound();
+              alert('🎉 Schedule completed! Great job!');
+              setMode('schedule');
+              setRunningSchedule(null);
+              return 0;
+            } else {
+              // Start next activity
+              playActivityChangeSound();
+              setCurrentActivityIndex(nextIndex);
+              return runningSchedule.activities[nextIndex].durationMinutes * 60;
+            }
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    }
+
+    return () => {
+      if (scheduleIntervalRef.current) {
+        clearInterval(scheduleIntervalRef.current);
+      }
+    };
+  }, [mode, runningSchedule, isSchedulePaused, currentActivityIndex]);
+
+  // Play completion sound
+  const playCompletionSound = () => {
+    try {
+      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+      oscillator.frequency.value = 880;
+      oscillator.type = 'sine';
+      gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
+      oscillator.start(audioContext.currentTime);
+      oscillator.stop(audioContext.currentTime + 0.5);
+    } catch (e) {}
+  };
+
+  // Play activity change sound
+  const playActivityChangeSound = () => {
+    try {
+      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+      oscillator.frequency.value = 660;
+      oscillator.type = 'sine';
+      gainNode.gain.setValueAtTime(0.2, audioContext.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+      oscillator.start(audioContext.currentTime);
+      oscillator.stop(audioContext.currentTime + 0.3);
+    } catch (e) {}
+  };
+
+  // Format seconds to MM:SS or HH:MM:SS
+  const formatTime = (seconds: number): string => {
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    const s = seconds % 60;
+    if (h > 0) {
+      return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+    }
+    return `${m}:${s.toString().padStart(2, '0')}`;
+  };
+
+  // Calculate total remaining time for schedule
+  const getTotalRemainingTime = (): number => {
+    if (!runningSchedule) return 0;
+    let total = activitySecondsRemaining;
+    for (let i = currentActivityIndex + 1; i < runningSchedule.activities.length; i++) {
+      total += runningSchedule.activities[i].durationMinutes * 60;
+    }
+    return total;
+  };
+
+  // Stop running schedule
+  const stopSchedule = () => {
+    if (confirm('Stop the schedule? Progress will be lost.')) {
+      if (scheduleIntervalRef.current) {
+        clearInterval(scheduleIntervalRef.current);
+      }
+      setMode('schedule');
+      setRunningSchedule(null);
+      setCurrentActivityIndex(0);
+      setActivitySecondsRemaining(0);
+      setIsSchedulePaused(false);
+    }
+  };
 
   // Parse duration from task name (e.g., "Study 30 mins" -> 30, "Yoga 10 minutes" -> 10, "Meeting 1 hour" -> 60)
   const parseDurationFromTaskName = (taskName: string): { hours: number; minutes: number } => {
@@ -329,6 +567,34 @@ const TimerView: React.FC<TimerViewProps> = ({ onClose }) => {
             <h3 style={{ fontSize: '1.5rem', marginBottom: '0.5rem' }}>Standalone Timer</h3>
             <p style={{ fontSize: '0.875rem', opacity: 0.9 }}>
               Simple countdown or count-up timer
+            </p>
+          </div>
+
+          {/* Mode 4: Schedule Timer */}
+          <div
+            onClick={() => setMode('schedule')}
+            style={{
+              background: 'linear-gradient(135deg, #11998e 0%, #38ef7d 100%)',
+              padding: '2rem',
+              borderRadius: '16px',
+              cursor: 'pointer',
+              transition: 'transform 0.2s, box-shadow 0.2s',
+              boxShadow: '0 4px 12px rgba(0, 0, 0, 0.2)',
+              color: 'white'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.transform = 'translateY(-4px)';
+              e.currentTarget.style.boxShadow = '0 8px 20px rgba(0, 0, 0, 0.3)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.transform = 'translateY(0)';
+              e.currentTarget.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.2)';
+            }}
+          >
+            <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>📋</div>
+            <h3 style={{ fontSize: '1.5rem', marginBottom: '0.5rem' }}>Schedule Timer</h3>
+            <p style={{ fontSize: '0.875rem', opacity: 0.9 }}>
+              Plan multiple activities with set durations
             </p>
           </div>
         </div>
@@ -757,6 +1023,429 @@ const TimerView: React.FC<TimerViewProps> = ({ onClose }) => {
             >
               ⏲️ Count Up
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Schedule Timer Configuration Mode */}
+      {mode === 'schedule' && (
+        <div style={{
+          background: 'rgba(255, 255, 255, 0.1)',
+          backdropFilter: 'blur(10px)',
+          borderRadius: '16px',
+          padding: '2rem'
+        }}>
+          <button
+            onClick={() => { setMode('select'); resetScheduleEditor(); }}
+            style={{
+              background: 'transparent',
+              border: '1px solid rgba(255, 255, 255, 0.3)',
+              color: 'white',
+              padding: '0.5rem 1rem',
+              borderRadius: '8px',
+              cursor: 'pointer',
+              marginBottom: '1.5rem'
+            }}
+          >
+            ← Back
+          </button>
+
+          <h3 style={{ color: 'white', fontSize: '1.5rem', marginBottom: '1rem' }}>
+            📋 Schedule Timer
+          </h3>
+          <p style={{ color: 'rgba(255, 255, 255, 0.8)', marginBottom: '1.5rem' }}>
+            Create a schedule with multiple activities and run them in sequence
+          </p>
+
+          {/* Saved Schedules */}
+          {savedSchedules.length > 0 && (
+            <div style={{ marginBottom: '2rem' }}>
+              <h4 style={{ color: 'white', fontSize: '1rem', marginBottom: '1rem' }}>
+                📁 Saved Schedules
+              </h4>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                {savedSchedules.map(schedule => {
+                  const totalMins = schedule.activities.reduce((sum, a) => sum + a.durationMinutes, 0);
+                  const hours = Math.floor(totalMins / 60);
+                  const mins = totalMins % 60;
+                  return (
+                    <div
+                      key={schedule.id}
+                      style={{
+                        background: 'rgba(255, 255, 255, 0.15)',
+                        padding: '1rem',
+                        borderRadius: '12px',
+                        color: 'white'
+                      }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                        <span style={{ fontWeight: 600, fontSize: '1.1rem' }}>{schedule.name}</span>
+                        <span style={{ opacity: 0.8, fontSize: '0.875rem' }}>
+                          {schedule.activities.length} activities • {hours > 0 ? `${hours}h ` : ''}{mins}m
+                        </span>
+                      </div>
+                      <div style={{ fontSize: '0.8rem', opacity: 0.7, marginBottom: '0.75rem' }}>
+                        {schedule.activities.map(a => `${a.name} (${a.durationMinutes}m)`).join(' → ')}
+                      </div>
+                      <div style={{ display: 'flex', gap: '0.5rem' }}>
+                        <button
+                          onClick={() => startSchedule(schedule)}
+                          style={{
+                            flex: 1,
+                            padding: '0.5rem',
+                            background: '#38ef7d',
+                            color: '#1a1a2e',
+                            border: 'none',
+                            borderRadius: '6px',
+                            cursor: 'pointer',
+                            fontWeight: 600,
+                            fontSize: '0.875rem'
+                          }}
+                        >
+                          ▶️ Start
+                        </button>
+                        <button
+                          onClick={() => editSchedule(schedule)}
+                          style={{
+                            padding: '0.5rem 0.75rem',
+                            background: 'rgba(255, 255, 255, 0.2)',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '6px',
+                            cursor: 'pointer',
+                            fontSize: '0.875rem'
+                          }}
+                        >
+                          ✏️
+                        </button>
+                        <button
+                          onClick={() => deleteSchedule(schedule.id)}
+                          style={{
+                            padding: '0.5rem 0.75rem',
+                            background: 'rgba(239, 68, 68, 0.3)',
+                            color: '#fca5a5',
+                            border: 'none',
+                            borderRadius: '6px',
+                            cursor: 'pointer',
+                            fontSize: '0.875rem'
+                          }}
+                        >
+                          🗑️
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Schedule Editor */}
+          <div style={{
+            background: 'rgba(255, 255, 255, 0.1)',
+            borderRadius: '12px',
+            padding: '1.5rem'
+          }}>
+            <h4 style={{ color: 'white', fontSize: '1rem', marginBottom: '1rem' }}>
+              {editingSchedule ? '✏️ Edit Schedule' : '➕ Create New Schedule'}
+            </h4>
+
+            {/* Schedule Name */}
+            <div style={{ marginBottom: '1rem' }}>
+              <label style={{ display: 'block', color: 'rgba(255, 255, 255, 0.8)', marginBottom: '0.5rem', fontSize: '0.875rem' }}>
+                Schedule Name
+              </label>
+              <input
+                type="text"
+                value={newScheduleName}
+                onChange={(e) => setNewScheduleName(e.target.value)}
+                placeholder="e.g., Morning Study Session"
+                style={{
+                  width: '100%',
+                  padding: '0.75rem',
+                  border: 'none',
+                  borderRadius: '8px',
+                  fontSize: '1rem',
+                  boxSizing: 'border-box'
+                }}
+              />
+            </div>
+
+            {/* Activities */}
+            <div style={{ marginBottom: '1rem' }}>
+              <label style={{ display: 'block', color: 'rgba(255, 255, 255, 0.8)', marginBottom: '0.5rem', fontSize: '0.875rem' }}>
+                Activities
+              </label>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                {scheduleActivities.map((activity, idx) => (
+                  <div key={activity.id} style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                    <span style={{ color: 'rgba(255, 255, 255, 0.5)', width: '1.5rem', textAlign: 'center', fontSize: '0.875rem' }}>
+                      {idx + 1}.
+                    </span>
+                    <input
+                      type="text"
+                      value={activity.name}
+                      onChange={(e) => updateActivity(activity.id, 'name', e.target.value)}
+                      placeholder="Activity name (e.g., Study English)"
+                      style={{
+                        flex: 1,
+                        padding: '0.6rem',
+                        border: 'none',
+                        borderRadius: '6px',
+                        fontSize: '0.9rem'
+                      }}
+                    />
+                    <input
+                      type="number"
+                      min="1"
+                      max="480"
+                      value={activity.durationMinutes}
+                      onChange={(e) => updateActivity(activity.id, 'durationMinutes', Math.max(1, parseInt(e.target.value) || 1))}
+                      style={{
+                        width: '70px',
+                        padding: '0.6rem',
+                        border: 'none',
+                        borderRadius: '6px',
+                        fontSize: '0.9rem',
+                        textAlign: 'center'
+                      }}
+                    />
+                    <span style={{ color: 'rgba(255, 255, 255, 0.6)', fontSize: '0.8rem', width: '2rem' }}>min</span>
+                    <button
+                      onClick={() => removeActivityRow(activity.id)}
+                      disabled={scheduleActivities.length <= 1}
+                      style={{
+                        padding: '0.5rem',
+                        background: scheduleActivities.length <= 1 ? 'rgba(255, 255, 255, 0.1)' : 'rgba(239, 68, 68, 0.3)',
+                        color: scheduleActivities.length <= 1 ? 'rgba(255, 255, 255, 0.3)' : '#fca5a5',
+                        border: 'none',
+                        borderRadius: '6px',
+                        cursor: scheduleActivities.length <= 1 ? 'not-allowed' : 'pointer',
+                        fontSize: '0.875rem'
+                      }}
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <button
+                onClick={addActivityRow}
+                style={{
+                  marginTop: '0.75rem',
+                  padding: '0.5rem 1rem',
+                  background: 'rgba(255, 255, 255, 0.2)',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontSize: '0.875rem'
+                }}
+              >
+                + Add Activity
+              </button>
+            </div>
+
+            {/* Total Time Preview */}
+            {(() => {
+              const validActivities = scheduleActivities.filter(a => a.name.trim() && a.durationMinutes > 0);
+              const totalMins = validActivities.reduce((sum, a) => sum + a.durationMinutes, 0);
+              const hours = Math.floor(totalMins / 60);
+              const mins = totalMins % 60;
+              return validActivities.length > 0 ? (
+                <div style={{
+                  background: 'rgba(56, 239, 125, 0.2)',
+                  padding: '0.75rem 1rem',
+                  borderRadius: '8px',
+                  marginBottom: '1rem',
+                  color: '#38ef7d',
+                  fontSize: '0.9rem'
+                }}>
+                  📊 Total: {validActivities.length} activities • {hours > 0 ? `${hours}h ` : ''}{mins}m
+                </div>
+              ) : null;
+            })()}
+
+            {/* Save Button */}
+            <div style={{ display: 'flex', gap: '0.75rem' }}>
+              <button
+                onClick={saveSchedule}
+                style={{
+                  flex: 1,
+                  padding: '0.875rem',
+                  background: 'linear-gradient(135deg, #11998e 0%, #38ef7d 100%)',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  fontWeight: 600,
+                  fontSize: '1rem'
+                }}
+              >
+                💾 {editingSchedule ? 'Update Schedule' : 'Save Schedule'}
+              </button>
+              {editingSchedule && (
+                <button
+                  onClick={resetScheduleEditor}
+                  style={{
+                    padding: '0.875rem 1rem',
+                    background: 'rgba(255, 255, 255, 0.2)',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '8px',
+                    cursor: 'pointer',
+                    fontSize: '0.9rem'
+                  }}
+                >
+                  Cancel
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Schedule Timer Running Mode */}
+      {mode === 'schedule-running' && runningSchedule && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)',
+          display: 'flex',
+          flexDirection: 'column',
+          zIndex: 9999
+        }}>
+          {/* Top Section - Current Activity */}
+          <div style={{
+            flex: 1,
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'center',
+            alignItems: 'center',
+            padding: '2rem',
+            background: 'linear-gradient(135deg, #11998e 0%, #38ef7d 100%)'
+          }}>
+            <div style={{ color: 'rgba(255, 255, 255, 0.8)', fontSize: '1rem', marginBottom: '0.5rem' }}>
+              CURRENT ACTIVITY ({currentActivityIndex + 1}/{runningSchedule.activities.length})
+            </div>
+            <div style={{ color: 'white', fontSize: '2.5rem', fontWeight: 700, textAlign: 'center', marginBottom: '1rem' }}>
+              {runningSchedule.activities[currentActivityIndex].name}
+            </div>
+            <div style={{ 
+              color: 'white', 
+              fontSize: '5rem', 
+              fontWeight: 700, 
+              fontFamily: 'monospace',
+              textShadow: '0 4px 20px rgba(0,0,0,0.3)'
+            }}>
+              {formatTime(activitySecondsRemaining)}
+            </div>
+            
+            {/* Progress bar for current activity */}
+            <div style={{
+              width: '80%',
+              maxWidth: '400px',
+              height: '8px',
+              background: 'rgba(255, 255, 255, 0.3)',
+              borderRadius: '4px',
+              marginTop: '1.5rem',
+              overflow: 'hidden'
+            }}>
+              <div style={{
+                height: '100%',
+                background: 'white',
+                borderRadius: '4px',
+                width: `${(1 - activitySecondsRemaining / (runningSchedule.activities[currentActivityIndex].durationMinutes * 60)) * 100}%`,
+                transition: 'width 1s linear'
+              }} />
+            </div>
+          </div>
+
+          {/* Bottom Section - Next Activity & Stats */}
+          <div style={{
+            padding: '1.5rem 2rem',
+            background: 'rgba(0, 0, 0, 0.3)'
+          }}>
+            {/* Next Activity */}
+            {currentActivityIndex < runningSchedule.activities.length - 1 && (
+              <div style={{ marginBottom: '1rem', textAlign: 'center' }}>
+                <div style={{ color: 'rgba(255, 255, 255, 0.6)', fontSize: '0.8rem', marginBottom: '0.25rem' }}>
+                  UP NEXT
+                </div>
+                <div style={{ color: 'white', fontSize: '1.25rem', fontWeight: 600 }}>
+                  {runningSchedule.activities[currentActivityIndex + 1].name}
+                  <span style={{ opacity: 0.7, marginLeft: '0.5rem', fontSize: '1rem' }}>
+                    ({runningSchedule.activities[currentActivityIndex + 1].durationMinutes} min)
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {/* Stats */}
+            <div style={{
+              display: 'flex',
+              justifyContent: 'center',
+              gap: '2rem',
+              marginBottom: '1.5rem',
+              padding: '1rem',
+              background: 'rgba(255, 255, 255, 0.1)',
+              borderRadius: '12px'
+            }}>
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ color: 'rgba(255, 255, 255, 0.6)', fontSize: '0.75rem', marginBottom: '0.25rem' }}>
+                  REMAINING ACTIVITIES
+                </div>
+                <div style={{ color: 'white', fontSize: '1.5rem', fontWeight: 700 }}>
+                  {runningSchedule.activities.length - currentActivityIndex - 1}
+                </div>
+              </div>
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ color: 'rgba(255, 255, 255, 0.6)', fontSize: '0.75rem', marginBottom: '0.25rem' }}>
+                  TOTAL TIME LEFT
+                </div>
+                <div style={{ color: 'white', fontSize: '1.5rem', fontWeight: 700 }}>
+                  {formatTime(getTotalRemainingTime())}
+                </div>
+              </div>
+            </div>
+
+            {/* Controls */}
+            <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
+              <button
+                onClick={() => setIsSchedulePaused(!isSchedulePaused)}
+                style={{
+                  padding: '1rem 2rem',
+                  background: isSchedulePaused ? '#38ef7d' : '#fbbf24',
+                  color: '#1a1a2e',
+                  border: 'none',
+                  borderRadius: '12px',
+                  cursor: 'pointer',
+                  fontWeight: 700,
+                  fontSize: '1.1rem',
+                  minWidth: '140px'
+                }}
+              >
+                {isSchedulePaused ? '▶️ Resume' : '⏸️ Pause'}
+              </button>
+              <button
+                onClick={stopSchedule}
+                style={{
+                  padding: '1rem 2rem',
+                  background: 'rgba(239, 68, 68, 0.8)',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '12px',
+                  cursor: 'pointer',
+                  fontWeight: 700,
+                  fontSize: '1.1rem'
+                }}
+              >
+                ⏹️ Stop
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -9,7 +9,7 @@
  * - Copying shared entries to local DB
  */
 
-import { supabase } from '../lib/supabase';
+import getSupabaseClient from '../lib/supabase';
 import {
   SharingGroup,
   GroupMember,
@@ -21,6 +21,13 @@ import {
   GroupMemberRole,
 } from '../types';
 
+// Get supabase client helper
+const getClient = () => {
+  const client = getSupabaseClient();
+  if (!client) throw new Error('Supabase not configured');
+  return client;
+};
+
 const generateId = (): string => {
   return `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
 };
@@ -28,6 +35,7 @@ const generateId = (): string => {
 // ===== GROUPS =====
 
 export async function getMyGroups(): Promise<SharingGroup[]> {
+  const supabase = getClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('Not authenticated');
 
@@ -64,6 +72,7 @@ export async function getMyGroups(): Promise<SharingGroup[]> {
 }
 
 export async function createGroup(group: Partial<SharingGroup>): Promise<SharingGroup> {
+  const supabase = getClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('Not authenticated');
 
@@ -112,6 +121,7 @@ export async function createGroup(group: Partial<SharingGroup>): Promise<Sharing
 }
 
 export async function updateGroup(id: string, updates: Partial<SharingGroup>): Promise<SharingGroup> {
+  const supabase = getClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('Not authenticated');
 
@@ -145,6 +155,7 @@ export async function updateGroup(id: string, updates: Partial<SharingGroup>): P
 }
 
 export async function deleteGroup(id: string): Promise<void> {
+  const supabase = getClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('Not authenticated');
 
@@ -160,6 +171,7 @@ export async function deleteGroup(id: string): Promise<void> {
 // ===== MEMBERS =====
 
 export async function getGroupMembers(groupId: string): Promise<GroupMember[]> {
+  const supabase = getClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('Not authenticated');
 
@@ -182,6 +194,7 @@ export async function getGroupMembers(groupId: string): Promise<GroupMember[]> {
 }
 
 export async function removeMember(groupId: string, userId: string): Promise<void> {
+  const supabase = getClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('Not authenticated');
 
@@ -207,6 +220,7 @@ export async function removeMember(groupId: string, userId: string): Promise<voi
 }
 
 export async function updateMemberRole(groupId: string, userId: string, role: GroupMemberRole): Promise<void> {
+  const supabase = getClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('Not authenticated');
 
@@ -220,6 +234,7 @@ export async function updateMemberRole(groupId: string, userId: string, role: Gr
 }
 
 export async function leaveGroup(groupId: string): Promise<void> {
+  const supabase = getClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('Not authenticated');
 
@@ -241,6 +256,7 @@ export async function leaveGroup(groupId: string): Promise<void> {
 // ===== INVITATIONS =====
 
 export async function getMyInvitations(): Promise<GroupInvitation[]> {
+  const supabase = getClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('Not authenticated');
 
@@ -273,6 +289,7 @@ export async function getMyInvitations(): Promise<GroupInvitation[]> {
 }
 
 export async function getSentInvitations(groupId: string): Promise<GroupInvitation[]> {
+  const supabase = getClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('Not authenticated');
 
@@ -303,6 +320,7 @@ export async function sendInvitation(
   target: { userId?: string; email?: string },
   message?: string
 ): Promise<GroupInvitation> {
+  const supabase = getClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('Not authenticated');
 
@@ -381,6 +399,7 @@ export async function sendInvitation(
 }
 
 export async function respondToInvitation(invitationId: string, accept: boolean): Promise<void> {
+  const supabase = getClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('Not authenticated');
 
@@ -429,6 +448,7 @@ export async function respondToInvitation(invitationId: string, accept: boolean)
 }
 
 export async function cancelInvitation(invitationId: string): Promise<void> {
+  const supabase = getClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('Not authenticated');
 
@@ -448,6 +468,7 @@ export async function shareEntry(
   groupId: string,
   mode: ShareMode = 'readonly'
 ): Promise<SharedSafeEntry> {
+  const supabase = getClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('Not authenticated');
 
@@ -484,6 +505,7 @@ export async function shareEntry(
 }
 
 export async function getSharedEntriesForGroup(groupId: string): Promise<SharedSafeEntry[]> {
+  const supabase = getClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('Not authenticated');
 
@@ -510,6 +532,7 @@ export async function getSharedEntriesForGroup(groupId: string): Promise<SharedS
 }
 
 export async function getEntriesSharedWithMe(): Promise<SharedSafeEntry[]> {
+  const supabase = getClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('Not authenticated');
 
@@ -547,6 +570,7 @@ export async function getEntriesSharedWithMe(): Promise<SharedSafeEntry[]> {
 }
 
 export async function revokeShare(shareId: string): Promise<void> {
+  const supabase = getClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('Not authenticated');
 
@@ -563,6 +587,7 @@ export async function revokeShare(shareId: string): Promise<void> {
 }
 
 export async function updateShareMode(shareId: string, mode: ShareMode): Promise<void> {
+  const supabase = getClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('Not authenticated');
 
@@ -582,6 +607,7 @@ export async function shareDocument(
   groupId: string,
   mode: ShareMode = 'readonly'
 ): Promise<SharedDocument> {
+  const supabase = getClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('Not authenticated');
 
@@ -618,6 +644,7 @@ export async function shareDocument(
 }
 
 export async function getDocumentsSharedWithMe(): Promise<SharedDocument[]> {
+  const supabase = getClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('Not authenticated');
 
@@ -653,6 +680,7 @@ export async function getDocumentsSharedWithMe(): Promise<SharedDocument[]> {
 }
 
 export async function revokeDocumentShare(shareId: string): Promise<void> {
+  const supabase = getClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('Not authenticated');
 
@@ -676,6 +704,7 @@ export async function copyEntryToLocal(
   newEntryId: string,
   entryType: 'safe_entry' | 'document'
 ): Promise<EntryCopy> {
+  const supabase = getClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('Not authenticated');
 
@@ -710,6 +739,7 @@ export async function copyEntryToLocal(
 }
 
 export async function hasAlreadyCopied(originalEntryId: string): Promise<boolean> {
+  const supabase = getClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('Not authenticated');
 
@@ -726,6 +756,7 @@ export async function hasAlreadyCopied(originalEntryId: string): Promise<boolean
 // ===== USER SEARCH (for invitations) =====
 
 export async function searchUsers(query: string): Promise<{ id: string; email: string }[]> {
+  const supabase = getClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('Not authenticated');
 

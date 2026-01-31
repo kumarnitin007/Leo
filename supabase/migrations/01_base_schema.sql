@@ -457,24 +457,29 @@ END $$;
 -- Enable RLS only if it's a table (not a view)
 DO $$ 
 BEGIN
+    -- Check if myday_user_visible_days exists as a BASE TABLE (not a view)
     IF EXISTS (
-        SELECT 1 FROM information_schema.tables 
-        WHERE table_schema = 'public' 
-        AND table_name = 'myday_user_visible_days'
-        AND table_type = 'BASE TABLE'
+        SELECT 1 FROM pg_class c
+        JOIN pg_namespace n ON n.oid = c.relnamespace
+        WHERE n.nspname = 'public' 
+        AND c.relname = 'myday_user_visible_days'
+        AND c.relkind = 'r'  -- 'r' = ordinary table, 'v' = view
     ) THEN
         ALTER TABLE myday_user_visible_days ENABLE ROW LEVEL SECURITY;
     END IF;
-EXCEPTION WHEN OTHERS THEN NULL;
+EXCEPTION WHEN OTHERS THEN 
+    -- Silently ignore if it's a view or doesn't exist
+    NULL;
 END $$;
 
--- Create policies only if it's a table
+-- Create policies only if it's a table (not a view)
 DO $$ BEGIN
     IF EXISTS (
-        SELECT 1 FROM information_schema.tables 
-        WHERE table_schema = 'public' 
-        AND table_name = 'myday_user_visible_days'
-        AND table_type = 'BASE TABLE'
+        SELECT 1 FROM pg_class c
+        JOIN pg_namespace n ON n.oid = c.relnamespace
+        WHERE n.nspname = 'public' 
+        AND c.relname = 'myday_user_visible_days'
+        AND c.relkind = 'r'  -- 'r' = ordinary table
     ) THEN
         BEGIN
             CREATE POLICY "Users can view own visible days" ON myday_user_visible_days FOR SELECT USING (auth.uid() = user_id);
@@ -645,7 +650,19 @@ CREATE INDEX IF NOT EXISTS idx_encrypted_entries_user ON myday_encrypted_entries
 CREATE INDEX IF NOT EXISTS idx_voice_logs_user ON myday_voice_command_logs(user_id);
 CREATE INDEX IF NOT EXISTS idx_reference_days_date ON myday_reference_days(date);
 CREATE INDEX IF NOT EXISTS idx_reference_days_calendar ON myday_reference_days(calendar_id);
-CREATE INDEX IF NOT EXISTS idx_user_visible_days_user_date ON myday_user_visible_days(user_id, date);
+-- Create index only if myday_user_visible_days is a table (not a view)
+DO $$ BEGIN
+    IF EXISTS (
+        SELECT 1 FROM pg_class c
+        JOIN pg_namespace n ON n.oid = c.relnamespace
+        WHERE n.nspname = 'public' 
+        AND c.relname = 'myday_user_visible_days'
+        AND c.relkind = 'r'
+    ) THEN
+        CREATE INDEX IF NOT EXISTS idx_user_visible_days_user_date ON myday_user_visible_days(user_id, date);
+    END IF;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $$;
 CREATE INDEX IF NOT EXISTS idx_milestones_user_id ON myday_milestones(user_id);
 CREATE INDEX IF NOT EXISTS idx_milestones_date ON myday_milestones(date);
 

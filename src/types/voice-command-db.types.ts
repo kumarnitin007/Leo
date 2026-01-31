@@ -14,12 +14,18 @@ export type IntentType =
   | 'CREATE_ROUTINE'
   | 'CREATE_TAG'
   | 'CREATE_MILESTONE'
+  | 'CREATE_TODO'
+  | 'CREATE_PINNED_EVENT'
+  | 'CREATE_RESOLUTION'
   | 'UPDATE_TASK'
   | 'UPDATE_EVENT'
   | 'DELETE_TASK'
   | 'DELETE_EVENT'
   | 'QUERY_TASK'
   | 'QUERY_EVENT'
+  | 'UPDATE'
+  | 'DELETE'
+  | 'QUERY'
   | 'UNKNOWN'
   | 'MULTIPLE';
 
@@ -104,11 +110,11 @@ export interface VoiceCommandLog {
   /** Session identifier grouping related commands */
   sessionId: string;
   /** Creation timestamp */
-  createdAt: Date;
+  createdAt: string;
   /** Last update timestamp */
-  updatedAt: Date;
+  updatedAt: string;
   /** Expiration timestamp for auto-deletion */
-  expiresAt: Date;
+  expiresAt: string;
 
   /** Original transcript (encrypted at rest) */
   rawTranscript: string;
@@ -132,7 +138,7 @@ export interface VoiceCommandLog {
   entities: Entity[];
 
   /** Denormalized date/time fields */
-  memoDate?: Date | null;
+  memoDate?: string | null;
   memoDateExpression?: string | null;
   memoTime?: string | null;
   memoTimeExpression?: string | null;

@@ -43,7 +43,7 @@ const CountdownTimer: React.FC<CountdownTimerProps> = ({
   const [pausedTime, setPausedTime] = useState(0);
   const [selectedTheme, setSelectedTheme] = useState<TimerTheme>('liquid');
   
-  const intervalRef = useRef<number | null>(null);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {

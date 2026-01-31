@@ -1164,35 +1164,53 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
               <span>📊</span>
               <span>Progress</span>
             </button>
-            <button
-              onClick={async () => {
-                const prompt = await buildOpenAIPrompt();
-                setOpenAIPromptText(prompt);
-                setShowOpenAIPrompt(true);
-              }}
-              className="btn-secondary"
-              style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
-            >
-              <span>🤖</span>
-              <span>Ask AI</span>
-            </button>
-            {aiInsight && (
-              <button 
-                onClick={() => setShowSmartCoachModal(true)}
-                className="btn-secondary smart-coach-btn"
+            <div style={{ position: 'relative', display: 'inline-flex' }}>
+              <button
+                onClick={async () => {
+                  const prompt = await buildOpenAIPrompt();
+                  setOpenAIPromptText(prompt);
+                  setShowOpenAIPrompt(true);
+                }}
+                className="btn-secondary"
                 style={{ 
-                  display: 'flex',
-                  alignItems: 'center',
+                  display: 'flex', 
+                  alignItems: 'center', 
                   gap: '0.5rem',
                   background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
                   color: 'white',
-                  border: 'none'
+                  border: 'none',
+                  paddingRight: aiInsight ? '2.75rem' : undefined
                 }}
               >
                 <span>🤖</span>
-                <span>Coach</span>
+                <span>AI Assistant</span>
               </button>
-            )}
+              {aiInsight && (
+                <button 
+                  onClick={() => setShowSmartCoachModal(true)}
+                  title="View Coach Insights"
+                  style={{ 
+                    position: 'absolute',
+                    right: '0.35rem',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    background: 'rgba(255,255,255,0.25)',
+                    border: 'none',
+                    borderRadius: '50%',
+                    width: '1.75rem',
+                    height: '1.75rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    cursor: 'pointer',
+                    fontSize: '0.85rem',
+                    color: 'white'
+                  }}
+                >
+                  💡
+                </button>
+              )}
+            </div>
             <button 
               onClick={() => setIsReorderMode(!isReorderMode)}
               className="btn-secondary"

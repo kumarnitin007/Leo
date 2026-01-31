@@ -357,6 +357,15 @@ const AppContent: React.FC = () => {
             <span className="nav-icon">🔒</span>
             <span className="nav-text">Safe</span>
           </button>
+          <button
+            className={`nav-button ${currentView === 'todo' ? 'active' : ''}`}
+            onClick={() => handleNavigate('todo')}
+            title="To-Do Lists"
+            style={currentView === 'todo' ? { backgroundColor: theme.colors.primary } : {}}
+          >
+            <span className="nav-icon">✅</span>
+            <span className="nav-text">To-Do</span>
+          </button>
         </nav>
         <div className="header-actions">
           <button
