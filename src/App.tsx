@@ -40,6 +40,7 @@ import OnboardingFlow from './components/OnboardingFlow';
 import AuthModal from './components/AuthModal';
 import MobileBottomNav from './components/MobileBottomNav';
 import MobileBottomSheet from './components/MobileBottomSheet';
+import MobileContextHeader from './components/MobileContextHeader';
 import VoiceCommandButton from './components/VoiceCommand/VoiceCommandButton';
 import { isFirstTimeUser, markOnboardingComplete } from './storage';
 import { loadSampleTasks } from './utils/sampleData';
@@ -416,6 +417,13 @@ const AppContent: React.FC = () => {
           />
         </div>
       </header>
+      {/* Mobile Context Header - only visible on mobile */}
+      <MobileContextHeader 
+        currentView={currentView}
+        showBack={currentView !== 'today'}
+        onBack={() => handleNavigate('today')}
+      />
+
       <main className="main-content">
         {renderView()}
       </main>
