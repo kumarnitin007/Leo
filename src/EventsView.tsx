@@ -10,7 +10,7 @@
  * - Shows upcoming events
  */
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Event, EventFrequencyType } from './types';
 import { 
   getEvents, 
@@ -25,6 +25,7 @@ import { importFromICalendar, filterPersonalEvents } from './icalParser';
 import { Tag } from './types';
 import { ReferenceCalendarModal } from './components/ReferenceCalendarModal';
 import { ReferenceCalendarTemplateModal } from './components/ReferenceCalendarTemplateModal';
+import EventFilterSidebar, { EventFilter } from './components/EventFilterSidebar';
 import packageJson from '../package.json';
 
 interface EventsViewProps {
@@ -47,6 +48,12 @@ const EventsView: React.FC<EventsViewProps> = () => {
   const [sortBy, setSortBy] = useState<string>('date-asc');
   const [tags, setTags] = useState<Tag[]>([]);
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
+  
+  // Filter sidebar state
+  const [activeFilter, setActiveFilter] = useState<EventFilter>({ type: 'all' });
+  const [showMobileFilters, setShowMobileFilters] = useState(true);
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -66,6 +73,91 @@ const EventsView: React.FC<EventsViewProps> = () => {
     loadEvents();
     loadTags();
   }, []);
+  
+  // Track window resize for mobile detection
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+  
+  // Calculate filter counts
+  const filterCounts = useMemo(() => {
+    const now = new Date();
+    const thirtyDaysFromNow = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+    
+    const counts = {
+      all: events.length,
+      upcoming: upcomingEvents.length,
+      thisMonth: events.filter(e => {
+        const [month] = e.date.split('-').map(Number);
+        return (e.frequency === 'yearly' ? month - 1 : new Date(e.date).getMonth()) === currentMonth;
+      }).length,
+      hidden: events.filter(e => e.hideFromDashboard).length,
+      byCategory: {} as Record<string, number>,
+      byFrequency: {} as Record<string, number>,
+      byTag: {} as Record<string, number>,
+    };
+    
+    events.forEach(e => {
+      if (e.category) {
+        counts.byCategory[e.category] = (counts.byCategory[e.category] || 0) + 1;
+      }
+      counts.byFrequency[e.frequency] = (counts.byFrequency[e.frequency] || 0) + 1;
+      (e.tags || []).forEach(tagId => {
+        counts.byTag[tagId] = (counts.byTag[tagId] || 0) + 1;
+      });
+    });
+    
+    return counts;
+  }, [events, upcomingEvents]);
+  
+  // Filter events based on active filter
+  const sidebarFilteredEvents = useMemo(() => {
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    
+    switch (activeFilter.type) {
+      case 'all':
+        return events;
+      case 'upcoming':
+        return events.filter(e => upcomingEvents.some(ue => ue.event.id === e.id));
+      case 'thisMonth':
+        return events.filter(e => {
+          const [month] = e.date.split('-').map(Number);
+          return (e.frequency === 'yearly' ? month - 1 : new Date(e.date).getMonth()) === currentMonth;
+        });
+      case 'hidden':
+        return events.filter(e => e.hideFromDashboard);
+      case 'category':
+        return events.filter(e => e.category === activeFilter.value);
+      case 'frequency':
+        return events.filter(e => e.frequency === activeFilter.value);
+      case 'tag':
+        return events.filter(e => e.tags && e.tags.includes(activeFilter.value!));
+      default:
+        return events;
+    }
+  }, [events, upcomingEvents, activeFilter]);
+  
+  // Helper to get filter label
+  const getFilterLabel = (filter: EventFilter): string => {
+    switch (filter.type) {
+      case 'all': return 'All Events';
+      case 'upcoming': return 'Upcoming (30 days)';
+      case 'thisMonth': return 'This Month';
+      case 'hidden': return 'Hidden from Dashboard';
+      case 'category': return filter.value || 'Category';
+      case 'frequency': return filter.value === 'yearly' ? 'Yearly' : 'One-Time';
+      case 'tag': {
+        const tag = tags.find(t => t.id === filter.value);
+        return tag?.name || 'Tag';
+      }
+      default: return 'All Events';
+    }
+  };
 
   const loadTags = async () => {
     try {
@@ -406,6 +498,58 @@ const EventsView: React.FC<EventsViewProps> = () => {
         <h2>📅 Events</h2>
         <p>Manage birthdays, anniversaries, holidays, memorials, and other significant dates</p>
       </div>
+
+      {/* Main content with sidebar */}
+      <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start' }}>
+        {/* Mobile: Show filters first */}
+        {isMobile && showMobileFilters && !isEditing ? (
+          <EventFilterSidebar
+            tags={tags}
+            activeFilter={activeFilter}
+            onFilterChange={setActiveFilter}
+            entryCounts={filterCounts}
+            isMobile={true}
+            onFilterSelected={() => setShowMobileFilters(false)}
+          />
+        ) : (
+          <>
+            {/* Desktop: Filter Sidebar */}
+            {!isMobile && !isEditing && (
+              <EventFilterSidebar
+                tags={tags}
+                activeFilter={activeFilter}
+                onFilterChange={setActiveFilter}
+                entryCounts={filterCounts}
+              />
+            )}
+            
+            {/* Main Content */}
+            <div style={{ flex: 1, minWidth: 0 }}>
+              {/* Mobile: Back to filters button */}
+              {isMobile && !isEditing && (
+                <button
+                  onClick={() => setShowMobileFilters(true)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                    padding: '0.75rem 1rem',
+                    background: 'rgba(59, 130, 246, 0.1)',
+                    border: 'none',
+                    borderRadius: '0.5rem',
+                    cursor: 'pointer',
+                    fontSize: '0.9rem',
+                    color: '#3b82f6',
+                    marginBottom: '1rem',
+                    width: '100%',
+                  }}
+                >
+                  <span>‹ Back to Filters</span>
+                  <span style={{ marginLeft: 'auto', color: '#6b7280', fontSize: '0.8rem' }}>
+                    {getFilterLabel(activeFilter)} ({sidebarFilteredEvents.length})
+                  </span>
+                </button>
+              )}
 
       {/* Upcoming Events Section */}
       {upcomingEvents.length > 0 && (
@@ -951,8 +1095,8 @@ const EventsView: React.FC<EventsViewProps> = () => {
       {/* Events List */}
       <div className="events-list-container">
         {(() => {
-          // Apply filters
-          let filteredEvents = events;
+          // Apply filters (starting from sidebar-filtered events)
+          let filteredEvents = sidebarFilteredEvents;
           
           if (searchText) {
             filteredEvents = filteredEvents.filter(event =>
@@ -1007,7 +1151,7 @@ const EventsView: React.FC<EventsViewProps> = () => {
           
           return (
             <>
-              <h3>📋 All Events ({filteredEvents.length}{filteredEvents.length !== events.length ? ` of ${events.length}` : ''})</h3>
+              <h3>📋 {activeFilter.type === 'all' ? 'All Events' : getFilterLabel(activeFilter)} ({filteredEvents.length}{filteredEvents.length !== events.length ? ` of ${events.length}` : ''})</h3>
               {filteredEvents.length === 0 ? (
                 <div className="no-events">
                   <p>{events.length === 0 ? 'No events yet. Add your first event to get started!' : 'No events match your filters.'}</p>
@@ -1087,6 +1231,10 @@ const EventsView: React.FC<EventsViewProps> = () => {
         isOpen={isTemplateModalOpen}
         onClose={() => setIsTemplateModalOpen(false)}
       />
+      </div>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

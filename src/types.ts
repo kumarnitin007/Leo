@@ -266,6 +266,10 @@ export interface SafeEntry {
   createdAt: string;
   updatedAt: string;
   lastAccessedAt?: string;
+  // Sharing fields (for entries shared with current user)
+  isShared?: boolean;
+  sharedBy?: string; // Display name of the person who shared
+  sharedAt?: string;
 }
 
 export interface SafeMasterKey {

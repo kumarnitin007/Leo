@@ -215,7 +215,34 @@ const SafeEntryList: React.FC<SafeEntryListProps> = ({
             const isExpiring = isExpiringSoon(entry);
 
             return (
-              <div key={entry.id} style={{ position: 'relative', backgroundColor: 'rgba(255,255,255,0.95)', borderRadius: '8px', padding: '1.25rem', cursor: 'pointer', boxShadow: '0 2px 4px rgba(0,0,0,0.08)' }} onClick={() => onEntrySelect(entry)}>
+              <div 
+                key={entry.id} 
+                style={{ 
+                  position: 'relative', 
+                  backgroundColor: entry.isShared ? 'rgba(236, 253, 245, 0.95)' : 'rgba(255,255,255,0.95)', 
+                  borderRadius: '8px', 
+                  padding: '1.25rem', 
+                  cursor: 'pointer', 
+                  boxShadow: '0 2px 4px rgba(0,0,0,0.08)',
+                  border: entry.isShared ? '2px solid #10b981' : 'none'
+                }} 
+                onClick={() => onEntrySelect(entry)}
+              >
+                {entry.isShared && (
+                  <div style={{
+                    position: 'absolute',
+                    top: '-8px',
+                    right: '12px',
+                    background: '#10b981',
+                    color: 'white',
+                    fontSize: '0.65rem',
+                    fontWeight: 600,
+                    padding: '2px 8px',
+                    borderRadius: '4px',
+                  }}>
+                    Shared by {entry.sharedBy}
+                  </div>
+                )}
                 <label style={{ position: 'absolute', top: '8px', left: '8px' }} onClick={e => e.stopPropagation()}>
                   <input type="checkbox" checked={selectedIds.includes(entry.id)} onChange={e => { e.stopPropagation(); if (e.target.checked) setSelectedIds(prev => [...prev, entry.id]); else setSelectedIds(prev => prev.filter(id => id !== entry.id)); }} />
                 </label>
@@ -223,7 +250,7 @@ const SafeEntryList: React.FC<SafeEntryListProps> = ({
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '0.75rem' }}>
                   <h3 style={{ margin: 0, fontSize: '1.1rem', flex: 1 }}>{entry.title}</h3>
                   <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                    {onShare && (
+                    {onShare && !entry.isShared && (
                       <button
                         onClick={(e) => {
                           e.stopPropagation();

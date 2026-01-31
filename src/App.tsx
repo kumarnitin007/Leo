@@ -294,115 +294,126 @@ const AppContent: React.FC = () => {
       }}
     >
       <header className="header">
-        <div className="header-left">
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.125rem' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <span style={{ fontSize: '1.75rem' }}>🦁</span>
-              <h1 style={{ margin: 0 }}>Leo Planner</h1>
+        <div className="header-top-row">
+          <div className="header-left">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.125rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <span style={{ fontSize: '1.75rem' }}>🦁</span>
+                <h1 style={{ margin: 0 }}>Leo Planner</h1>
+              </div>
+              <p style={{ 
+                fontSize: '0.75rem', 
+                margin: 0, 
+                opacity: 0.85,
+                fontStyle: 'italic',
+                paddingLeft: '2.25rem'
+              }}>
+                Plan with the strength of a lion
+              </p>
             </div>
-            <p style={{ 
-              fontSize: '0.75rem', 
-              margin: 0, 
-              opacity: 0.85,
-              fontStyle: 'italic',
-              paddingLeft: '2.25rem'
-            }}>
-              Plan with the strength of a lion
-            </p>
+            <div className="user-badge" title={username}>
+              <span className="user-avatar">{avatar.emoji}</span>
+              <span className="user-name">{username}</span>
+            </div>
           </div>
-          <div className="user-badge" title={username}>
-            <span className="user-avatar">{avatar.emoji}</span>
-            <span className="user-name">{username}</span>
+          <div className="header-actions">
+            <button
+              className="icon-button"
+              onClick={() => handleNavigate('settings')}
+              title="Settings & Configuration"
+              style={{ color: theme.colors.primary }}
+            >
+              ⚙️
+            </button>
+            <button
+              className="icon-button"
+              onClick={() => setShowAbout(true)}
+              title="About Leo Planner"
+              style={{ color: theme.colors.primary }}
+            >
+              ℹ️
+            </button>
+            {isAuthenticated && user ? (
+              <button
+                className="icon-button"
+                onClick={async () => {
+                  if (confirm('Are you sure you want to sign out?')) {
+                    const { signOut } = await import('./lib/supabase');
+                    await signOut();
+                  }
+                }}
+                title={`Sign Out (${user.email || 'User'})`}
+                style={{ color: theme.colors.primary }}
+              >
+                🚪
+              </button>
+            ) : !authLoading ? (
+              <button
+                className="icon-button"
+                onClick={() => setShowAuthModal(true)}
+                title="Sign In / Sign Up"
+                style={{ color: theme.colors.primary }}
+              >
+                🔑
+              </button>
+            ) : null}
           </div>
         </div>
-        <nav className="nav">
-          <button
-            className={`nav-button ${currentView === 'today' ? 'active' : ''}`}
-            onClick={() => handleNavigate('today')}
-            title="Dashboard View"
-            style={currentView === 'today' ? { backgroundColor: theme.colors.primary } : {}}
-          >
-            <span className="nav-icon">🏠</span>
-            <span className="nav-text">Dashboard</span>
-          </button>
-          <button
-            className={`nav-button ${currentView === 'tasks-events' ? 'active' : ''}`}
-            onClick={() => handleNavigate('tasks-events')}
-            title="Tasks, Events & Routines"
-            style={currentView === 'tasks-events' ? { backgroundColor: theme.colors.primary } : {}}
-          >
-            <span className="nav-icon">📋</span>
-            <span className="nav-text">New</span>
-          </button>
-          <button
-            className={`nav-button ${currentView === 'journal' ? 'active' : ''}`}
-            onClick={() => handleNavigate('journal')}
-            title="Daily Journal & Reflections"
-            style={currentView === 'journal' ? { backgroundColor: theme.colors.primary } : {}}
-          >
-            <span className="nav-icon">📔</span>
-            <span className="nav-text">Journal</span>
-          </button>
-          <button
-            className={`nav-button ${currentView === 'analytics' ? 'active' : ''}`}
-            onClick={() => handleNavigate('analytics')}
-            title="Analytics & Reports"
-            style={currentView === 'analytics' ? { backgroundColor: theme.colors.primary } : {}}
-          >
-            <span className="nav-icon">📊</span>
-            <span className="nav-text">Analytics</span>
-          </button>
-          <button
-            className={`nav-button ${currentView === 'safe' ? 'active' : ''}`}
-            onClick={() => handleNavigate('safe')}
-            title="Safe - Encrypted Password Manager"
-            style={currentView === 'safe' ? { backgroundColor: theme.colors.primary } : {}}
-          >
-            <span className="nav-icon">🔒</span>
-            <span className="nav-text">Safe</span>
-          </button>
-        </nav>
-        <div className="header-actions">
-          <button
-            className="icon-button"
-            onClick={() => handleNavigate('settings')}
-            title="Settings & Configuration"
-            style={{ color: theme.colors.primary }}
-          >
-            ⚙️
-          </button>
-          <button
-            className="icon-button"
-            onClick={() => setShowAbout(true)}
-            title="About Leo Planner"
-            style={{ color: theme.colors.primary }}
-          >
-            ℹ️
-          </button>
-          {isAuthenticated && user ? (
+        <div className="header-nav-row">
+          <nav className="nav">
             <button
-              className="icon-button"
-              onClick={async () => {
-                if (confirm('Are you sure you want to sign out?')) {
-                  const { signOut } = await import('./lib/supabase');
-                  await signOut();
-                }
-              }}
-              title={`Sign Out (${user.email || 'User'})`}
-              style={{ color: theme.colors.primary }}
+              className={`nav-button ${currentView === 'today' ? 'active' : ''}`}
+              onClick={() => handleNavigate('today')}
+              title="Home"
+              style={currentView === 'today' ? { backgroundColor: theme.colors.primary } : {}}
             >
-              🚪
+              <span className="nav-icon">🏠</span>
+              <span className="nav-text">Home</span>
             </button>
-          ) : !authLoading ? (
             <button
-              className="icon-button"
-              onClick={() => setShowAuthModal(true)}
-              title="Sign In / Sign Up"
-              style={{ color: theme.colors.primary }}
+              className={`nav-button ${currentView === 'tasks-events' ? 'active' : ''}`}
+              onClick={() => handleNavigate('tasks-events')}
+              title="Tasks, Events & Routines"
+              style={currentView === 'tasks-events' ? { backgroundColor: theme.colors.primary } : {}}
             >
-              🔑
+              <span className="nav-icon">📋</span>
+              <span className="nav-text">New</span>
             </button>
-          ) : null}
+            <button
+              className={`nav-button ${currentView === 'journal' ? 'active' : ''}`}
+              onClick={() => handleNavigate('journal')}
+              title="Daily Journal & Reflections"
+              style={currentView === 'journal' ? { backgroundColor: theme.colors.primary } : {}}
+            >
+              <span className="nav-icon">📔</span>
+              <span className="nav-text">Journal</span>
+            </button>
+            <button
+              className={`nav-button ${currentView === 'analytics' ? 'active' : ''}`}
+              onClick={() => handleNavigate('analytics')}
+              title="Analytics & Reports"
+              style={currentView === 'analytics' ? { backgroundColor: theme.colors.primary } : {}}
+            >
+              <span className="nav-icon">📊</span>
+              <span className="nav-text">Analytics</span>
+            </button>
+            <button
+              className={`nav-button ${currentView === 'safe' ? 'active' : ''}`}
+              onClick={() => handleNavigate('safe')}
+              title="Safe - Encrypted Password Manager"
+              style={currentView === 'safe' ? { backgroundColor: theme.colors.primary } : {}}
+            >
+              <span className="nav-icon">🔒</span>
+              <span className="nav-text">Safe</span>
+            </button>
+          </nav>
+        </div>
+        <div className="header-mic-row">
+          <VoiceCommandButton 
+            onPrefillAndNavigate={handleVoicePrefillAndNavigate}
+            onCreateFromHistory={handleCreateFromVoiceHistory}
+            userId={user?.id}
+          />
         </div>
       </header>
       <main className="main-content">
@@ -443,15 +454,6 @@ const AppContent: React.FC = () => {
 
   {/* Floating Pinned Button */}
   <FloatingPinnedButton onClick={() => setShowPinnedModal(true)} />
-
-        {/* Voice Command Floating Button (bottom-right) - hidden on mobile */}
-        <div className="floating-voice-button-desktop">
-          <VoiceCommandButton 
-            onPrefillAndNavigate={handleVoicePrefillAndNavigate}
-            onCreateFromHistory={handleCreateFromVoiceHistory}
-            userId={user?.id}
-          />
-        </div>
 
       {/* Timer Modal */}
       {showTimerModal && (

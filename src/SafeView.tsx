@@ -37,9 +37,30 @@ import SafeDocumentVaultForm from './components/SafeDocumentVaultForm';
 import GroupsManager from './components/GroupsManager';
 import ShareEntryModal from './components/ShareEntryModal';
 import SharedWithMeView from './components/SharedWithMeView';
+import SafeFilterSidebar, { SafeFilter } from './components/SafeFilterSidebar';
+import DocumentFilterSidebar, { DocumentFilter } from './components/DocumentFilterSidebar';
+import * as sharingService from './services/sharingService';
+import getSupabaseClient from './lib/supabase';
 
 const AUTO_LOCK_TIMEOUT = 15 * 60 * 1000; // 15 minutes in milliseconds
 const LOCK_WARNING_TIME = 60 * 1000; // 1 minute before lock
+
+// Helper to get filter label for display
+function getFilterLabel(filter: SafeFilter, tags: Tag[]): string {
+  switch (filter.type) {
+    case 'all': return 'All Entries';
+    case 'favorites': return 'Favorites';
+    case 'shared': return 'Shared with Me';
+    case 'recent': return 'Recently Edited';
+    case 'expiring': return 'Expiring Soon';
+    case 'category':
+    case 'tag': {
+      const tag = tags.find(t => t.id === filter.value);
+      return tag?.name || 'Unknown';
+    }
+    default: return 'All Entries';
+  }
+}
 
 const SafeView: React.FC = () => {
   const { isAuthenticated } = useAuth();
@@ -67,6 +88,21 @@ const SafeView: React.FC = () => {
   const [showGroupsManager, setShowGroupsManager] = useState(false);
   const [showSharedWithMe, setShowSharedWithMe] = useState(false);
   const [shareEntry, setShareEntry] = useState<{ id: string; title: string; type: 'safe_entry' | 'document' } | null>(null);
+  
+  // Filter sidebar state
+  const [activeFilter, setActiveFilter] = useState<SafeFilter>({ type: 'all' });
+  const [activeDocFilter, setActiveDocFilter] = useState<DocumentFilter>({ type: 'all' });
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [showMobileFilters, setShowMobileFilters] = useState(true); // Mobile: show filters first
+  const [showMobileDocFilters, setShowMobileDocFilters] = useState(true); // Mobile: show doc filters first
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  
+  // Track window resize for mobile detection
+  React.useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
   
   const inactivityTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const warningTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -156,11 +192,71 @@ const SafeView: React.FC = () => {
     }
   };
 
-  // Load entries
+  // Load entries (including shared entries)
   const loadEntries = async () => {
     const safeEntries = await getSafeEntries();
-    setEntries(safeEntries);
-    setEntryCount(safeEntries.length);
+    
+    // Try to load shared entries
+    let allEntries = [...safeEntries];
+    try {
+      const sharedEntryRefs = await sharingService.getEntriesSharedWithMe();
+      
+      if (sharedEntryRefs.length > 0) {
+        const supabase = getSupabaseClient();
+        if (supabase) {
+          // Get the actual entry data for shared entries
+          const sharedEntryIds = sharedEntryRefs.map(s => s.safeEntryId);
+          const { data: sharedData } = await supabase
+            .from('myday_safe_entries')
+            .select('*')
+            .in('id', sharedEntryIds);
+          
+          if (sharedData) {
+            // Get sharer display names
+            const sharerIds = [...new Set(sharedEntryRefs.map(s => s.sharedBy))];
+            const sharerNames: Record<string, string> = {};
+            
+            const { data: membersData } = await supabase
+              .from('myday_group_members')
+              .select('user_id, display_name')
+              .in('user_id', sharerIds);
+            
+            (membersData || []).forEach(m => {
+              if (m.display_name) sharerNames[m.user_id] = m.display_name;
+            });
+            
+            // Map shared entries with isShared flag
+            const sharedEntriesMapped: SafeEntry[] = sharedData.map(row => {
+              const shareRef = sharedEntryRefs.find(s => s.safeEntryId === row.id);
+              return {
+                id: row.id,
+                title: row.title,
+                url: row.url,
+                categoryTagId: row.category_tag_id,
+                tags: row.tags || [],
+                isFavorite: row.is_favorite,
+                expiresAt: row.expires_at,
+                encryptedData: row.encrypted_data,
+                encryptedDataIv: row.encrypted_data_iv,
+                createdAt: row.created_at,
+                updatedAt: row.updated_at,
+                lastAccessedAt: row.last_accessed_at,
+                isShared: true,
+                sharedBy: shareRef ? sharerNames[shareRef.sharedBy] || 'Someone' : 'Someone',
+                sharedAt: shareRef?.sharedAt,
+              };
+            });
+            
+            allEntries = [...safeEntries, ...sharedEntriesMapped];
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('Failed to load shared entries:', err);
+    }
+    
+    setEntries(allEntries);
+    setEntryCount(safeEntries.length); // Only count own entries
   };
 
   // Load documents
@@ -328,6 +424,143 @@ const SafeView: React.FC = () => {
       };
     }
   }, [isLocked, encryptionKey]);
+
+  // Calculate entry counts for filters
+  const entryCounts = React.useMemo(() => {
+    const now = new Date();
+    const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const thirtyDaysFromNow = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+    
+    const counts = {
+      all: entries.length,
+      favorites: entries.filter(e => e.isFavorite).length,
+      shared: entries.filter(e => e.isShared).length,
+      recent: entries.filter(e => new Date(e.updatedAt) >= sevenDaysAgo).length,
+      expiring: entries.filter(e => {
+        if (!e.expiresAt) return false;
+        const expDate = new Date(e.expiresAt);
+        return expDate <= thirtyDaysFromNow && expDate >= now;
+      }).length,
+      byTag: {} as Record<string, number>,
+    };
+    
+    // Count by tags and categories
+    tags.forEach(tag => {
+      counts.byTag[tag.id] = entries.filter(e => 
+        e.categoryTagId === tag.id || (e.tags && e.tags.includes(tag.id))
+      ).length;
+    });
+    
+    return counts;
+  }, [entries, tags]);
+  
+  // Filter entries based on active filter
+  const filteredEntries = React.useMemo(() => {
+    const now = new Date();
+    const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const thirtyDaysFromNow = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+    
+    switch (activeFilter.type) {
+      case 'all':
+        return entries;
+      case 'favorites':
+        return entries.filter(e => e.isFavorite);
+      case 'shared':
+        return entries.filter(e => e.isShared);
+      case 'recent':
+        return entries.filter(e => new Date(e.updatedAt) >= sevenDaysAgo);
+      case 'expiring':
+        return entries.filter(e => {
+          if (!e.expiresAt) return false;
+          const expDate = new Date(e.expiresAt);
+          return expDate <= thirtyDaysFromNow && expDate >= now;
+        });
+      case 'category':
+        return entries.filter(e => e.categoryTagId === activeFilter.value);
+      case 'tag':
+        return entries.filter(e => e.tags && e.tags.includes(activeFilter.value!));
+      default:
+        return entries;
+    }
+  }, [entries, activeFilter]);
+  
+  // Calculate document filter counts
+  const docEntryCounts = React.useMemo(() => {
+    const now = new Date();
+    const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const thirtyDaysFromNow = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+    
+    const counts = {
+      all: documents.length,
+      favorites: documents.filter(d => d.isFavorite).length,
+      expiring: documents.filter(d => {
+        if (!d.expiryDate) return false;
+        const expDate = new Date(d.expiryDate);
+        return expDate <= thirtyDaysFromNow && expDate >= now;
+      }).length,
+      recent: documents.filter(d => new Date(d.updatedAt) >= sevenDaysAgo).length,
+      byDocType: {} as Record<string, number>,
+      byProvider: {} as Record<string, number>,
+      byTag: {} as Record<string, number>,
+    };
+    
+    documents.forEach(doc => {
+      counts.byDocType[doc.documentType] = (counts.byDocType[doc.documentType] || 0) + 1;
+      counts.byProvider[doc.provider] = (counts.byProvider[doc.provider] || 0) + 1;
+      (doc.tags || []).forEach(tagId => {
+        counts.byTag[tagId] = (counts.byTag[tagId] || 0) + 1;
+      });
+    });
+    
+    return counts;
+  }, [documents]);
+  
+  // Filter documents based on active filter
+  const filteredDocuments = React.useMemo(() => {
+    const now = new Date();
+    const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const thirtyDaysFromNow = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+    
+    switch (activeDocFilter.type) {
+      case 'all':
+        return documents;
+      case 'favorites':
+        return documents.filter(d => d.isFavorite);
+      case 'expiring':
+        return documents.filter(d => {
+          if (!d.expiryDate) return false;
+          const expDate = new Date(d.expiryDate);
+          return expDate <= thirtyDaysFromNow && expDate >= now;
+        });
+      case 'recent':
+        return documents.filter(d => new Date(d.updatedAt) >= sevenDaysAgo);
+      case 'docType':
+        return documents.filter(d => d.documentType === activeDocFilter.value);
+      case 'provider':
+        return documents.filter(d => d.provider === activeDocFilter.value);
+      case 'tag':
+        return documents.filter(d => d.tags && d.tags.includes(activeDocFilter.value!));
+      default:
+        return documents;
+    }
+  }, [documents, activeDocFilter]);
+  
+  // Helper to get document filter label
+  const getDocFilterLabel = (filter: DocumentFilter): string => {
+    switch (filter.type) {
+      case 'all': return 'All Documents';
+      case 'favorites': return 'Favorites';
+      case 'expiring': return 'Expiring Soon';
+      case 'recent': return 'Recently Updated';
+      case 'docType': return filter.value || 'Type';
+      case 'provider': return filter.value || 'Provider';
+      case 'tag': {
+        const tag = tags.find(t => t.id === filter.value);
+        return tag?.name || 'Tag';
+      }
+      default: return 'All Documents';
+    }
+  };
 
   // Handle entry selection
   const handleEntrySelect = (entry: SafeEntry) => {
@@ -627,85 +860,253 @@ const SafeView: React.FC = () => {
         </button>
       </div>
 
-      {/* Content */}
-      {activeTab === 'entries' ? (
-        isAdding || isEditing ? (
-          <SafeEntryForm
-            entry={isEditing ? selectedEntry : undefined}
+      {/* Content with Sidebar */}
+      <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start' }}>
+        {/* Mobile: Show filters first, then entries */}
+        {isMobile && activeTab === 'entries' && !isAdding && !isEditing && showMobileFilters ? (
+          <SafeFilterSidebar
             tags={tags}
-            encryptionKey={encryptionKey!}
-            onSave={async () => {
-              await loadEntries();
-              setIsAdding(false);
-              setIsEditing(false);
-              setSelectedEntry(null);
-            }}
-            onCancel={() => {
-              setIsAdding(false);
-              setIsEditing(false);
-              setSelectedEntry(null);
-            }}
+            activeFilter={activeFilter}
+            onFilterChange={setActiveFilter}
+            entryCounts={entryCounts}
+            isMobile={true}
+            onFilterSelected={() => setShowMobileFilters(false)}
           />
         ) : (
           <>
-            <SafeEntryList
-              entries={entries}
-              tags={tags}
-              encryptionKey={encryptionKey!}
-              onEntrySelect={(entry) => {
-                setSelectedEntry(entry);
-                setIsAdding(false);
-                setIsEditing(false);
-              }}
-              onEntrySaved={loadEntries}
-              onShare={(entry) => setShareEntry({ id: entry.id, title: entry.title, type: 'safe_entry' })}
-            />
-            {selectedEntry && (
-              <SafeEntryDetail
-                entry={selectedEntry}
+            {/* Desktop: Filter Sidebar - only show for entries tab when not adding/editing */}
+            {!isMobile && activeTab === 'entries' && !isAdding && !isEditing && (
+              <SafeFilterSidebar
                 tags={tags}
-                encryptionKey={encryptionKey!}
-                onEdit={() => setIsEditing(true)}
-                onDelete={async () => {
-                  await loadEntries();
-                  setSelectedEntry(null);
-                }}
-                onClose={() => {
-                  setSelectedEntry(null);
-                  handleActivity();
-                }}
+                activeFilter={activeFilter}
+                onFilterChange={setActiveFilter}
+                entryCounts={entryCounts}
+                isCollapsed={sidebarCollapsed}
+                onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
               />
             )}
+            
+            {/* Main Content */}
+            <div style={{ flex: 1, minWidth: 0 }}>
+              {activeTab === 'entries' ? (
+                isAdding || isEditing ? (
+                  <SafeEntryForm
+                    entry={isEditing ? selectedEntry : undefined}
+                    tags={tags}
+                    encryptionKey={encryptionKey!}
+                    onSave={async () => {
+                      await loadEntries();
+                      setIsAdding(false);
+                      setIsEditing(false);
+                      setSelectedEntry(null);
+                    }}
+                    onCancel={() => {
+                      setIsAdding(false);
+                      setIsEditing(false);
+                      setSelectedEntry(null);
+                    }}
+                  />
+                ) : (
+                  <>
+                    {/* Mobile: Back to filters button */}
+                    {isMobile && (
+                      <button
+                        onClick={() => setShowMobileFilters(true)}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.5rem',
+                          padding: '0.75rem 1rem',
+                          background: 'rgba(59, 130, 246, 0.1)',
+                          border: 'none',
+                          borderRadius: '0.5rem',
+                          cursor: 'pointer',
+                          fontSize: '0.9rem',
+                          color: '#3b82f6',
+                          marginBottom: '1rem',
+                          width: '100%',
+                        }}
+                      >
+                        <span>‹ Back to Filters</span>
+                        <span style={{ marginLeft: 'auto', color: '#6b7280', fontSize: '0.8rem' }}>
+                          {getFilterLabel(activeFilter, tags)} ({filteredEntries.length})
+                        </span>
+                      </button>
+                    )}
+                    {/* Desktop: Active filter indicator */}
+                    {!isMobile && activeFilter.type !== 'all' && (
+                      <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.5rem',
+                        padding: '0.5rem 1rem',
+                        background: 'rgba(59, 130, 246, 0.1)',
+                        borderRadius: '0.5rem',
+                        marginBottom: '1rem',
+                        fontSize: '0.85rem',
+                      }}>
+                        <span>Showing: <strong>{getFilterLabel(activeFilter, tags)}</strong></span>
+                        <span style={{ color: '#6b7280' }}>({filteredEntries.length} entries)</span>
+                        <button
+                          onClick={() => setActiveFilter({ type: 'all' })}
+                          style={{
+                            marginLeft: 'auto',
+                            background: 'none',
+                            border: 'none',
+                            cursor: 'pointer',
+                            color: '#3b82f6',
+                            fontSize: '0.85rem',
+                          }}
+                        >
+                          Clear filter
+                        </button>
+                      </div>
+                    )}
+                    <SafeEntryList
+                      entries={filteredEntries}
+                      tags={tags}
+                      encryptionKey={encryptionKey!}
+                      onEntrySelect={(entry) => {
+                        setSelectedEntry(entry);
+                        setIsAdding(false);
+                        setIsEditing(false);
+                      }}
+                      onEntrySaved={loadEntries}
+                      onShare={(entry) => setShareEntry({ id: entry.id, title: entry.title, type: 'safe_entry' })}
+                    />
+                    {selectedEntry && (
+                      <SafeEntryDetail
+                        entry={selectedEntry}
+                        tags={tags}
+                        encryptionKey={encryptionKey!}
+                        onEdit={() => setIsEditing(true)}
+                        onDelete={async () => {
+                          await loadEntries();
+                          setSelectedEntry(null);
+                        }}
+                        onClose={() => {
+                          setSelectedEntry(null);
+                          handleActivity();
+                        }}
+                      />
+                    )}
+                  </>
+                )
+              ) : (
+                /* Documents Tab with Filter Sidebar */
+                isMobile && showMobileDocFilters && !showDocumentForm && !editingDocument ? (
+                  <DocumentFilterSidebar
+                    tags={tags}
+                    activeFilter={activeDocFilter}
+                    onFilterChange={setActiveDocFilter}
+                    entryCounts={docEntryCounts}
+                    isMobile={true}
+                    onFilterSelected={() => setShowMobileDocFilters(false)}
+                  />
+                ) : (
+                  <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start', width: '100%' }}>
+                    {/* Desktop: Document Filter Sidebar */}
+                    {!isMobile && !showDocumentForm && !editingDocument && (
+                      <DocumentFilterSidebar
+                        tags={tags}
+                        activeFilter={activeDocFilter}
+                        onFilterChange={setActiveDocFilter}
+                        entryCounts={docEntryCounts}
+                      />
+                    )}
+                    
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      {/* Mobile: Back to filters button */}
+                      {isMobile && !showDocumentForm && !editingDocument && (
+                        <button
+                          onClick={() => setShowMobileDocFilters(true)}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.5rem',
+                            padding: '0.75rem 1rem',
+                            background: 'rgba(59, 130, 246, 0.1)',
+                            border: 'none',
+                            borderRadius: '0.5rem',
+                            cursor: 'pointer',
+                            fontSize: '0.9rem',
+                            color: '#3b82f6',
+                            marginBottom: '1rem',
+                            width: '100%',
+                          }}
+                        >
+                          <span>‹ Back to Filters</span>
+                          <span style={{ marginLeft: 'auto', color: '#6b7280', fontSize: '0.8rem' }}>
+                            {getDocFilterLabel(activeDocFilter)} ({filteredDocuments.length})
+                          </span>
+                        </button>
+                      )}
+                      
+                      {showDocumentForm || editingDocument ? (
+                        <SafeDocumentVaultForm
+                          document={editingDocument || undefined}
+                          tags={tags}
+                          encryptionKey={encryptionKey!}
+                          onSave={async () => {
+                            await loadDocuments();
+                            setShowDocumentForm(false);
+                            setEditingDocument(null);
+                          }}
+                          onCancel={() => {
+                            setShowDocumentForm(false);
+                            setEditingDocument(null);
+                          }}
+                        />
+                      ) : (
+                        <>
+                          {/* Active filter indicator */}
+                          {!isMobile && activeDocFilter.type !== 'all' && (
+                            <div style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '0.5rem',
+                              padding: '0.5rem 1rem',
+                              background: 'rgba(59, 130, 246, 0.1)',
+                              borderRadius: '0.5rem',
+                              marginBottom: '1rem',
+                              fontSize: '0.85rem',
+                            }}>
+                              <span>Showing: <strong>{getDocFilterLabel(activeDocFilter)}</strong></span>
+                              <span style={{ color: '#6b7280' }}>({filteredDocuments.length} documents)</span>
+                              <button
+                                onClick={() => setActiveDocFilter({ type: 'all' })}
+                                style={{
+                                  marginLeft: 'auto',
+                                  background: 'none',
+                                  border: 'none',
+                                  cursor: 'pointer',
+                                  color: '#3b82f6',
+                                  fontSize: '0.85rem',
+                                }}
+                              >
+                                Clear filter
+                              </button>
+                            </div>
+                          )}
+                          <SafeDocumentVault
+                            documents={filteredDocuments}
+                            tags={tags}
+                            encryptionKey={encryptionKey!}
+                            onDocumentSaved={loadDocuments}
+                            onAddDocument={() => setShowDocumentForm(true)}
+                            onEditDocument={(doc) => setEditingDocument(doc)}
+                            onShare={(doc) => setShareEntry({ id: doc.id, title: doc.title, type: 'document' })}
+                          />
+                        </>
+                      )}
+                    </div>
+                  </div>
+                )
+              )}
+            </div>
           </>
-        )
-      ) : (
-        showDocumentForm || editingDocument ? (
-          <SafeDocumentVaultForm
-            document={editingDocument || undefined}
-            tags={tags}
-            encryptionKey={encryptionKey!}
-            onSave={async () => {
-              await loadDocuments();
-              setShowDocumentForm(false);
-              setEditingDocument(null);
-            }}
-            onCancel={() => {
-              setShowDocumentForm(false);
-              setEditingDocument(null);
-            }}
-          />
-        ) : (
-          <SafeDocumentVault
-            documents={documents}
-            tags={tags}
-            encryptionKey={encryptionKey!}
-            onDocumentSaved={loadDocuments}
-            onAddDocument={() => setShowDocumentForm(true)}
-            onEditDocument={(doc) => setEditingDocument(doc)}
-            onShare={(doc) => setShareEntry({ id: doc.id, title: doc.title, type: 'document' })}
-          />
-        )
-      )}
+        )}
+      </div>
 
       {/* Import/Export Modal */}
       {showImportExport && encryptionKey && (
