@@ -263,7 +263,7 @@ const GroupsManager: React.FC<GroupsManagerProps> = ({ onClose }) => {
                 My Groups
               </h2>
               <p style={{ margin: 0, fontSize: '0.8rem', color: '#6b7280' }}>
-                Connect with others to share safe entries
+                Connect to share
               </p>
             </div>
           </div>

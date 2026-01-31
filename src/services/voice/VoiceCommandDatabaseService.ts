@@ -295,13 +295,16 @@ export class VoiceCommandDatabaseService {
     if (!client) throw new Error('Supabase client not configured');
 
     try {
+      console.log('getRecentCommands called with userId:', userId);
+      
       const { data, error } = await client
         .from(this.tableName)
         .select('*')
         .eq('user_id', userId)
-        .gt('expires_at', new Date().toISOString())
         .order('created_at', { ascending: false })
         .limit(limit);
+
+      console.log('getRecentCommands result:', { data, error, count: data?.length });
 
       if (error) {
         console.error('getRecentCommands error', error);
