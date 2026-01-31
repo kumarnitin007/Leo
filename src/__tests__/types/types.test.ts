@@ -59,37 +59,39 @@ interface SafeEntryShape {
   iv: string;
 }
 
-const isValidTask = (obj: any): obj is TaskShape => {
-  return typeof obj === 'object' &&
-    typeof obj.id === 'string' &&
-    typeof obj.name === 'string';
+const isValidTask = (obj: unknown): obj is TaskShape => {
+  if (obj === null || typeof obj !== 'object') return false;
+  const o = obj as Record<string, unknown>;
+  return typeof o.id === 'string' && typeof o.name === 'string';
 };
 
-const isValidEvent = (obj: any): obj is EventShape => {
-  return typeof obj === 'object' &&
-    typeof obj.id === 'string' &&
-    typeof obj.name === 'string' &&
-    typeof obj.date === 'string';
+const isValidEvent = (obj: unknown): obj is EventShape => {
+  if (obj === null || typeof obj !== 'object') return false;
+  const o = obj as Record<string, unknown>;
+  return typeof o.id === 'string' &&
+    typeof o.name === 'string' &&
+    typeof o.date === 'string';
 };
 
-const isValidTodoItem = (obj: any): obj is TodoItemShape => {
-  return typeof obj === 'object' &&
-    typeof obj.id === 'string' &&
-    typeof obj.text === 'string';
+const isValidTodoItem = (obj: unknown): obj is TodoItemShape => {
+  if (obj === null || typeof obj !== 'object') return false;
+  const o = obj as Record<string, unknown>;
+  return typeof o.id === 'string' && typeof o.text === 'string';
 };
 
-const isValidJournalEntry = (obj: any): obj is JournalEntryShape => {
-  return typeof obj === 'object' &&
-    typeof obj.id === 'string' &&
-    typeof obj.entry_date === 'string';
+const isValidJournalEntry = (obj: unknown): obj is JournalEntryShape => {
+  if (obj === null || typeof obj !== 'object') return false;
+  const o = obj as Record<string, unknown>;
+  return typeof o.id === 'string' && typeof o.entry_date === 'string';
 };
 
-const isValidSafeEntry = (obj: any): obj is SafeEntryShape => {
-  return typeof obj === 'object' &&
-    typeof obj.id === 'string' &&
-    typeof obj.title === 'string' &&
-    typeof obj.encrypted_data === 'string' &&
-    typeof obj.iv === 'string';
+const isValidSafeEntry = (obj: unknown): obj is SafeEntryShape => {
+  if (obj === null || typeof obj !== 'object') return false;
+  const o = obj as Record<string, unknown>;
+  return typeof o.id === 'string' &&
+    typeof o.title === 'string' &&
+    typeof o.encrypted_data === 'string' &&
+    typeof o.iv === 'string';
 };
 
 describe('Task Type', () => {
@@ -109,6 +111,7 @@ describe('Task Type', () => {
     expect(isValidTask({ id: 'task-1' })).toBe(false);
     expect(isValidTask({ name: 'Task' })).toBe(false);
     expect(isValidTask(null)).toBe(false);
+    expect(isValidTask(undefined)).toBe(false);
   });
 
   it('should accept minimal task', () => {
@@ -132,6 +135,7 @@ describe('Event Type', () => {
     expect(isValidEvent({})).toBe(false);
     expect(isValidEvent({ id: 'event-1', name: 'Event' })).toBe(false);
     expect(isValidEvent({ id: 'event-1', date: '2026-01-30' })).toBe(false);
+    expect(isValidEvent(null)).toBe(false);
   });
 });
 
@@ -150,6 +154,7 @@ describe('TodoItem Type', () => {
     expect(isValidTodoItem({})).toBe(false);
     expect(isValidTodoItem({ id: 'todo-1' })).toBe(false);
     expect(isValidTodoItem({ text: 'Todo' })).toBe(false);
+    expect(isValidTodoItem(null)).toBe(false);
   });
 
   it('should validate priority enum values', () => {
@@ -175,6 +180,7 @@ describe('JournalEntry Type', () => {
     expect(isValidJournalEntry({})).toBe(false);
     expect(isValidJournalEntry({ id: 'journal-1' })).toBe(false);
     expect(isValidJournalEntry({ entry_date: '2026-01-30' })).toBe(false);
+    expect(isValidJournalEntry(null)).toBe(false);
   });
 });
 
@@ -193,6 +199,7 @@ describe('SafeEntry Type', () => {
     expect(isValidSafeEntry({})).toBe(false);
     expect(isValidSafeEntry({ id: 'safe-1', title: 'Entry' })).toBe(false);
     expect(isValidSafeEntry({ id: 'safe-1', title: 'Entry', encrypted_data: 'data' })).toBe(false);
+    expect(isValidSafeEntry(null)).toBe(false);
   });
 });
 

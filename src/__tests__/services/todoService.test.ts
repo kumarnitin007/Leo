@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { TodoService, todoService } from '../../services/todoService';
+import * as todoService from '../../services/todoService';
 
 // Mock Supabase
 vi.mock('../../lib/supabase', () => ({
@@ -14,6 +14,13 @@ vi.mock('../../lib/supabase', () => ({
         eq: vi.fn(() => ({
           order: vi.fn(() => Promise.resolve({ data: [], error: null })),
           single: vi.fn(() => Promise.resolve({ data: null, error: null })),
+          is: vi.fn(() => ({
+            order: vi.fn(() => Promise.resolve({ data: [], error: null })),
+          })),
+          in: vi.fn(() => ({
+            order: vi.fn(() => Promise.resolve({ data: [], error: null })),
+          })),
+          limit: vi.fn(() => Promise.resolve({ data: [], error: null })),
         })),
         single: vi.fn(() => Promise.resolve({ data: null, error: null })),
       })),
@@ -24,13 +31,17 @@ vi.mock('../../lib/supabase', () => ({
       })),
       update: vi.fn(() => ({
         eq: vi.fn(() => ({
-          select: vi.fn(() => ({
-            single: vi.fn(() => Promise.resolve({ data: { id: 'test-id' }, error: null })),
+          eq: vi.fn(() => ({
+            select: vi.fn(() => ({
+              single: vi.fn(() => Promise.resolve({ data: { id: 'test-id' }, error: null })),
+            })),
           })),
         })),
       })),
       delete: vi.fn(() => ({
-        eq: vi.fn(() => Promise.resolve({ error: null })),
+        eq: vi.fn(() => ({
+          eq: vi.fn(() => Promise.resolve({ error: null })),
+        })),
       })),
     })),
     auth: {
@@ -45,42 +56,52 @@ describe('TodoService', () => {
   });
 
   describe('Group Operations', () => {
-    it('should have getGroups method', () => {
-      expect(typeof todoService.getGroups).toBe('function');
+    it('should export getTodoGroups function', () => {
+      expect(typeof todoService.getTodoGroups).toBe('function');
     });
 
-    it('should have createGroup method', () => {
-      expect(typeof todoService.createGroup).toBe('function');
+    it('should export createTodoGroup function', () => {
+      expect(typeof todoService.createTodoGroup).toBe('function');
     });
 
-    it('should have updateGroup method', () => {
-      expect(typeof todoService.updateGroup).toBe('function');
+    it('should export updateTodoGroup function', () => {
+      expect(typeof todoService.updateTodoGroup).toBe('function');
     });
 
-    it('should have deleteGroup method', () => {
-      expect(typeof todoService.deleteGroup).toBe('function');
+    it('should export deleteTodoGroup function', () => {
+      expect(typeof todoService.deleteTodoGroup).toBe('function');
     });
   });
 
   describe('Item Operations', () => {
-    it('should have getItems method', () => {
-      expect(typeof todoService.getItems).toBe('function');
+    it('should export getTodoItems function', () => {
+      expect(typeof todoService.getTodoItems).toBe('function');
     });
 
-    it('should have createItem method', () => {
-      expect(typeof todoService.createItem).toBe('function');
+    it('should export createTodoItem function', () => {
+      expect(typeof todoService.createTodoItem).toBe('function');
     });
 
-    it('should have updateItem method', () => {
-      expect(typeof todoService.updateItem).toBe('function');
+    it('should export updateTodoItem function', () => {
+      expect(typeof todoService.updateTodoItem).toBe('function');
     });
 
-    it('should have deleteItem method', () => {
-      expect(typeof todoService.deleteItem).toBe('function');
+    it('should export deleteTodoItem function', () => {
+      expect(typeof todoService.deleteTodoItem).toBe('function');
     });
 
-    it('should have toggleItemComplete method', () => {
-      expect(typeof todoService.toggleItemComplete).toBe('function');
+    it('should export toggleTodoItem function', () => {
+      expect(typeof todoService.toggleTodoItem).toBe('function');
+    });
+  });
+
+  describe('Bulk Operations', () => {
+    it('should export clearCompletedTodos function', () => {
+      expect(typeof todoService.clearCompletedTodos).toBe('function');
+    });
+
+    it('should export moveTodoItem function', () => {
+      expect(typeof todoService.moveTodoItem).toBe('function');
     });
   });
 
@@ -97,13 +118,6 @@ describe('TodoService', () => {
       invalidPriorities.forEach(priority => {
         expect(['low', 'medium', 'high', 'urgent']).not.toContain(priority);
       });
-    });
-  });
-
-  describe('Service Instance', () => {
-    it('should export a singleton instance', () => {
-      expect(todoService).toBeDefined();
-      expect(todoService instanceof TodoService).toBe(true);
     });
   });
 });

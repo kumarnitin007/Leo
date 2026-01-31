@@ -441,6 +441,3 @@ export async function seedUserVoicePatterns() {
   }
 }
 
-```
-
----

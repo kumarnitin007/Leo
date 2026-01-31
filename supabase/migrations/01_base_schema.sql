@@ -423,41 +423,76 @@ EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
 -- =====================================================
--- 18. USER VISIBLE DAYS VIEW (Materialized for performance)
+-- 18. USER VISIBLE DAYS 
+-- NOTE: This may exist as a VIEW in some databases.
+-- We create as TABLE only if nothing exists with this name.
+-- RLS is only enabled if it's a table, not a view.
 -- =====================================================
-CREATE TABLE IF NOT EXISTS myday_user_visible_days (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-    date TEXT NOT NULL,
-    event_name TEXT NOT NULL,
-    significance TEXT,
-    is_holiday BOOLEAN DEFAULT false,
-    primary_color TEXT,
-    icon TEXT,
-    calendar_names TEXT[],
-    created_at TIMESTAMPTZ DEFAULT NOW()
-);
 
-ALTER TABLE myday_user_visible_days ENABLE ROW LEVEL SECURITY;
-
-DO $$ BEGIN
-    CREATE POLICY "Users can view own visible days" ON myday_user_visible_days FOR SELECT USING (auth.uid() = user_id);
-EXCEPTION WHEN duplicate_object THEN NULL;
+-- Create table only if no object with this name exists
+DO $$ 
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.tables 
+        WHERE table_schema = 'public' AND table_name = 'myday_user_visible_days'
+    ) AND NOT EXISTS (
+        SELECT 1 FROM information_schema.views 
+        WHERE table_schema = 'public' AND table_name = 'myday_user_visible_days'
+    ) THEN
+        CREATE TABLE myday_user_visible_days (
+            id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+            user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+            date TEXT NOT NULL,
+            event_name TEXT NOT NULL,
+            significance TEXT,
+            is_holiday BOOLEAN DEFAULT false,
+            primary_color TEXT,
+            icon TEXT,
+            calendar_names TEXT[],
+            created_at TIMESTAMPTZ DEFAULT NOW()
+        );
+    END IF;
 END $$;
 
-DO $$ BEGIN
-    CREATE POLICY "Users can insert own visible days" ON myday_user_visible_days FOR INSERT WITH CHECK (auth.uid() = user_id);
-EXCEPTION WHEN duplicate_object THEN NULL;
+-- Enable RLS only if it's a table (not a view)
+DO $$ 
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM information_schema.tables 
+        WHERE table_schema = 'public' 
+        AND table_name = 'myday_user_visible_days'
+        AND table_type = 'BASE TABLE'
+    ) THEN
+        ALTER TABLE myday_user_visible_days ENABLE ROW LEVEL SECURITY;
+    END IF;
+EXCEPTION WHEN OTHERS THEN NULL;
 END $$;
 
+-- Create policies only if it's a table
 DO $$ BEGIN
-    CREATE POLICY "Users can update own visible days" ON myday_user_visible_days FOR UPDATE USING (auth.uid() = user_id);
-EXCEPTION WHEN duplicate_object THEN NULL;
-END $$;
-
-DO $$ BEGIN
-    CREATE POLICY "Users can delete own visible days" ON myday_user_visible_days FOR DELETE USING (auth.uid() = user_id);
-EXCEPTION WHEN duplicate_object THEN NULL;
+    IF EXISTS (
+        SELECT 1 FROM information_schema.tables 
+        WHERE table_schema = 'public' 
+        AND table_name = 'myday_user_visible_days'
+        AND table_type = 'BASE TABLE'
+    ) THEN
+        BEGIN
+            CREATE POLICY "Users can view own visible days" ON myday_user_visible_days FOR SELECT USING (auth.uid() = user_id);
+        EXCEPTION WHEN duplicate_object THEN NULL;
+        END;
+        BEGIN
+            CREATE POLICY "Users can insert own visible days" ON myday_user_visible_days FOR INSERT WITH CHECK (auth.uid() = user_id);
+        EXCEPTION WHEN duplicate_object THEN NULL;
+        END;
+        BEGIN
+            CREATE POLICY "Users can update own visible days" ON myday_user_visible_days FOR UPDATE USING (auth.uid() = user_id);
+        EXCEPTION WHEN duplicate_object THEN NULL;
+        END;
+        BEGIN
+            CREATE POLICY "Users can delete own visible days" ON myday_user_visible_days FOR DELETE USING (auth.uid() = user_id);
+        EXCEPTION WHEN duplicate_object THEN NULL;
+        END;
+    END IF;
 END $$;
 
 -- =====================================================
