@@ -8,11 +8,12 @@
  * 4. Schedule Timer - Multi-activity timer with configurable schedule
  */
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Task } from './types';
 import { loadData, completeTask } from './storage';
 import { getTodayString } from './utils';
 import CountdownTimer from './components/CountdownTimer';
+import getSupabaseClient from './lib/supabase';
 
 type TimerMode = 'select' | 'task-endtime' | 'task-duration' | 'standalone' | 'schedule' | 'schedule-running';
 
@@ -30,7 +31,7 @@ interface SavedSchedule {
   createdAt: string;
 }
 
-// LocalStorage key for schedules
+// LocalStorage key for schedules (fallback when not logged in)
 const SCHEDULES_STORAGE_KEY = 'leo-timer-schedules';
 
 interface TimerViewProps {
@@ -65,25 +66,124 @@ const TimerView: React.FC<TimerViewProps> = ({ onClose }) => {
     loadSchedules();
   }, []);
 
-  // Load saved schedules from localStorage
-  const loadSchedules = () => {
+  // Load saved schedules from Supabase (or localStorage fallback)
+  const loadSchedules = async () => {
     try {
+      const supabase = getSupabaseClient();
+      if (supabase) {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const { data, error } = await supabase
+            .from('myday_timer_schedules')
+            .select('*')
+            .eq('user_id', user.id)
+            .order('created_at', { ascending: false });
+          
+          if (!error && data) {
+            const schedules: SavedSchedule[] = data.map(row => ({
+              id: row.id,
+              name: row.name,
+              activities: row.activities || [],
+              createdAt: row.created_at
+            }));
+            setSavedSchedules(schedules);
+            // Also cache to localStorage
+            localStorage.setItem(SCHEDULES_STORAGE_KEY, JSON.stringify(schedules));
+            return;
+          }
+        }
+      }
+      // Fallback to localStorage
       const saved = localStorage.getItem(SCHEDULES_STORAGE_KEY);
       if (saved) {
         setSavedSchedules(JSON.parse(saved));
       }
     } catch (e) {
       console.error('Error loading schedules:', e);
+      // Fallback to localStorage on error
+      try {
+        const saved = localStorage.getItem(SCHEDULES_STORAGE_KEY);
+        if (saved) {
+          setSavedSchedules(JSON.parse(saved));
+        }
+      } catch {}
     }
   };
 
-  // Save schedules to localStorage
+  // Save a single schedule to Supabase (or localStorage fallback)
+  const saveScheduleToDb = async (schedule: SavedSchedule, isUpdate: boolean): Promise<boolean> => {
+    try {
+      const supabase = getSupabaseClient();
+      if (supabase) {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          if (isUpdate) {
+            const { error } = await supabase
+              .from('myday_timer_schedules')
+              .update({
+                name: schedule.name,
+                activities: schedule.activities,
+                updated_at: new Date().toISOString()
+              })
+              .eq('id', schedule.id)
+              .eq('user_id', user.id);
+            
+            if (error) throw error;
+          } else {
+            const { error } = await supabase
+              .from('myday_timer_schedules')
+              .insert({
+                id: schedule.id,
+                user_id: user.id,
+                name: schedule.name,
+                activities: schedule.activities,
+                created_at: schedule.createdAt,
+                updated_at: schedule.createdAt
+              });
+            
+            if (error) throw error;
+          }
+          return true;
+        }
+      }
+      return false;
+    } catch (e) {
+      console.error('Error saving schedule to DB:', e);
+      return false;
+    }
+  };
+
+  // Delete a schedule from Supabase
+  const deleteScheduleFromDb = async (id: string): Promise<boolean> => {
+    try {
+      const supabase = getSupabaseClient();
+      if (supabase) {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const { error } = await supabase
+            .from('myday_timer_schedules')
+            .delete()
+            .eq('id', id)
+            .eq('user_id', user.id);
+          
+          if (error) throw error;
+          return true;
+        }
+      }
+      return false;
+    } catch (e) {
+      console.error('Error deleting schedule from DB:', e);
+      return false;
+    }
+  };
+
+  // Save schedules to localStorage (as cache/fallback)
   const saveSchedulesToStorage = (schedules: SavedSchedule[]) => {
     try {
       localStorage.setItem(SCHEDULES_STORAGE_KEY, JSON.stringify(schedules));
       setSavedSchedules(schedules);
     } catch (e) {
-      console.error('Error saving schedules:', e);
+      console.error('Error saving schedules to localStorage:', e);
     }
   };
 
@@ -109,13 +209,14 @@ const TimerView: React.FC<TimerViewProps> = ({ onClose }) => {
   };
 
   // Save the current schedule
-  const saveSchedule = () => {
+  const saveSchedule = async () => {
     const validActivities = scheduleActivities.filter(a => a.name.trim() && a.durationMinutes > 0);
     if (validActivities.length === 0) {
       alert('Please add at least one activity with a name and duration');
       return;
     }
 
+    const isUpdate = !!editingSchedule;
     const schedule: SavedSchedule = {
       id: editingSchedule?.id || Date.now().toString(),
       name: newScheduleName.trim() || 'My Schedule',
@@ -123,8 +224,12 @@ const TimerView: React.FC<TimerViewProps> = ({ onClose }) => {
       createdAt: editingSchedule?.createdAt || new Date().toISOString()
     };
 
+    // Save to DB
+    await saveScheduleToDb(schedule, isUpdate);
+
+    // Update local state and localStorage cache
     let updated: SavedSchedule[];
-    if (editingSchedule) {
+    if (isUpdate) {
       updated = savedSchedules.map(s => s.id === schedule.id ? schedule : s);
     } else {
       updated = [...savedSchedules, schedule];
@@ -136,8 +241,9 @@ const TimerView: React.FC<TimerViewProps> = ({ onClose }) => {
   };
 
   // Delete a schedule
-  const deleteSchedule = (id: string) => {
+  const deleteSchedule = async (id: string) => {
     if (confirm('Delete this schedule?')) {
+      await deleteScheduleFromDb(id);
       saveSchedulesToStorage(savedSchedules.filter(s => s.id !== id));
     }
   };

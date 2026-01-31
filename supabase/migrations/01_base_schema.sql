@@ -638,19 +638,60 @@ END $$;
 -- =====================================================
 -- INDEXES FOR PERFORMANCE
 -- =====================================================
+-- Safe indexes (these columns always exist)
 CREATE INDEX IF NOT EXISTS idx_tasks_user_id ON myday_tasks(user_id);
-CREATE INDEX IF NOT EXISTS idx_tasks_date ON myday_tasks(date);
-CREATE INDEX IF NOT EXISTS idx_task_completions_user_date ON myday_task_completions(user_id, date);
 CREATE INDEX IF NOT EXISTS idx_events_user_id ON myday_events(user_id);
-CREATE INDEX IF NOT EXISTS idx_events_date ON myday_events(date);
 CREATE INDEX IF NOT EXISTS idx_items_user_id ON myday_items(user_id);
-CREATE INDEX IF NOT EXISTS idx_journal_entries_user_date ON myday_journal_entries(user_id, entry_date);
 CREATE INDEX IF NOT EXISTS idx_tags_user_section ON myday_tags(user_id, section);
 CREATE INDEX IF NOT EXISTS idx_encrypted_entries_user ON myday_encrypted_entries(user_id);
 CREATE INDEX IF NOT EXISTS idx_voice_logs_user ON myday_voice_command_logs(user_id);
-CREATE INDEX IF NOT EXISTS idx_reference_days_date ON myday_reference_days(date);
 CREATE INDEX IF NOT EXISTS idx_reference_days_calendar ON myday_reference_days(calendar_id);
--- Create index only if myday_user_visible_days is a table (not a view)
+CREATE INDEX IF NOT EXISTS idx_milestones_user_id ON myday_milestones(user_id);
+
+-- Date-based indexes (conditional - only if column exists)
+DO $$ BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'myday_tasks' AND column_name = 'date') THEN
+        EXECUTE 'CREATE INDEX IF NOT EXISTS idx_tasks_date ON myday_tasks(date)';
+    END IF;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $$;
+
+DO $$ BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'myday_task_completions' AND column_name = 'date') THEN
+        EXECUTE 'CREATE INDEX IF NOT EXISTS idx_task_completions_user_date ON myday_task_completions(user_id, date)';
+    END IF;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $$;
+
+DO $$ BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'myday_events' AND column_name = 'date') THEN
+        EXECUTE 'CREATE INDEX IF NOT EXISTS idx_events_date ON myday_events(date)';
+    END IF;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $$;
+
+DO $$ BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'myday_journal_entries' AND column_name = 'entry_date') THEN
+        EXECUTE 'CREATE INDEX IF NOT EXISTS idx_journal_entries_user_date ON myday_journal_entries(user_id, entry_date)';
+    END IF;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $$;
+
+DO $$ BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'myday_reference_days' AND column_name = 'date') THEN
+        EXECUTE 'CREATE INDEX IF NOT EXISTS idx_reference_days_date ON myday_reference_days(date)';
+    END IF;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $$;
+
+DO $$ BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'myday_milestones' AND column_name = 'date') THEN
+        EXECUTE 'CREATE INDEX IF NOT EXISTS idx_milestones_date ON myday_milestones(date)';
+    END IF;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $$;
+
+-- Create index only if myday_user_visible_days is a table (not a view) with date column
 DO $$ BEGIN
     IF EXISTS (
         SELECT 1 FROM pg_class c
@@ -658,13 +699,50 @@ DO $$ BEGIN
         WHERE n.nspname = 'public' 
         AND c.relname = 'myday_user_visible_days'
         AND c.relkind = 'r'
+    ) AND EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_schema = 'public' AND table_name = 'myday_user_visible_days' AND column_name = 'date'
     ) THEN
-        CREATE INDEX IF NOT EXISTS idx_user_visible_days_user_date ON myday_user_visible_days(user_id, date);
+        EXECUTE 'CREATE INDEX IF NOT EXISTS idx_user_visible_days_user_date ON myday_user_visible_days(user_id, date)';
     END IF;
 EXCEPTION WHEN OTHERS THEN NULL;
 END $$;
-CREATE INDEX IF NOT EXISTS idx_milestones_user_id ON myday_milestones(user_id);
-CREATE INDEX IF NOT EXISTS idx_milestones_date ON myday_milestones(date);
+
+-- =====================================================
+-- 23. TIMER SCHEDULES TABLE
+-- =====================================================
+CREATE TABLE IF NOT EXISTS myday_timer_schedules (
+    id TEXT PRIMARY KEY,
+    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    activities JSONB NOT NULL DEFAULT '[]',
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE myday_timer_schedules ENABLE ROW LEVEL SECURITY;
+
+DO $$ BEGIN
+    CREATE POLICY "Users can view own timer schedules" ON myday_timer_schedules FOR SELECT USING (auth.uid() = user_id);
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+    CREATE POLICY "Users can insert own timer schedules" ON myday_timer_schedules FOR INSERT WITH CHECK (auth.uid() = user_id);
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+    CREATE POLICY "Users can update own timer schedules" ON myday_timer_schedules FOR UPDATE USING (auth.uid() = user_id);
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+    CREATE POLICY "Users can delete own timer schedules" ON myday_timer_schedules FOR DELETE USING (auth.uid() = user_id);
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+CREATE INDEX IF NOT EXISTS idx_timer_schedules_user_id ON myday_timer_schedules(user_id);
 
 -- =====================================================
 -- DONE! Run migration 02 next.
