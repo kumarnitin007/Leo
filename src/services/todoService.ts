@@ -32,7 +32,7 @@ export async function getTodoGroups(): Promise<TodoGroup[]> {
     .from('myday_todo_groups')
     .select('*')
     .eq('user_id', user.id)
-    .order('order', { ascending: true });
+    .order('order_num', { ascending: true });
 
   if (error) throw error;
 

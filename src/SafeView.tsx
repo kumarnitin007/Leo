@@ -646,34 +646,37 @@ const SafeView: React.FC = () => {
               setSelectedEntry(null);
             }}
           />
-        ) : selectedEntry ? (
-          <SafeEntryDetail
-            entry={selectedEntry}
-            tags={tags}
-            encryptionKey={encryptionKey!}
-            onEdit={() => setIsEditing(true)}
-            onDelete={async () => {
-              await loadEntries();
-              setSelectedEntry(null);
-            }}
-            onBack={() => {
-              setSelectedEntry(null);
-              handleActivity();
-            }}
-          />
         ) : (
-          <SafeEntryList
-            entries={entries}
-            tags={tags}
-            encryptionKey={encryptionKey!}
-            onEntrySelect={(entry) => {
-              setSelectedEntry(entry);
-              setIsAdding(false);
-              setIsEditing(false);
-            }}
-            onEntrySaved={loadEntries}
-            onShare={(entry) => setShareEntry({ id: entry.id, title: entry.title, type: 'safe_entry' })}
-          />
+          <>
+            <SafeEntryList
+              entries={entries}
+              tags={tags}
+              encryptionKey={encryptionKey!}
+              onEntrySelect={(entry) => {
+                setSelectedEntry(entry);
+                setIsAdding(false);
+                setIsEditing(false);
+              }}
+              onEntrySaved={loadEntries}
+              onShare={(entry) => setShareEntry({ id: entry.id, title: entry.title, type: 'safe_entry' })}
+            />
+            {selectedEntry && (
+              <SafeEntryDetail
+                entry={selectedEntry}
+                tags={tags}
+                encryptionKey={encryptionKey!}
+                onEdit={() => setIsEditing(true)}
+                onDelete={async () => {
+                  await loadEntries();
+                  setSelectedEntry(null);
+                }}
+                onClose={() => {
+                  setSelectedEntry(null);
+                  handleActivity();
+                }}
+              />
+            )}
+          </>
         )
       ) : (
         showDocumentForm || editingDocument ? (

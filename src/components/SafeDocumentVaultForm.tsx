@@ -59,6 +59,10 @@ const SafeDocumentVaultForm: React.FC<SafeDocumentVaultFormProps> = ({
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  
+  // Collapsible sections
+  const [showDocTypeOptions, setShowDocTypeOptions] = useState(false);
+  const [showTagOptions, setShowTagOptions] = useState(false);
 
   useEffect(() => {
     if (document) {
@@ -283,295 +287,116 @@ const SafeDocumentVaultForm: React.FC<SafeDocumentVaultFormProps> = ({
 
           {/* Form Content */}
           <form onSubmit={handleSubmit} style={{ padding: '1.5rem' }}>
-            {/* Document Title */}
-            <div style={{ marginBottom: '1.5rem' }}>
+            {/* Title */}
+            <div style={{ marginBottom: '1rem' }}>
               <label style={{
                 display: 'block',
-                fontSize: '0.875rem',
+                fontSize: '0.8rem',
                 fontWeight: 600,
                 color: '#374151',
-                marginBottom: '0.5rem'
+                marginBottom: '0.375rem'
               }}>
-                Document Title <span style={{ color: '#ef4444' }}>*</span>
+                Title <span style={{ color: '#ef4444' }}>*</span>
               </label>
               <input
                 type="text"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                placeholder="e.g., Passport, Health Insurance Policy"
+                placeholder="e.g., Passport, Insurance Policy"
                 style={{
                   width: '100%',
-                  padding: '0.875rem 1rem',
-                  fontSize: '1rem',
-                  border: '2px solid #e5e7eb',
-                  borderRadius: '0.75rem',
+                  padding: '0.625rem 0.75rem',
+                  fontSize: '0.9rem',
+                  border: '1px solid #e5e7eb',
+                  borderRadius: '0.5rem',
                   background: '#f9fafb',
                   color: '#1f2937',
-                  transition: 'all 0.2s',
                   outline: 'none',
                   boxSizing: 'border-box'
                 }}
                 onFocus={(e) => {
                   e.currentTarget.style.borderColor = '#14b8a6';
                   e.currentTarget.style.background = 'white';
-                  e.currentTarget.style.boxShadow = '0 0 0 4px rgba(20, 184, 166, 0.1)';
                 }}
                 onBlur={(e) => {
                   e.currentTarget.style.borderColor = '#e5e7eb';
                   e.currentTarget.style.background = '#f9fafb';
-                  e.currentTarget.style.boxShadow = 'none';
                 }}
                 required
               />
             </div>
 
-            {/* Storage Provider */}
-            <div style={{ marginBottom: '1.5rem' }}>
-              <label style={{
-                display: 'block',
-                fontSize: '0.875rem',
-                fontWeight: 600,
-                color: '#374151',
-                marginBottom: '0.5rem'
-              }}>
-                Storage Provider <span style={{ color: '#ef4444' }}>*</span>
-              </label>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.75rem' }}>
-                {providers.map(p => (
-                  <button
-                    key={p.value}
-                    type="button"
-                    onClick={() => setProvider(p.value)}
-                    style={{
-                      padding: '1rem 0.5rem',
-                      borderRadius: '1rem',
-                      border: provider === p.value ? 'none' : '2px solid #e5e7eb',
-                      background: provider === p.value ? p.gradient : 'white',
-                      cursor: 'pointer',
-                      transition: 'all 0.2s',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'center',
-                      gap: '0.5rem',
-                      boxShadow: provider === p.value ? '0 4px 12px rgba(0,0,0,0.15)' : 'none',
-                      transform: provider === p.value ? 'scale(1.02)' : 'scale(1)'
-                    }}
-                  >
-                    <span style={{ fontSize: '1.75rem' }}>{p.icon}</span>
-                    <span style={{
-                      fontSize: '0.75rem',
-                      fontWeight: 600,
-                      color: provider === p.value ? 'white' : '#6b7280'
-                    }}>
-                      {p.label}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            </div>
-
             {/* File Reference */}
-            <div style={{ marginBottom: '1.5rem' }}>
+            <div style={{ marginBottom: '1rem' }}>
               <label style={{
                 display: 'flex',
                 alignItems: 'center',
                 gap: '0.5rem',
-                fontSize: '0.875rem',
+                fontSize: '0.8rem',
                 fontWeight: 600,
                 color: '#374151',
-                marginBottom: '0.5rem'
+                marginBottom: '0.375rem'
               }}>
                 File Reference <span style={{ color: '#ef4444' }}>*</span>
                 <span style={{
-                  fontSize: '0.65rem',
-                  padding: '0.25rem 0.5rem',
-                  background: 'linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%)',
+                  fontSize: '0.6rem',
+                  padding: '0.125rem 0.375rem',
+                  background: '#dcfce7',
                   color: '#166534',
-                  borderRadius: '1rem',
-                  fontWeight: 600
+                  borderRadius: '0.25rem',
+                  fontWeight: 500
                 }}>
                   🔒 Encrypted
                 </span>
               </label>
-              <textarea
+              <input
+                type="text"
                 value={fileReference}
                 onChange={(e) => setFileReference(e.target.value)}
-                placeholder="File URL or ID (e.g., https://drive.google.com/file/d/ABC123)"
-                rows={2}
+                placeholder="URL or file ID"
                 style={{
                   width: '100%',
-                  padding: '0.875rem 1rem',
-                  fontSize: '0.9rem',
+                  padding: '0.625rem 0.75rem',
+                  fontSize: '0.85rem',
                   fontFamily: 'monospace',
-                  border: '2px solid #e5e7eb',
-                  borderRadius: '0.75rem',
+                  border: '1px solid #e5e7eb',
+                  borderRadius: '0.5rem',
                   background: '#f9fafb',
                   color: '#1f2937',
-                  transition: 'all 0.2s',
                   outline: 'none',
-                  resize: 'vertical',
-                  minHeight: '4rem',
                   boxSizing: 'border-box'
                 }}
                 onFocus={(e) => {
                   e.currentTarget.style.borderColor = '#14b8a6';
                   e.currentTarget.style.background = 'white';
-                  e.currentTarget.style.boxShadow = '0 0 0 4px rgba(20, 184, 166, 0.1)';
                 }}
                 onBlur={(e) => {
                   e.currentTarget.style.borderColor = '#e5e7eb';
                   e.currentTarget.style.background = '#f9fafb';
-                  e.currentTarget.style.boxShadow = 'none';
                 }}
                 required
               />
-              <p style={{ fontSize: '0.7rem', color: '#6b7280', marginTop: '0.375rem' }}>
-                This reference will be encrypted and stored securely
-              </p>
-            </div>
-
-            {/* Document Type */}
-            <div style={{ marginBottom: '1.5rem' }}>
-              <label style={{
-                display: 'block',
-                fontSize: '0.875rem',
-                fontWeight: 600,
-                color: '#374151',
-                marginBottom: '0.5rem'
-              }}>
-                Document Type
-              </label>
-              <div style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(3, 1fr)',
-                gap: '0.5rem'
-              }}>
-                {documentTypes.map(dt => (
-                  <button
-                    key={dt.value}
-                    type="button"
-                    onClick={() => setDocumentType(dt.value)}
-                    style={{
-                      padding: '0.75rem 0.5rem',
-                      borderRadius: '0.75rem',
-                      border: documentType === dt.value ? '2px solid #14b8a6' : '2px solid #e5e7eb',
-                      background: documentType === dt.value ? 'linear-gradient(135deg, #f0fdfa 0%, #ccfbf1 100%)' : 'white',
-                      cursor: 'pointer',
-                      transition: 'all 0.2s',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: '0.375rem'
-                    }}
-                  >
-                    <span style={{ fontSize: '1rem' }}>{dt.icon}</span>
-                    <span style={{
-                      fontSize: '0.75rem',
-                      fontWeight: documentType === dt.value ? 600 : 500,
-                      color: documentType === dt.value ? '#0f766e' : '#6b7280'
-                    }}>
-                      {dt.label}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Dates */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.5rem' }}>
-              <div>
-                <label style={{
-                  display: 'block',
-                  fontSize: '0.875rem',
-                  fontWeight: 600,
-                  color: '#374151',
-                  marginBottom: '0.5rem'
-                }}>
-                  📅 Issue Date
-                </label>
-                <input
-                  type="date"
-                  value={issueDate}
-                  onChange={(e) => setIssueDate(e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '0.75rem 1rem',
-                    fontSize: '0.9rem',
-                    border: '2px solid #e5e7eb',
-                    borderRadius: '0.75rem',
-                    background: '#f9fafb',
-                    color: '#1f2937',
-                    transition: 'all 0.2s',
-                    outline: 'none',
-                    boxSizing: 'border-box'
-                  }}
-                  onFocus={(e) => {
-                    e.currentTarget.style.borderColor = '#14b8a6';
-                    e.currentTarget.style.background = 'white';
-                  }}
-                  onBlur={(e) => {
-                    e.currentTarget.style.borderColor = '#e5e7eb';
-                    e.currentTarget.style.background = '#f9fafb';
-                  }}
-                />
-              </div>
-              <div>
-                <label style={{
-                  display: 'block',
-                  fontSize: '0.875rem',
-                  fontWeight: 600,
-                  color: '#374151',
-                  marginBottom: '0.5rem'
-                }}>
-                  ⏰ Expiry Date
-                </label>
-                <input
-                  type="date"
-                  value={expiryDate}
-                  onChange={(e) => setExpiryDate(e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '0.75rem 1rem',
-                    fontSize: '0.9rem',
-                    border: '2px solid #e5e7eb',
-                    borderRadius: '0.75rem',
-                    background: '#f9fafb',
-                    color: '#1f2937',
-                    transition: 'all 0.2s',
-                    outline: 'none',
-                    boxSizing: 'border-box'
-                  }}
-                  onFocus={(e) => {
-                    e.currentTarget.style.borderColor = '#14b8a6';
-                    e.currentTarget.style.background = 'white';
-                  }}
-                  onBlur={(e) => {
-                    e.currentTarget.style.borderColor = '#e5e7eb';
-                    e.currentTarget.style.background = '#f9fafb';
-                  }}
-                />
-              </div>
             </div>
 
             {/* Notes */}
-            <div style={{ marginBottom: '1.5rem' }}>
+            <div style={{ marginBottom: '1rem' }}>
               <label style={{
                 display: 'flex',
                 alignItems: 'center',
                 gap: '0.5rem',
-                fontSize: '0.875rem',
+                fontSize: '0.8rem',
                 fontWeight: 600,
                 color: '#374151',
-                marginBottom: '0.5rem'
+                marginBottom: '0.375rem'
               }}>
                 Notes
                 <span style={{
-                  fontSize: '0.65rem',
-                  padding: '0.25rem 0.5rem',
-                  background: 'linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%)',
+                  fontSize: '0.6rem',
+                  padding: '0.125rem 0.375rem',
+                  background: '#dcfce7',
                   color: '#166534',
-                  borderRadius: '1rem',
-                  fontWeight: 600
+                  borderRadius: '0.25rem',
+                  fontWeight: 500
                 }}>
                   🔒 Encrypted
                 </span>
@@ -579,72 +404,143 @@ const SafeDocumentVaultForm: React.FC<SafeDocumentVaultFormProps> = ({
               <textarea
                 value={notes}
                 onChange={(e) => setNotes(e.target.value.substring(0, 500))}
-                placeholder="Add private notes about this document"
-                rows={3}
+                placeholder="Private notes"
+                rows={2}
                 maxLength={500}
                 style={{
                   width: '100%',
-                  padding: '0.875rem 1rem',
-                  fontSize: '0.9rem',
-                  border: '2px solid #e5e7eb',
-                  borderRadius: '0.75rem',
+                  padding: '0.625rem 0.75rem',
+                  fontSize: '0.85rem',
+                  border: '1px solid #e5e7eb',
+                  borderRadius: '0.5rem',
                   background: '#f9fafb',
                   color: '#1f2937',
-                  transition: 'all 0.2s',
                   outline: 'none',
                   resize: 'vertical',
-                  minHeight: '5rem',
+                  minHeight: '3rem',
                   boxSizing: 'border-box'
                 }}
                 onFocus={(e) => {
                   e.currentTarget.style.borderColor = '#14b8a6';
                   e.currentTarget.style.background = 'white';
-                  e.currentTarget.style.boxShadow = '0 0 0 4px rgba(20, 184, 166, 0.1)';
                 }}
                 onBlur={(e) => {
                   e.currentTarget.style.borderColor = '#e5e7eb';
                   e.currentTarget.style.background = '#f9fafb';
-                  e.currentTarget.style.boxShadow = 'none';
                 }}
               />
               <p style={{
-                fontSize: '0.7rem',
-                color: notes.length >= 450 ? '#ef4444' : '#6b7280',
-                marginTop: '0.375rem',
+                fontSize: '0.65rem',
+                color: notes.length >= 450 ? '#ef4444' : '#9ca3af',
+                marginTop: '0.25rem',
                 textAlign: 'right'
               }}>
-                {notes.length}/500 characters
+                {notes.length}/500
               </p>
             </div>
 
+            {/* Dates - Issue & Expiry */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginBottom: '1rem' }}>
+              <div>
+                <label style={{
+                  display: 'block',
+                  fontSize: '0.8rem',
+                  fontWeight: 600,
+                  color: '#374151',
+                  marginBottom: '0.375rem'
+                }}>
+                  Issue Date
+                </label>
+                <input
+                  type="date"
+                  value={issueDate}
+                  onChange={(e) => setIssueDate(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '0.5rem 0.75rem',
+                    fontSize: '0.85rem',
+                    border: '1px solid #e5e7eb',
+                    borderRadius: '0.5rem',
+                    background: '#f9fafb',
+                    color: '#1f2937',
+                    outline: 'none',
+                    boxSizing: 'border-box'
+                  }}
+                  onFocus={(e) => {
+                    e.currentTarget.style.borderColor = '#14b8a6';
+                    e.currentTarget.style.background = 'white';
+                  }}
+                  onBlur={(e) => {
+                    e.currentTarget.style.borderColor = '#e5e7eb';
+                    e.currentTarget.style.background = '#f9fafb';
+                  }}
+                />
+              </div>
+              <div>
+                <label style={{
+                  display: 'block',
+                  fontSize: '0.8rem',
+                  fontWeight: 600,
+                  color: '#374151',
+                  marginBottom: '0.375rem'
+                }}>
+                  Expiry Date
+                </label>
+                <input
+                  type="date"
+                  value={expiryDate}
+                  onChange={(e) => setExpiryDate(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '0.5rem 0.75rem',
+                    fontSize: '0.85rem',
+                    border: '1px solid #e5e7eb',
+                    borderRadius: '0.5rem',
+                    background: '#f9fafb',
+                    color: '#1f2937',
+                    outline: 'none',
+                    boxSizing: 'border-box'
+                  }}
+                  onFocus={(e) => {
+                    e.currentTarget.style.borderColor = '#14b8a6';
+                    e.currentTarget.style.background = 'white';
+                  }}
+                  onBlur={(e) => {
+                    e.currentTarget.style.borderColor = '#e5e7eb';
+                    e.currentTarget.style.background = '#f9fafb';
+                  }}
+                />
+              </div>
+            </div>
+
             {/* Priority */}
-            <div style={{ marginBottom: '1.5rem' }}>
+            <div style={{ marginBottom: '1rem' }}>
               <label style={{
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
-                fontSize: '0.875rem',
+                fontSize: '0.8rem',
                 fontWeight: 600,
                 color: '#374151',
-                marginBottom: '0.75rem'
+                marginBottom: '0.375rem'
               }}>
-                <span>Priority Level</span>
+                <span>Priority</span>
                 <span style={{
-                  padding: '0.25rem 0.75rem',
-                  borderRadius: '1rem',
-                  fontSize: '0.75rem',
-                  fontWeight: 700,
+                  padding: '0.125rem 0.5rem',
+                  borderRadius: '0.25rem',
+                  fontSize: '0.7rem',
+                  fontWeight: 600,
                   background: getPriorityLabel().bg,
                   color: getPriorityLabel().color
                 }}>
-                  {getPriorityLabel().label} ({priority})
+                  {getPriorityLabel().label}
                 </span>
               </label>
               <div style={{
                 position: 'relative',
-                height: 8,
+                height: 6,
                 background: 'linear-gradient(to right, #22c55e 0%, #f59e0b 50%, #ef4444 100%)',
-                borderRadius: 4
+                borderRadius: 3
               }}>
                 <input
                   type="range"
@@ -666,55 +562,215 @@ const SafeDocumentVaultForm: React.FC<SafeDocumentVaultFormProps> = ({
                     left: `${((priority - 1) / 9) * 100}%`,
                     top: '50%',
                     transform: 'translate(-50%, -50%)',
-                    width: 20,
-                    height: 20,
+                    width: 14,
+                    height: 14,
                     borderRadius: '50%',
                     background: 'white',
-                    border: `3px solid ${getPriorityLabel().color}`,
-                    boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+                    border: `2px solid ${getPriorityLabel().color}`,
+                    boxShadow: '0 1px 4px rgba(0,0,0,0.15)',
                     transition: 'left 0.1s'
                   }}
                 />
               </div>
             </div>
 
-            {/* Tags */}
+            {/* Provider */}
+            <div style={{ marginBottom: '1rem' }}>
+              <label style={{
+                display: 'block',
+                fontSize: '0.8rem',
+                fontWeight: 600,
+                color: '#374151',
+                marginBottom: '0.375rem'
+              }}>
+                Provider
+              </label>
+              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                {providers.map(p => (
+                  <button
+                    key={p.value}
+                    type="button"
+                    onClick={() => setProvider(p.value)}
+                    style={{
+                      padding: '0.375rem 0.75rem',
+                      borderRadius: '0.375rem',
+                      border: provider === p.value ? `1px solid ${p.color}` : '1px solid #e5e7eb',
+                      background: provider === p.value ? `${p.color}15` : 'white',
+                      cursor: 'pointer',
+                      transition: 'all 0.15s',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.375rem',
+                      fontSize: '0.75rem',
+                      fontWeight: provider === p.value ? 600 : 500,
+                      color: provider === p.value ? p.color : '#6b7280'
+                    }}
+                  >
+                    {p.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Document Type - Collapsible */}
+            <div style={{ marginBottom: '1rem' }}>
+              <label style={{
+                display: 'block',
+                fontSize: '0.8rem',
+                fontWeight: 600,
+                color: '#374151',
+                marginBottom: '0.375rem'
+              }}>
+                Type
+              </label>
+              <button
+                type="button"
+                onClick={() => setShowDocTypeOptions(!showDocTypeOptions)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  width: '100%',
+                  padding: '0.5rem 0.75rem',
+                  border: '1px solid #e5e7eb',
+                  borderRadius: '0.5rem',
+                  background: 'white',
+                  cursor: 'pointer',
+                  fontSize: '0.85rem',
+                  color: '#374151'
+                }}
+              >
+                <span style={{ display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
+                  {documentTypes.find(dt => dt.value === documentType)?.icon}
+                  {documentTypes.find(dt => dt.value === documentType)?.label}
+                </span>
+                <span style={{ color: '#9ca3af', fontSize: '0.7rem' }}>{showDocTypeOptions ? '▲' : '▼'}</span>
+              </button>
+              {showDocTypeOptions && (
+                <div style={{
+                  display: 'flex',
+                  flexWrap: 'wrap',
+                  gap: '0.375rem',
+                  marginTop: '0.5rem',
+                  padding: '0.5rem',
+                  background: '#f9fafb',
+                  borderRadius: '0.5rem',
+                  border: '1px solid #e5e7eb'
+                }}>
+                  {documentTypes.map(dt => (
+                    <button
+                      key={dt.value}
+                      type="button"
+                      onClick={() => {
+                        setDocumentType(dt.value);
+                        setShowDocTypeOptions(false);
+                      }}
+                      style={{
+                        padding: '0.375rem 0.625rem',
+                        borderRadius: '0.375rem',
+                        border: documentType === dt.value ? '1px solid #14b8a6' : '1px solid transparent',
+                        background: documentType === dt.value ? '#f0fdfa' : 'white',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.25rem',
+                        fontSize: '0.75rem',
+                        fontWeight: documentType === dt.value ? 600 : 400,
+                        color: documentType === dt.value ? '#0f766e' : '#6b7280'
+                      }}
+                    >
+                      {dt.icon} {dt.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Tags - Collapsible */}
             {tags.filter(t => t.isSafeOnly || t.allowedSections?.includes('safe')).length > 0 && (
-              <div style={{ marginBottom: '1.5rem' }}>
+              <div style={{ marginBottom: '1rem' }}>
                 <label style={{
                   display: 'block',
-                  fontSize: '0.875rem',
+                  fontSize: '0.8rem',
                   fontWeight: 600,
                   color: '#374151',
-                  marginBottom: '0.5rem'
+                  marginBottom: '0.375rem'
                 }}>
-                  🏷️ Tags
+                  Tags
                 </label>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
-                  {tags
-                    .filter(t => t.isSafeOnly || t.allowedSections?.includes('safe'))
-                    .map(tag => (
-                      <button
-                        key={tag.id}
-                        type="button"
-                        onClick={() => toggleTag(tag.id)}
-                        style={{
-                          padding: '0.5rem 1rem',
-                          borderRadius: '2rem',
-                          border: selectedTagIds.includes(tag.id) ? 'none' : '2px solid #e5e7eb',
-                          background: selectedTagIds.includes(tag.id) ? tag.color : 'white',
-                          color: selectedTagIds.includes(tag.id) ? 'white' : '#6b7280',
-                          fontSize: '0.8rem',
-                          fontWeight: 500,
-                          cursor: 'pointer',
-                          transition: 'all 0.2s',
-                          boxShadow: selectedTagIds.includes(tag.id) ? '0 2px 8px rgba(0,0,0,0.15)' : 'none'
-                        }}
-                      >
-                        {tag.name}
-                      </button>
-                    ))}
-                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowTagOptions(!showTagOptions)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    width: '100%',
+                    padding: '0.5rem 0.75rem',
+                    border: '1px solid #e5e7eb',
+                    borderRadius: '0.5rem',
+                    background: 'white',
+                    cursor: 'pointer',
+                    fontSize: '0.85rem',
+                    color: '#374151'
+                  }}
+                >
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', flexWrap: 'wrap' }}>
+                    {selectedTagIds.length === 0 ? (
+                      <span style={{ color: '#9ca3af' }}>No tags selected</span>
+                    ) : (
+                      selectedTagIds.map(tid => {
+                        const tag = tags.find(t => t.id === tid);
+                        return tag ? (
+                          <span key={tid} style={{
+                            padding: '0.125rem 0.5rem',
+                            borderRadius: '1rem',
+                            background: tag.color,
+                            color: 'white',
+                            fontSize: '0.7rem'
+                          }}>
+                            {tag.name}
+                          </span>
+                        ) : null;
+                      })
+                    )}
+                  </span>
+                  <span style={{ color: '#9ca3af', fontSize: '0.7rem' }}>{showTagOptions ? '▲' : '▼'}</span>
+                </button>
+                {showTagOptions && (
+                  <div style={{
+                    display: 'flex',
+                    flexWrap: 'wrap',
+                    gap: '0.375rem',
+                    marginTop: '0.5rem',
+                    padding: '0.5rem',
+                    background: '#f9fafb',
+                    borderRadius: '0.5rem',
+                    border: '1px solid #e5e7eb'
+                  }}>
+                    {tags
+                      .filter(t => t.isSafeOnly || t.allowedSections?.includes('safe'))
+                      .map(tag => (
+                        <button
+                          key={tag.id}
+                          type="button"
+                          onClick={() => toggleTag(tag.id)}
+                          style={{
+                            padding: '0.375rem 0.625rem',
+                            borderRadius: '1rem',
+                            border: selectedTagIds.includes(tag.id) ? 'none' : '1px solid #e5e7eb',
+                            background: selectedTagIds.includes(tag.id) ? tag.color : 'white',
+                            color: selectedTagIds.includes(tag.id) ? 'white' : '#6b7280',
+                            fontSize: '0.75rem',
+                            fontWeight: 500,
+                            cursor: 'pointer'
+                          }}
+                        >
+                          {tag.name}
+                        </button>
+                      ))}
+                  </div>
+                )}
               </div>
             )}
 
@@ -723,60 +779,45 @@ const SafeDocumentVaultForm: React.FC<SafeDocumentVaultFormProps> = ({
               style={{
                 display: 'flex',
                 alignItems: 'center',
-                gap: '0.75rem',
-                padding: '1rem',
-                background: isFavorite 
-                  ? 'linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%)' 
-                  : 'linear-gradient(135deg, #f9fafb 0%, #f3f4f6 100%)',
-                borderRadius: '1rem',
-                border: isFavorite ? '2px solid #fecaca' : '2px solid #e5e7eb',
+                gap: '0.5rem',
+                padding: '0.5rem 0.75rem',
+                background: isFavorite ? '#fef2f2' : '#f9fafb',
+                borderRadius: '0.5rem',
+                border: isFavorite ? '1px solid #fecaca' : '1px solid #e5e7eb',
                 cursor: 'pointer',
-                transition: 'all 0.2s',
-                marginBottom: '1.5rem'
+                marginBottom: '1rem'
               }}
               onClick={() => setIsFavorite(!isFavorite)}
             >
-              <span style={{
-                fontSize: '2rem',
-                transition: 'transform 0.2s',
-                transform: isFavorite ? 'scale(1.1)' : 'scale(1)'
-              }}>
+              <span style={{ fontSize: '1rem' }}>
                 {isFavorite ? '❤️' : '🤍'}
               </span>
-              <div>
-                <p style={{ margin: 0, fontSize: '0.95rem', fontWeight: 600, color: '#374151' }}>
-                  Mark as Favorite
-                </p>
-                <p style={{ margin: 0, fontSize: '0.75rem', color: '#6b7280' }}>
-                  Quick access in favorites filter
-                </p>
-              </div>
+              <span style={{ fontSize: '0.8rem', fontWeight: 500, color: '#374151' }}>
+                Favorite
+              </span>
             </div>
 
             {/* Action Buttons */}
             <div style={{
               display: 'flex',
-              gap: '0.75rem',
-              paddingTop: '1rem',
-              borderTop: '2px solid #f3f4f6'
+              gap: '0.5rem',
+              paddingTop: '0.75rem',
+              borderTop: '1px solid #f3f4f6'
             }}>
               <button
                 type="button"
                 onClick={onCancel}
                 style={{
                   flex: 1,
-                  padding: '1rem 1.5rem',
+                  padding: '0.625rem 1rem',
                   background: '#f3f4f6',
                   color: '#374151',
                   border: 'none',
-                  borderRadius: '0.75rem',
-                  fontSize: '1rem',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                  transition: 'all 0.2s'
+                  borderRadius: '0.5rem',
+                  fontSize: '0.875rem',
+                  fontWeight: 500,
+                  cursor: 'pointer'
                 }}
-                onMouseEnter={(e) => e.currentTarget.style.background = '#e5e7eb'}
-                onMouseLeave={(e) => e.currentTarget.style.background = '#f3f4f6'}
               >
                 Cancel
               </button>
@@ -785,34 +826,17 @@ const SafeDocumentVaultForm: React.FC<SafeDocumentVaultFormProps> = ({
                 disabled={isSubmitting}
                 style={{
                   flex: 1,
-                  padding: '1rem 1.5rem',
-                  background: isSubmitting
-                    ? '#9ca3af'
-                    : 'linear-gradient(135deg, #0d9488 0%, #14b8a6 100%)',
+                  padding: '0.625rem 1rem',
+                  background: isSubmitting ? '#9ca3af' : '#14b8a6',
                   color: 'white',
                   border: 'none',
-                  borderRadius: '0.75rem',
-                  fontSize: '1rem',
+                  borderRadius: '0.5rem',
+                  fontSize: '0.875rem',
                   fontWeight: 600,
-                  cursor: isSubmitting ? 'not-allowed' : 'pointer',
-                  boxShadow: isSubmitting ? 'none' : '0 4px 14px rgba(20, 184, 166, 0.4)',
-                  transition: 'all 0.2s',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '0.5rem'
+                  cursor: isSubmitting ? 'not-allowed' : 'pointer'
                 }}
               >
-                {isSubmitting ? (
-                  <>
-                    <span style={{ animation: 'spin 1s linear infinite' }}>⏳</span>
-                    Saving...
-                  </>
-                ) : (
-                  <>
-                    {document ? '✓ Update' : '+ Add'} Document
-                  </>
-                )}
+                {isSubmitting ? 'Saving...' : (document ? 'Update' : 'Add')}
               </button>
             </div>
           </form>

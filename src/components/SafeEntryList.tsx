@@ -132,25 +132,47 @@ const SafeEntryList: React.FC<SafeEntryListProps> = ({
 
   return (
     <div>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', marginBottom: '1.5rem', padding: '1rem', backgroundColor: 'rgba(255,255,255,0.5)', borderRadius: '8px' }}>
-        <input type="text" placeholder="🔍 Search by title or URL..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} style={{ flex: '1', minWidth: '200px', padding: '0.75rem', border: '1px solid #d1d5db', borderRadius: '8px' }} />
+      {/* Toolbar - compact, no background box */}
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '1rem', alignItems: 'center' }}>
+        <input type="text" placeholder="🔍 Search..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} style={{ flex: '1', minWidth: '150px', padding: '0.5rem 0.75rem', border: '1px solid #d1d5db', borderRadius: '0.5rem', fontSize: '0.875rem' }} />
 
-        <select value={selectedCategory || ''} onChange={e => setSelectedCategory(e.target.value || null)} style={{ padding: '0.75rem', border: '1px solid #d1d5db', borderRadius: '8px' }}>
-          <option value="">All Categories</option>
+        <select value={selectedCategory || ''} onChange={e => setSelectedCategory(e.target.value || null)} style={{ padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: '0.5rem', fontSize: '0.875rem', backgroundColor: 'white' }}>
+          <option value="">Category</option>
           <option value="UNCATEGORIZED">Uncategorized</option>
           {tags.filter(t => t.isSystemCategory).map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
         </select>
 
-        <select value={selectedTag || ''} onChange={e => setSelectedTag(e.target.value || null)} style={{ padding: '0.75rem', border: '1px solid #d1d5db', borderRadius: '8px' }}>
-          <option value="">All Tags</option>
+        <select value={selectedTag || ''} onChange={e => setSelectedTag(e.target.value || null)} style={{ padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: '0.5rem', fontSize: '0.875rem', backgroundColor: 'white' }}>
+          <option value="">Tags</option>
           {tags.filter(t => !t.isSystemCategory).map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
         </select>
 
+        <select value={sortBy} onChange={e => setSortBy(e.target.value as any)} style={{ padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: '0.5rem', fontSize: '0.875rem', backgroundColor: 'white' }}>
+          <option value="updated">Latest</option>
+          <option value="title">A-Z</option>
+          <option value="expires">Expiry</option>
+        </select>
+
+        <button
+          onClick={() => setShowFavoritesOnly(!showFavoritesOnly)}
+          style={{
+            padding: '0.5rem 0.75rem',
+            backgroundColor: showFavoritesOnly ? '#fee2e2' : '#f3f4f6',
+            color: showFavoritesOnly ? '#dc2626' : '#6b7280',
+            border: 'none',
+            borderRadius: '0.5rem',
+            cursor: 'pointer',
+            fontSize: '0.875rem',
+            fontWeight: 500
+          }}
+        >
+          ♥ Favorite
+        </button>
+
         {selectedTag && entriesWithSelectedTag.length > 0 && (
-          <button onClick={() => setShowDeleteConfirm(true)} style={{ padding: '0.75rem 1rem', backgroundColor: '#ef4444', color: 'white', border: 'none', borderRadius: '8px' }}>🗑️ Delete All ({entriesWithSelectedTag.length})</button>
+          <button onClick={() => setShowDeleteConfirm(true)} style={{ padding: '0.5rem 0.75rem', backgroundColor: '#ef4444', color: 'white', border: 'none', borderRadius: '0.5rem', fontSize: '0.875rem' }}>🗑️ ({entriesWithSelectedTag.length})</button>
         )}
 
-        {/* Select / Deselect all visible entries */}
         {filteredEntries.length > 0 && (
           (() => {
             const allVisibleSelected = filteredEntries.every(e => selectedIds.includes(e.id));
@@ -160,27 +182,17 @@ const SafeEntryList: React.FC<SafeEntryListProps> = ({
                   if (allVisibleSelected) setSelectedIds(prev => prev.filter(id => !filteredEntries.some(e => e.id === id)));
                   else setSelectedIds(prev => Array.from(new Set([...prev, ...filteredEntries.map(e => e.id)])));
                 }}
-                style={{ padding: '0.75rem 1rem', backgroundColor: allVisibleSelected ? '#6b7280' : '#3b82f6', color: 'white', border: 'none', borderRadius: '8px' }}
+                style={{ padding: '0.5rem 0.75rem', backgroundColor: allVisibleSelected ? '#6b7280' : '#3b82f6', color: 'white', border: 'none', borderRadius: '0.5rem', fontSize: '0.875rem' }}
               >
-                {allVisibleSelected ? 'Deselect All' : `Select All (${filteredEntries.length})`}
+                {allVisibleSelected ? 'Deselect' : `Select (${filteredEntries.length})`}
               </button>
             );
           })()
         )}
 
         {selectedIds.length > 0 && (
-          <button onClick={() => setShowSelectedDeleteConfirm(true)} style={{ padding: '0.75rem 1rem', backgroundColor: '#ef4444', color: 'white', border: 'none', borderRadius: '8px' }}>🗑️ Delete Selected ({selectedIds.length})</button>
+          <button onClick={() => setShowSelectedDeleteConfirm(true)} style={{ padding: '0.5rem 0.75rem', backgroundColor: '#ef4444', color: 'white', border: 'none', borderRadius: '0.5rem', fontSize: '0.875rem' }}>🗑️ ({selectedIds.length})</button>
         )}
-
-        <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <input type="checkbox" checked={showFavoritesOnly} onChange={e => setShowFavoritesOnly(e.target.checked)} /> <span>⭐ Favorites only</span>
-        </label>
-
-        <select value={sortBy} onChange={e => setSortBy(e.target.value as any)} style={{ padding: '0.75rem', border: '1px solid #d1d5db', borderRadius: '8px' }}>
-          <option value="updated">Recently Updated</option>
-          <option value="title">Title (A-Z)</option>
-          <option value="expires">Expires Soon</option>
-        </select>
       </div>
 
       {selectedTag && entriesWithSelectedTag.length > 0 && (

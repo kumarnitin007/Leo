@@ -173,36 +173,68 @@ const SafeDocumentVault: React.FC<SafeDocumentVaultProps> = ({
 
   return (
     <div>
-      {/* Toolbar */}
+      {/* Toolbar - compact, no background box */}
       <div style={{
         display: 'flex',
-        gap: '1rem',
-        marginBottom: '2rem',
+        gap: '0.5rem',
+        marginBottom: '1rem',
         flexWrap: 'wrap',
         alignItems: 'center'
       }}>
-        {/* Search */}
         <input
           type="text"
-          placeholder="Search documents..."
+          placeholder="🔍 Search..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           style={{
             flex: 1,
-            minWidth: '200px',
-            padding: '0.5rem 1rem',
+            minWidth: '150px',
+            padding: '0.5rem 0.75rem',
             border: '1px solid #d1d5db',
             borderRadius: '0.5rem',
             fontSize: '0.875rem'
           }}
         />
 
-        {/* Sort */}
+        <select
+          value={selectedProvider || ''}
+          onChange={(e) => setSelectedProvider((e.target.value as DocumentProvider) || null)}
+          style={{
+            padding: '0.5rem',
+            border: '1px solid #d1d5db',
+            borderRadius: '0.5rem',
+            fontSize: '0.875rem',
+            backgroundColor: 'white'
+          }}
+        >
+          <option value="">Provider</option>
+          <option value="google">Google</option>
+          <option value="onedrive">OneDrive</option>
+          <option value="dropbox">Dropbox</option>
+        </select>
+
+        <select
+          value={selectedType || ''}
+          onChange={(e) => setSelectedType((e.target.value as DocumentType) || null)}
+          style={{
+            padding: '0.5rem',
+            border: '1px solid #d1d5db',
+            borderRadius: '0.5rem',
+            fontSize: '0.875rem',
+            backgroundColor: 'white'
+          }}
+        >
+          <option value="">Type</option>
+          {Object.entries(documentTypeLabels).map(([key, label]) => (
+            <option key={key} value={key}>{label}</option>
+          ))}
+        </select>
+
         <select
           value={sortBy}
           onChange={(e) => setSortBy(e.target.value as 'title' | 'expiry' | 'updated')}
           style={{
-            padding: '0.5rem 1rem',
+            padding: '0.5rem',
             border: '1px solid #d1d5db',
             borderRadius: '0.5rem',
             fontSize: '0.875rem',
@@ -210,51 +242,14 @@ const SafeDocumentVault: React.FC<SafeDocumentVaultProps> = ({
           }}
         >
           <option value="updated">Latest</option>
-          <option value="title">Title A-Z</option>
-          <option value="expiry">Expiry Date</option>
+          <option value="title">A-Z</option>
+          <option value="expiry">Expiry</option>
         </select>
 
-        {/* Provider Filter */}
-        <select
-          value={selectedProvider || ''}
-          onChange={(e) => setSelectedProvider((e.target.value as DocumentProvider) || null)}
-          style={{
-            padding: '0.5rem 1rem',
-            border: '1px solid #d1d5db',
-            borderRadius: '0.5rem',
-            fontSize: '0.875rem',
-            backgroundColor: 'white'
-          }}
-        >
-          <option value="">All Providers</option>
-          <option value="google">Google Drive</option>
-          <option value="onedrive">OneDrive</option>
-          <option value="dropbox">Dropbox</option>
-        </select>
-
-        {/* Type Filter */}
-        <select
-          value={selectedType || ''}
-          onChange={(e) => setSelectedType((e.target.value as DocumentType) || null)}
-          style={{
-            padding: '0.5rem 1rem',
-            border: '1px solid #d1d5db',
-            borderRadius: '0.5rem',
-            fontSize: '0.875rem',
-            backgroundColor: 'white'
-          }}
-        >
-          <option value="">All Types</option>
-          {Object.entries(documentTypeLabels).map(([key, label]) => (
-            <option key={key} value={key}>{label}</option>
-          ))}
-        </select>
-
-        {/* Favorites */}
         <button
           onClick={() => setShowFavoritesOnly(!showFavoritesOnly)}
           style={{
-            padding: '0.5rem 1rem',
+            padding: '0.5rem 0.75rem',
             backgroundColor: showFavoritesOnly ? '#fee2e2' : '#f3f4f6',
             color: showFavoritesOnly ? '#dc2626' : '#6b7280',
             border: 'none',
@@ -264,7 +259,7 @@ const SafeDocumentVault: React.FC<SafeDocumentVaultProps> = ({
             fontWeight: 500
           }}
         >
-          ♥ Favorites
+          ♥ Favorite
         </button>
       </div>
 
@@ -291,263 +286,91 @@ const SafeDocumentVault: React.FC<SafeDocumentVaultProps> = ({
               fontWeight: 500
             }}
           >
-            + Add Your First Document
+            + Add Document
           </button>
         </div>
       ) : (
           <div style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
             gap: '1rem'
           }}>
             {filteredDocuments.map(doc => (
               <div
                 key={doc.id}
                 style={{
-                  backgroundColor: 'white',
-                  borderRadius: '0.5rem',
-                  boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
-                  padding: '1rem',
-                  borderLeft: `4px solid ${tags.find(t => t.id === doc.tags?.[0])?.color || '#ccc'}`,
-                  transition: 'box-shadow 0.2s',
-                  cursor: 'pointer'
+                  position: 'relative',
+                  backgroundColor: 'rgba(255,255,255,0.95)',
+                  borderRadius: '8px',
+                  padding: '1.25rem',
+                  cursor: 'pointer',
+                  boxShadow: '0 2px 4px rgba(0,0,0,0.08)'
                 }}
-                onMouseEnter={(e) => e.currentTarget.style.boxShadow = '0 4px 6px rgba(0,0,0,0.15)'}
-                onMouseLeave={(e) => e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.1)'}
-                onClick={() => {
-                  // Show details in a modal/popup
-                  alert(`Document: ${doc.title}\n\nOpen in edit mode to view all details`);
-                }}
+                onClick={() => onEditDocument(doc)}
               >
-                {/* Header */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.75rem' }}>
-                  <div style={{ display: 'flex', gap: '0.75rem', flex: 1, minWidth: 0 }}>
-                    <span style={{ fontSize: '2rem', flexShrink: 0 }}>{providerInfo[doc.provider].icon}</span>
-                    <div style={{ minWidth: 0, flex: 1 }}>
-                      <h3 style={{ margin: '0 0 0.25rem 0', fontSize: '1rem', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {doc.title}
-                      </h3>
-                      <p style={{ margin: 0, fontSize: '0.75rem', color: '#6b7280' }}>
-                        {documentTypeLabels[doc.documentType]}
-                      </p>
-                    </div>
+                {/* Header with title and favorite */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '0.75rem' }}>
+                  <h3 style={{ margin: 0, fontSize: '1.1rem', flex: 1 }}>{doc.title}</h3>
+                  <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                    {onShare && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onShare(doc);
+                        }}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          cursor: 'pointer',
+                          padding: '0.25rem',
+                          fontSize: '1rem',
+                          opacity: 0.7
+                        }}
+                        title="Share"
+                      >
+                        🔗
+                      </button>
+                    )}
+                    {doc.isFavorite && <span>⭐</span>}
                   </div>
-                  <button
-                    onClick={() => handleToggleFavorite(doc)}
-                    style={{
-                      background: 'none',
-                      border: 'none',
-                      cursor: 'pointer',
-                      fontSize: '1.25rem',
-                      color: doc.isFavorite ? '#ef4444' : '#d1d5db'
-                    }}
-                  >
-                    ♥
-                  </button>
                 </div>
 
-                {/* Dates */}
-                {(doc.issueDate || doc.expiryDate) && (
-                  <div style={{ fontSize: '0.75rem', color: '#6b7280', marginBottom: '0.75rem', lineHeight: 1.5 }}>
-                    {doc.issueDate && <div>📅 Issued: {new Date(doc.issueDate).toLocaleDateString()}</div>}
-                    {doc.expiryDate && (
-                      <div style={{
-                        color: isExpired(doc.expiryDate) ? '#dc2626' : isExpiringSoon(doc.expiryDate) ? '#ea580c' : '#6b7280',
-                        fontWeight: isExpired(doc.expiryDate) || isExpiringSoon(doc.expiryDate) ? 600 : 400
-                      }}>
-                        ⏰ Expires: {new Date(doc.expiryDate).toLocaleDateString()}
-                        {isExpired(doc.expiryDate) && ' (EXPIRED)'}
-                        {isExpiringSoon(doc.expiryDate) && !isExpired(doc.expiryDate) && ' (SOON)'}
-                      </div>
-                    )}
-                  </div>
-                )}
+                {/* Provider and Type */}
+                <p style={{ margin: '0 0 0.5rem 0', color: '#3b82f6' }}>
+                  {providerInfo[doc.provider].icon} {providerInfo[doc.provider].name} • {documentTypeLabels[doc.documentType]}
+                </p>
 
                 {/* Tags */}
                 {doc.tags && doc.tags.length > 0 && (
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.25rem', marginBottom: '0.75rem' }}>
-                    {doc.tags.slice(0, 2).map(tagId => {
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                    {doc.tags.map(tagId => {
                       const tag = tags.find(t => t.id === tagId);
-                      return tag ? (
-                        <span
-                          key={tagId}
-                          style={{
-                            fontSize: '0.625rem',
-                            padding: '0.25rem 0.5rem',
-                            borderRadius: '0.25rem',
-                            color: 'white',
-                            backgroundColor: tag.color
-                          }}
-                        >
-                          {tag.name}
-                        </span>
-                      ) : null;
+                      if (!tag) return null;
+                      return (
+                        <div key={tagId} style={{ padding: '0.25rem 0.75rem', backgroundColor: tag.color || '#667eea', color: 'white', borderRadius: '6px', fontSize: '0.75rem' }}>{tag.name}</div>
+                      );
                     })}
-                    {doc.tags.length > 2 && (
-                      <span style={{
-                        fontSize: '0.625rem',
-                        padding: '0.25rem 0.5rem',
-                        borderRadius: '0.25rem',
-                        backgroundColor: '#e5e7eb',
-                        color: '#6b7280'
-                      }}>
-                        +{doc.tags.length - 2}
-                      </span>
-                    )}
                   </div>
                 )}
 
-                {/* Actions */}
-                <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.75rem' }}>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleDecryptNotes(doc);
-                    }}
-                    style={{
-                      flex: 1,
-                      padding: '0.5rem',
-                      fontSize: '0.75rem',
-                      backgroundColor: '#f3f4f6',
-                      color: '#4b5563',
-                      border: 'none',
-                      borderRadius: '0.375rem',
-                      cursor: 'pointer',
-                      fontWeight: 500
-                    }}
-                  >
-                    👁 Notes
-                  </button>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      openFile(doc);
-                    }}
-                    style={{
-                      flex: 1,
-                      padding: '0.5rem',
-                      fontSize: '0.75rem',
-                      backgroundColor: '#dbeafe',
-                      color: '#1e40af',
-                      border: 'none',
-                      borderRadius: '0.375rem',
-                      cursor: 'pointer',
-                      fontWeight: 500
-                    }}
-                  >
-                    📥 Open
-                  </button>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onEditDocument(doc);
-                    }}
-                    style={{
-                      padding: '0.5rem',
-                      backgroundColor: '#f3f4f6',
-                      color: '#4b5563',
-                      border: 'none',
-                      borderRadius: '0.375rem',
-                      cursor: 'pointer'
-                    }}
-                  >
-                    ✎
-                  </button>
-                  {onShare && (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onShare(doc);
-                      }}
-                      style={{
-                        padding: '0.5rem',
-                        backgroundColor: '#e0f2fe',
-                        color: '#0284c7',
-                        border: 'none',
-                        borderRadius: '0.375rem',
-                        cursor: 'pointer'
-                      }}
-                      title="Share this document"
-                    >
-                      🔗
-                    </button>
-                  )}
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setShowDeleteConfirm(doc.id);
-                    }}
-                    style={{
-                      padding: '0.5rem',
-                      backgroundColor: '#fee2e2',
-                      color: '#dc2626',
-                      border: 'none',
-                      borderRadius: '0.375rem',
-                      cursor: 'pointer'
-                    }}
-                  >
-                    🗑
-                  </button>
-                </div>
-
-                {/* Notes Preview */}
-                {decryptedNotes[doc.id] && (
+                {/* Expiry warning */}
+                {doc.expiryDate && (isExpired(doc.expiryDate) || isExpiringSoon(doc.expiryDate)) && (
                   <div style={{
-                    padding: '0.5rem',
-                    backgroundColor: '#f3f4f6',
-                    borderRadius: '0.375rem',
+                    display: 'inline-block',
+                    padding: '0.25rem 0.75rem',
+                    backgroundColor: isExpired(doc.expiryDate) ? '#ef4444' : '#f59e0b',
+                    color: 'white',
+                    borderRadius: '6px',
                     fontSize: '0.75rem',
-                    color: '#4b5563',
-                    wordBreak: 'break-word',
-                    marginBottom: '0.75rem'
+                    marginBottom: '0.5rem'
                   }}>
-                    {decryptedNotes[doc.id]}
+                    ⏰ {isExpired(doc.expiryDate) ? 'Expired' : 'Expires soon'}
                   </div>
                 )}
 
-                {/* Delete Confirm */}
-                {showDeleteConfirm === doc.id && (
-                  <div style={{
-                    padding: '0.5rem',
-                    backgroundColor: '#fee2e2',
-                    borderRadius: '0.375rem',
-                    marginBottom: '0.75rem'
-                  }}>
-                    <p style={{ margin: '0 0 0.5rem 0', fontSize: '0.75rem', color: '#991b1b' }}>Delete this document?</p>
-                    <div style={{ display: 'flex', gap: '0.5rem' }}>
-                      <button
-                        onClick={() => handleDelete(doc.id)}
-                        style={{
-                          flex: 1,
-                          padding: '0.375rem',
-                          backgroundColor: '#dc2626',
-                          color: 'white',
-                          fontSize: '0.75rem',
-                          border: 'none',
-                          borderRadius: '0.25rem',
-                          cursor: 'pointer'
-                        }}
-                      >
-                        Delete
-                      </button>
-                      <button
-                        onClick={() => setShowDeleteConfirm(null)}
-                        style={{
-                          flex: 1,
-                          padding: '0.375rem',
-                          backgroundColor: '#d1d5db',
-                          color: '#374151',
-                          fontSize: '0.75rem',
-                          border: 'none',
-                          borderRadius: '0.25rem',
-                          cursor: 'pointer'
-                        }}
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  </div>
-                )}
+                <p style={{ marginTop: '0.75rem', fontSize: '0.75rem', color: '#6b7280' }}>
+                  Updated {new Date(doc.updatedAt).toLocaleDateString()}
+                </p>
               </div>
             ))}
           </div>

@@ -2,6 +2,7 @@
  * Safe Entry Detail Component
  * 
  * Displays decrypted entry details with copy functionality
+ * Opens as a modal/popup for consistent UX with documents
  */
 
 import React, { useState, useEffect } from 'react';
@@ -9,6 +10,7 @@ import { SafeEntry, Tag, SafeEntryEncryptedData } from '../types';
 import { CryptoKey } from '../utils/encryption';
 import { decryptSafeEntry, deleteSafeEntry, markSafeEntryAccessed } from '../storage';
 import { generateTOTP, getTOTPRemainingSeconds } from '../utils/totp';
+import Portal from './Portal';
 
 interface SafeEntryDetailProps {
   entry: SafeEntry;
@@ -16,7 +18,7 @@ interface SafeEntryDetailProps {
   encryptionKey: CryptoKey;
   onEdit: (entry: SafeEntry) => void;
   onDelete: () => void;
-  onBack: () => void;
+  onClose: () => void;
 }
 
 const SafeEntryDetail: React.FC<SafeEntryDetailProps> = ({
@@ -25,7 +27,7 @@ const SafeEntryDetail: React.FC<SafeEntryDetailProps> = ({
   encryptionKey,
   onEdit,
   onDelete,
-  onBack
+  onClose
 }) => {
   const [encryptedData, setEncryptedData] = useState<SafeEntryEncryptedData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -108,53 +110,133 @@ const SafeEntryDetail: React.FC<SafeEntryDetailProps> = ({
 
   if (isLoading) {
     return (
-      <div style={{ textAlign: 'center', padding: '2rem' }}>
-        <p>Loading entry...</p>
-      </div>
+      <Portal>
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          background: 'rgba(0, 0, 0, 0.6)',
+          backdropFilter: 'blur(8px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 9999
+        }}>
+          <div style={{
+            background: 'white',
+            borderRadius: '1rem',
+            padding: '2rem',
+            textAlign: 'center'
+          }}>
+            <p>Loading entry...</p>
+          </div>
+        </div>
+      </Portal>
     );
   }
 
   if (!encryptedData) {
     return (
-      <div style={{ textAlign: 'center', padding: '2rem' }}>
-        <p>Failed to load entry data.</p>
-        <button onClick={onBack} style={{
-          padding: '0.75rem 1.5rem',
-          backgroundColor: '#3b82f6',
-          color: 'white',
-          border: 'none',
-          borderRadius: '0.5rem',
-          cursor: 'pointer',
-          marginTop: '1rem'
+      <Portal>
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          background: 'rgba(0, 0, 0, 0.6)',
+          backdropFilter: 'blur(8px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 9999
         }}>
-          Go Back
-        </button>
-      </div>
+          <div style={{
+            background: 'white',
+            borderRadius: '1rem',
+            padding: '2rem',
+            textAlign: 'center'
+          }}>
+            <p>Failed to load entry data.</p>
+            <button onClick={onClose} style={{
+              padding: '0.5rem 1rem',
+              backgroundColor: '#3b82f6',
+              color: 'white',
+              border: 'none',
+              borderRadius: '0.5rem',
+              cursor: 'pointer',
+              marginTop: '1rem'
+            }}>
+              Close
+            </button>
+          </div>
+        </div>
+      </Portal>
     );
   }
 
   return (
-    <div style={{
-      backgroundColor: 'rgba(255, 255, 255, 0.95)',
-      borderRadius: '0.5rem',
-      padding: '2rem',
-      maxWidth: '800px',
-      margin: '0 auto'
-    }}>
-      {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '2rem' }}>
-        <div style={{ flex: 1 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '0.5rem' }}>
-            <h2 style={{ margin: 0, fontSize: '1.75rem' }}>{entry.title}</h2>
-            {entry.isFavorite && <span style={{ fontSize: '1.5rem' }}>⭐</span>}
+    <Portal>
+      <div style={{
+        position: 'fixed',
+        inset: 0,
+        background: 'rgba(0, 0, 0, 0.6)',
+        backdropFilter: 'blur(8px)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 9999,
+        padding: '1rem',
+        overflowY: 'auto'
+      }}>
+        <div style={{
+          backgroundColor: 'white',
+          borderRadius: '1rem',
+          maxWidth: '600px',
+          width: '100%',
+          maxHeight: '90vh',
+          overflowY: 'auto',
+          boxShadow: '0 25px 50px rgba(0,0,0,0.3)'
+        }}>
+          {/* Header */}
+          <div style={{
+            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            padding: '1.25rem',
+            borderRadius: '1rem 1rem 0 0',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+              <h2 style={{ margin: 0, fontSize: '1.25rem', color: 'white' }}>{entry.title}</h2>
+              {entry.isFavorite && <span>⭐</span>}
+            </div>
+            <button
+              onClick={onClose}
+              style={{
+                background: 'rgba(255,255,255,0.2)',
+                border: 'none',
+                borderRadius: '50%',
+                width: 36,
+                height: 36,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+                color: 'white',
+                fontSize: '1.25rem'
+              }}
+            >
+              ✕
+            </button>
           </div>
+
+          {/* Content */}
+          <div style={{ padding: '1.25rem' }}>
+
           {entry.url && (
-            <div style={{ marginBottom: '0.5rem' }}>
+            <div style={{ marginBottom: '0.75rem' }}>
               <a
                 href={entry.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                style={{ color: '#3b82f6', textDecoration: 'none' }}
+                style={{ color: '#3b82f6', textDecoration: 'none', fontSize: '0.875rem' }}
               >
                 🔗 {entry.url}
               </a>
@@ -162,103 +244,85 @@ const SafeEntryDetail: React.FC<SafeEntryDetailProps> = ({
                 onClick={() => handleCopyToClipboard(entry.url!, 'URL')}
                 style={{
                   marginLeft: '0.5rem',
+                  padding: '0.125rem 0.375rem',
+                  backgroundColor: '#3b82f6',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '0.25rem',
+                  cursor: 'pointer',
+                  fontSize: '0.65rem'
+                }}
+              >
+                Copy
+              </button>
+            </div>
+          )}
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '1rem' }}>
+            <span style={{
+              padding: '0.25rem 0.5rem',
+              backgroundColor: getCategoryColor(),
+              color: 'white',
+              borderRadius: '0.25rem',
+              fontSize: '0.75rem',
+              fontWeight: 500
+            }}>
+              {getCategoryName()}
+            </span>
+          
+            {/* Display user-created tags */}
+            {entry.tags && entry.tags.length > 0 && (
+              entry.tags.map(tagId => {
+                const tag = tags.find(t => t.id === tagId && !t.isSystemCategory);
+                if (!tag) return null;
+                return (
+                  <span
+                    key={tagId}
+                    style={{
+                      padding: '0.25rem 0.5rem',
+                      backgroundColor: tag.color || '#667eea',
+                      color: 'white',
+                      borderRadius: '0.25rem',
+                      fontSize: '0.75rem',
+                      fontWeight: 500
+                    }}
+                  >
+                    {tag.name}
+                  </span>
+                );
+              })
+            )}
+          </div>
+
+      {/* Encrypted Information */}
+      <div style={{ marginBottom: '1rem' }}>
+        
+        {encryptedData.username && (
+          <div style={{
+            marginBottom: '0.75rem',
+            padding: '0.75rem',
+            backgroundColor: '#f9fafb',
+            borderRadius: '0.5rem'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <label style={{ display: 'block', marginBottom: '0.125rem', fontSize: '0.75rem', opacity: 0.7 }}>
+                  Username/Email
+                </label>
+                <div style={{ fontSize: '0.875rem', fontWeight: 500 }}>{encryptedData.username}</div>
+              </div>
+              <button
+                onClick={() => handleCopyToClipboard(encryptedData.username!, 'Username')}
+                style={{
                   padding: '0.25rem 0.5rem',
                   backgroundColor: '#3b82f6',
                   color: 'white',
                   border: 'none',
                   borderRadius: '0.25rem',
                   cursor: 'pointer',
-                  fontSize: '0.75rem'
+                  fontSize: '0.7rem'
                 }}
               >
-                📋 Copy
-              </button>
-            </div>
-          )}
-          <div style={{
-            display: 'inline-block',
-            padding: '0.25rem 0.75rem',
-            backgroundColor: getCategoryColor(),
-            color: 'white',
-            borderRadius: '0.25rem',
-            fontSize: '0.875rem',
-            fontWeight: 500
-          }}>
-            {getCategoryName()}
-          </div>
-          
-          {/* Display user-created tags */}
-          {entry.tags && entry.tags.length > 0 && (
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginTop: '0.5rem' }}>
-              {entry.tags.map(tagId => {
-                const tag = tags.find(t => t.id === tagId && !t.isSystemCategory);
-                if (!tag) return null;
-                return (
-                  <div
-                    key={tagId}
-                    style={{
-                      display: 'inline-block',
-                      padding: '0.25rem 0.75rem',
-                      backgroundColor: tag.color || '#667eea',
-                      color: 'white',
-                      borderRadius: '0.25rem',
-                      fontSize: '0.875rem',
-                      fontWeight: 500
-                    }}
-                  >
-                    {tag.name}
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-        <button
-          onClick={onBack}
-          style={{
-            padding: '0.5rem 1rem',
-            backgroundColor: '#6b7280',
-            color: 'white',
-            border: 'none',
-            borderRadius: '0.5rem',
-            cursor: 'pointer'
-          }}
-        >
-          ← Back
-        </button>
-      </div>
-
-      {/* Encrypted Information */}
-      <div style={{ marginBottom: '2rem' }}>
-        <h3 style={{ marginBottom: '1rem', fontSize: '1.125rem' }}>Encrypted Information</h3>
-        
-        {encryptedData.username && (
-          <div style={{
-            marginBottom: '1rem',
-            padding: '1rem',
-            backgroundColor: '#f9fafb',
-            borderRadius: '0.5rem'
-          }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div>
-                <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.875rem', opacity: 0.7 }}>
-                  Username/Email
-                </label>
-                <div style={{ fontSize: '1rem', fontWeight: 500 }}>{encryptedData.username}</div>
-              </div>
-              <button
-                onClick={() => handleCopyToClipboard(encryptedData.username!, 'Username')}
-                style={{
-                  padding: '0.5rem 1rem',
-                  backgroundColor: '#3b82f6',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '0.5rem',
-                  cursor: 'pointer',
-                  fontSize: '0.875rem'
-                }}
-              >
-                📋 Copy
+                Copy
               </button>
             </div>
           </div>
@@ -266,53 +330,53 @@ const SafeEntryDetail: React.FC<SafeEntryDetailProps> = ({
 
         {encryptedData.password && (
           <div style={{
-            marginBottom: '1rem',
-            padding: '1rem',
+            marginBottom: '0.75rem',
+            padding: '0.75rem',
             backgroundColor: '#f9fafb',
             borderRadius: '0.5rem'
           }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div style={{ flex: 1 }}>
-                <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.875rem', opacity: 0.7 }}>
+                <label style={{ display: 'block', marginBottom: '0.125rem', fontSize: '0.75rem', opacity: 0.7 }}>
                   Password
                 </label>
                 <div style={{ 
-                  fontSize: '1rem', 
+                  fontSize: '0.875rem', 
                   fontWeight: 500,
                   fontFamily: 'monospace',
                   wordBreak: 'break-all'
                 }}>
-                  {showPassword ? encryptedData.password : '•'.repeat(16)}
+                  {showPassword ? encryptedData.password : '•'.repeat(12)}
                 </div>
               </div>
-              <div style={{ display: 'flex', gap: '0.5rem', marginLeft: '1rem' }}>
+              <div style={{ display: 'flex', gap: '0.25rem', marginLeft: '0.5rem' }}>
                 <button
                   onClick={() => setShowPassword(!showPassword)}
                   style={{
-                    padding: '0.5rem 1rem',
+                    padding: '0.25rem 0.5rem',
                     backgroundColor: '#6b7280',
                     color: 'white',
                     border: 'none',
-                    borderRadius: '0.5rem',
+                    borderRadius: '0.25rem',
                     cursor: 'pointer',
-                    fontSize: '0.875rem'
+                    fontSize: '0.7rem'
                   }}
                 >
-                  {showPassword ? '👁️‍🗨️ Hide' : '👁️ Show'}
+                  {showPassword ? 'Hide' : 'Show'}
                 </button>
                 <button
                   onClick={() => handleCopyToClipboard(encryptedData.password!, 'Password')}
                   style={{
-                    padding: '0.5rem 1rem',
+                    padding: '0.25rem 0.5rem',
                     backgroundColor: '#3b82f6',
                     color: 'white',
                     border: 'none',
-                    borderRadius: '0.5rem',
+                    borderRadius: '0.25rem',
                     cursor: 'pointer',
-                    fontSize: '0.875rem'
+                    fontSize: '0.7rem'
                   }}
                 >
-                  📋 Copy
+                  Copy
                 </button>
               </div>
             </div>
@@ -873,11 +937,11 @@ const SafeEntryDetail: React.FC<SafeEntryDetailProps> = ({
 
       {/* Metadata */}
       <div style={{
-        padding: '1rem',
+        padding: '0.5rem',
         backgroundColor: '#f9fafb',
-        borderRadius: '0.5rem',
-        marginBottom: '2rem',
-        fontSize: '0.875rem',
+        borderRadius: '0.375rem',
+        marginBottom: '1rem',
+        fontSize: '0.7rem',
         opacity: 0.7
       }}>
         <div>Created: {new Date(entry.createdAt).toLocaleString()}</div>
@@ -888,39 +952,42 @@ const SafeEntryDetail: React.FC<SafeEntryDetailProps> = ({
       </div>
 
       {/* Actions */}
-      <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
+      <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end', paddingTop: '0.75rem', borderTop: '1px solid #e5e7eb' }}>
         <button
           onClick={() => onEdit(entry)}
           style={{
-            padding: '0.75rem 1.5rem',
+            padding: '0.5rem 1rem',
             backgroundColor: '#3b82f6',
             color: 'white',
             border: 'none',
-            borderRadius: '0.5rem',
+            borderRadius: '0.375rem',
             cursor: 'pointer',
-            fontSize: '1rem',
+            fontSize: '0.8rem',
             fontWeight: 500
           }}
         >
-          ✏️ Edit
+          ✎ Edit
         </button>
         <button
           onClick={handleDelete}
           style={{
-            padding: '0.75rem 1.5rem',
+            padding: '0.5rem 1rem',
             backgroundColor: '#ef4444',
             color: 'white',
             border: 'none',
-            borderRadius: '0.5rem',
+            borderRadius: '0.375rem',
             cursor: 'pointer',
-            fontSize: '1rem',
+            fontSize: '0.8rem',
             fontWeight: 500
           }}
         >
-          🗑️ Delete
+          🗑 Delete
         </button>
       </div>
-    </div>
+          </div>{/* Close Content */}
+        </div>{/* Close modal box */}
+      </div>{/* Close backdrop */}
+    </Portal>
   );
 };
 

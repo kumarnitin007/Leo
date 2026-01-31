@@ -1126,7 +1126,7 @@
   /* ===== SAFE VIEW MOBILE OPTIMIZATION ===== */
   /* Make Safe sections wider - reduce side padding */
   .safe-view {
-    padding: 0.5rem !important;
+    padding: 0.25rem !important;
   }
 
   .safe-view > div {
@@ -1134,32 +1134,42 @@
     margin: 0 !important;
   }
 
-  /* Safe Entry List - Full width */
+  /* Safe Entry/Document filters - compact inline layout, no background box */
   .safe-view > div > div[style*="flexWrap"] {
-    padding: 0.5rem !important;
-    margin: 0 0 0.75rem !important;
-    border-radius: 0.5rem !important;
+    padding: 0 !important;
+    margin: 0 0 0.5rem !important;
+    background: transparent !important;
+    border-radius: 0 !important;
+    gap: 0.375rem !important;
   }
 
-  /* Search and filter inputs - Full width on mobile */
-  .safe-view input[type="text"],
+  /* Search and filter inputs - inline on mobile */
+  .safe-view input[type="text"] {
+    min-width: unset !important;
+    flex: 1 1 auto !important;
+    width: auto !important;
+  }
+  
   .safe-view select {
     min-width: unset !important;
-    flex: 1 1 100% !important;
+    flex: 0 0 auto !important;
+    width: auto !important;
+    padding: 0.375rem 0.5rem !important;
+    font-size: 0.8rem !important;
   }
 
-  /* Entry cards - Full width with tighter padding */
-  .safe-view > div > div[style*="backgroundColor: 'rgba(255,255,255,0.95)'"] {
-    padding: 1rem !important;
-    margin-bottom: 0.5rem !important;
-    border-radius: 0.75rem !important;
+  /* Entry/Document cards - Full width with tighter padding */
+  .safe-view > div > div[style*="gridTemplateColumns"] {
+    grid-template-columns: 1fr !important;
+    gap: 0.5rem !important;
   }
 
-  /* Document vault cards */
+  .safe-view > div > div[style*="backgroundColor: 'rgba(255,255,255,0.95)'"],
   .safe-view .document-card,
-  .safe-view > div > div[style*="borderRadius: '1rem'"] {
-    padding: 1rem !important;
-    margin: 0 0 0.5rem !important;
+  .safe-view > div > div[style*="borderRadius: '8px'"] {
+    padding: 0.875rem !important;
+    margin-bottom: 0.375rem !important;
+    border-radius: 0.5rem !important;
   }
 
   /* Safe tabs - Full width */

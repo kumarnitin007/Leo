@@ -326,7 +326,7 @@ const TodoView: React.FC<TodoViewProps> = () => {
               fontSize: '0.9rem'
             }}
           >
-            ➕ New Group
+            ➕ New List
           </button>
         </div>
       </div>
@@ -511,7 +511,7 @@ const TodoView: React.FC<TodoViewProps> = () => {
         {/* Item options */}
         <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'center' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <label style={{ fontSize: '0.85rem', color: '#6b7280' }}>Group:</label>
+            <label style={{ fontSize: '0.85rem', color: '#6b7280' }}>Add to List:</label>
             <select
               value={newItemGroup || ''}
               onChange={(e) => setNewItemGroup(e.target.value || null)}
@@ -648,7 +648,7 @@ const TodoView: React.FC<TodoViewProps> = () => {
               alignItems: 'center'
             }}>
               <h3 style={{ margin: 0, fontSize: '1.1rem' }}>
-                {editingGroup ? 'Edit Group' : 'New Group'}
+                {editingGroup ? 'Edit List' : 'New List'}
               </h3>
               <button
                 onClick={() => setShowGroupModal(false)}
@@ -661,7 +661,7 @@ const TodoView: React.FC<TodoViewProps> = () => {
             <div style={{ padding: '1.5rem' }}>
               <div style={{ marginBottom: '1rem' }}>
                 <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500, fontSize: '0.9rem' }}>
-                  Group Name
+                  List Name
                 </label>
                 <input
                   type="text"
@@ -755,7 +755,7 @@ const TodoView: React.FC<TodoViewProps> = () => {
                     fontWeight: 500
                   }}
                 >
-                  {editingGroup ? 'Save Changes' : 'Create Group'}
+                  {editingGroup ? 'Save Changes' : 'Create List'}
                 </button>
               </div>
             </div>
