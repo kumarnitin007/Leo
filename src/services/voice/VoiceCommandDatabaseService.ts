@@ -162,9 +162,9 @@ const mapRowToVoiceCommandLog = (row: any): VoiceCommandLog => {
     id: row.id,
     userId: row.user_id || null,
     sessionId: row.session_id,
-    createdAt: row.created_at ? new Date(row.created_at) : new Date(),
-    updatedAt: row.updated_at ? new Date(row.updated_at) : new Date(),
-    expiresAt: row.expires_at ? new Date(row.expires_at) : new Date(),
+    createdAt: row.created_at || new Date().toISOString(),
+    updatedAt: row.updated_at || new Date().toISOString(),
+    expiresAt: row.expires_at || new Date().toISOString(),
     rawTranscript: row.raw_transcript_encrypted ? decryptTranscript(row.raw_transcript) : row.raw_transcript,
     rawTranscriptEncrypted: !!row.raw_transcript_encrypted,
     language: row.language,
@@ -174,7 +174,7 @@ const mapRowToVoiceCommandLog = (row: any): VoiceCommandLog => {
     intentAlternatives: row.intent_alternatives,
     entityType: row.entity_type,
     entities: (row.entities || []) as Entity[],
-    memoDate: row.memo_date ? new Date(row.memo_date) : null,
+    memoDate: row.memo_date || null,
     memoDateExpression: row.memo_date_expression,
     memoTime: row.memo_time,
     memoTimeExpression: row.memo_time_expression,
@@ -652,8 +652,9 @@ export class VoiceCommandDatabaseService {
       // Simple anonymization for demo: prefix + first 8 chars
       const userHash = commandLog.userId ? `hash_${String(commandLog.userId).slice(0, 8)}` : 'anon';
 
-      const date = commandLog.createdAt ? commandLog.createdAt.toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10);
-      const hour = commandLog.createdAt ? commandLog.createdAt.getHours() : new Date().getHours();
+      const createdAtDate = commandLog.createdAt ? new Date(commandLog.createdAt) : new Date();
+      const date = createdAtDate.toISOString().slice(0, 10);
+      const hour = createdAtDate.getHours();
 
       // Upsert a single daily/hourly aggregate (increment counters)
       // Simple approach: attempt select then insert/update

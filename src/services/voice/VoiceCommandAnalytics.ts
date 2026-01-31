@@ -134,8 +134,9 @@ export class VoiceCommandAnalyticsService {
 
     try {
       const userHash = commandLog.userId ? await hashUserId(commandLog.userId) : 'anon';
-      const date = dateToYMD(commandLog.createdAt);
-      const hour = commandLog.createdAt.getHours();
+      const createdAtDate = new Date(commandLog.createdAt);
+      const date = dateToYMD(createdAtDate);
+      const hour = createdAtDate.getHours();
 
       const { data: existing, error: selErr } = await client
         .from(this.table)

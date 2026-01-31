@@ -50,7 +50,7 @@ interface ExportData {
   tags?: Tag[];
   items?: Item[];
   todos?: { groups: any[]; items: any[] };
-  safeEntriesMetadata?: { id: string; title: string; category: string; createdAt: string; updatedAt: string }[];
+  safeEntriesMetadata?: { id: string; title: string; categoryTagId: string; createdAt: string; updatedAt: string }[];
   documentsMetadata?: { id: string; title: string; createdAt: string; updatedAt: string }[];
 }
 
