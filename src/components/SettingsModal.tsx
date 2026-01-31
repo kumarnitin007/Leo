@@ -253,7 +253,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ show, onClose }) => {
             {/* Buttons */}
             <div style={{ display: 'flex', gap: '1rem' }}>
               <button onClick={handleSave} style={{ flex: 1, padding: '0.75rem', borderRadius: '0.75rem', border: 'none', fontWeight: 600, cursor: 'pointer', color: 'white', background: `linear-gradient(to right, ${theme.colors.primary}, ${theme.colors.secondary})`, fontSize: '1rem' }}>
-                💾 Save & Close
+                💾 Save
               </button>
               <button onClick={onClose} style={{ flex: 1, padding: '0.75rem', borderRadius: '0.75rem', border: 'none', fontWeight: 600, cursor: 'pointer', background: '#e5e7eb', fontSize: '1rem' }}>
                 Cancel

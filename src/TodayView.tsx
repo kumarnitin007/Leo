@@ -1138,7 +1138,7 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
               </div>
             </div>
           </div>
-          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+          <div className="desktop-action-buttons" style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
             {/* View Toggle */}
             <button
               onClick={() => setViewMode(viewMode === 'dashboard' ? 'monthly' : 'dashboard')}
@@ -1969,6 +1969,91 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
           </div>
         </div>
       )}
+
+      {/* Mobile Action Buttons - shown only on mobile after tasks */}
+      <div className="mobile-action-buttons" style={{
+        display: 'none', // Hidden by default, shown via CSS on mobile
+        flexWrap: 'wrap',
+        gap: '0.5rem',
+        marginTop: '1.5rem',
+        padding: '1rem',
+        background: 'rgba(255,255,255,0.9)',
+        borderRadius: '0.75rem',
+        justifyContent: 'center'
+      }}>
+        <button
+          onClick={() => setViewMode(viewMode === 'dashboard' ? 'monthly' : 'dashboard')}
+          className="btn-secondary"
+          style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', padding: '0.5rem 0.75rem', fontSize: '0.85rem' }}
+        >
+          <span>{viewMode === 'dashboard' ? '📅' : '🏠'}</span>
+          <span>{viewMode === 'dashboard' ? 'Monthly' : 'Dashboard'}</span>
+        </button>
+        <button 
+          onClick={() => setShowProgressAndReview(true)}
+          className="btn-secondary"
+          style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', padding: '0.5rem 0.75rem', fontSize: '0.85rem' }}
+        >
+          <span>📊</span>
+          <span>Progress</span>
+        </button>
+        <button
+          onClick={async () => {
+            const prompt = await buildOpenAIPrompt();
+            setOpenAIPromptText(prompt);
+            setShowOpenAIPrompt(true);
+          }}
+          className="btn-secondary"
+          style={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: '0.375rem',
+            padding: '0.5rem 0.75rem',
+            fontSize: '0.85rem',
+            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            color: 'white',
+            border: 'none'
+          }}
+        >
+          <span>🤖</span>
+          <span>AI</span>
+          {aiInsight && <span>💡</span>}
+        </button>
+        <button 
+          onClick={() => setIsReorderMode(!isReorderMode)}
+          className="btn-secondary"
+          style={{ 
+            background: isReorderMode ? '#667eea' : 'white',
+            color: isReorderMode ? 'white' : '#667eea',
+            border: '2px solid #667eea',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.375rem',
+            padding: '0.5rem 0.75rem',
+            fontSize: '0.85rem'
+          }}
+        >
+          <span>{isReorderMode ? '✓' : '↕️'}</span>
+          <span>Reorder</span>
+        </button>
+        <button 
+          onClick={() => setShowBulkHoldModal(true)}
+          className="btn-secondary"
+          style={{ 
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.375rem',
+            padding: '0.5rem 0.75rem',
+            fontSize: '0.85rem',
+            background: 'white',
+            color: '#f97316',
+            border: '2px solid #f97316'
+          }}
+        >
+          <span>⏸️</span>
+          <span>Hold</span>
+        </button>
+      </div>
 
       <WeatherWidget />
 

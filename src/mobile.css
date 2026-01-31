@@ -168,6 +168,20 @@
     font-size: 1rem !important;
   }
 
+  /* Hide desktop action buttons on mobile, show mobile ones */
+  .desktop-action-buttons {
+    display: none !important;
+  }
+
+  .mobile-action-buttons {
+    display: flex !important;
+  }
+
+  /* Hide floating voice button on mobile */
+  .floating-voice-button-desktop {
+    display: none !important;
+  }
+
   /* Improve stats display */
   .stats-grid {
     grid-template-columns: repeat(2, 1fr) !important;

@@ -449,12 +449,14 @@ const AppContent: React.FC = () => {
   {/* Floating Pinned Button */}
   <FloatingPinnedButton onClick={() => setShowPinnedModal(true)} />
 
-        {/* Voice Command Floating Button (bottom-right) */}
-        <VoiceCommandButton 
-          onPrefillAndNavigate={handleVoicePrefillAndNavigate}
-          onCreateFromHistory={handleCreateFromVoiceHistory}
-          userId={user?.id}
-        />
+        {/* Voice Command Floating Button (bottom-right) - hidden on mobile */}
+        <div className="floating-voice-button-desktop">
+          <VoiceCommandButton 
+            onPrefillAndNavigate={handleVoicePrefillAndNavigate}
+            onCreateFromHistory={handleCreateFromVoiceHistory}
+            userId={user?.id}
+          />
+        </div>
 
       {/* Timer Modal */}
       {showTimerModal && (
@@ -592,6 +594,18 @@ const AppContent: React.FC = () => {
         onClose={() => setShowMoreSheet(false)}
         title="More Options"
         options={[
+          {
+            icon: '✅',
+            label: 'To-Do List',
+            description: 'Manage your to-do items',
+            onClick: () => handleNavigate('todo'),
+          },
+          {
+            icon: '👨‍👩‍👧‍👦',
+            label: 'Groups',
+            description: 'Manage family & sharing groups',
+            onClick: () => handleNavigate('groups'),
+          },
           {
             icon: '📊',
             label: 'Analytics',
