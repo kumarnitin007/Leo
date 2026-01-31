@@ -34,11 +34,13 @@ const GroupsManager: React.FC<GroupsManagerProps> = ({ onClose }) => {
   const [members, setMembers] = useState<GroupMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [myDisplayName, setMyDisplayName] = useState<string | null>(null);
   
   // UI state
   const [activeTab, setActiveTab] = useState<'groups' | 'invitations'>('groups');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showInviteModal, setShowInviteModal] = useState(false);
+  const [showProfileModal, setShowProfileModal] = useState(false);
   
   // Form state
   const [groupName, setGroupName] = useState('');
@@ -48,6 +50,7 @@ const GroupsManager: React.FC<GroupsManagerProps> = ({ onClose }) => {
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteMessage, setInviteMessage] = useState('');
   const [editingGroup, setEditingGroup] = useState<SharingGroup | null>(null);
+  const [editDisplayName, setEditDisplayName] = useState('');
 
   // Load data
   useEffect(() => {
@@ -71,6 +74,15 @@ const GroupsManager: React.FC<GroupsManagerProps> = ({ onClose }) => {
       ]);
       setGroups(groupsData);
       setInvitations(invitationsData);
+      
+      // Get current user's display name from first group
+      if (groupsData.length > 0) {
+        const membersData = await sharingService.getGroupMembers(groupsData[0].id);
+        const ownerMember = membersData.find(m => m.role === 'owner');
+        if (ownerMember?.displayName) {
+          setMyDisplayName(ownerMember.displayName);
+        }
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load data');
     } finally {
@@ -82,6 +94,12 @@ const GroupsManager: React.FC<GroupsManagerProps> = ({ onClose }) => {
     try {
       const membersData = await sharingService.getGroupMembers(groupId);
       setMembers(membersData);
+      
+      // Find current user's display name (owner has role 'owner')
+      const ownerMember = membersData.find(m => m.role === 'owner');
+      if (ownerMember?.displayName && !myDisplayName) {
+        setMyDisplayName(ownerMember.displayName);
+      }
     } catch (err) {
       console.error('Failed to load members:', err);
     }
@@ -207,6 +225,23 @@ const GroupsManager: React.FC<GroupsManagerProps> = ({ onClose }) => {
     setGroupColor('#6366f1');
   };
 
+  const handleUpdateDisplayName = async () => {
+    if (!editDisplayName.trim()) return;
+    setError(null);
+    try {
+      await sharingService.updateMyDisplayName(editDisplayName.trim());
+      setMyDisplayName(editDisplayName.trim());
+      setShowProfileModal(false);
+      setEditDisplayName('');
+      // Refresh members if a group is selected
+      if (selectedGroup) {
+        loadMembers(selectedGroup.id);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update display name');
+    }
+  };
+
   const openEditModal = (group: SharingGroup) => {
     setEditingGroup(group);
     setGroupName(group.name);
@@ -262,8 +297,29 @@ const GroupsManager: React.FC<GroupsManagerProps> = ({ onClose }) => {
               <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 700, color: '#1f2937' }}>
                 My Groups
               </h2>
-              <p style={{ margin: 0, fontSize: '0.8rem', color: '#6b7280' }}>
-                Connect to share
+              <p style={{ margin: 0, fontSize: '0.8rem', color: '#6b7280', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                {myDisplayName ? (
+                  <>
+                    Hi {myDisplayName}!
+                    <button
+                      onClick={() => {
+                        setEditDisplayName(myDisplayName);
+                        setShowProfileModal(true);
+                      }}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        cursor: 'pointer',
+                        fontSize: '0.75rem',
+                        color: theme.colors.primary,
+                        padding: 0,
+                      }}
+                      title="Edit display name"
+                    >
+                      ✏️
+                    </button>
+                  </>
+                ) : 'Share passwords & tasks with family'}
               </p>
             </div>
           </div>
@@ -607,6 +663,9 @@ const GroupsManager: React.FC<GroupsManagerProps> = ({ onClose }) => {
                           <h3 style={{ margin: '0 0 0.25rem', fontSize: '1rem', fontWeight: 600, color: '#1f2937' }}>
                             {inv.groupName || 'Group Invitation'}
                           </h3>
+                          <p style={{ margin: '0.25rem 0', fontSize: '0.85rem', color: '#4b5563' }}>
+                            Invited by <strong>{inv.inviterName || 'a group member'}</strong>
+                          </p>
                           {inv.message && (
                             <p style={{ margin: '0.25rem 0', fontSize: '0.9rem', color: '#6b7280', fontStyle: 'italic' }}>
                               "{inv.message}"
@@ -946,6 +1005,110 @@ const GroupsManager: React.FC<GroupsManagerProps> = ({ onClose }) => {
                   }}
                 >
                   Send Invitation
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Display Name Modal */}
+      {showProfileModal && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          background: 'rgba(0,0,0,0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1200,
+          padding: '1rem'
+        }}>
+          <div style={{
+            background: 'white',
+            borderRadius: '1rem',
+            width: '100%',
+            maxWidth: '360px',
+            overflow: 'hidden'
+          }}>
+            <div style={{
+              padding: '1rem 1.5rem',
+              borderBottom: '1px solid #e5e7eb',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center'
+            }}>
+              <h3 style={{ margin: 0, fontSize: '1.1rem' }}>
+                Edit Display Name
+              </h3>
+              <button
+                onClick={() => {
+                  setShowProfileModal(false);
+                  setEditDisplayName('');
+                }}
+                style={{ background: 'none', border: 'none', fontSize: '1.25rem', cursor: 'pointer', color: '#9ca3af' }}
+              >
+                ✕
+              </button>
+            </div>
+            
+            <div style={{ padding: '1.5rem' }}>
+              <div style={{ marginBottom: '1rem' }}>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500, fontSize: '0.9rem' }}>
+                  Your Name
+                </label>
+                <input
+                  type="text"
+                  value={editDisplayName}
+                  onChange={(e) => setEditDisplayName(e.target.value)}
+                  placeholder="e.g., Nitin, Dad, Mom"
+                  style={{
+                    width: '100%',
+                    padding: '0.75rem',
+                    border: '2px solid #e5e7eb',
+                    borderRadius: '0.5rem',
+                    fontSize: '1rem'
+                  }}
+                />
+                <p style={{ margin: '0.5rem 0 0', fontSize: '0.75rem', color: '#6b7280' }}>
+                  This name will be shown to other group members.
+                </p>
+              </div>
+              
+              <div style={{ display: 'flex', gap: '0.75rem' }}>
+                <button
+                  onClick={() => {
+                    setShowProfileModal(false);
+                    setEditDisplayName('');
+                  }}
+                  style={{
+                    flex: 1,
+                    padding: '0.75rem',
+                    background: '#f3f4f6',
+                    color: '#374151',
+                    border: 'none',
+                    borderRadius: '0.5rem',
+                    cursor: 'pointer',
+                    fontWeight: 500
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleUpdateDisplayName}
+                  disabled={!editDisplayName.trim()}
+                  style={{
+                    flex: 1,
+                    padding: '0.75rem',
+                    background: editDisplayName.trim() ? theme.colors.primary : '#e5e7eb',
+                    color: editDisplayName.trim() ? 'white' : '#9ca3af',
+                    border: 'none',
+                    borderRadius: '0.5rem',
+                    cursor: editDisplayName.trim() ? 'pointer' : 'not-allowed',
+                    fontWeight: 500
+                  }}
+                >
+                  Save
                 </button>
               </div>
             </div>

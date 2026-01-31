@@ -253,6 +253,20 @@ export async function leaveGroup(groupId: string): Promise<void> {
   await removeMember(groupId, user.id);
 }
 
+export async function updateMyDisplayName(displayName: string): Promise<void> {
+  const supabase = getClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('Not authenticated');
+
+  // Update display name in all groups the user is a member of
+  const { error } = await supabase
+    .from('myday_group_members')
+    .update({ display_name: displayName })
+    .eq('user_id', user.id);
+
+  if (error) throw error;
+}
+
 // ===== INVITATIONS =====
 
 export async function getMyInvitations(): Promise<GroupInvitation[]> {
@@ -273,6 +287,23 @@ export async function getMyInvitations(): Promise<GroupInvitation[]> {
 
   if (error) throw error;
 
+  // Get inviter names from group members
+  const inviterIds = [...new Set((data || []).map(row => row.invited_by))];
+  const inviterNames: Record<string, string> = {};
+  
+  if (inviterIds.length > 0) {
+    const { data: membersData } = await supabase
+      .from('myday_group_members')
+      .select('user_id, display_name')
+      .in('user_id', inviterIds);
+    
+    (membersData || []).forEach(m => {
+      if (m.display_name) {
+        inviterNames[m.user_id] = m.display_name;
+      }
+    });
+  }
+
   return (data || []).map(row => ({
     id: row.id,
     groupId: row.group_id,
@@ -285,6 +316,7 @@ export async function getMyInvitations(): Promise<GroupInvitation[]> {
     createdAt: row.created_at,
     respondedAt: row.responded_at,
     groupName: row.myday_groups?.name,
+    inviterName: inviterNames[row.invited_by] || undefined,
   }));
 }
 

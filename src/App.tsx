@@ -643,6 +643,22 @@ const AppContent: React.FC = () => {
             description: 'About Leo Planner',
             onClick: () => setShowAbout(true),
           },
+          ...(isAuthenticated ? [{
+            icon: '🚪',
+            label: 'Sign Out',
+            description: `Signed in as ${user?.email || 'User'}`,
+            onClick: async () => {
+              if (confirm('Are you sure you want to sign out?')) {
+                const { signOut } = await import('./lib/supabase');
+                await signOut();
+              }
+            },
+          }] : [{
+            icon: '🔑',
+            label: 'Sign In',
+            description: 'Sign in to sync your data',
+            onClick: () => setShowAuthModal(true),
+          }]),
         ]}
       />
     </div>
