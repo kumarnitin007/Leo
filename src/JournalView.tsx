@@ -22,12 +22,38 @@ import {
 } from './storage';
 import { formatDate } from './utils';
 
-const JournalView: React.FC = () => {
+interface JournalViewProps {
+  prefillContent?: string;
+  prefillMood?: 'great' | 'good' | 'okay' | 'bad' | 'terrible';
+  onPrefillUsed?: () => void; // Callback to clear prefill after use
+}
+
+const JournalView: React.FC<JournalViewProps> = ({ 
+  prefillContent, 
+  prefillMood,
+  onPrefillUsed 
+}) => {
   const [entries, setEntries] = useState<JournalEntry[]>([]);
   const [selectedDate, setSelectedDate] = useState<string>(formatDate(new Date()));
   const [currentEntry, setCurrentEntry] = useState<JournalEntry | null>(null);
   const [content, setContent] = useState('');
   const [mood, setMood] = useState<'great' | 'good' | 'okay' | 'bad' | 'terrible' | undefined>();
+  const [prefillApplied, setPrefillApplied] = useState(false);
+
+  // Apply prefill data from voice command
+  useEffect(() => {
+    if (!prefillApplied && (prefillContent || prefillMood)) {
+      if (prefillContent) {
+        setContent(prev => prev ? `${prev}\n\n${prefillContent}` : prefillContent);
+        setIsEditing(true);
+      }
+      if (prefillMood) {
+        setMood(prefillMood);
+      }
+      setPrefillApplied(true);
+      onPrefillUsed?.();
+    }
+  }, [prefillContent, prefillMood, prefillApplied, onPrefillUsed]);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [isEditing, setIsEditing] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -326,8 +352,135 @@ const JournalView: React.FC = () => {
 
         {/* Main editor area */}
         <div className="journal-editor">
-          {/* Date Navigator Card */}
-          <div className="journal-date-card">
+          {/* Combined Journal Card - Mobile-optimized single card */}
+          <div className="journal-combined-card">
+            {/* Date Navigator Row */}
+            <div className="journal-date-row">
+              <button onClick={goToPreviousDay} className="nav-btn journal-arrow-btn">
+                ←
+              </button>
+              <div className="current-date-display">
+                <div className="date-day-name">
+                  {new Date(selectedDate + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long' })}
+                </div>
+                <div className="date-full-display">
+                  {new Date(selectedDate + 'T00:00:00').toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
+                </div>
+              </div>
+              <button 
+                onClick={goToNextDay} 
+                className="nav-btn journal-arrow-btn" 
+                disabled={!canGoNext}
+                style={{ opacity: canGoNext ? 1 : 0.5 }}
+              >
+                →
+              </button>
+            </div>
+
+            {/* Mood Selector Row - Inline compact design */}
+            <div className="mood-selector-row">
+              <span className="mood-label">Feeling:</span>
+              <div className="mood-buttons-inline">
+                {[
+                  { key: 'great', emoji: '😄' },
+                  { key: 'good', emoji: '🙂' },
+                  { key: 'okay', emoji: '😐' },
+                  { key: 'bad', emoji: '😔' },
+                  { key: 'terrible', emoji: '😟' }
+                ].map(m => (
+                  <button
+                    key={m.key}
+                    className={`mood-btn-inline ${mood === m.key ? 'active' : ''}`}
+                    onClick={() => setMood(m.key as any)}
+                    disabled={!isEditing}
+                    title={m.key}
+                  >
+                    {m.emoji}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Journal Content */}
+            <div className="editor-content">
+              {isEditing ? (
+                <textarea
+                  className="journal-textarea"
+                  value={content}
+                  onChange={(e) => setContent(e.target.value)}
+                  placeholder="Write your thoughts here... How was your day? What did you learn? What are you grateful for?"
+                  autoFocus
+                />
+              ) : (
+                <div className="journal-display">
+                  {content || <em style={{ color: '#9ca3af' }}>No entry for this date. Tap Edit to write.</em>}
+                </div>
+              )}
+            </div>
+
+            {/* Tags Section - Compact inline */}
+            {availableTags.length > 0 && (
+              <div className="tag-selector-inline">
+                <div className="tag-buttons-inline">
+                  {availableTags.map(tag => (
+                    <button
+                      key={tag.id}
+                      className={`tag-btn-small ${selectedTags.includes(tag.id) ? 'active' : ''}`}
+                      style={{
+                        borderColor: tag.color,
+                        backgroundColor: selectedTags.includes(tag.id) ? tag.color : 'transparent',
+                        color: selectedTags.includes(tag.id) ? 'white' : tag.color
+                      }}
+                      onClick={() => {
+                        if (!isEditing) return;
+                        setSelectedTags(prev =>
+                          prev.includes(tag.id)
+                            ? prev.filter(t => t !== tag.id)
+                            : [...prev, tag.id]
+                        );
+                      }}
+                      disabled={!isEditing}
+                    >
+                      {tag.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Action Buttons Row */}
+            <div className="journal-actions-row">
+              <button
+                onClick={isEditing ? handleSave : () => setIsEditing(true)}
+                className="btn-primary journal-save-btn"
+                disabled={isEditing && !content.trim()}
+              >
+                <span>{isEditing ? '💾' : '✏️'}</span>
+                <span>{isEditing ? 'Save' : 'Edit'}</span>
+              </button>
+
+              {!isEditing && currentEntry && (
+                <button onClick={handleDelete} className="btn-danger-small">
+                  🗑️
+                </button>
+              )}
+
+              {isEditing && currentEntry && (
+                <button
+                  onClick={() => {
+                    loadEntryForDate(selectedDate);
+                    setIsEditing(false);
+                  }}
+                  className="btn-secondary-small"
+                >
+                  ✕ Cancel
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Legacy Desktop Cards - Hidden on mobile via CSS */}
+          <div className="journal-date-card desktop-only">
             <div className="date-navigation">
               <button onClick={goToPreviousDay} className="nav-btn journal-arrow-btn">
                 ←
@@ -374,8 +527,8 @@ const JournalView: React.FC = () => {
             </div>
           </div>
 
-          {/* Entry Editor Card */}
-          <div className="journal-entry-card">
+          {/* Entry Editor Card - Desktop */}
+          <div className="journal-entry-card desktop-only">
             <div className="editor-content">
               {isEditing ? (
                 <textarea
@@ -392,7 +545,7 @@ const JournalView: React.FC = () => {
               )}
             </div>
 
-            {/* Tags Section - Moved after textarea */}
+            {/* Tags Section */}
             {availableTags.length > 0 && (
               <div className="tag-selector journal-tags-section">
                 <label>Tags</label>

@@ -156,97 +156,88 @@ const AuthModal: React.FC<AuthModalProps> = ({ onClose, onSuccess }) => {
     }
   };
 
-  // Demo account credentials: prefer env-provided values for production demo flow
-  const DEMO_EMAIL = (import.meta.env.VITE_DEMO_EMAIL as string) || 'demo@example.com';
-  const DEMO_PASSWORD = (import.meta.env.VITE_DEMO_PASSWORD as string) || 'demo-password-1234';
-  const DEMO_SAFE_PASSWORD = (import.meta.env.VITE_DEMO_SAFE_PASSWORD as string) || undefined;
+  // SECURITY: Demo credentials are NEVER exposed to client-side code.
+  // Demo login ONLY works via server-side /api/demo-login endpoint.
+  // The server reads DEMO_EMAIL and DEMO_PASSWORD from non-VITE_ env vars.
 
   const attemptDemoLogin = async () => {
-    // Use server-side demo-login endpoint so demo credentials never reach the browser
+    // Demo login MUST go through server-side endpoint for security.
+    // The server has access to DEMO_EMAIL and DEMO_PASSWORD (non-VITE_ vars).
     setLoading(true);
     setError('');
+    
+    const client = getSupabaseClient();
+    
     try {
-  console.debug('AuthModal: attempting demo login via /api/demo-login');
-  const resp = await fetch('/api/demo-login', { method: 'POST' });
-      if (!resp.ok) {
-        // If endpoint not present in dev, fall back to local demo without raising an error
-        if (resp.status === 404) {
-          console.info('/api/demo-login not found (dev). Falling back to local demo mode.');
-          // Local demo fallback (same as catch fallback) — keep consistent behavior
+      console.debug('AuthModal: attempting demo login via /api/demo-login');
+      const resp = await fetch('/api/demo-login', { method: 'POST' });
+      
+      if (resp.ok) {
+        const json = await resp.json();
+        console.debug('AuthModal: /api/demo-login response parsed', { hasSession: !!json?.session });
+        const session = json?.session;
+
+        if (session && session.access_token && session.refresh_token && client) {
+          await client.auth.setSession({
+            access_token: session.access_token,
+            refresh_token: session.refresh_token
+          });
+
+          // Create profile if needed
           try {
-            localStorage.setItem('myday-demo', 'true');
-            const demoLocal = { id: 'demo', username: 'Demo User', email: DEMO_EMAIL, avatarEmoji: '🎯' };
-            localStorage.setItem('myday-demo-profile', JSON.stringify(demoLocal));
-            localStorage.setItem('myday-load-sample-data', 'true');
-            console.debug('AuthModal: local demo fallback written to localStorage');
-            onSuccess();
-            onClose();
-            return;
-          } catch (e) {
-            // If localStorage fails, fall through to error handling below
-            console.warn('Failed to write local demo profile during fallback:', e);
-            throw new Error('Demo login fallback failed');
-          }
-        } else {
-          const body = await resp.json().catch(() => ({}));
-          console.error('Demo login server error:', body?.error || resp.statusText || resp.status);
-          throw new Error('Demo login failed on server');
-        }
-      }
-
-      const json = await resp.json();
-      console.debug('AuthModal: /api/demo-login response parsed', { hasSession: !!json?.session });
-      const session = json?.session;
-
-      if (session && session.access_token && session.refresh_token) {
-        const client = getSupabaseClient();
-        if (!client) throw new Error('Supabase client not configured');
-
-        // Set session in client (password never touched by browser)
-        await client.auth.setSession({
-          access_token: session.access_token,
-          refresh_token: session.refresh_token
-        });
-
-        // Trigger profile creation check (server may have created profile already)
-        try {
-          const { data: user } = await client.auth.getUser();
-          if (user?.user) {
-            try {
+            const { data: user } = await client.auth.getUser();
+            if (user?.user) {
               await client.from('myday_users').upsert({
                 id: user.user.id,
                 username: 'Demo User',
                 email: user.user.email,
                 avatar_emoji: '🎯'
-              });
-            } catch (e) {
-              // ignore
+              }).select();
             }
+          } catch (e) {
+            // Profile creation optional
           }
-        } catch (e) {
-          // ignore
+
+          localStorage.setItem('myday-load-sample-data', 'true');
+          onSuccess();
+          onClose();
+          return;
         }
-
-        onSuccess();
-        onClose();
-        return;
+        
+        throw new Error('Demo login returned invalid session');
       }
-
-      throw new Error('Demo login returned no session');
-    } catch (err: any) {
-      console.error('Demo login error:', err);
-      // Fall back to local demo mode if server-side fails
-      try {
+      
+      // Server endpoint not available or failed
+      if (resp.status === 404) {
+        // In development without server, fall back to local demo mode
+        // This mode has LIMITED functionality (no database access)
+        console.warn('Demo login API not available. Using local demo mode (limited).');
+        
         localStorage.setItem('myday-demo', 'true');
-        const demoLocal = { id: 'demo', username: 'Demo User', email: DEMO_EMAIL, avatarEmoji: '🎯' };
+        const demoLocal = { 
+          id: 'demo-local', 
+          username: 'Demo User (Local)', 
+          email: 'demo@local', 
+          avatarEmoji: '🎯' 
+        };
         localStorage.setItem('myday-demo-profile', JSON.stringify(demoLocal));
         localStorage.setItem('myday-load-sample-data', 'true');
+        
+        // Show warning that this is limited mode
+        alert('⚠️ Demo running in local mode with limited functionality.\n\nTo enable full demo:\n1. Set up /api/demo-login server endpoint\n2. Configure DEMO_EMAIL and DEMO_PASSWORD (non-VITE_) in server env');
+        
         onSuccess();
         onClose();
         return;
-      } catch (e) {
-        setError(err.message || 'Demo login failed');
       }
+      
+      // Other server errors
+      const errorBody = await resp.json().catch(() => ({}));
+      throw new Error(errorBody?.error || `Demo login failed (${resp.status})`);
+      
+    } catch (err: any) {
+      console.error('Demo login error:', err);
+      setError(err.message || 'Demo login failed. Server endpoint may not be configured.');
     } finally {
       setLoading(false);
     }

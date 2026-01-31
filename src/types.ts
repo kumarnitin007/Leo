@@ -516,3 +516,179 @@ export interface UserVisibleDay extends ReferenceDay {
   calendarNames: string[];
 }
 
+// ===== TO-DO LIST TYPES =====
+
+export type TodoPriority = 'low' | 'medium' | 'high' | 'urgent';
+
+export interface TodoGroup {
+  id: string;
+  name: string;
+  color?: string;
+  icon?: string;
+  order: number;
+  isExpanded?: boolean; // UI state for collapsed/expanded
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface TodoItem {
+  id: string;
+  text: string;
+  groupId?: string; // null = ungrouped
+  isCompleted: boolean;
+  completedAt?: string; // ISO timestamp
+  priority?: TodoPriority;
+  dueDate?: string; // YYYY-MM-DD
+  notes?: string;
+  order: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// ===== SHARING SYSTEM TYPES =====
+
+export type GroupMemberRole = 'owner' | 'admin' | 'member';
+export type InvitationStatus = 'pending' | 'accepted' | 'rejected' | 'expired';
+export type ShareMode = 'readonly' | 'copy'; // copy = can copy to local DB; readonly = view only
+
+export interface SharingGroup {
+  id: string;
+  name: string;
+  description?: string;
+  icon?: string;
+  color?: string;
+  createdBy: string; // user_id
+  maxMembers: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface GroupMember {
+  id: string;
+  groupId: string;
+  userId: string;
+  role: GroupMemberRole;
+  displayName?: string;
+  joinedAt: string;
+  // Extended fields from joins
+  userEmail?: string;
+  userAvatar?: string;
+}
+
+export interface GroupInvitation {
+  id: string;
+  groupId: string;
+  invitedBy: string; // user_id
+  invitedUserId?: string; // For existing users
+  invitedEmail?: string; // For non-users
+  status: InvitationStatus;
+  message?: string;
+  expiresAt?: string;
+  createdAt: string;
+  respondedAt?: string;
+  // Extended fields from joins
+  groupName?: string;
+  inviterName?: string;
+}
+
+export interface SharedSafeEntry {
+  id: string;
+  safeEntryId: string;
+  groupId: string;
+  sharedBy: string; // user_id
+  shareMode: ShareMode;
+  sharedAt: string;
+  expiresAt?: string;
+  revokedAt?: string;
+  isActive: boolean;
+  // Extended fields from joins
+  entryTitle?: string;
+  groupName?: string;
+  sharedByName?: string;
+}
+
+export interface SharedDocument {
+  id: string;
+  documentId: string;
+  groupId: string;
+  sharedBy: string;
+  shareMode: ShareMode;
+  sharedAt: string;
+  expiresAt?: string;
+  revokedAt?: string;
+  isActive: boolean;
+  // Extended fields
+  documentTitle?: string;
+  groupName?: string;
+  sharedByName?: string;
+}
+
+export interface EntryCopy {
+  id: string;
+  originalEntryId: string;
+  originalOwnerId: string;
+  copiedEntryId: string;
+  copiedBy: string;
+  entryType: 'safe_entry' | 'document';
+  copiedAt: string;
+}
+
+// Extended type for viewing shared entries with full details
+export interface SharedEntryView extends SharedSafeEntry {
+  entry?: SafeEntry; // The actual entry data (decrypted on client)
+}
+
+export interface SharedDocumentView extends SharedDocument {
+  document?: DocumentVault; // The actual document data
+}
+
+// ===== USER LEVEL/TIER SYSTEM =====
+
+export type UserLevelId = 'free' | 'basic' | 'pro' | 'premium';
+
+export interface UserLevel {
+  id: UserLevelId;
+  name: string;
+  displayName: string;
+  description?: string;
+  tierOrder: number;
+  color: string;
+  icon: string;
+  monthlyPrice: number;
+  yearlyPrice: number;
+  isDefault: boolean;
+}
+
+export interface AppFeature {
+  id: string;
+  name: string;
+  displayName: string;
+  description?: string;
+  category: 'core' | 'safe' | 'sharing' | 'calendars' | 'voice' | 'analytics' | 'ai';
+}
+
+export interface LevelFeature {
+  levelId: UserLevelId;
+  featureId: string;
+  isEnabled: boolean;
+  limitValue?: number | null; // null = unlimited
+}
+
+export interface UserLevelAssignment {
+  id: string;
+  userId: string;
+  levelId: UserLevelId;
+  assignedAt: string;
+  expiresAt?: string;
+  assignedBy?: string;
+  notes?: string;
+  subscriptionId?: string;
+  isActive: boolean;
+}
+
+// User's effective level with all features
+export interface UserEffectiveLevel {
+  level: UserLevel;
+  features: Map<string, { enabled: boolean; limit?: number | null }>;
+  expiresAt?: string;
+}

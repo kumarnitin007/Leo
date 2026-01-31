@@ -2,8 +2,9 @@ import React, { useState } from 'react';
 import IntegrationsView from './IntegrationsView';
 import TagsManager from './TagsManager';
 import SettingsModal from './components/SettingsModal';
+import DataExport from './components/DataExport';
 
-type SettingsTab = 'profile' | 'integrations' | 'tags';
+type SettingsTab = 'profile' | 'integrations' | 'tags' | 'export';
 
 const SettingsView: React.FC = () => {
   const [activeTab, setActiveTab] = useState<SettingsTab>('profile');
@@ -20,19 +21,25 @@ const SettingsView: React.FC = () => {
           className={`sub-tab ${activeTab === 'profile' ? 'active' : ''}`}
           onClick={() => setActiveTab('profile')}
         >
-          👤 Profile & Preferences
-        </button>
-        <button
-          className={`sub-tab ${activeTab === 'integrations' ? 'active' : ''}`}
-          onClick={() => setActiveTab('integrations')}
-        >
-          🔌 Integrations
+          👤 Profile
         </button>
         <button
           className={`sub-tab ${activeTab === 'tags' ? 'active' : ''}`}
           onClick={() => setActiveTab('tags')}
         >
           🏷️ Tags
+        </button>
+        <button
+          className={`sub-tab ${activeTab === 'export' ? 'active' : ''}`}
+          onClick={() => setActiveTab('export')}
+        >
+          📤 Export
+        </button>
+        <button
+          className={`sub-tab ${activeTab === 'integrations' ? 'active' : ''}`}
+          onClick={() => setActiveTab('integrations')}
+        >
+          🔌 Integrations
         </button>
       </div>
 
@@ -80,6 +87,7 @@ const SettingsView: React.FC = () => {
         )}
         {activeTab === 'integrations' && <IntegrationsView />}
         {activeTab === 'tags' && <TagsManager />}
+        {activeTab === 'export' && <DataExport />}
       </div>
     </div>
   );

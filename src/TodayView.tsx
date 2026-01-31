@@ -10,9 +10,10 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Task, Event, AppData } from './types';
+import { Task, Event, AppData, UserVisibleDay } from './types';
 import { getTodayString, getTasksForToday, formatDate, getWeekBounds, getMonthBounds, shouldTaskShowToday } from './utils';
 import { loadData, completeTask, isTaskCompletedToday, getTaskSpilloversForDate, moveTaskToNextDay, getCompletionCountForPeriod, saveTaskOrder, loadTaskOrder, getUpcomingEvents, acknowledgeEvent, isEventAcknowledged } from './storage';
+import { getUserVisibleDaysByRange } from './services/referenceCalendarStorage';
 import TaskActionModal from './TaskActionModal';
 import CountdownTimer from './components/CountdownTimer';
 import ProgressAndReviewModal from './components/ProgressAndReviewModal';
@@ -66,6 +67,7 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
   const [selectedDate, setSelectedDate] = useState<string>(getTodayString());
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [datePickerDate, setDatePickerDate] = useState<string>(getTodayString());
+  const [referenceCalendarDays, setReferenceCalendarDays] = useState<UserVisibleDay[]>([]);
   const today = getTodayString();
 
   const handleLayoutChange = async (layout: DashboardLayout) => {
@@ -244,6 +246,17 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
       
       // Get events for selected date (show events on that specific date)
       const upcomingEvents = (await getUpcomingEvents(0, selectedDate)).filter(({ event }) => !event.hideFromDashboard);
+      
+      // Get reference calendar days for selected date (and next 7 days)
+      try {
+        const endDateForRef = new Date(selectedDate);
+        endDateForRef.setDate(endDateForRef.getDate() + 7);
+        const refDays = await getUserVisibleDaysByRange(selectedDate, endDateForRef.toISOString().split('T')[0]);
+        setReferenceCalendarDays(refDays);
+      } catch (err) {
+        console.warn('Could not load reference calendar days:', err);
+        setReferenceCalendarDays([]);
+      }
       
       // Convert tasks to dashboard items
       const taskItems: DashboardItem[] = combinedTasks.map(task => ({
@@ -1818,6 +1831,123 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
                 <button onClick={() => setShowOpenAIPrompt(false)} style={{ padding: '0.5rem 0.75rem', background: '#6b7280', color: 'white', border: 'none', borderRadius: '6px' }}>Close</button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reference Calendar Days Section */}
+      {referenceCalendarDays.length > 0 && (
+        <div style={{
+          marginTop: '2rem',
+          padding: '1.5rem',
+          background: 'linear-gradient(135deg, rgba(255,255,255,0.95) 0%, rgba(249,250,251,0.95) 100%)',
+          borderRadius: '1rem',
+          boxShadow: '0 4px 12px rgba(0,0,0,0.08)'
+        }}>
+          <h3 style={{ 
+            margin: '0 0 1rem 0', 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: '0.5rem',
+            fontSize: '1.1rem',
+            color: '#1f2937'
+          }}>
+            📅 Upcoming Observances
+            <span style={{
+              fontSize: '0.75rem',
+              padding: '0.25rem 0.5rem',
+              background: '#e0e7ff',
+              color: '#4338ca',
+              borderRadius: '9999px',
+              fontWeight: 500
+            }}>
+              {referenceCalendarDays.length}
+            </span>
+          </h3>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+            {referenceCalendarDays.slice(0, 5).map(day => {
+              const isToday = day.date === selectedDate;
+              const dayDate = new Date(day.date + 'T00:00:00');
+              const daysUntil = Math.ceil((dayDate.getTime() - new Date(selectedDate + 'T00:00:00').getTime()) / (1000 * 60 * 60 * 24));
+              
+              return (
+                <div
+                  key={day.id}
+                  style={{
+                    padding: '1rem',
+                    borderRadius: '0.75rem',
+                    background: isToday ? 'linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)' : 'white',
+                    border: `2px solid ${isToday ? '#f59e0b' : day.primaryColor || '#e5e7eb'}`,
+                    borderLeftWidth: '4px',
+                    borderLeftColor: day.primaryColor || '#6366f1'
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
+                        {day.icon && <span style={{ fontSize: '1.25rem' }}>{day.icon}</span>}
+                        <span style={{ fontWeight: 600, color: '#1f2937' }}>{day.eventName}</span>
+                        {isToday && (
+                          <span style={{
+                            fontSize: '0.7rem',
+                            padding: '0.125rem 0.5rem',
+                            background: '#f59e0b',
+                            color: 'white',
+                            borderRadius: '9999px',
+                            fontWeight: 600
+                          }}>
+                            TODAY
+                          </span>
+                        )}
+                      </div>
+                      {day.significance && (
+                        <p style={{ margin: '0.25rem 0 0', fontSize: '0.85rem', color: '#6b7280' }}>
+                          {day.significance}
+                        </p>
+                      )}
+                      {day.calendarNames && day.calendarNames.length > 0 && (
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.25rem', marginTop: '0.5rem' }}>
+                          {day.calendarNames.map(name => (
+                            <span
+                              key={name}
+                              style={{
+                                fontSize: '0.7rem',
+                                padding: '0.125rem 0.5rem',
+                                background: '#f3f4f6',
+                                color: '#6b7280',
+                                borderRadius: '0.25rem'
+                              }}
+                            >
+                              {name}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    <div style={{ textAlign: 'right', marginLeft: '1rem' }}>
+                      <div style={{ fontSize: '0.8rem', color: '#9ca3af' }}>
+                        {dayDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                      </div>
+                      {daysUntil > 0 && (
+                        <div style={{
+                          fontSize: '0.75rem',
+                          color: '#6366f1',
+                          fontWeight: 500,
+                          marginTop: '0.25rem'
+                        }}>
+                          in {daysUntil} day{daysUntil > 1 ? 's' : ''}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+            {referenceCalendarDays.length > 5 && (
+              <p style={{ textAlign: 'center', fontSize: '0.85rem', color: '#6b7280', margin: '0.5rem 0 0' }}>
+                +{referenceCalendarDays.length - 5} more observances in the next 7 days
+              </p>
+            )}
           </div>
         </div>
       )}

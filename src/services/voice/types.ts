@@ -8,6 +8,7 @@ export type IntentType =
   | 'CREATE_PINNED_EVENT'
   | 'CREATE_MILESTONE'
   | 'CREATE_RESOLUTION'
+  | 'CREATE_TODO' // New To-Do list item
   | 'UPDATE'
   | 'DELETE'
   | 'QUERY'

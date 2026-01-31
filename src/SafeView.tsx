@@ -34,6 +34,9 @@ import ChangeMasterPasswordModal from './components/ChangeMasterPasswordModal';
 import SafeTags from './components/SafeTags';
 import SafeDocumentVault from './components/SafeDocumentVault';
 import SafeDocumentVaultForm from './components/SafeDocumentVaultForm';
+import GroupsManager from './components/GroupsManager';
+import ShareEntryModal from './components/ShareEntryModal';
+import SharedWithMeView from './components/SharedWithMeView';
 
 const AUTO_LOCK_TIMEOUT = 15 * 60 * 1000; // 15 minutes in milliseconds
 const LOCK_WARNING_TIME = 60 * 1000; // 1 minute before lock
@@ -59,6 +62,11 @@ const SafeView: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'entries' | 'documents'>('entries');
   const [showDocumentForm, setShowDocumentForm] = useState(false);
   const [editingDocument, setEditingDocument] = useState<DocumentVault | null>(null);
+  
+  // Sharing state
+  const [showGroupsManager, setShowGroupsManager] = useState(false);
+  const [showSharedWithMe, setShowSharedWithMe] = useState(false);
+  const [shareEntry, setShareEntry] = useState<{ id: string; title: string; type: 'safe_entry' | 'document' } | null>(null);
   
   const inactivityTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const warningTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -393,13 +401,14 @@ const SafeView: React.FC = () => {
 
   // Locked state
   if (isLocked) {
-    // Determine demo user state based on env or local demo flag
-    const DEMO_EMAIL = (import.meta.env.VITE_DEMO_EMAIL as string) || '';
-    const demoSafeFromEnv = (import.meta.env.VITE_DEMO_SAFE_PASSWORD as string) || null;
-    const demoSafeFromLocal = localStorage.getItem('myday-demo-safe-password') || null;
-    const demoSafePassword = demoSafeFromEnv || demoSafeFromLocal;
+    // SECURITY: Demo detection uses localStorage flags only (set by server-side demo login)
+    // Never expose demo credentials in client-side code
     const isLocalDemoFlag = localStorage.getItem('myday-demo') === 'true';
-    const isDemoUser = !!(isLocalDemoFlag || (user && DEMO_EMAIL && user.email === DEMO_EMAIL));
+    const demoProfile = localStorage.getItem('myday-demo-profile');
+    const isDemoUser = isLocalDemoFlag || (demoProfile !== null);
+    
+    // Demo safe password only from localStorage (set by server during demo login)
+    const demoSafePassword = localStorage.getItem('myday-demo-safe-password') || null;
 
     return (
       <SafeLockScreen
@@ -450,32 +459,62 @@ const SafeView: React.FC = () => {
             {entryCount} {entryCount === 1 ? 'entry' : 'entries'}, {documents.length} {documents.length === 1 ? 'document' : 'documents'}
           </p>
         </div>
-        <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
+          <button
+            onClick={() => setShowGroupsManager(true)}
+            style={{
+              padding: '0.625rem 1rem',
+              backgroundColor: '#6366f1',
+              color: 'white',
+              border: 'none',
+              borderRadius: '0.5rem',
+              cursor: 'pointer',
+              fontSize: '0.9rem',
+              fontWeight: 500
+            }}
+          >
+            👥 Groups
+          </button>
+          <button
+            onClick={() => setShowSharedWithMe(true)}
+            style={{
+              padding: '0.625rem 1rem',
+              backgroundColor: '#14b8a6',
+              color: 'white',
+              border: 'none',
+              borderRadius: '0.5rem',
+              cursor: 'pointer',
+              fontSize: '0.9rem',
+              fontWeight: 500
+            }}
+          >
+            🔗 Shared With Me
+          </button>
           <button
             onClick={() => setShowChangePassword(true)}
             style={{
-              padding: '0.75rem 1.5rem',
+              padding: '0.625rem 1rem',
               backgroundColor: '#8b5cf6',
               color: 'white',
               border: 'none',
               borderRadius: '0.5rem',
               cursor: 'pointer',
-              fontSize: '1rem',
+              fontSize: '0.9rem',
               fontWeight: 500
             }}
           >
-            🔐 Change Password
+            🔐 Password
           </button>
           <button
             onClick={() => setShowImportExport(true)}
             style={{
-              padding: '0.75rem 1.5rem',
+              padding: '0.625rem 1rem',
               backgroundColor: '#10b981',
               color: 'white',
               border: 'none',
               borderRadius: '0.5rem',
               cursor: 'pointer',
-              fontSize: '1rem'
+              fontSize: '0.9rem'
             }}
           >
             📥 Import/Export
@@ -483,27 +522,27 @@ const SafeView: React.FC = () => {
           <button
             onClick={() => setShowSafeTags(true)}
             style={{
-              padding: '0.75rem 1.5rem',
+              padding: '0.625rem 1rem',
               backgroundColor: '#f59e0b',
               color: 'white',
               border: 'none',
               borderRadius: '0.5rem',
               cursor: 'pointer',
-              fontSize: '1rem'
+              fontSize: '0.9rem'
             }}
           >
-            🏷️ Safe Tags
+            🏷️ Tags
           </button>
           <button
             onClick={handleLock}
             style={{
-              padding: '0.75rem 1.5rem',
+              padding: '0.625rem 1rem',
               backgroundColor: '#6b7280',
               color: 'white',
               border: 'none',
               borderRadius: '0.5rem',
               cursor: 'pointer',
-              fontSize: '1rem'
+              fontSize: '0.9rem'
             }}
           >
             🔒 Lock
@@ -633,6 +672,7 @@ const SafeView: React.FC = () => {
               setIsEditing(false);
             }}
             onEntrySaved={loadEntries}
+            onShare={(entry) => setShareEntry({ id: entry.id, title: entry.title, type: 'safe_entry' })}
           />
         )
       ) : (
@@ -659,6 +699,7 @@ const SafeView: React.FC = () => {
             onDocumentSaved={loadDocuments}
             onAddDocument={() => setShowDocumentForm(true)}
             onEditDocument={(doc) => setEditingDocument(doc)}
+            onShare={(doc) => setShareEntry({ id: doc.id, title: doc.title, type: 'document' })}
           />
         )
       )}
@@ -693,6 +734,36 @@ const SafeView: React.FC = () => {
           onSuccess={async () => {
             // Reload entries after password change (they're re-encrypted)
             await loadEntries();
+          }}
+        />
+      )}
+
+      {/* Groups Manager Modal */}
+      {showGroupsManager && (
+        <GroupsManager onClose={() => setShowGroupsManager(false)} />
+      )}
+
+      {/* Shared With Me Modal */}
+      {showSharedWithMe && (
+        <SharedWithMeView
+          onClose={() => setShowSharedWithMe(false)}
+          onCopyEntry={(entryId, entryType) => {
+            // TODO: Implement copy functionality
+            // This would decrypt the shared entry and create a copy in user's own safe
+            alert('Copy feature coming soon! You would need the sharer\'s encryption key to decrypt and copy.');
+          }}
+        />
+      )}
+
+      {/* Share Entry Modal */}
+      {shareEntry && (
+        <ShareEntryModal
+          entryId={shareEntry.id}
+          entryTitle={shareEntry.title}
+          entryType={shareEntry.type}
+          onClose={() => setShareEntry(null)}
+          onShared={() => {
+            setShareEntry(null);
           }}
         />
       )}

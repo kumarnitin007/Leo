@@ -28,5 +28,24 @@ export default defineConfig({
     'import.meta.env.BUILD_DATE': JSON.stringify(buildDate),
     'import.meta.env.BUILD_TIME': JSON.stringify(buildTime),
   },
+  test: {
+    globals: true,
+    environment: 'jsdom',
+    setupFiles: ['./src/__tests__/setup.ts'],
+    include: ['src/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}'],
+    exclude: ['node_modules', 'dist'],
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'json', 'html'],
+      exclude: [
+        'node_modules/',
+        'src/__tests__/',
+        '**/*.d.ts',
+        '**/*.config.*',
+        '**/types.ts'
+      ]
+    },
+    reporters: ['verbose'],
+    testTimeout: 10000,
+  },
 })
-

@@ -6,9 +6,10 @@ import { IntentType, IntentClassification } from './types';
  */
 export class IntentClassifier {
   private patterns: Record<IntentType, string[]> = {
-    CREATE_TASK: ['remind me to', 'remind me', 'add task', 'todo', 'create task', 'note to'],
+    CREATE_TODO: ['add todo', 'add to do', 'to-do', 'quick todo', 'add to my list', 'put on my list', 'remember to', 'don\'t forget'],
+    CREATE_TASK: ['remind me to', 'remind me', 'add task', 'create task', 'note to'],
     CREATE_EVENT: ['schedule', 'meeting', 'appointment', 'event at', 'book'],
-    CREATE_ITEM: ['add to list', 'add item', 'put', 'add item to'],
+    CREATE_ITEM: ['add item', 'track item'],
     CREATE_JOURNAL: ['journal', 'write in my journal', "i'm feeling", 'note to self'],
     CREATE_ROUTINE: ['every day', 'daily', 'every week', 'every monday', 'routine'],
     CREATE_PINNED_EVENT: ['pin', 'pinned event', 'pin event'],

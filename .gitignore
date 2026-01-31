@@ -18,7 +18,6 @@ dist-ssr
 .env.production
 
 #cutom ignore
-*.sql
 *.md
 *.txt
 

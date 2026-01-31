@@ -4,6 +4,7 @@ import SpeechService from './SpeechService';
 import VoiceCommandLogger from './VoiceCommandLogger';
 import { ParsedCommand } from './types';
 import * as storage from '../../storage';
+import * as todoService from '../todoService';
 import dbService from './VoiceCommandDatabaseService';
 
 // Small UUID v4 generator used for creating deterministic IDs for created items
@@ -134,6 +135,39 @@ export class VoiceCommandService {
             console.warn('CREATE_EVENT: db save/link failed', err);
           }
 
+          break;
+        }
+        case 'CREATE_TODO': {
+          // Extract text from TITLE entity or use transcript
+          const title = parsed.entities.find(e=>e.type==='TITLE')?.normalizedValue || parsed.transcript;
+          const priorityEntity = parsed.entities.find(e=>e.type==='PRIORITY');
+          const priority = priorityEntity?.normalizedValue || 'medium';
+
+          try {
+            const todoItem = await todoService.createTodoItem({
+              text: title,
+              priority: priority as 'low' | 'medium' | 'high' | 'urgent',
+            });
+            createdId = todoItem.id;
+
+            // Log to DB
+            await dbService.saveCommand({
+              userId: userId || undefined,
+              sessionId,
+              rawTranscript: parsed.transcript,
+              intentType: parsed.intent.type as any,
+              entityType: 'TODO',
+              extractedTitle: title,
+              extractedPriority: priority,
+              overallConfidence: parsed.overallConfidence,
+              isValid: true,
+              outcome: 'SUCCESS' as any,
+              createdItemType: 'todo',
+              createdItemId: createdId
+            });
+          } catch (err) {
+            console.warn('CREATE_TODO: failed', err);
+          }
           break;
         }
         default:

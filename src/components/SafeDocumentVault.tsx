@@ -19,6 +19,7 @@ interface SafeDocumentVaultProps {
   onDocumentSaved: () => void;
   onAddDocument: () => void;
   onEditDocument: (doc: DocumentVault) => void;
+  onShare?: (doc: DocumentVault) => void;
 }
 
 const providerInfo: Record<DocumentProvider, { icon: string; name: string }> = {
@@ -45,7 +46,8 @@ const SafeDocumentVault: React.FC<SafeDocumentVaultProps> = ({
   encryptionKey,
   onDocumentSaved,
   onAddDocument,
-  onEditDocument
+  onEditDocument,
+  onShare
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedType, setSelectedType] = useState<DocumentType | null>(null);
@@ -451,6 +453,25 @@ const SafeDocumentVault: React.FC<SafeDocumentVaultProps> = ({
                   >
                     ✎
                   </button>
+                  {onShare && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onShare(doc);
+                      }}
+                      style={{
+                        padding: '0.5rem',
+                        backgroundColor: '#e0f2fe',
+                        color: '#0284c7',
+                        border: 'none',
+                        borderRadius: '0.375rem',
+                        cursor: 'pointer'
+                      }}
+                      title="Share this document"
+                    >
+                      🔗
+                    </button>
+                  )}
                   <button
                     onClick={(e) => {
                       e.stopPropagation();

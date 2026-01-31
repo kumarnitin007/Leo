@@ -12,10 +12,11 @@
  * these settings consistently.
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { ThemeProvider, useTheme } from './contexts/ThemeContext';
 import { UserProvider, useUser } from './contexts/UserContext';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { VoiceCommandPrefillProvider, useVoiceCommandPrefill } from './contexts/VoiceCommandPrefillContext';
 import TodayView from './TodayView';
 import TasksAndEventsView from './TasksAndEventsView';
 import JournalView from './JournalView';
@@ -42,8 +43,11 @@ import MobileBottomSheet from './components/MobileBottomSheet';
 import VoiceCommandButton from './components/VoiceCommand/VoiceCommandButton';
 import { isFirstTimeUser, markOnboardingComplete } from './storage';
 import { loadSampleTasks } from './utils/sampleData';
+import TodoView from './TodoView';
+import { ParsedCommand } from './services/voice/types';
+import { VoiceCommandLog } from './types/voice-command-db.types';
 
-type View = 'today' | 'tasks-events' | 'items' | 'journal' | 'resolutions' | 'analytics' | 'settings' | 'safe';
+type View = 'today' | 'tasks-events' | 'items' | 'journal' | 'resolutions' | 'analytics' | 'settings' | 'safe' | 'todo';
 
 /**
  * Main App Content Component
@@ -63,6 +67,9 @@ const AppContent: React.FC = () => {
   const [showAddSheet, setShowAddSheet] = useState(false);
   const [showMoreSheet, setShowMoreSheet] = useState(false);
   const [tasksEventsInitialTab, setTasksEventsInitialTab] = useState<'tasks' | 'events' | 'routines' | 'items' | 'resolutions'>('tasks');
+  const [showVoiceAddModal, setShowVoiceAddModal] = useState(false);
+  const [journalPrefillContent, setJournalPrefillContent] = useState<string | undefined>();
+  const [journalPrefillMood, setJournalPrefillMood] = useState<'great' | 'good' | 'okay' | 'bad' | 'terrible' | undefined>();
   
   const { theme } = useTheme();
   const { avatar, username } = useUser();
@@ -97,6 +104,87 @@ const AppContent: React.FC = () => {
     setCurrentView(view);
     setKey(prev => prev + 1); // Force re-render of the view
   };
+
+  // Handle voice command prefill and navigate to appropriate view
+  const handleVoicePrefillAndNavigate = useCallback((parsed: ParsedCommand) => {
+    const intentType = parsed.intent.type;
+    const getEntity = (type: string) => parsed.entities.find(e => e.type === type);
+    
+    // Map intent to view and prefill data
+    switch (intentType) {
+      case 'CREATE_JOURNAL': {
+        // Extract mood from transcript
+        const transcript = parsed.transcript.toLowerCase();
+        let mood: typeof journalPrefillMood = undefined;
+        if (/great|amazing|fantastic|wonderful/.test(transcript)) mood = 'great';
+        else if (/good|happy|fine|nice/.test(transcript)) mood = 'good';
+        else if (/okay|ok|alright|so-so|meh/.test(transcript)) mood = 'okay';
+        else if (/bad|sad|down|upset/.test(transcript)) mood = 'bad';
+        else if (/terrible|awful|horrible|depressed/.test(transcript)) mood = 'terrible';
+        
+        setJournalPrefillMood(mood);
+        // Remove trigger phrases and use rest as content
+        let content = parsed.transcript;
+        const journalPrefixes = ['journal', 'note to self', 'write in my journal', 'dear diary', 'today'];
+        for (const prefix of journalPrefixes) {
+          if (content.toLowerCase().startsWith(prefix)) {
+            content = content.substring(prefix.length).replace(/^[:\s,]+/, '').trim();
+            break;
+          }
+        }
+        setJournalPrefillContent(content);
+        handleNavigate('journal');
+        break;
+      }
+      case 'CREATE_TASK':
+      case 'CREATE_EVENT':
+        // Navigate to tasks-events with the initial tab
+        setTasksEventsInitialTab(intentType === 'CREATE_TASK' ? 'tasks' : 'events');
+        // TODO: Add prefill data to TasksAndEventsView
+        handleNavigate('tasks-events');
+        break;
+      case 'CREATE_TODO':
+        handleNavigate('todo');
+        break;
+      case 'CREATE_ITEM':
+        setTasksEventsInitialTab('items');
+        handleNavigate('tasks-events');
+        break;
+      case 'CREATE_ROUTINE':
+        setTasksEventsInitialTab('routines');
+        handleNavigate('tasks-events');
+        break;
+      case 'CREATE_MILESTONE':
+        setShowMilestonesModal(true);
+        break;
+      default:
+        // Default to today view
+        handleNavigate('today');
+    }
+  }, []);
+
+  // Handle creating from voice history
+  const handleCreateFromVoiceHistory = useCallback((command: VoiceCommandLog) => {
+    // Convert VoiceCommandLog to ParsedCommand-like structure for navigation
+    const intentType = command.intentType;
+    
+    switch (intentType) {
+      case 'CREATE_JOURNAL':
+        setJournalPrefillContent(command.rawTranscript || '');
+        handleNavigate('journal');
+        break;
+      case 'CREATE_TASK':
+      case 'CREATE_EVENT':
+        setTasksEventsInitialTab(intentType === 'CREATE_TASK' ? 'tasks' : 'events');
+        handleNavigate('tasks-events');
+        break;
+      case 'CREATE_TODO':
+        handleNavigate('todo');
+        break;
+      default:
+        handleNavigate('today');
+    }
+  }, []);
 
   // Handle onboarding completion
   const handleOnboardingComplete = async (loadSamples: boolean) => {
@@ -168,7 +256,17 @@ const AppContent: React.FC = () => {
       case 'items':
         return <ItemsView key={`items-${key}`} onNavigate={handleNavigate} />;
       case 'journal':
-        return <JournalView key={`journal-${key}`} />;
+        return (
+          <JournalView 
+            key={`journal-${key}`}
+            prefillContent={journalPrefillContent}
+            prefillMood={journalPrefillMood}
+            onPrefillUsed={() => {
+              setJournalPrefillContent(undefined);
+              setJournalPrefillMood(undefined);
+            }}
+          />
+        );
       case 'resolutions':
         return <ResolutionsView key={`resolutions-${key}`} />;
       case 'analytics':
@@ -177,6 +275,8 @@ const AppContent: React.FC = () => {
         return <SettingsView key={`settings-${key}`} />;
       case 'safe':
         return <SafeView key={`safe-${key}`} />;
+      case 'todo':
+        return <TodoView key={`todo-${key}`} />;
       default:
         return <TodayView key={`today-${key}`} onNavigate={handleNavigate} />;
     }
@@ -341,7 +441,11 @@ const AppContent: React.FC = () => {
   <FloatingPinnedButton onClick={() => setShowPinnedModal(true)} />
 
         {/* Voice Command Floating Button (bottom-right) */}
-        <VoiceCommandButton />
+        <VoiceCommandButton 
+          onPrefillAndNavigate={handleVoicePrefillAndNavigate}
+          onCreateFromHistory={handleCreateFromVoiceHistory}
+          userId={user?.id}
+        />
 
       {/* Timer Modal */}
       {showTimerModal && (
@@ -379,6 +483,27 @@ const AppContent: React.FC = () => {
         </div>
       )}
 
+      {/* Voice Add Modal (for mobile "+" menu) */}
+      {showVoiceAddModal && (
+        <VoiceCommandButton 
+          isModalMode={true}
+          onClose={() => setShowVoiceAddModal(false)}
+          onSuccess={(msg) => {
+            setShowVoiceAddModal(false);
+            setKey(prev => prev + 1);
+          }}
+          onPrefillAndNavigate={(parsed) => {
+            setShowVoiceAddModal(false);
+            handleVoicePrefillAndNavigate(parsed);
+          }}
+          onCreateFromHistory={(cmd) => {
+            setShowVoiceAddModal(false);
+            handleCreateFromVoiceHistory(cmd);
+          }}
+          userId={user?.id}
+        />
+      )}
+
       {/* Mobile Bottom Navigation */}
       <MobileBottomNav
         currentView={currentView}
@@ -394,14 +519,27 @@ const AppContent: React.FC = () => {
         title="Add New"
         options={[
           {
+            icon: '🎙️',
+            label: 'Voice Input',
+            description: 'Add via voice command',
+            onClick: () => setShowVoiceAddModal(true),
+            primary: true,
+          },
+          {
+            icon: '📝',
+            label: 'To-Do List',
+            description: 'Quick grouped to-do items',
+            onClick: () => handleNavigate('todo'),
+            primary: true,
+          },
+          {
             icon: '✅',
             label: 'Task',
-            description: 'Quick task or to-do',
+            description: 'Scheduled task or habit',
             onClick: () => {
               setTasksEventsInitialTab('tasks');
               handleNavigate('tasks-events');
             },
-            primary: true,
           },
           {
             icon: '📅',
@@ -411,7 +549,6 @@ const AppContent: React.FC = () => {
               setTasksEventsInitialTab('events');
               handleNavigate('tasks-events');
             },
-            primary: true,
           },
           {
             icon: '📦',

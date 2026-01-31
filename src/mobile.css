@@ -1122,6 +1122,100 @@
   div[style*="flexWrap: 'wrap'"] > div[style*="backgroundColor: '#f3f4f6'"] {
     display: none !important;
   }
+
+  /* ===== SAFE VIEW MOBILE OPTIMIZATION ===== */
+  /* Make Safe sections wider - reduce side padding */
+  .safe-view {
+    padding: 0.5rem !important;
+  }
+
+  .safe-view > div {
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  /* Safe Entry List - Full width */
+  .safe-view > div > div[style*="flexWrap"] {
+    padding: 0.5rem !important;
+    margin: 0 0 0.75rem !important;
+    border-radius: 0.5rem !important;
+  }
+
+  /* Search and filter inputs - Full width on mobile */
+  .safe-view input[type="text"],
+  .safe-view select {
+    min-width: unset !important;
+    flex: 1 1 100% !important;
+  }
+
+  /* Entry cards - Full width with tighter padding */
+  .safe-view > div > div[style*="backgroundColor: 'rgba(255,255,255,0.95)'"] {
+    padding: 1rem !important;
+    margin-bottom: 0.5rem !important;
+    border-radius: 0.75rem !important;
+  }
+
+  /* Document vault cards */
+  .safe-view .document-card,
+  .safe-view > div > div[style*="borderRadius: '1rem'"] {
+    padding: 1rem !important;
+    margin: 0 0 0.5rem !important;
+  }
+
+  /* Safe tabs - Full width */
+  .safe-view .safe-tabs-wrapper {
+    display: flex !important;
+    width: 100% !important;
+    gap: 0.5rem !important;
+    padding: 0 !important;
+    margin-bottom: 0.75rem !important;
+  }
+
+  .safe-view .safe-tabs-wrapper button {
+    flex: 1 !important;
+    padding: 0.75rem !important;
+    font-size: 0.9rem !important;
+  }
+
+  /* Safe entry form - Full width */
+  .safe-view form,
+  .safe-view .safe-entry-form {
+    padding: 0.75rem !important;
+  }
+
+  .safe-view form input,
+  .safe-view form select,
+  .safe-view form textarea {
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  /* Groups and sharing buttons */
+  .safe-view button[style*="Groups"],
+  .safe-view button[style*="Shared"] {
+    padding: 0.5rem 0.75rem !important;
+    font-size: 0.8rem !important;
+  }
+
+  /* Document vault - tighter layout */
+  .safe-document-vault {
+    padding: 0 !important;
+  }
+
+  .safe-document-vault > div {
+    padding: 0.75rem !important;
+    margin-bottom: 0.5rem !important;
+  }
+
+  /* Lock screen - better mobile spacing */
+  .safe-lock-screen {
+    padding: 1rem !important;
+  }
+
+  .safe-lock-screen input {
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
 }
 
 /* Journal Mobile Styles */
@@ -1334,5 +1428,242 @@
 
   .desktop-journal-sidebar {
     display: block !important;
+  }
+
+  /* Hide combined card on desktop, show separate cards */
+  .journal-combined-card {
+    display: none !important;
+  }
+
+  .journal-date-card.desktop-only,
+  .journal-entry-card.desktop-only {
+    display: block !important;
+  }
+}
+
+/* ===== JOURNAL MOBILE COMBINED CARD ===== */
+@media (max-width: 768px) {
+  /* Hide desktop separate cards on mobile */
+  .journal-date-card.desktop-only,
+  .journal-entry-card.desktop-only {
+    display: none !important;
+  }
+
+  /* Combined card - single unified card for mobile */
+  .journal-combined-card {
+    display: block !important;
+    background: white;
+    border-radius: 1rem;
+    padding: 1rem;
+    margin: 0;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  }
+
+  /* Date Navigator Row - Compact */
+  .journal-date-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid #e5e7eb;
+    margin-bottom: 0.75rem;
+  }
+
+  .journal-date-row .nav-btn.journal-arrow-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: #f3f4f6;
+    border: none;
+    font-size: 1.25rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s;
+  }
+
+  .journal-date-row .nav-btn.journal-arrow-btn:active {
+    background: #e5e7eb;
+  }
+
+  .journal-date-row .current-date-display {
+    text-align: center;
+    flex: 1;
+  }
+
+  .journal-date-row .date-day-name {
+    font-size: 0.8rem;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .journal-date-row .date-full-display {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #1f2937;
+  }
+
+  /* Mood Selector Row - Inline compact */
+  .mood-selector-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid #f3f4f6;
+    margin-bottom: 0.75rem;
+  }
+
+  .mood-label {
+    font-size: 0.85rem;
+    color: #6b7280;
+    font-weight: 500;
+    white-space: nowrap;
+  }
+
+  .mood-buttons-inline {
+    display: flex;
+    gap: 0.375rem;
+    flex: 1;
+    justify-content: flex-end;
+  }
+
+  .mood-btn-inline {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    border: 2px solid #e5e7eb;
+    background: white;
+    font-size: 1.25rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+  }
+
+  .mood-btn-inline.active {
+    border-color: #3b82f6;
+    background: #eff6ff;
+    transform: scale(1.1);
+  }
+
+  .mood-btn-inline:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  /* Editor Content - Full width */
+  .journal-combined-card .editor-content {
+    margin-bottom: 0.75rem;
+  }
+
+  .journal-combined-card .journal-textarea {
+    width: 100%;
+    min-height: 180px;
+    padding: 0.875rem;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.75rem;
+    font-size: 1rem;
+    line-height: 1.6;
+    resize: vertical;
+    font-family: inherit;
+  }
+
+  .journal-combined-card .journal-textarea:focus {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+  }
+
+  .journal-combined-card .journal-display {
+    min-height: 100px;
+    padding: 0.875rem;
+    background: #f9fafb;
+    border-radius: 0.75rem;
+    font-size: 1rem;
+    line-height: 1.6;
+    color: #374151;
+    white-space: pre-wrap;
+  }
+
+  /* Tags Section - Inline compact */
+  .tag-selector-inline {
+    margin-bottom: 0.75rem;
+  }
+
+  .tag-buttons-inline {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.375rem;
+  }
+
+  .tag-btn-small {
+    padding: 0.25rem 0.625rem;
+    border-radius: 9999px;
+    border: 1.5px solid;
+    font-size: 0.75rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .tag-btn-small:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  /* Action Buttons Row */
+  .journal-actions-row {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+  }
+
+  .journal-actions-row .btn-primary.journal-save-btn {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1rem;
+    border-radius: 0.75rem;
+    font-weight: 600;
+    font-size: 0.95rem;
+  }
+
+  .btn-danger-small {
+    width: 44px;
+    height: 44px;
+    border-radius: 0.75rem;
+    border: none;
+    background: #fee2e2;
+    color: #dc2626;
+    font-size: 1.1rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .btn-secondary-small {
+    padding: 0.75rem 1rem;
+    border-radius: 0.75rem;
+    border: 1px solid #e5e7eb;
+    background: white;
+    color: #374151;
+    font-size: 0.85rem;
+    font-weight: 500;
+    cursor: pointer;
+  }
+
+  /* Reduce padding on journal view container */
+  .journal-view {
+    padding: 0.75rem !important;
+  }
+
+  .journal-editor {
+    padding: 0 !important;
   }
 }

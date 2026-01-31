@@ -9,6 +9,7 @@ interface SafeEntryListProps {
   encryptionKey: CryptoKey;
   onEntrySelect: (entry: SafeEntry) => void;
   onEntrySaved: () => void;
+  onShare?: (entry: SafeEntry) => void;
 }
 
 const SafeEntryList: React.FC<SafeEntryListProps> = ({
@@ -16,7 +17,8 @@ const SafeEntryList: React.FC<SafeEntryListProps> = ({
   tags,
   encryptionKey,
   onEntrySelect,
-  onEntrySaved
+  onEntrySaved,
+  onShare
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
@@ -207,8 +209,32 @@ const SafeEntryList: React.FC<SafeEntryListProps> = ({
                 </label>
 
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '0.75rem' }}>
-                  <h3 style={{ margin: 0, fontSize: '1.1rem' }}>{entry.title}</h3>
-                  {entry.isFavorite && <span>⭐</span>}
+                  <h3 style={{ margin: 0, fontSize: '1.1rem', flex: 1 }}>{entry.title}</h3>
+                  <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                    {onShare && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onShare(entry);
+                        }}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          cursor: 'pointer',
+                          padding: '0.25rem',
+                          fontSize: '1rem',
+                          opacity: 0.7,
+                          transition: 'opacity 0.2s'
+                        }}
+                        onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
+                        onMouseLeave={(e) => e.currentTarget.style.opacity = '0.7'}
+                        title="Share this entry"
+                      >
+                        🔗
+                      </button>
+                    )}
+                    {entry.isFavorite && <span>⭐</span>}
+                  </div>
                 </div>
 
                 {entry.url && <p style={{ margin: '0 0 0.5rem 0', color: '#3b82f6', wordBreak: 'break-all' }}>🔗 {entry.url}</p>}

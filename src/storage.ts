@@ -773,6 +773,7 @@ export const getJournalEntries = async (): Promise<JournalEntry[]> => {
     content: entry.content,
     mood: entry.mood,
     tags: entry.tags || [],
+    isFavorite: entry.is_favorite || false,
     createdAt: entry.created_at || new Date().toISOString(),
     updatedAt: entry.updated_at || new Date().toISOString()
   }));
@@ -788,7 +789,9 @@ export const saveJournalEntry = async (entry: JournalEntry): Promise<void> => {
       user_id: userId,
       entry_date: entry.date,
       content: entry.content,
-      tags: entry.tags
+      mood: entry.mood || null,
+      tags: entry.tags,
+      is_favorite: entry.isFavorite || false
     }], {
       onConflict: 'user_id,entry_date'
     });
@@ -2331,10 +2334,9 @@ export const importSampleSafe = async (replace: boolean = false): Promise<boolea
       }
     }
 
-    // Try to derive encryption key using demo safe password if available
-    const demoSafeFromEnv = (import.meta.env.VITE_DEMO_SAFE_PASSWORD as string) || null;
-    const demoSafeFromLocal = localStorage.getItem('myday-demo-safe-password') || null;
-    const demoSafe = demoSafeFromEnv || demoSafeFromLocal;
+    // SECURITY: Demo safe password only from localStorage (set by server-side demo login)
+    // Never read credentials from VITE_ env vars (they're exposed to client)
+    const demoSafe = localStorage.getItem('myday-demo-safe-password') || null;
 
     if (demoSafe) {
       try {
