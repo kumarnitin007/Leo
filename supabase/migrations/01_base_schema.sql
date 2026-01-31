@@ -638,15 +638,30 @@ END $$;
 -- =====================================================
 -- INDEXES FOR PERFORMANCE
 -- =====================================================
--- Safe indexes (these columns always exist)
+-- Safe indexes (user_id columns always exist)
 CREATE INDEX IF NOT EXISTS idx_tasks_user_id ON myday_tasks(user_id);
 CREATE INDEX IF NOT EXISTS idx_events_user_id ON myday_events(user_id);
 CREATE INDEX IF NOT EXISTS idx_items_user_id ON myday_items(user_id);
-CREATE INDEX IF NOT EXISTS idx_tags_user_section ON myday_tags(user_id, section);
 CREATE INDEX IF NOT EXISTS idx_encrypted_entries_user ON myday_encrypted_entries(user_id);
 CREATE INDEX IF NOT EXISTS idx_voice_logs_user ON myday_voice_command_logs(user_id);
-CREATE INDEX IF NOT EXISTS idx_reference_days_calendar ON myday_reference_days(calendar_id);
 CREATE INDEX IF NOT EXISTS idx_milestones_user_id ON myday_milestones(user_id);
+
+-- Conditional indexes for columns that may not exist in older schemas
+DO $$ BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'myday_tags' AND column_name = 'section') THEN
+        EXECUTE 'CREATE INDEX IF NOT EXISTS idx_tags_user_section ON myday_tags(user_id, section)';
+    ELSE
+        EXECUTE 'CREATE INDEX IF NOT EXISTS idx_tags_user_id ON myday_tags(user_id)';
+    END IF;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $$;
+
+DO $$ BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'myday_reference_days' AND column_name = 'calendar_id') THEN
+        EXECUTE 'CREATE INDEX IF NOT EXISTS idx_reference_days_calendar ON myday_reference_days(calendar_id)';
+    END IF;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $$;
 
 -- Date-based indexes (conditional - only if column exists)
 DO $$ BEGIN
