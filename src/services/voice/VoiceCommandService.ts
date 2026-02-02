@@ -23,17 +23,6 @@ const getTodayStr = (): string => {
   return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
 };
 
-// System tag UUID for voice-created entries (matches DB migration 06)
-const VOICE_TAG_ID = '00000000-0000-0000-0000-000000000001';
-
-// Helper to add voice tag to existing tags array
-const addVoiceTag = (existingTags: string[] = []): string[] => {
-  if (!existingTags.includes(VOICE_TAG_ID)) {
-    return [...existingTags, VOICE_TAG_ID];
-  }
-  return existingTags;
-};
-
 // Helper to get entity value or default
 const getEntityValue = (entities: Entity[], type: string, defaultValue: string): { value: string; isDefault: boolean } => {
   const entity = entities.find(e => e.type === type);
@@ -107,7 +96,6 @@ export class VoiceCommandService {
           const priorityInfo = getEntityValue(parsed.entities, 'PRIORITY', 'MEDIUM');
           const recurrenceInfo = getEntityValue(parsed.entities, 'RECURRENCE', '');
           const userTags = parsed.entities.filter(e => e.type === 'TAG').map(e => String(e.normalizedValue || e.value));
-          const tags = addVoiceTag(userTags); // Add voice tag
 
           extractedFields['name'] = titleInfo;
           extractedFields['specificDate'] = dateInfo;
@@ -124,7 +112,7 @@ export class VoiceCommandService {
             frequency: recurrenceInfo.value ? 'custom' : 'daily',
             customFrequency: recurrenceInfo.value || undefined,
             specificDate: !recurrenceInfo.value ? dateInfo.value : undefined,
-            tags: tags,
+            tags: userTags,
             createdAt: new Date().toISOString()
           };
 
@@ -133,14 +121,16 @@ export class VoiceCommandService {
 
           // Log to DB and update task with voice metadata
           try {
+            // Ensure priority is uppercase for DB type
+            const taskDbPriority = String(priorityInfo.value).toUpperCase() as 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
             const cmdId = await dbService.saveCommand({
               userId: userId || undefined, sessionId,
               rawTranscript: parsed.transcript,
               intentType: intent as any, entityType,
               memoDate: dateInfo.value,
               extractedTitle: String(titleInfo.value),
-              extractedPriority: priorityInfo.value,
-              extractedTags: tags,
+              extractedPriority: taskDbPriority,
+              extractedTags: userTags,
               overallConfidence: parsed.overallConfidence,
               isValid: true, outcome: 'SUCCESS' as any,
               createdItemType: 'task', createdItemId: createdId
@@ -164,7 +154,6 @@ export class VoiceCommandService {
           const timeInfo = getEntityValue(parsed.entities, 'TIME', '');
           const recurrenceInfo = getEntityValue(parsed.entities, 'RECURRENCE', '');
           const userTags = parsed.entities.filter(e => e.type === 'TAG').map(e => String(e.normalizedValue || e.value));
-          const tags = addVoiceTag(userTags); // Add voice tag
 
           extractedFields['name'] = titleInfo;
           extractedFields['date'] = dateInfo;
@@ -184,7 +173,7 @@ export class VoiceCommandService {
             date: dateInfo.value,
             frequency,
             customFrequency: recurrenceInfo.value || undefined,
-            tags: tags,
+            tags: userTags,
             notifyDaysBefore: 1,
             priority: 5,
             createdAt: new Date().toISOString()
@@ -200,7 +189,7 @@ export class VoiceCommandService {
               intentType: intent as any, entityType,
               memoDate: dateInfo.value, memoTime: timeInfo.value || null,
               extractedTitle: String(titleInfo.value),
-              extractedTags: tags,
+              extractedTags: userTags,
               overallConfidence: parsed.overallConfidence,
               isValid: true, outcome: 'SUCCESS' as any,
               createdItemType: 'event', createdItemId: createdId
@@ -228,17 +217,20 @@ export class VoiceCommandService {
           if (dateInfo.value) extractedFields['dueDate'] = dateInfo;
           extractedFields['createdViaVoice'] = { value: true, isDefault: false };
 
-          // Map priority values
-          let priority: 'low' | 'medium' | 'high' = 'medium';
+          // Map priority values (TodoPriority uses lowercase)
+          let todoPriority: 'low' | 'medium' | 'high' = 'medium';
           const pVal = String(priorityInfo.value).toLowerCase();
-          if (pVal === 'urgent' || pVal === 'high') priority = 'high';
-          else if (pVal === 'low') priority = 'low';
+          if (pVal === 'urgent' || pVal === 'high') todoPriority = 'high';
+          else if (pVal === 'low') todoPriority = 'low';
+
+          // Map to DB Priority type (uppercase)
+          const dbPriority = todoPriority.toUpperCase() as 'LOW' | 'MEDIUM' | 'HIGH';
 
           // Add "🎤 Voice" to the text as a prefix for visibility (since todos don't have tags)
           const voicePrefix = '🎤 ';
           const todoItem = await todoService.createTodoItem({
             text: voicePrefix + String(titleInfo.value),
-            priority,
+            priority: todoPriority,
             dueDate: dateInfo.value || undefined,
           });
           createdId = todoItem.id;
@@ -249,7 +241,7 @@ export class VoiceCommandService {
               rawTranscript: parsed.transcript,
               intentType: intent as any, entityType,
               extractedTitle: String(titleInfo.value),
-              extractedPriority: priority,
+              extractedPriority: dbPriority,
               overallConfidence: parsed.overallConfidence,
               isValid: true, outcome: 'SUCCESS' as any,
               createdItemType: 'todo', createdItemId: createdId
@@ -273,7 +265,6 @@ export class VoiceCommandService {
           const contentInfo = getEntityValue(parsed.entities, 'TITLE', parsed.transcript);
           const dateInfo = getEntityValue(parsed.entities, 'DATE', getTodayStr());
           const userTags = parsed.entities.filter(e => e.type === 'TAG').map(e => String(e.normalizedValue || e.value));
-          const tags = addVoiceTag(userTags); // Add voice tag
 
           extractedFields['content'] = contentInfo;
           extractedFields['date'] = dateInfo;
@@ -299,7 +290,7 @@ export class VoiceCommandService {
             date: dateInfo.value,
             content: voiceIndicator + String(contentInfo.value),
             mood,
-            tags: tags,
+            tags: userTags,
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString()
           };
