@@ -1,5 +1,4 @@
 import { createClient } from '@supabase/supabase-js';
-import { v4 as uuidv4 } from 'uuid';
 import crypto from 'crypto';
 
 // Simple Vercel serverless handler for demo login
@@ -78,7 +77,7 @@ export default async function handler(req: any, res: any) {
 
         const now = new Date().toISOString();
         const masterRow = {
-          id: uuidv4(),
+          id: crypto.randomUUID(),
           user_id: session.user.id,
           key_hash: keyHash,
           salt: saltBase64,

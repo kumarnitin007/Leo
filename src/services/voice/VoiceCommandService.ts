@@ -23,8 +23,8 @@ const getTodayStr = (): string => {
   return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
 };
 
-// System tag ID for voice-created entries
-const VOICE_TAG_ID = 'system-voice-created';
+// System tag UUID for voice-created entries (matches DB migration 06)
+const VOICE_TAG_ID = '00000000-0000-0000-0000-000000000001';
 
 // Helper to add voice tag to existing tags array
 const addVoiceTag = (existingTags: string[] = []): string[] => {

@@ -61,16 +61,17 @@ CREATE INDEX IF NOT EXISTS idx_items_voice_created ON myday_items(created_via_vo
 
 -- 9. Create a system tag for voice-created entries (insert if not exists)
 -- This tag can be auto-applied to voice-created entries for easy filtering
+-- Using a fixed UUID: 00000000-0000-0000-0000-000000000001 for the voice tag
 INSERT INTO myday_tags (id, user_id, name, color, description, created_at)
 SELECT 
-    'system-voice-created',
+    '00000000-0000-0000-0000-000000000001'::uuid,
     '00000000-0000-0000-0000-000000000000'::uuid,
     '🎤 Voice',
     '#8b5cf6',
     'Auto-applied to entries created via voice command',
     NOW()
 WHERE NOT EXISTS (
-    SELECT 1 FROM myday_tags WHERE id = 'system-voice-created'
+    SELECT 1 FROM myday_tags WHERE id = '00000000-0000-0000-0000-000000000001'::uuid
 );
 
 -- =====================================================
