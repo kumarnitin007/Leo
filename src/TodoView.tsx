@@ -14,6 +14,7 @@ import { useTheme } from './contexts/ThemeContext';
 import { TodoItem, TodoGroup, TodoPriority } from './types';
 import VoiceCommandModal from './components/VoiceCommand/VoiceCommandModal';
 import * as todoService from './services/todoService';
+import { AssignableUser } from './services/todoService';
 
 interface TodoViewProps {
   onNavigate?: (view: string) => void;
@@ -48,8 +49,6 @@ const TodoView: React.FC<TodoViewProps> = () => {
   const [newItemText, setNewItemText] = useState('');
   const [newItemGroup, setNewItemGroup] = useState<string | null>(null);
   const [newItemPriority, setNewItemPriority] = useState<TodoPriority>('medium');
-  const [editingItem, setEditingItem] = useState<string | null>(null);
-  const [editText, setEditText] = useState('');
   
   // Group management
   const [showGroupModal, setShowGroupModal] = useState(false);
@@ -58,11 +57,18 @@ const TodoView: React.FC<TodoViewProps> = () => {
   const [groupIcon, setGroupIcon] = useState('📁');
   const [groupColor, setGroupColor] = useState('#6366f1');
   
+  // Detail modal
+  const [showDetailModal, setShowDetailModal] = useState(false);
+  const [selectedItem, setSelectedItem] = useState<TodoItem | null>(null);
+  const [assignableUsers, setAssignableUsers] = useState<AssignableUser[]>([]);
+  const [detailEdits, setDetailEdits] = useState<Partial<TodoItem>>({});
+  
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Load data
   useEffect(() => {
     loadData();
+    loadAssignableUsers();
   }, []);
 
   const loadData = async () => {
@@ -82,6 +88,44 @@ const TodoView: React.FC<TodoViewProps> = () => {
       setError(err instanceof Error ? err.message : 'Failed to load data');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadAssignableUsers = async () => {
+    try {
+      const users = await todoService.getAssignableUsers();
+      setAssignableUsers(users);
+    } catch (err) {
+      console.warn('Could not load assignable users:', err);
+    }
+  };
+
+  // Open detail modal
+  const openDetailModal = async (item: TodoItem) => {
+    // If item has assignedTo, fetch the display name
+    let itemWithName = { ...item };
+    if (item.assignedTo) {
+      const name = await todoService.getUserDisplayName(item.assignedTo);
+      itemWithName.assignedToName = name || undefined;
+    }
+    setSelectedItem(itemWithName);
+    setDetailEdits({});
+    setShowDetailModal(true);
+  };
+
+  // Save detail edits
+  const saveDetailEdits = async () => {
+    if (!selectedItem) return;
+    try {
+      const updated = await todoService.updateTodoItem(selectedItem.id, {
+        ...detailEdits,
+      });
+      setItems(prev => prev.map(item => item.id === selectedItem.id ? updated : item));
+      setShowDetailModal(false);
+      setSelectedItem(null);
+      setDetailEdits({});
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update item');
     }
   };
 
@@ -147,20 +191,6 @@ const TodoView: React.FC<TodoViewProps> = () => {
       setItems(prev => prev.filter(item => item.id !== id));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to delete item');
-    }
-  };
-
-  const handleUpdateItemText = async (id: string) => {
-    if (!editText.trim()) {
-      setEditingItem(null);
-      return;
-    }
-    try {
-      const updated = await todoService.updateTodoItem(id, { text: editText.trim() });
-      setItems(prev => prev.map(item => item.id === id ? updated : item));
-      setEditingItem(null);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to update item');
     }
   };
 
@@ -565,13 +595,9 @@ const TodoView: React.FC<TodoViewProps> = () => {
           items={groupedItems['ungrouped'] || []}
           isExpanded={expandedGroups.has('ungrouped')}
           onToggleExpand={() => toggleGroupExpanded('ungrouped')}
-          editingItem={editingItem}
-          editText={editText}
-          setEditingItem={setEditingItem}
-          setEditText={setEditText}
           onToggleItem={handleToggleItem}
           onDeleteItem={handleDeleteItem}
-          onUpdateItemText={handleUpdateItemText}
+          onItemClick={openDetailModal}
           theme={theme}
         />
       )}
@@ -588,13 +614,9 @@ const TodoView: React.FC<TodoViewProps> = () => {
             items={groupedItems[group.id] || []}
             isExpanded={expandedGroups.has(group.id)}
             onToggleExpand={() => toggleGroupExpanded(group.id)}
-            editingItem={editingItem}
-            editText={editText}
-            setEditingItem={setEditingItem}
-            setEditText={setEditText}
             onToggleItem={handleToggleItem}
             onDeleteItem={handleDeleteItem}
-            onUpdateItemText={handleUpdateItemText}
+            onItemClick={openDetailModal}
             onEditGroup={() => {
               setEditingGroup(group);
               setGroupName(group.name);
@@ -770,6 +792,284 @@ const TodoView: React.FC<TodoViewProps> = () => {
         onSuccess={handleVoiceSuccess}
       />
 
+      {/* Detail Modal */}
+      {showDetailModal && selectedItem && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          background: 'rgba(0,0,0,0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1100,
+          padding: '1rem'
+        }}>
+          <div style={{
+            background: 'white',
+            borderRadius: '1rem',
+            width: '100%',
+            maxWidth: '450px',
+            maxHeight: '90vh',
+            overflow: 'auto',
+            animation: 'slideUp 0.3s ease-out'
+          }}>
+            <div style={{
+              padding: '1rem 1.5rem',
+              borderBottom: '1px solid #e5e7eb',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              position: 'sticky',
+              top: 0,
+              background: 'white',
+              zIndex: 1
+            }}>
+              <h3 style={{ margin: 0, fontSize: '1.1rem' }}>📝 To-Do Details</h3>
+              <button
+                onClick={() => { setShowDetailModal(false); setSelectedItem(null); }}
+                style={{ background: 'none', border: 'none', fontSize: '1.25rem', cursor: 'pointer', color: '#9ca3af' }}
+              >
+                ✕
+              </button>
+            </div>
+            
+            <div style={{ padding: '1.5rem' }}>
+              {/* Text */}
+              <div style={{ marginBottom: '1.25rem' }}>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600, fontSize: '0.85rem', color: '#374151' }}>
+                  Task
+                </label>
+                <input
+                  type="text"
+                  value={detailEdits.text ?? selectedItem.text}
+                  onChange={(e) => setDetailEdits({ ...detailEdits, text: e.target.value })}
+                  style={{
+                    width: '100%',
+                    padding: '0.75rem',
+                    border: '2px solid #e5e7eb',
+                    borderRadius: '0.5rem',
+                    fontSize: '1rem'
+                  }}
+                />
+              </div>
+
+              {/* Priority */}
+              <div style={{ marginBottom: '1.25rem' }}>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600, fontSize: '0.85rem', color: '#374151' }}>
+                  Priority
+                </label>
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                  {(Object.keys(PRIORITY_CONFIG) as TodoPriority[]).map(p => (
+                    <button
+                      key={p}
+                      onClick={() => setDetailEdits({ ...detailEdits, priority: p })}
+                      style={{
+                        flex: 1,
+                        padding: '0.5rem',
+                        background: (detailEdits.priority ?? selectedItem.priority) === p ? PRIORITY_CONFIG[p].bg : '#f9fafb',
+                        border: `2px solid ${(detailEdits.priority ?? selectedItem.priority) === p ? PRIORITY_CONFIG[p].color : '#e5e7eb'}`,
+                        borderRadius: '0.5rem',
+                        cursor: 'pointer',
+                        fontSize: '0.85rem',
+                        fontWeight: 500,
+                        color: PRIORITY_CONFIG[p].color
+                      }}
+                    >
+                      {PRIORITY_CONFIG[p].icon} {PRIORITY_CONFIG[p].label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Due Date */}
+              <div style={{ marginBottom: '1.25rem' }}>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600, fontSize: '0.85rem', color: '#374151' }}>
+                  📅 Due Date <span style={{ fontWeight: 400, color: '#9ca3af' }}>(optional)</span>
+                </label>
+                <input
+                  type="date"
+                  value={detailEdits.dueDate ?? selectedItem.dueDate ?? ''}
+                  onChange={(e) => setDetailEdits({ ...detailEdits, dueDate: e.target.value || undefined })}
+                  style={{
+                    width: '100%',
+                    padding: '0.75rem',
+                    border: '2px solid #e5e7eb',
+                    borderRadius: '0.5rem',
+                    fontSize: '1rem'
+                  }}
+                />
+              </div>
+
+              {/* Show on Dashboard */}
+              <div style={{ marginBottom: '1.25rem' }}>
+                <label style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: '0.75rem', 
+                  cursor: 'pointer',
+                  padding: '0.75rem',
+                  background: '#f9fafb',
+                  borderRadius: '0.5rem'
+                }}>
+                  <input
+                    type="checkbox"
+                    checked={detailEdits.showOnDashboard ?? selectedItem.showOnDashboard ?? false}
+                    onChange={(e) => setDetailEdits({ ...detailEdits, showOnDashboard: e.target.checked })}
+                    style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+                  />
+                  <div>
+                    <div style={{ fontWeight: 600, fontSize: '0.9rem', color: '#374151' }}>🏠 Show on Home</div>
+                    <div style={{ fontSize: '0.8rem', color: '#6b7280' }}>Display on dashboard when due date is set</div>
+                  </div>
+                </label>
+              </div>
+
+              {/* Assigned To */}
+              <div style={{ marginBottom: '1.25rem' }}>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600, fontSize: '0.85rem', color: '#374151' }}>
+                  👤 Assign To <span style={{ fontWeight: 400, color: '#9ca3af' }}>(optional)</span>
+                </label>
+                {assignableUsers.length > 0 ? (
+                  <select
+                    value={detailEdits.assignedTo ?? selectedItem.assignedTo ?? ''}
+                    onChange={(e) => setDetailEdits({ ...detailEdits, assignedTo: e.target.value || undefined })}
+                    style={{
+                      width: '100%',
+                      padding: '0.75rem',
+                      border: '2px solid #e5e7eb',
+                      borderRadius: '0.5rem',
+                      fontSize: '1rem',
+                      background: 'white'
+                    }}
+                  >
+                    <option value="">Not assigned</option>
+                    {assignableUsers.map(user => (
+                      <option key={user.userId} value={user.userId}>
+                        {user.displayName} ({user.groupName})
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <div style={{
+                    padding: '0.75rem',
+                    background: '#f9fafb',
+                    borderRadius: '0.5rem',
+                    color: '#6b7280',
+                    fontSize: '0.9rem'
+                  }}>
+                    <span style={{ marginRight: '0.5rem' }}>👥</span>
+                    Join a family group in Settings → Groups to assign tasks to others
+                  </div>
+                )}
+                {selectedItem.assignedToName && !detailEdits.assignedTo && (
+                  <div style={{ marginTop: '0.5rem', fontSize: '0.85rem', color: '#6b7280' }}>
+                    Currently assigned to: <strong>{selectedItem.assignedToName}</strong>
+                  </div>
+                )}
+              </div>
+
+              {/* Notes */}
+              <div style={{ marginBottom: '1.25rem' }}>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600, fontSize: '0.85rem', color: '#374151' }}>
+                  📝 Notes <span style={{ fontWeight: 400, color: '#9ca3af' }}>(optional)</span>
+                </label>
+                <textarea
+                  value={detailEdits.notes ?? selectedItem.notes ?? ''}
+                  onChange={(e) => setDetailEdits({ ...detailEdits, notes: e.target.value || undefined })}
+                  placeholder="Add notes or details..."
+                  rows={3}
+                  style={{
+                    width: '100%',
+                    padding: '0.75rem',
+                    border: '2px solid #e5e7eb',
+                    borderRadius: '0.5rem',
+                    fontSize: '1rem',
+                    resize: 'vertical'
+                  }}
+                />
+              </div>
+
+              {/* Move to group */}
+              <div style={{ marginBottom: '1.5rem' }}>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600, fontSize: '0.85rem', color: '#374151' }}>
+                  📁 List
+                </label>
+                <select
+                  value={detailEdits.groupId ?? selectedItem.groupId ?? ''}
+                  onChange={(e) => setDetailEdits({ ...detailEdits, groupId: e.target.value || undefined })}
+                  style={{
+                    width: '100%',
+                    padding: '0.75rem',
+                    border: '2px solid #e5e7eb',
+                    borderRadius: '0.5rem',
+                    fontSize: '1rem',
+                    background: 'white'
+                  }}
+                >
+                  <option value="">📋 Quick Items</option>
+                  {groups.map(g => (
+                    <option key={g.id} value={g.id}>{g.icon} {g.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Meta info */}
+              <div style={{ 
+                padding: '0.75rem', 
+                background: '#f9fafb', 
+                borderRadius: '0.5rem', 
+                fontSize: '0.8rem', 
+                color: '#6b7280',
+                marginBottom: '1.5rem'
+              }}>
+                <div>Created: {new Date(selectedItem.createdAt).toLocaleDateString()}</div>
+                {selectedItem.completedAt && (
+                  <div>Completed: {new Date(selectedItem.completedAt).toLocaleDateString()}</div>
+                )}
+                {selectedItem.assignedAt && (
+                  <div>Assigned: {new Date(selectedItem.assignedAt).toLocaleDateString()}</div>
+                )}
+              </div>
+              
+              {/* Actions */}
+              <div style={{ display: 'flex', gap: '0.75rem' }}>
+                <button
+                  onClick={() => { setShowDetailModal(false); setSelectedItem(null); }}
+                  style={{
+                    flex: 1,
+                    padding: '0.75rem',
+                    background: '#f3f4f6',
+                    color: '#374151',
+                    border: 'none',
+                    borderRadius: '0.5rem',
+                    cursor: 'pointer',
+                    fontWeight: 500
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={saveDetailEdits}
+                  disabled={Object.keys(detailEdits).length === 0}
+                  style={{
+                    flex: 1,
+                    padding: '0.75rem',
+                    background: Object.keys(detailEdits).length > 0 ? theme.colors.primary : '#e5e7eb',
+                    color: Object.keys(detailEdits).length > 0 ? 'white' : '#9ca3af',
+                    border: 'none',
+                    borderRadius: '0.5rem',
+                    cursor: Object.keys(detailEdits).length > 0 ? 'pointer' : 'not-allowed',
+                    fontWeight: 500
+                  }}
+                >
+                  Save Changes
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <style>{`
         @keyframes slideUp {
           from { opacity: 0; transform: translateY(20px); }
@@ -788,13 +1088,9 @@ interface GroupSectionProps {
   items: TodoItem[];
   isExpanded: boolean;
   onToggleExpand: () => void;
-  editingItem: string | null;
-  editText: string;
-  setEditingItem: (id: string | null) => void;
-  setEditText: (text: string) => void;
   onToggleItem: (id: string) => void;
   onDeleteItem: (id: string) => void;
-  onUpdateItemText: (id: string) => void;
+  onItemClick: (item: TodoItem) => void;
   onEditGroup?: () => void;
   onDeleteGroup?: () => void;
   theme: any;
@@ -807,13 +1103,9 @@ const GroupSection: React.FC<GroupSectionProps> = ({
   items,
   isExpanded,
   onToggleExpand,
-  editingItem,
-  editText,
-  setEditingItem,
-  setEditText,
   onToggleItem,
   onDeleteItem,
-  onUpdateItemText,
+  onItemClick,
   onEditGroup,
   onDeleteGroup,
   theme,
@@ -911,12 +1203,17 @@ const GroupSection: React.FC<GroupSectionProps> = ({
                 padding: '0.75rem 1rem',
                 borderRadius: '0.5rem',
                 background: item.isCompleted ? '#f9fafb' : 'transparent',
-                margin: '0.25rem 0'
+                margin: '0.25rem 0',
+                cursor: 'pointer',
+                transition: 'background 0.15s'
               }}
+              onClick={() => onItemClick(item)}
+              onMouseEnter={(e) => { if (!item.isCompleted) e.currentTarget.style.background = '#f9fafb'; }}
+              onMouseLeave={(e) => { if (!item.isCompleted) e.currentTarget.style.background = 'transparent'; }}
             >
               {/* Checkbox */}
               <button
-                onClick={() => onToggleItem(item.id)}
+                onClick={(e) => { e.stopPropagation(); onToggleItem(item.id); }}
                 style={{
                   width: '24px',
                   height: '24px',
@@ -935,53 +1232,43 @@ const GroupSection: React.FC<GroupSectionProps> = ({
                 {item.isCompleted && '✓'}
               </button>
               
-              {/* Text */}
-              {editingItem === item.id ? (
-                <input
-                  type="text"
-                  value={editText}
-                  onChange={(e) => setEditText(e.target.value)}
-                  onBlur={() => onUpdateItemText(item.id)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') onUpdateItemText(item.id);
-                    if (e.key === 'Escape') setEditingItem(null);
-                  }}
-                  autoFocus
-                  style={{
-                    flex: 1,
-                    padding: '0.25rem 0.5rem',
-                    border: `2px solid ${theme.colors.primary}`,
-                    borderRadius: '0.375rem',
-                    fontSize: '0.95rem'
-                  }}
-                />
-              ) : (
-                <span
-                  onClick={() => {
-                    setEditingItem(item.id);
-                    setEditText(item.text);
-                  }}
-                  style={{
-                    flex: 1,
-                    textDecoration: item.isCompleted ? 'line-through' : 'none',
-                    color: item.isCompleted ? '#9ca3af' : '#1f2937',
-                    cursor: 'text'
-                  }}
-                >
-                  {item.text}
-                </span>
-              )}
+              {/* Text - minimal display */}
+              <span
+                style={{
+                  flex: 1,
+                  textDecoration: item.isCompleted ? 'line-through' : 'none',
+                  color: item.isCompleted ? '#9ca3af' : '#1f2937',
+                  fontSize: '0.95rem'
+                }}
+              >
+                {item.text}
+              </span>
               
-              {/* Priority indicator */}
-              {!item.isCompleted && item.priority && item.priority !== 'medium' && (
-                <span title={PRIORITY_CONFIG[item.priority].label} style={{ fontSize: '0.75rem' }}>
-                  {PRIORITY_CONFIG[item.priority].icon}
-                </span>
-              )}
+              {/* Indicators - minimal */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', flexShrink: 0 }}>
+                {/* Due date indicator */}
+                {item.dueDate && !item.isCompleted && (
+                  <span title={`Due: ${item.dueDate}`} style={{ fontSize: '0.7rem', color: '#6b7280' }}>
+                    📅
+                  </span>
+                )}
+                {/* Assigned indicator */}
+                {item.assignedTo && (
+                  <span title="Assigned" style={{ fontSize: '0.7rem', color: '#6b7280' }}>
+                    👤
+                  </span>
+                )}
+                {/* Priority indicator */}
+                {!item.isCompleted && item.priority && item.priority !== 'medium' && (
+                  <span title={PRIORITY_CONFIG[item.priority].label} style={{ fontSize: '0.7rem' }}>
+                    {PRIORITY_CONFIG[item.priority].icon}
+                  </span>
+                )}
+              </div>
               
               {/* Delete */}
               <button
-                onClick={() => onDeleteItem(item.id)}
+                onClick={(e) => { e.stopPropagation(); onDeleteItem(item.id); }}
                 style={{
                   background: 'none',
                   border: 'none',

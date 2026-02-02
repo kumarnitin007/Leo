@@ -11,13 +11,13 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import Portal from '../Portal';
-import VoiceCommandService from '../../services/voice/VoiceCommandService';
+import VoiceCommandService, { ExecutionResult } from '../../services/voice/VoiceCommandService';
 import { ParsedCommand } from '../../services/voice/types';
 
 interface VoiceCommandModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSuccess?: (message: string) => void;
+  onSuccess?: (message: string, result?: ExecutionResult) => void;
   onPrefillAndNavigate?: (parsed: ParsedCommand) => void; // New: for prefill mode
   showHistoryButton?: boolean;
   onHistoryClick?: () => void;
@@ -40,6 +40,7 @@ const VoiceCommandModal: React.FC<VoiceCommandModalProps> = ({
   const [parsed, setParsed] = useState<ParsedCommand | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pulseAnimation, setPulseAnimation] = useState(false);
+  const [executionResult, setExecutionResult] = useState<ExecutionResult | null>(null);
 
   // Reset state when modal opens
   useEffect(() => {
@@ -95,14 +96,15 @@ const VoiceCommandModal: React.FC<VoiceCommandModalProps> = ({
     setState('EXECUTING');
     try {
       const res = await service.execute(parsed);
+      setExecutionResult(res);
       if (res.success) {
         setState('SUCCESS');
         setTimeout(() => {
-          onSuccess?.('Created from voice command!');
+          onSuccess?.('Created from voice command!', res);
           onClose();
         }, 1500);
       } else {
-        setError('Failed to execute command');
+        setError(res.error?.message || 'Failed to execute command');
         setState('ERROR');
       }
     } catch (err: any) {
@@ -547,18 +549,65 @@ const VoiceCommandModal: React.FC<VoiceCommandModalProps> = ({
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    margin: '0 auto 1.5rem',
+                    margin: '0 auto 1rem',
                     animation: 'bounceIn 0.5s ease-out'
                   }}
                 >
                   <span style={{ fontSize: '2.5rem' }}>✓</span>
                 </div>
                 <h3 style={{ margin: '0 0 0.5rem', fontSize: '1.25rem', fontWeight: 600, color: '#10b981' }}>
-                  Success!
+                  {executionResult?.entityType || 'Item'} Created!
                 </h3>
-                <p style={{ margin: 0, color: '#6b7280', fontSize: '0.9rem' }}>
+                <p style={{ margin: '0 0 1rem', color: '#6b7280', fontSize: '0.9rem' }}>
                   Your command has been executed
                 </p>
+                
+                {/* Show extracted fields summary */}
+                {executionResult?.extractedFields && Object.keys(executionResult.extractedFields).length > 0 && (
+                  <div style={{ 
+                    background: '#f9fafb', 
+                    borderRadius: '0.75rem', 
+                    padding: '0.75rem',
+                    textAlign: 'left',
+                    maxHeight: '150px',
+                    overflowY: 'auto'
+                  }}>
+                    <p style={{ margin: '0 0 0.5rem', fontSize: '0.75rem', fontWeight: 600, color: '#6b7280' }}>
+                      Fields used:
+                    </p>
+                    {Object.entries(executionResult.extractedFields).map(([key, info]) => (
+                      <div key={key} style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        padding: '0.25rem 0',
+                        borderBottom: '1px solid #e5e7eb',
+                        fontSize: '0.8rem'
+                      }}>
+                        <span style={{ color: '#374151', fontWeight: 500 }}>{key}</span>
+                        <span style={{ 
+                          display: 'flex', 
+                          alignItems: 'center', 
+                          gap: '0.25rem',
+                          color: info.isDefault ? '#9ca3af' : '#059669'
+                        }}>
+                          {typeof info.value === 'object' ? JSON.stringify(info.value) : String(info.value).substring(0, 30)}
+                          {info.isDefault && (
+                            <span style={{ 
+                              fontSize: '0.6rem', 
+                              background: '#fef3c7', 
+                              color: '#92400e',
+                              padding: '0.125rem 0.375rem',
+                              borderRadius: '0.25rem'
+                            }}>
+                              default
+                            </span>
+                          )}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
 

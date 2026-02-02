@@ -785,6 +785,330 @@ export async function hasAlreadyCopied(originalEntryId: string): Promise<boolean
   return (data?.length || 0) > 0;
 }
 
+// ===== SHARING EVENTS =====
+
+export interface SharedEvent {
+  id: string;
+  eventId: string;
+  groupId: string;
+  sharedBy: string;
+  shareMode: ShareMode;
+  sharedAt: string;
+  expiresAt?: string;
+  revokedAt?: string;
+  isActive: boolean;
+}
+
+export async function shareEvent(
+  eventId: string,
+  groupId: string,
+  mode: ShareMode = 'readonly'
+): Promise<SharedEvent> {
+  const supabase = getClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('Not authenticated');
+
+  const now = new Date().toISOString();
+  const id = generateId();
+
+  const { data, error } = await supabase
+    .from('myday_shared_events')
+    .insert({
+      id,
+      event_id: eventId,
+      group_id: groupId,
+      shared_by: user.id,
+      share_mode: mode,
+      shared_at: now,
+      is_active: true,
+    })
+    .select()
+    .single();
+
+  if (error) throw error;
+
+  return {
+    id: data.id,
+    eventId: data.event_id,
+    groupId: data.group_id,
+    sharedBy: data.shared_by,
+    shareMode: data.share_mode,
+    sharedAt: data.shared_at,
+    expiresAt: data.expires_at,
+    revokedAt: data.revoked_at,
+    isActive: data.is_active,
+  };
+}
+
+export async function getEventsSharedWithMe(): Promise<SharedEvent[]> {
+  const supabase = getClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('Not authenticated');
+
+  const { data: memberData } = await supabase
+    .from('myday_group_members')
+    .select('group_id')
+    .eq('user_id', user.id);
+
+  const groupIds = (memberData || []).map(m => m.group_id);
+  if (groupIds.length === 0) return [];
+
+  const { data, error } = await supabase
+    .from('myday_shared_events')
+    .select('*')
+    .in('group_id', groupIds)
+    .neq('shared_by', user.id)
+    .eq('is_active', true)
+    .order('shared_at', { ascending: false });
+
+  if (error) throw error;
+
+  return (data || []).map(row => ({
+    id: row.id,
+    eventId: row.event_id,
+    groupId: row.group_id,
+    sharedBy: row.shared_by,
+    shareMode: row.share_mode,
+    sharedAt: row.shared_at,
+    expiresAt: row.expires_at,
+    revokedAt: row.revoked_at,
+    isActive: row.is_active,
+  }));
+}
+
+export async function revokeEventShare(shareId: string): Promise<void> {
+  const supabase = getClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('Not authenticated');
+
+  const { error } = await supabase
+    .from('myday_shared_events')
+    .update({
+      is_active: false,
+      revoked_at: new Date().toISOString(),
+    })
+    .eq('id', shareId)
+    .eq('shared_by', user.id);
+
+  if (error) throw error;
+}
+
+// ===== SHARING TO-DO ITEMS =====
+
+export interface SharedTodo {
+  id: string;
+  todoItemId: string;
+  groupId: string;
+  sharedBy: string;
+  shareMode: 'readonly' | 'editable';
+  sharedAt: string;
+  expiresAt?: string;
+  revokedAt?: string;
+  isActive: boolean;
+}
+
+export async function shareTodoItem(
+  todoItemId: string,
+  groupId: string,
+  mode: 'readonly' | 'editable' = 'readonly'
+): Promise<SharedTodo> {
+  const supabase = getClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('Not authenticated');
+
+  const now = new Date().toISOString();
+  const id = generateId();
+
+  const { data, error } = await supabase
+    .from('myday_shared_todos')
+    .insert({
+      id,
+      todo_item_id: todoItemId,
+      group_id: groupId,
+      shared_by: user.id,
+      share_mode: mode,
+      shared_at: now,
+      is_active: true,
+    })
+    .select()
+    .single();
+
+  if (error) throw error;
+
+  return {
+    id: data.id,
+    todoItemId: data.todo_item_id,
+    groupId: data.group_id,
+    sharedBy: data.shared_by,
+    shareMode: data.share_mode,
+    sharedAt: data.shared_at,
+    expiresAt: data.expires_at,
+    revokedAt: data.revoked_at,
+    isActive: data.is_active,
+  };
+}
+
+export async function getTodosSharedWithMe(): Promise<SharedTodo[]> {
+  const supabase = getClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('Not authenticated');
+
+  const { data: memberData } = await supabase
+    .from('myday_group_members')
+    .select('group_id')
+    .eq('user_id', user.id);
+
+  const groupIds = (memberData || []).map(m => m.group_id);
+  if (groupIds.length === 0) return [];
+
+  const { data, error } = await supabase
+    .from('myday_shared_todos')
+    .select('*')
+    .in('group_id', groupIds)
+    .neq('shared_by', user.id)
+    .eq('is_active', true)
+    .order('shared_at', { ascending: false });
+
+  if (error) throw error;
+
+  return (data || []).map(row => ({
+    id: row.id,
+    todoItemId: row.todo_item_id,
+    groupId: row.group_id,
+    sharedBy: row.shared_by,
+    shareMode: row.share_mode,
+    sharedAt: row.shared_at,
+    expiresAt: row.expires_at,
+    revokedAt: row.revoked_at,
+    isActive: row.is_active,
+  }));
+}
+
+export async function revokeTodoShare(shareId: string): Promise<void> {
+  const supabase = getClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('Not authenticated');
+
+  const { error } = await supabase
+    .from('myday_shared_todos')
+    .update({
+      is_active: false,
+      revoked_at: new Date().toISOString(),
+    })
+    .eq('id', shareId)
+    .eq('shared_by', user.id);
+
+  if (error) throw error;
+}
+
+// ===== SHARING TO-DO GROUPS =====
+
+export interface SharedTodoGroup {
+  id: string;
+  todoGroupId: string;
+  groupId: string;
+  sharedBy: string;
+  shareMode: 'readonly' | 'editable';
+  sharedAt: string;
+  expiresAt?: string;
+  revokedAt?: string;
+  isActive: boolean;
+}
+
+export async function shareTodoGroup(
+  todoGroupId: string,
+  groupId: string,
+  mode: 'readonly' | 'editable' = 'readonly'
+): Promise<SharedTodoGroup> {
+  const supabase = getClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('Not authenticated');
+
+  const now = new Date().toISOString();
+  const id = generateId();
+
+  const { data, error } = await supabase
+    .from('myday_shared_todo_groups')
+    .insert({
+      id,
+      todo_group_id: todoGroupId,
+      group_id: groupId,
+      shared_by: user.id,
+      share_mode: mode,
+      shared_at: now,
+      is_active: true,
+    })
+    .select()
+    .single();
+
+  if (error) throw error;
+
+  return {
+    id: data.id,
+    todoGroupId: data.todo_group_id,
+    groupId: data.group_id,
+    sharedBy: data.shared_by,
+    shareMode: data.share_mode,
+    sharedAt: data.shared_at,
+    expiresAt: data.expires_at,
+    revokedAt: data.revoked_at,
+    isActive: data.is_active,
+  };
+}
+
+export async function getTodoGroupsSharedWithMe(): Promise<SharedTodoGroup[]> {
+  const supabase = getClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('Not authenticated');
+
+  const { data: memberData } = await supabase
+    .from('myday_group_members')
+    .select('group_id')
+    .eq('user_id', user.id);
+
+  const groupIds = (memberData || []).map(m => m.group_id);
+  if (groupIds.length === 0) return [];
+
+  const { data, error } = await supabase
+    .from('myday_shared_todo_groups')
+    .select('*')
+    .in('group_id', groupIds)
+    .neq('shared_by', user.id)
+    .eq('is_active', true)
+    .order('shared_at', { ascending: false });
+
+  if (error) throw error;
+
+  return (data || []).map(row => ({
+    id: row.id,
+    todoGroupId: row.todo_group_id,
+    groupId: row.group_id,
+    sharedBy: row.shared_by,
+    shareMode: row.share_mode,
+    sharedAt: row.shared_at,
+    expiresAt: row.expires_at,
+    revokedAt: row.revoked_at,
+    isActive: row.is_active,
+  }));
+}
+
+export async function revokeTodoGroupShare(shareId: string): Promise<void> {
+  const supabase = getClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('Not authenticated');
+
+  const { error } = await supabase
+    .from('myday_shared_todo_groups')
+    .update({
+      is_active: false,
+      revoked_at: new Date().toISOString(),
+    })
+    .eq('id', shareId)
+    .eq('shared_by', user.id);
+
+  if (error) throw error;
+}
+
 // ===== USER SEARCH (for invitations) =====
 
 export async function searchUsers(query: string): Promise<{ id: string; email: string }[]> {

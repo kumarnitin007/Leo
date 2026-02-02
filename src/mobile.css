@@ -534,6 +534,8 @@
 @media (max-width: 768px) {
   .mobile-bottom-nav {
     display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
     position: fixed !important;
     bottom: 0 !important;
     left: 0 !important;
@@ -541,12 +543,14 @@
     background: rgba(255, 255, 255, 0.98) !important;
     backdrop-filter: blur(10px) !important;
     border-top: 1px solid #e5e7eb !important;
-    padding: 0.5rem 0 !important;
-    padding-bottom: calc(0.5rem + env(safe-area-inset-bottom)) !important;
+    padding: 0.25rem 0.5rem !important;
+    padding-bottom: calc(0.25rem + env(safe-area-inset-bottom)) !important;
     z-index: 1000 !important;
     box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1) !important;
-    justify-content: space-around !important;
+    justify-content: space-between !important;
     align-items: center !important;
+    height: auto !important;
+    max-height: 70px !important;
   }
 
   .bottom-nav-btn {
@@ -554,15 +558,18 @@
     flex-direction: column !important;
     align-items: center !important;
     justify-content: center !important;
-    gap: 0.25rem !important;
-    padding: 0.5rem 1rem !important;
+    gap: 0.125rem !important;
+    padding: 0.25rem 0.5rem !important;
     background: transparent !important;
     border: none !important;
     cursor: pointer !important;
     transition: all 0.2s !important;
     color: #6b7280 !important;
-    min-width: 60px !important;
-    min-height: 56px !important;
+    min-width: 48px !important;
+    max-width: 60px !important;
+    min-height: 44px !important;
+    max-height: 52px !important;
+    flex: 1 !important;
   }
 
   .bottom-nav-btn.active {
@@ -574,18 +581,21 @@
   }
 
   .bottom-nav-icon {
-    font-size: 1.5rem !important;
+    font-size: 1.25rem !important;
     transition: transform 0.2s !important;
+    line-height: 1 !important;
   }
 
   .bottom-nav-label {
-    font-size: 0.7rem !important;
+    font-size: 0.6rem !important;
     font-weight: 600 !important;
+    line-height: 1 !important;
+    white-space: nowrap !important;
   }
 
   .bottom-nav-fab {
-    width: 56px !important;
-    height: 56px !important;
+    width: 44px !important;
+    height: 44px !important;
     border-radius: 50% !important;
     border: none !important;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2) !important;
@@ -594,8 +604,9 @@
     display: flex !important;
     align-items: center !important;
     justify-content: center !important;
-    margin-top: -28px !important;
+    margin-top: -12px !important;
     position: relative !important;
+    flex-shrink: 0 !important;
   }
 
   .bottom-nav-fab:active {
@@ -603,9 +614,41 @@
   }
 
   .fab-icon {
-    font-size: 2rem !important;
+    font-size: 1.5rem !important;
     color: white !important;
     font-weight: 300 !important;
+    line-height: 1 !important;
+  }
+  
+  /* Extra compact for very small screens */
+  @media (max-width: 360px) {
+    .mobile-bottom-nav {
+      padding: 0.125rem 0.25rem !important;
+    }
+    
+    .bottom-nav-btn {
+      padding: 0.125rem 0.25rem !important;
+      min-width: 40px !important;
+      gap: 0 !important;
+    }
+    
+    .bottom-nav-icon {
+      font-size: 1.125rem !important;
+    }
+    
+    .bottom-nav-label {
+      font-size: 0.5rem !important;
+    }
+    
+    .bottom-nav-fab {
+      width: 40px !important;
+      height: 40px !important;
+      margin-top: -8px !important;
+    }
+    
+    .fab-icon {
+      font-size: 1.25rem !important;
+    }
   }
 
   /* Hide desktop header and nav on mobile */

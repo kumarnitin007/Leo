@@ -782,21 +782,44 @@ export const getJournalEntries = async (): Promise<JournalEntry[]> => {
 export const saveJournalEntry = async (entry: JournalEntry): Promise<void> => {
   const { client, userId } = await requireAuth();
 
-  const { error } = await client
+  // First, check if an entry already exists for this date
+  const { data: existing } = await client
     .from('myday_journal_entries')
-    .upsert([{
-      id: entry.id || generateUUID(),
-      user_id: userId,
-      entry_date: entry.date,
-      content: entry.content,
-      mood: entry.mood || null,
-      tags: entry.tags,
-      is_favorite: entry.isFavorite || false
-    }], {
-      onConflict: 'user_id,entry_date'
-    });
+    .select('id')
+    .eq('user_id', userId)
+    .eq('entry_date', entry.date)
+    .maybeSingle();
 
-  if (error) throw error;
+  if (existing) {
+    // Update existing entry
+    const { error } = await client
+      .from('myday_journal_entries')
+      .update({
+        content: entry.content,
+        mood: entry.mood || null,
+        tags: entry.tags || [],
+        is_favorite: entry.isFavorite || false,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', existing.id);
+
+    if (error) throw error;
+  } else {
+    // Insert new entry
+    const { error } = await client
+      .from('myday_journal_entries')
+      .insert({
+        id: entry.id || generateUUID(),
+        user_id: userId,
+        entry_date: entry.date,
+        content: entry.content,
+        mood: entry.mood || null,
+        tags: entry.tags || [],
+        is_favorite: entry.isFavorite || false
+      });
+
+    if (error) throw error;
+  }
 };
 
 export const deleteJournalEntry = async (entryId: string): Promise<void> => {

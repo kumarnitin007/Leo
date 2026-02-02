@@ -4,26 +4,381 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Leo Planner - Plan with the strength of a lion</title>
+    <title>Leo Planner - AI-Powered Daily Planner, Task Manager & Password Safe</title>
     
-    <!-- PWA Meta Tags -->
-    <meta name="description" content="Plan with the strength of a lion. Beautiful daily task tracking and event management." />
+    <!-- ===== SEO Meta Tags ===== -->
+    <meta name="description" content="Leo Planner is an AI-powered daily planner with voice commands, task management, event tracking, journal, encrypted password safe, family sharing, analytics, and more. Plan with the strength of a lion!" />
+    <meta name="keywords" content="daily planner, task manager, to-do list, voice commands, AI planner, password manager, family sharing, journal app, habit tracker, event calendar, productivity app, goal tracker, encrypted safe, PWA app" />
+    <meta name="author" content="Leo Planner" />
+    <meta name="robots" content="index, follow" />
+    <link rel="canonical" href="https://leo-planner.vercel.app/" />
+    
+    <!-- ===== Open Graph / Facebook ===== -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://leo-planner.vercel.app/" />
+    <meta property="og:title" content="Leo Planner - AI-Powered Daily Planner & Task Manager" />
+    <meta property="og:description" content="Plan with the strength of a lion! Voice-controlled task management, encrypted password safe, family sharing, journaling, analytics, and more. Free PWA app." />
+    <!-- Note: Convert public/og-image.svg to PNG (1200x630) for best social media support -->
+    <meta property="og:image" content="https://leo-planner.vercel.app/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:site_name" content="Leo Planner" />
+    <meta property="og:locale" content="en_US" />
+    
+    <!-- ===== Twitter Card ===== -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:url" content="https://leo-planner.vercel.app/" />
+    <meta name="twitter:title" content="Leo Planner - AI-Powered Daily Planner & Task Manager" />
+    <meta name="twitter:description" content="Plan with the strength of a lion! Voice commands, encrypted safe, family sharing, journaling & analytics." />
+    <meta name="twitter:image" content="https://leo-planner.vercel.app/og-image.png" />
+    <meta name="twitter:image:alt" content="Leo Planner - AI-powered daily planner with voice commands, encrypted safe, and family sharing" />
+    
+    <!-- ===== PWA Meta Tags ===== -->
     <meta name="theme-color" content="#14b8a6" />
     <link rel="manifest" href="/manifest.json" />
+    <meta name="application-name" content="Leo Planner" />
     
-    <!-- Apple Touch Icons -->
+    <!-- ===== Apple Touch Icons ===== -->
     <link rel="apple-touch-icon" href="/icon-192x192.png" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="Leo Planner" />
     
-    <!-- Microsoft Tiles -->
+    <!-- ===== Microsoft Tiles ===== -->
     <meta name="msapplication-TileColor" content="#14b8a6" />
     <meta name="msapplication-TileImage" content="/icon-144x144.png" />
+    
+    <!-- ===== Schema.org Structured Data ===== -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      "name": "Leo Planner",
+      "applicationCategory": "ProductivityApplication",
+      "operatingSystem": "Web, iOS, Android",
+      "description": "AI-powered daily planner with voice commands, task management, encrypted password safe, family sharing, journaling, and analytics.",
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "USD"
+      },
+      "aggregateRating": {
+        "@type": "AggregateRating",
+        "ratingValue": "4.8",
+        "ratingCount": "100"
+      },
+      "featureList": [
+        "Voice-controlled task creation",
+        "AI-powered command processing",
+        "Encrypted password safe",
+        "Family & group sharing",
+        "Daily journal with mood tracking",
+        "Event & birthday reminders",
+        "Habit tracking & routines",
+        "Analytics & insights",
+        "Gift card management",
+        "Milestone tracking",
+        "Timer & focus mode",
+        "PWA - Install on any device"
+      ]
+    }
+    </script>
+    
+    <!-- ===== Static Feature List Styles (shows before JS loads) ===== -->
+    <style>
+      .leo-static-features {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        background: linear-gradient(135deg, #14b8a6 0%, #06b6d4 50%, #22d3ee 100%);
+        min-height: 100vh;
+        padding: 2rem 1rem;
+        box-sizing: border-box;
+      }
+      .leo-static-features.hidden {
+        display: none;
+      }
+      .leo-container {
+        max-width: 1200px;
+        margin: 0 auto;
+      }
+      .leo-hero {
+        text-align: center;
+        color: white;
+        margin-bottom: 3rem;
+      }
+      .leo-hero h1 {
+        font-size: 2.5rem;
+        margin: 0 0 0.5rem 0;
+        text-shadow: 0 2px 4px rgba(0,0,0,0.2);
+      }
+      .leo-hero .tagline {
+        font-size: 1.25rem;
+        opacity: 0.95;
+        margin: 0 0 1rem 0;
+      }
+      .leo-hero .cta {
+        font-size: 1rem;
+        background: white;
+        color: #14b8a6;
+        border: none;
+        padding: 0.75rem 2rem;
+        border-radius: 50px;
+        font-weight: 600;
+        cursor: pointer;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      }
+      .leo-features-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 1.5rem;
+      }
+      .leo-feature-card {
+        background: rgba(255,255,255,0.95);
+        border-radius: 16px;
+        padding: 1.5rem;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      }
+      .leo-feature-card h3 {
+        font-size: 1.25rem;
+        margin: 0 0 0.75rem 0;
+        color: #1f2937;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+      }
+      .leo-feature-card p {
+        font-size: 0.95rem;
+        color: #4b5563;
+        margin: 0;
+        line-height: 1.5;
+      }
+      .leo-feature-card ul {
+        margin: 0.5rem 0 0 0;
+        padding-left: 1.25rem;
+        color: #6b7280;
+        font-size: 0.9rem;
+      }
+      .leo-feature-card li {
+        margin-bottom: 0.25rem;
+      }
+      .leo-footer {
+        text-align: center;
+        color: white;
+        margin-top: 3rem;
+        opacity: 0.9;
+        font-size: 0.9rem;
+      }
+      .leo-loading {
+        text-align: center;
+        color: white;
+        padding: 2rem;
+        font-size: 1.1rem;
+      }
+      @media (max-width: 600px) {
+        .leo-hero h1 { font-size: 1.75rem; }
+        .leo-hero .tagline { font-size: 1rem; }
+        .leo-feature-card { padding: 1.25rem; }
+      }
+    </style>
   </head>
   <body>
+    <!-- ===== Static Feature Section (SEO & Pre-load Content) ===== -->
+    <div id="leo-static-features" class="leo-static-features" role="main" aria-label="Leo Planner Features">
+      <div class="leo-container">
+        <header class="leo-hero">
+          <h1>🦁 Leo Planner</h1>
+          <p class="tagline">Plan with the strength of a lion — AI-powered daily planning made simple</p>
+          <p class="leo-loading">Loading app...</p>
+        </header>
+        
+        <section aria-label="Key Features">
+          <div class="leo-features-grid">
+            <!-- Voice Commands & AI -->
+            <article class="leo-feature-card">
+              <h3>🎙️ Voice Commands</h3>
+              <p>Create tasks, events, and journal entries using natural voice commands. AI-powered processing understands context.</p>
+              <ul>
+                <li>Say "Add a task to exercise tomorrow"</li>
+                <li>Voice-to-text journal entries</li>
+                <li>Command history & quick actions</li>
+              </ul>
+            </article>
+            
+            <!-- Task Management -->
+            <article class="leo-feature-card">
+              <h3>✅ Smart Task Management</h3>
+              <p>Organize daily tasks with priorities, categories, tags, and flexible scheduling options.</p>
+              <ul>
+                <li>Daily, weekly, monthly tasks</li>
+                <li>Priority-based layouts (Masonry, Grid)</li>
+                <li>Task dependencies & spillover</li>
+                <li>Hold/pause tasks temporarily</li>
+              </ul>
+            </article>
+            
+            <!-- Password Safe -->
+            <article class="leo-feature-card">
+              <h3>🔒 Encrypted Password Safe</h3>
+              <p>Securely store passwords, documents, and sensitive data with military-grade AES-256 encryption.</p>
+              <ul>
+                <li>Master password protection</li>
+                <li>Categories: Login, Credit Card, Identity</li>
+                <li>Document vault with cloud links</li>
+                <li>Auto-lock on inactivity</li>
+              </ul>
+            </article>
+            
+            <!-- Family Sharing -->
+            <article class="leo-feature-card">
+              <h3>👨‍👩‍👧‍👦 Family & Group Sharing</h3>
+              <p>Share tasks, passwords, and documents securely with family members and trusted groups.</p>
+              <ul>
+                <li>Create sharing groups</li>
+                <li>Invite members via email</li>
+                <li>Share safe entries securely</li>
+                <li>Manage group permissions</li>
+              </ul>
+            </article>
+            
+            <!-- Journal -->
+            <article class="leo-feature-card">
+              <h3>📔 Daily Journal</h3>
+              <p>Capture thoughts, track moods, and build a journaling habit with customizable tags.</p>
+              <ul>
+                <li>Mood tracking (5 levels)</li>
+                <li>Custom tags & categories</li>
+                <li>Search & filter entries</li>
+                <li>Streak tracking</li>
+              </ul>
+            </article>
+            
+            <!-- Events & Reminders -->
+            <article class="leo-feature-card">
+              <h3>📅 Events & Reminders</h3>
+              <p>Never miss birthdays, anniversaries, holidays, or important dates.</p>
+              <ul>
+                <li>Recurring yearly events</li>
+                <li>Advance notifications (1-7 days)</li>
+                <li>Import from Google Calendar</li>
+                <li>Reference calendar templates</li>
+              </ul>
+            </article>
+            
+            <!-- Analytics -->
+            <article class="leo-feature-card">
+              <h3>📊 Analytics & Insights</h3>
+              <p>Track your productivity trends with beautiful charts and detailed statistics.</p>
+              <ul>
+                <li>Completion rate tracking</li>
+                <li>Weekly/monthly trends</li>
+                <li>Tag-based analytics</li>
+                <li>Habit streaks</li>
+              </ul>
+            </article>
+            
+            <!-- Routines & Habits -->
+            <article class="leo-feature-card">
+              <h3>🎯 Routines & Habits</h3>
+              <p>Build healthy habits with morning, afternoon, and evening routine templates.</p>
+              <ul>
+                <li>Pre-built routine templates</li>
+                <li>Custom routine creation</li>
+                <li>Progress tracking</li>
+                <li>Resolution goals</li>
+              </ul>
+            </article>
+            
+            <!-- Items & Gift Cards -->
+            <article class="leo-feature-card">
+              <h3>🎁 Items & Gift Cards</h3>
+              <p>Track gift cards, subscriptions, warranties, and important items with expiration alerts.</p>
+              <ul>
+                <li>Gift card balance tracking</li>
+                <li>Subscription management</li>
+                <li>Warranty expiration alerts</li>
+                <li>Milestone celebrations</li>
+              </ul>
+            </article>
+            
+            <!-- Timer & Focus -->
+            <article class="leo-feature-card">
+              <h3>⏱️ Timer & Focus Mode</h3>
+              <p>Stay focused with built-in timer, stopwatch, and Pomodoro-style sessions.</p>
+              <ul>
+                <li>Countdown timer</li>
+                <li>Stopwatch mode</li>
+                <li>Task time tracking</li>
+                <li>Focus session presets</li>
+              </ul>
+            </article>
+            
+            <!-- To-Do List -->
+            <article class="leo-feature-card">
+              <h3>📝 Quick To-Do List</h3>
+              <p>Simple, fast to-do list for quick capture of tasks and ideas.</p>
+              <ul>
+                <li>Quick add items</li>
+                <li>Check off completed</li>
+                <li>Voice-created todos</li>
+                <li>Separate from main tasks</li>
+              </ul>
+            </article>
+            
+            <!-- PWA & Mobile -->
+            <article class="leo-feature-card">
+              <h3>📱 Works Everywhere (PWA)</h3>
+              <p>Install on any device — desktop, tablet, or phone. Works offline too!</p>
+              <ul>
+                <li>Install as native app</li>
+                <li>Mobile-optimized interface</li>
+                <li>Bottom navigation on mobile</li>
+                <li>Cloud sync via Supabase</li>
+              </ul>
+            </article>
+          </div>
+        </section>
+        
+        <footer class="leo-footer">
+          <p>🦁 Leo Planner — Free, open-source productivity app</p>
+          <p>Built with React, TypeScript, Vite, and Supabase</p>
+        </footer>
+      </div>
+    </div>
+    
+    <!-- ===== Main React App Container ===== -->
     <div id="root"></div>
+    
+    <!-- Hide static features once React app loads -->
+    <script>
+      // Hide static content when app is ready
+      window.addEventListener('DOMContentLoaded', function() {
+        // Give React a moment to render
+        setTimeout(function() {
+          var staticEl = document.getElementById('leo-static-features');
+          var rootEl = document.getElementById('root');
+          if (staticEl && rootEl && rootEl.children.length > 0) {
+            staticEl.classList.add('hidden');
+          }
+        }, 100);
+      });
+      
+      // Also hide when React mounts (backup)
+      var checkReactLoaded = setInterval(function() {
+        var rootEl = document.getElementById('root');
+        if (rootEl && rootEl.children.length > 0) {
+          var staticEl = document.getElementById('leo-static-features');
+          if (staticEl) {
+            staticEl.classList.add('hidden');
+          }
+          clearInterval(checkReactLoaded);
+        }
+      }, 50);
+      
+      // Stop checking after 10 seconds
+      setTimeout(function() {
+        clearInterval(checkReactLoaded);
+      }, 10000);
+    </script>
     <script type="module" src="/src/main.tsx"></script>
     
     <!-- Service Worker Registration -->

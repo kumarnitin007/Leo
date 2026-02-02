@@ -544,6 +544,12 @@ export interface TodoItem {
   priority?: TodoPriority;
   dueDate?: string; // YYYY-MM-DD
   notes?: string;
+  tags?: string[]; // Array of tag IDs
+  showOnDashboard?: boolean; // Show on Home/Dashboard when due date is set
+  assignedTo?: string; // User ID from connected family/sharing groups
+  assignedAt?: string; // ISO timestamp when assigned
+  assignedBy?: string; // User ID who assigned this
+  assignedToName?: string; // Display name (populated from group members)
   order: number;
   createdAt: string;
   updatedAt: string;

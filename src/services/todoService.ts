@@ -185,6 +185,48 @@ export async function getTodoItems(groupIds?: string[] | 'all' | 'ungrouped'): P
     priority: row.priority,
     dueDate: row.due_date,
     notes: row.notes,
+    tags: row.tags || [],
+    showOnDashboard: row.show_on_dashboard || false,
+    assignedTo: row.assigned_to || undefined,
+    assignedAt: row.assigned_at || undefined,
+    assignedBy: row.assigned_by || undefined,
+    order: row.order_num,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  }));
+}
+
+// Get todos that should show on dashboard (due date + show_on_dashboard + not completed)
+export async function getDashboardTodos(): Promise<TodoItem[]> {
+  const supabase = getClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('Not authenticated');
+
+  const { data, error } = await supabase
+    .from('myday_todo_items')
+    .select('*')
+    .eq('user_id', user.id)
+    .eq('show_on_dashboard', true)
+    .eq('is_completed', false)
+    .not('due_date', 'is', null)
+    .order('due_date', { ascending: true });
+
+  if (error) throw error;
+
+  return (data || []).map(row => ({
+    id: row.id,
+    text: row.text,
+    groupId: row.group_id,
+    isCompleted: row.is_completed,
+    completedAt: row.completed_at,
+    priority: row.priority,
+    dueDate: row.due_date,
+    notes: row.notes,
+    tags: row.tags || [],
+    showOnDashboard: row.show_on_dashboard || false,
+    assignedTo: row.assigned_to || undefined,
+    assignedAt: row.assigned_at || undefined,
+    assignedBy: row.assigned_by || undefined,
     order: row.order_num,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -229,6 +271,11 @@ export async function createTodoItem(item: Partial<TodoItem>): Promise<TodoItem>
       priority: item.priority || 'medium',
       due_date: item.dueDate || null,
       notes: item.notes || null,
+      tags: item.tags || null,
+      show_on_dashboard: item.showOnDashboard || false,
+      assigned_to: item.assignedTo || null,
+      assigned_at: item.assignedTo ? now : null,
+      assigned_by: item.assignedTo ? user.id : null,
       order_num: maxOrder + 1,
       created_at: now,
       updated_at: now,
@@ -247,6 +294,11 @@ export async function createTodoItem(item: Partial<TodoItem>): Promise<TodoItem>
     priority: data.priority,
     dueDate: data.due_date,
     notes: data.notes,
+    tags: data.tags || [],
+    showOnDashboard: data.show_on_dashboard || false,
+    assignedTo: data.assigned_to || undefined,
+    assignedAt: data.assigned_at || undefined,
+    assignedBy: data.assigned_by || undefined,
     order: data.order_num,
     createdAt: data.created_at,
     updatedAt: data.updated_at,
@@ -270,6 +322,13 @@ export async function updateTodoItem(id: string, updates: Partial<TodoItem>): Pr
   if (updates.priority !== undefined) updatePayload.priority = updates.priority;
   if (updates.dueDate !== undefined) updatePayload.due_date = updates.dueDate || null;
   if (updates.notes !== undefined) updatePayload.notes = updates.notes || null;
+  if (updates.tags !== undefined) updatePayload.tags = updates.tags || null;
+  if (updates.showOnDashboard !== undefined) updatePayload.show_on_dashboard = updates.showOnDashboard;
+  if (updates.assignedTo !== undefined) {
+    updatePayload.assigned_to = updates.assignedTo || null;
+    updatePayload.assigned_at = updates.assignedTo ? now : null;
+    updatePayload.assigned_by = updates.assignedTo ? user.id : null;
+  }
   if (updates.order !== undefined) updatePayload.order_num = updates.order;
 
   const { data, error } = await supabase
@@ -291,6 +350,11 @@ export async function updateTodoItem(id: string, updates: Partial<TodoItem>): Pr
     priority: data.priority,
     dueDate: data.due_date,
     notes: data.notes,
+    tags: data.tags || [],
+    showOnDashboard: data.show_on_dashboard || false,
+    assignedTo: data.assigned_to || undefined,
+    assignedAt: data.assigned_at || undefined,
+    assignedBy: data.assigned_by || undefined,
     order: data.order_num,
     createdAt: data.created_at,
     updatedAt: data.updated_at,
@@ -381,4 +445,82 @@ export async function clearCompletedTodos(groupId?: string): Promise<void> {
 
 export async function moveTodoItem(itemId: string, newGroupId: string | null): Promise<TodoItem> {
   return updateTodoItem(itemId, { groupId: newGroupId || undefined });
+}
+
+// ===== ASSIGNABLE USERS =====
+
+export interface AssignableUser {
+  userId: string;
+  displayName: string;
+  groupId: string;
+  groupName: string;
+}
+
+/**
+ * Get all users from connected sharing/family groups that can be assigned todos
+ */
+export async function getAssignableUsers(): Promise<AssignableUser[]> {
+  const supabase = getClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('Not authenticated');
+
+  // Get all groups the user is a member of
+  const { data: memberData } = await supabase
+    .from('myday_group_members')
+    .select('group_id')
+    .eq('user_id', user.id);
+
+  const groupIds = (memberData || []).map(m => m.group_id);
+  if (groupIds.length === 0) return [];
+
+  // Get group names
+  const { data: groupsData } = await supabase
+    .from('myday_groups')
+    .select('id, name')
+    .in('id', groupIds);
+
+  const groupNames: Record<string, string> = {};
+  (groupsData || []).forEach(g => {
+    groupNames[g.id] = g.name;
+  });
+
+  // Get all members of those groups (excluding current user)
+  const { data: allMembers, error } = await supabase
+    .from('myday_group_members')
+    .select('user_id, display_name, group_id')
+    .in('group_id', groupIds)
+    .neq('user_id', user.id);
+
+  if (error) throw error;
+
+  // Deduplicate users (they might be in multiple groups)
+  const userMap = new Map<string, AssignableUser>();
+  (allMembers || []).forEach(member => {
+    if (!userMap.has(member.user_id)) {
+      userMap.set(member.user_id, {
+        userId: member.user_id,
+        displayName: member.display_name || 'Unknown',
+        groupId: member.group_id,
+        groupName: groupNames[member.group_id] || 'Unknown Group',
+      });
+    }
+  });
+
+  return Array.from(userMap.values());
+}
+
+/**
+ * Get display name for a user ID from group members
+ */
+export async function getUserDisplayName(userId: string): Promise<string | null> {
+  const supabase = getClient();
+  
+  const { data } = await supabase
+    .from('myday_group_members')
+    .select('display_name')
+    .eq('user_id', userId)
+    .limit(1)
+    .maybeSingle();
+
+  return data?.display_name || null;
 }
