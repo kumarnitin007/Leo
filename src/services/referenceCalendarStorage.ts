@@ -367,33 +367,44 @@ export const getUserVisibleDaysByRange = async (
   if (error) throw error;
   
   // Map snake_case DB columns to camelCase TypeScript interface
-  return (data || []).map((row: any) => ({
-    id: row.id,
-    date: row.date,
-    calendarId: row.calendar_id,
-    dayOfWeek: row.day_of_week,
-    anchorType: row.anchor_type,
-    anchorKey: row.anchor_key,
-    eventName: row.event_name,
-    eventDescription: row.event_description,
-    eventCategory: row.event_category,
-    eventType: row.event_type,
-    importanceLevel: row.importance_level,
-    significance: row.significance,
-    traditions: row.traditions,
-    greetings: row.greetings,
-    icon: row.icon,
-    primaryColor: row.primary_color,
-    secondaryColor: row.secondary_color,
-    tags: row.tags,
-    relatedDayIds: row.related_day_ids,
-    lunarMetadata: row.lunar_metadata,
-    duplicateOf: row.duplicate_of,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
-    calendarCount: row.calendar_count || 1,
-    calendarNames: row.calendar_names || [],
-  })) as UserVisibleDay[];
+  return (data || []).map((row: any) => {
+    // Parse date to get month and dayOfMonth
+    const dateParts = row.date ? row.date.split('-') : [];
+    const month = dateParts[1] ? parseInt(dateParts[1], 10) : 1;
+    const dayOfMonth = dateParts[2] ? parseInt(dateParts[2], 10) : 1;
+    
+    return {
+      id: row.id,
+      date: row.date,
+      year: row.year,
+      month: row.month || month,
+      dayOfMonth: row.day_of_month || dayOfMonth,
+      calendarSystem: row.calendar_system || 'gregorian',
+      calendarId: row.calendar_id,
+      dayOfWeek: row.day_of_week,
+      anchorType: row.anchor_type,
+      anchorKey: row.anchor_key,
+      eventName: row.event_name,
+      eventDescription: row.event_description,
+      eventCategory: row.event_category || 'observance',
+      eventType: row.event_type || 'fixed',
+      importanceLevel: row.importance_level || 50,
+      significance: row.significance,
+      traditions: row.traditions,
+      greetings: row.greetings,
+      icon: row.icon,
+      primaryColor: row.primary_color,
+      secondaryColor: row.secondary_color,
+      tags: row.tags,
+      relatedDayIds: row.related_day_ids,
+      lunarMetadata: row.lunar_metadata,
+      duplicateOf: row.duplicate_of,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+      calendarCount: row.calendar_count || 1,
+      calendarNames: row.calendar_names || [],
+    };
+  }) as UserVisibleDay[];
 };
 
 /**
