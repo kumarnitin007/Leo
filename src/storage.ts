@@ -798,7 +798,6 @@ export const saveJournalEntry = async (entry: JournalEntry): Promise<void> => {
         content: entry.content,
         mood: entry.mood || null,
         tags: entry.tags || [],
-        is_favorite: entry.isFavorite || false,
         updated_at: new Date().toISOString()
       })
       .eq('id', existing.id);
@@ -814,7 +813,6 @@ export const saveJournalEntry = async (entry: JournalEntry): Promise<void> => {
       content: entry.content || '',
       mood: entry.mood || null,
       tags: entry.tags || [],
-      is_favorite: entry.isFavorite || false,
       created_at: now,
       updated_at: now
     };
