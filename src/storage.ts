@@ -806,19 +806,27 @@ export const saveJournalEntry = async (entry: JournalEntry): Promise<void> => {
     if (error) throw error;
   } else {
     // Insert new entry
+    const now = new Date().toISOString();
+    const insertData = {
+      id: entry.id || generateUUID(),
+      user_id: userId,
+      entry_date: entry.date,
+      content: entry.content || '',
+      mood: entry.mood || null,
+      tags: entry.tags || [],
+      is_favorite: entry.isFavorite || false,
+      created_at: now,
+      updated_at: now
+    };
+    
     const { error } = await client
       .from('myday_journal_entries')
-      .insert({
-        id: entry.id || generateUUID(),
-        user_id: userId,
-        entry_date: entry.date,
-        content: entry.content,
-        mood: entry.mood || null,
-        tags: entry.tags || [],
-        is_favorite: entry.isFavorite || false
-      });
+      .insert(insertData);
 
-    if (error) throw error;
+    if (error) {
+      console.error('Journal insert error:', error, 'Data:', insertData);
+      throw error;
+    }
   }
 };
 

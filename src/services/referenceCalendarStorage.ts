@@ -365,7 +365,35 @@ export const getUserVisibleDaysByRange = async (
     .order('date', { ascending: true });
 
   if (error) throw error;
-  return (data || []) as UserVisibleDay[];
+  
+  // Map snake_case DB columns to camelCase TypeScript interface
+  return (data || []).map((row: any) => ({
+    id: row.id,
+    date: row.date,
+    calendarId: row.calendar_id,
+    dayOfWeek: row.day_of_week,
+    anchorType: row.anchor_type,
+    anchorKey: row.anchor_key,
+    eventName: row.event_name,
+    eventDescription: row.event_description,
+    eventCategory: row.event_category,
+    eventType: row.event_type,
+    importanceLevel: row.importance_level,
+    significance: row.significance,
+    traditions: row.traditions,
+    greetings: row.greetings,
+    icon: row.icon,
+    primaryColor: row.primary_color,
+    secondaryColor: row.secondary_color,
+    tags: row.tags,
+    relatedDayIds: row.related_day_ids,
+    lunarMetadata: row.lunar_metadata,
+    duplicateOf: row.duplicate_of,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    calendarCount: row.calendar_count || 1,
+    calendarNames: row.calendar_names || [],
+  })) as UserVisibleDay[];
 };
 
 /**
