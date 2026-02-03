@@ -774,7 +774,7 @@ export const getJournalEntries = async (): Promise<JournalEntry[]> => {
     mood: entry.mood,
     tags: entry.tags || [],
     isFavorite: entry.is_favorite || false,
-    createdViaVoice: entry.voice_memo || false,
+    createdViaVoice: entry.created_via_voice || false,
     voiceCommandId: entry.voice_command_id,
     voiceConfidence: entry.voice_confidence,
     createdAt: entry.created_at || new Date().toISOString(),
@@ -788,7 +788,7 @@ export const saveJournalEntry = async (entry: JournalEntry): Promise<void> => {
   // First, check if an entry already exists for this date
   const { data: existing } = await client
     .from('myday_journal_entries')
-    .select('id, content, voice_memo')
+    .select('id, content, created_via_voice')
     .eq('user_id', userId)
     .eq('entry_date', entry.date)
     .maybeSingle();
@@ -808,7 +808,7 @@ export const saveJournalEntry = async (entry: JournalEntry): Promise<void> => {
         content: newContent,
         mood: entry.mood || null,
         tags: entry.tags || [],
-        voice_memo: entry.createdViaVoice || existing.voice_memo || false,
+        created_via_voice: entry.createdViaVoice || existing.created_via_voice || false,
         updated_at: new Date().toISOString()
       })
       .eq('id', existing.id);
@@ -824,7 +824,7 @@ export const saveJournalEntry = async (entry: JournalEntry): Promise<void> => {
       content: entry.content || '',
       mood: entry.mood || null,
       tags: entry.tags || [],
-      voice_memo: entry.createdViaVoice || false,
+      created_via_voice: entry.createdViaVoice || false,
       created_at: now,
       updated_at: now
     };
@@ -851,7 +851,7 @@ export const updateJournalEntry = async (entryId: string, updates: Partial<Journ
   if (updates.mood !== undefined) updateData.mood = updates.mood;
   if (updates.tags !== undefined) updateData.tags = updates.tags;
   if (updates.isFavorite !== undefined) updateData.is_favorite = updates.isFavorite;
-  if (updates.createdViaVoice !== undefined) updateData.voice_memo = updates.createdViaVoice;
+  if (updates.createdViaVoice !== undefined) updateData.created_via_voice = updates.createdViaVoice;
   if (updates.voiceCommandId !== undefined) updateData.voice_command_id = updates.voiceCommandId;
   if (updates.voiceConfidence !== undefined) updateData.voice_confidence = updates.voiceConfidence;
 
@@ -1209,6 +1209,7 @@ const USER_SETTINGS_KEY = 'routine-ruby-user-settings';
 export const loadUserSettings = async (): Promise<UserSettings> => {
   try {
     const { client, userId } = await requireAuth();
+    console.log('🔍 Loading settings for user:', userId);
     const { data, error } = await client
       .from('myday_user_settings')
       .select('theme, dashboard_layout, notifications_enabled, location')
@@ -1216,15 +1217,18 @@ export const loadUserSettings = async (): Promise<UserSettings> => {
       .single();
     
     if (error && error.code !== 'PGRST116') { // PGRST116 means no rows found
-      console.error('Error loading user settings:', error);
+      console.error('❌ Error loading user settings:', error);
     }
     
     if (data) {
+      console.log('📦 Raw location from DB:', data.location);
+      const parsedLocation = data.location ? JSON.parse(data.location) : undefined;
+      console.log('📍 Parsed location:', parsedLocation);
       return {
         theme: data.theme || 'purple',
         dashboardLayout: data.dashboard_layout || 'uniform',
         notifications: data.notifications_enabled ?? true,
-        location: data.location ? JSON.parse(data.location) : undefined
+        location: parsedLocation
       };
     }
   } catch (error: any) {
@@ -1259,8 +1263,13 @@ export const saveUserSettings = async (settings: Partial<UserSettings>): Promise
   if (settings.theme !== undefined) dbUpdates.theme = settings.theme;
   if (settings.dashboardLayout !== undefined) dbUpdates.dashboard_layout = settings.dashboardLayout;
   if (settings.notifications !== undefined) dbUpdates.notifications_enabled = settings.notifications;
-  if (settings.location !== undefined) dbUpdates.location = JSON.stringify(settings.location);
+  if (settings.location !== undefined) {
+    dbUpdates.location = JSON.stringify(settings.location);
+    console.log('💾 Saving location to DB:', settings.location);
+    console.log('📦 Stringified location:', dbUpdates.location);
+  }
   
+  console.log('🔄 Upserting to myday_user_settings for user:', userId);
   const { error } = await client
     .from('myday_user_settings')
     .upsert([{
@@ -1270,14 +1279,20 @@ export const saveUserSettings = async (settings: Partial<UserSettings>): Promise
       onConflict: 'user_id'
     });
   
-  if (error) throw error;
+  if (error) {
+    console.error('❌ Database error:', error);
+    throw error;
+  }
+  
+  console.log('✅ Successfully saved to database');
   
   // Also update localStorage cache
   try {
     const current = getUserSettingsSync();
     localStorage.setItem(USER_SETTINGS_KEY, JSON.stringify({ ...current, ...settings }));
+    console.log('💾 Updated localStorage cache');
   } catch (cacheError) {
-    console.error('Error updating settings cache:', cacheError);
+    console.error('⚠️ Error updating settings cache:', cacheError);
   }
 };
 

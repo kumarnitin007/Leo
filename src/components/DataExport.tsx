@@ -18,8 +18,11 @@ import {
   getItems,
   getSafeEntries,
   getSafeTags,
-  getDocumentVaults
+  getDocumentVaults,
+  getUserProfile,
+  getUserSettings
 } from '../storage';
+import * as sharingService from '../services/sharingService';
 import { Task, Event, JournalEntry, Routine, Tag, Item, SafeEntry, DocumentVault } from '../types';
 import { getTodoGroups, getTodoItems } from '../services/todoService';
 
@@ -43,6 +46,14 @@ interface ExportData {
   exportedAt: string;
   version: string;
   user?: { id: string; email?: string };
+  userProfile?: { username?: string; avatarEmoji?: string; email?: string };
+  userSettings?: { dashboardLayout?: string; location?: any };
+  sharingInfo?: {
+    groups?: any[];
+    sharedEntries?: any[];
+    sharedDocuments?: any[];
+    sharedTodoGroups?: any[];
+  };
   tasks?: Task[];
   events?: Event[];
   journals?: JournalEntry[];
@@ -96,25 +107,80 @@ const DataExport: React.FC = () => {
 
   // Gather export data
   const gatherExportData = async (): Promise<ExportData> => {
+    // Load reference data for ID-to-name mapping
+    const [allTags, safeTags, todoGroups] = await Promise.all([
+      options.tasks || options.events || options.journals || options.items ? getTags() : Promise.resolve([]),
+      options.safeEntries ? getSafeTags() : Promise.resolve([]),
+      options.todos ? getTodoGroups() : Promise.resolve([])
+    ]);
+    
+    const tagMap = new Map(allTags.map(t => [t.id, t.name]));
+    const safeTagMap = new Map(safeTags.map(t => [t.id, t.name]));
+    const todoGroupMap = new Map(todoGroups.map(g => [g.id, g.name]));
+    
+    // Load user profile and settings
+    let userProfile, userSettings;
+    try {
+      userProfile = await getUserProfile();
+      userSettings = await getUserSettings();
+    } catch (err) {
+      console.warn('Could not load user profile/settings:', err);
+    }
+    
+    // Load sharing info
+    let sharingInfo;
+    try {
+      const [groups, sharedEntries, sharedDocuments, sharedTodoGroups] = await Promise.all([
+        sharingService.getMyGroups().catch(() => []),
+        sharingService.getEntriesSharedWithMe().catch(() => []),
+        sharingService.getDocumentsSharedWithMe().catch(() => []),
+        sharingService.getTodoGroupsSharedWithMe().catch(() => [])
+      ]);
+      sharingInfo = { groups, sharedEntries, sharedDocuments, sharedTodoGroups };
+    } catch (err) {
+      console.warn('Could not load sharing info:', err);
+      sharingInfo = { groups: [], sharedEntries: [], sharedDocuments: [], sharedTodoGroups: [] };
+    }
+    
     const data: ExportData = {
       exportedAt: new Date().toISOString(),
       version: '1.0',
       user: user ? { id: user.id, email: user.email } : undefined,
+      userProfile,
+      userSettings,
+      sharingInfo,
     };
 
     if (options.tasks) {
       setExportProgress('Loading tasks...');
-      data.tasks = await getTasks();
+      const tasks = await getTasks();
+      // Replace tag IDs with names
+      data.tasks = tasks.map(task => ({
+        ...task,
+        tags: task.tags?.map(tagId => tagMap.get(tagId) || tagId),
+        category: task.category ? tagMap.get(task.category) || task.category : undefined
+      }));
     }
 
     if (options.events) {
       setExportProgress('Loading events...');
-      data.events = await getEvents();
+      const events = await getEvents();
+      // Replace tag IDs with names
+      data.events = events.map(event => ({
+        ...event,
+        tags: event.tags?.map(tagId => tagMap.get(tagId) || tagId),
+        category: event.category ? tagMap.get(event.category) || event.category : undefined
+      }));
     }
 
     if (options.journals) {
       setExportProgress('Loading journal entries...');
-      data.journals = await getJournalEntries();
+      const journals = await getJournalEntries();
+      // Replace tag IDs with names
+      data.journals = journals.map(journal => ({
+        ...journal,
+        tags: journal.tags?.map(tagId => tagMap.get(tagId) || tagId)
+      }));
     }
 
     if (options.routines) {
@@ -124,30 +190,55 @@ const DataExport: React.FC = () => {
 
     if (options.tags) {
       setExportProgress('Loading tags...');
-      data.tags = await getTags();
+      data.tags = allTags;
     }
 
     if (options.items) {
       setExportProgress('Loading items...');
-      data.items = await getItems();
+      const items = await getItems();
+      // Replace tag IDs with names
+      data.items = items.map(item => ({
+        ...item,
+        tags: item.tags?.map(tagId => tagMap.get(tagId) || tagId),
+        category: item.category ? tagMap.get(item.category) || item.category : undefined
+      }));
     }
 
     if (options.todos) {
       setExportProgress('Loading to-dos...');
       const groups = await getTodoGroups();
       const items = await getTodoItems();
-      data.todos = { groups, items };
+      // Replace groupId with group name
+      data.todos = { 
+        groups, 
+        items: items.map(item => ({
+          ...item,
+          groupName: item.groupId ? todoGroupMap.get(item.groupId) : 'Ungrouped',
+          tags: item.tags?.map(tagId => tagMap.get(tagId) || tagId)
+        }))
+      };
     }
 
     if (options.safeEntries) {
-      setExportProgress('Loading safe entries metadata...');
-      // Only export metadata, not encrypted content
+      setExportProgress('Loading safe entries...');
       try {
         const entries = await getSafeEntries();
+        // Replace categoryTagId and tag IDs with names, include encrypted data
         data.safeEntriesMetadata = entries.map(e => ({
           id: e.id,
           title: e.title,
+          url: e.url,
+          categoryName: e.categoryTagId ? safeTagMap.get(e.categoryTagId) : undefined,
           categoryTagId: e.categoryTagId || 'unknown',
+          tagNames: e.tags?.map(tagId => safeTagMap.get(tagId) || tagId) || [],
+          tags: e.tags || [],
+          isFavorite: e.isFavorite,
+          expiresAt: e.expiresAt,
+          encryptedData: e.encryptedData, // Include encrypted data for export
+          encryptedDataIv: e.encryptedDataIv,
+          isShared: e.isShared,
+          sharedBy: e.sharedBy,
+          sharedAt: e.sharedAt,
           createdAt: e.createdAt,
           updatedAt: e.updatedAt,
         }));

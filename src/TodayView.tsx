@@ -26,6 +26,8 @@ import { useAuth } from './contexts/AuthContext';
 import MonthlyView from './MonthlyView';
 import WeatherWidget from './components/WeatherWidget';
 import ResolutionProgressWidget from './components/ResolutionProgressWidget';
+import { getDashboardTodos, getTodoGroups, toggleTodoItem } from './services/todoService';
+import { TodoItem, TodoGroup } from './types';
 
 type DashboardItem = {
   type: 'task' | 'event';
@@ -72,6 +74,12 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
   const [isObservancesExpanded, setIsObservancesExpanded] = useState(false);
   const [isLoadingObservances, setIsLoadingObservances] = useState(false);
   const [observancesLoaded, setObservancesLoaded] = useState(false);
+  const [selectedObservance, setSelectedObservance] = useState<UserVisibleDay | null>(null);
+  const [upcomingTodos, setUpcomingTodos] = useState<TodoItem[]>([]);
+  const [isTodosExpanded, setIsTodosExpanded] = useState(false);
+  const [isLoadingTodos, setIsLoadingTodos] = useState(false);
+  const [selectedTodo, setSelectedTodo] = useState<TodoItem | null>(null);
+  const [todoGroups, setTodoGroups] = useState<Record<string, string>>({});
   const today = getTodayString();
 
   const handleLayoutChange = async (layout: DashboardLayout) => {
@@ -101,6 +109,52 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
       setIsLoadingObservances(false);
     }
   };
+
+  // Load upcoming TODOs (next 7 days)
+  const loadUpcomingTodos = async () => {
+    if (isLoadingTodos) return;
+    setIsLoadingTodos(true);
+    try {
+      const [todos, groups] = await Promise.all([getDashboardTodos(), getTodoGroups()]);
+      const today = new Date(selectedDate + 'T00:00:00');
+      const nextWeek = new Date(today);
+      nextWeek.setDate(nextWeek.getDate() + 7);
+      
+      const upcoming = todos.filter(todo => {
+        if (!todo.dueDate) return false;
+        const dueDate = new Date(todo.dueDate + 'T00:00:00');
+        return dueDate >= today && dueDate <= nextWeek;
+      });
+      
+      setUpcomingTodos(upcoming);
+      
+      // Build group name map
+      const groupMap: Record<string, string> = {};
+      groups.forEach(g => {
+        groupMap[g.id] = g.name;
+      });
+      setTodoGroups(groupMap);
+    } catch (err) {
+      console.warn('Could not load upcoming TODOs:', err);
+      setUpcomingTodos([]);
+    } finally {
+      setIsLoadingTodos(false);
+    }
+  };
+
+  // Load TODOs when section is expanded OR on initial load if there might be todos
+  useEffect(() => {
+    if (isTodosExpanded && upcomingTodos.length === 0 && !isLoadingTodos) {
+      loadUpcomingTodos();
+    }
+  }, [isTodosExpanded]);
+
+  // Also try to load todos on mount to check if section should be visible
+  useEffect(() => {
+    if (!isLoadingTodos && upcomingTodos.length === 0) {
+      loadUpcomingTodos();
+    }
+  }, []);
 
   // Load observances when section is expanded
   useEffect(() => {
@@ -776,7 +830,40 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
   };
 
   /**
+   * Get count-based task progress (e.g., "1 out of 3 done")
+   * Returns null if task is not count-based
+   */
+  const getCountBasedProgress = (taskId: string): { current: number; target: number; period: string } | null => {
+    if (!appData) return null;
+    const task = appData.tasks.find(t => t.id === taskId);
+    if (!task || task.frequency !== 'count-based' || !task.frequencyCount || !task.frequencyPeriod) {
+      return null;
+    }
+
+    const today = new Date(selectedDate + 'T00:00:00');
+    let periodBounds;
+    if (task.frequencyPeriod === 'week') {
+      periodBounds = getWeekBounds(today);
+    } else {
+      periodBounds = getMonthBounds(today);
+    }
+
+    const completionsInPeriod = appData.completions.filter(
+      c => c.taskId === taskId && 
+           c.date >= periodBounds.start && 
+           c.date <= periodBounds.end
+    ).length;
+
+    return {
+      current: completionsInPeriod,
+      target: task.frequencyCount,
+      period: task.frequencyPeriod === 'week' ? 'week' : 'month'
+    };
+  };
+
+  /**
    * Calculate missed count for a specific task (last 7 days)
+   * For count-based tasks, this should not be used - use getCountBasedProgress instead
    */
   const getTaskMissedCount = (taskId: string): number => {
     if (!appData) return 0;
@@ -945,6 +1032,19 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
     setSelectedItem(null);
     await loadItems();
     await calculateStreak();
+  };
+
+  const handleTodoComplete = async () => {
+    if (!selectedTodo) return;
+    try {
+      await toggleTodoItem(selectedTodo.id);
+      setUpcomingTodos(prev => prev.filter(t => t.id !== selectedTodo.id));
+      setSelectedTodo(null);
+      await loadUpcomingTodos(); // Reload to refresh list
+    } catch (err) {
+      console.error('Error completing todo:', err);
+      alert('Failed to complete todo. Please try again.');
+    }
   };
 
   const handleStartTimer = () => {
@@ -1322,6 +1422,7 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
             const isCountBasedComplete = progress && progress.current >= progress.target;
             const taskStreak = item.type === 'task' ? getTaskStreak(item.id) : 0;
             const missedCount = item.type === 'task' ? getTaskMissedCount(item.id) : 0;
+            const countProgress = item.type === 'task' ? getCountBasedProgress(item.id) : null;
             
             // Get category icon for both tasks and events
             const getCategoryIcon = () => {
@@ -1540,7 +1641,7 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
                   {progress && (
                     <div className="task-progress">
                       <span className={isCountBasedComplete ? 'progress-complete' : 'progress-pending'}>
-                        {progress.label} {item.task?.frequencyPeriod === 'week' ? 'this week' : 'this month'}
+                        {progress.label}
                       </span>
                     </div>
                   )}
@@ -1554,12 +1655,37 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
                         <span className="badge-text">{taskStreak} day{taskStreak > 1 ? 's' : ''} streak</span>
                       </div>
                     )}
-                    {item.type === 'task' && missedCount > 0 && (
-                      <div className="task-stat-badge missed-badge">
-                        <span className="badge-icon">❌</span>
-                        <span className="badge-text">{missedCount} missed in last 7 days</span>
-                      </div>
-                    )}
+                    {/* Count-based task progress */}
+                    {item.type === 'task' && item.task && (() => {
+                      const countProgress = getCountBasedProgress(item.id);
+                      if (countProgress) {
+                        const isComplete = countProgress.current >= countProgress.target;
+                        if (isComplete) {
+                          return null; // Don't show badge if completed
+                        }
+                        return (
+                          <div className="task-stat-badge" style={{ 
+                            background: countProgress.current > 0 ? '#dbeafe' : '#fee2e2',
+                            color: countProgress.current > 0 ? '#1e40af' : '#991b1b'
+                          }}>
+                            <span className="badge-icon">{countProgress.current > 0 ? '📊' : '⏳'}</span>
+                            <span className="badge-text">
+                              {countProgress.current} out of {countProgress.target} done ({countProgress.period})
+                            </span>
+                          </div>
+                        );
+                      }
+                      // For non-count-based tasks, show missed count
+                      if (missedCount > 0) {
+                        return (
+                          <div className="task-stat-badge missed-badge">
+                            <span className="badge-icon">❌</span>
+                            <span className="badge-text">{missedCount} missed in last 7 days</span>
+                          </div>
+                        );
+                      }
+                      return null;
+                    })()}
                     {/* Event days until badge */}
                     {item.type === 'event' && item.daysUntil !== undefined && (
                       <div className={`task-stat-badge ${item.daysUntil === 0 ? 'event-today-badge' : 'event-upcoming-badge'}`}>
@@ -1876,6 +2002,149 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
         </div>
       )}
 
+      {/* Upcoming TODOs Section - Collapsible, above Observances */}
+      {upcomingTodos.length > 0 && (
+        <div style={{
+          marginTop: '1.5rem',
+          borderRadius: '1rem',
+          overflow: 'hidden',
+          background: 'linear-gradient(135deg, #fef3c7 0%, #fde68a 50%, #fcd34d 100%)',
+          border: '1px solid #f59e0b',
+          boxShadow: '0 4px 12px rgba(245, 158, 11, 0.1)'
+        }}>
+          <button
+            onClick={() => setIsTodosExpanded(!isTodosExpanded)}
+            style={{
+              width: '100%',
+              padding: '1rem 1.25rem',
+              background: 'transparent',
+              border: 'none',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '1rem'
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+              <span style={{ fontSize: '1.5rem' }}>📝</span>
+              <div style={{ textAlign: 'left' }}>
+                <div style={{ fontWeight: 600, color: '#92400e', fontSize: '1rem' }}>
+                  Upcoming TO-DOs
+                </div>
+                <div style={{ fontSize: '0.8rem', color: '#b45309' }}>
+                  {isTodosExpanded 
+                    ? `${upcomingTodos.length} in next 7 days`
+                    : 'Tap to view upcoming TO-DOs'}
+                </div>
+              </div>
+            </div>
+            <span style={{
+              transform: isTodosExpanded ? 'rotate(180deg)' : 'rotate(0)',
+              transition: 'transform 0.2s',
+              color: '#b45309',
+              fontSize: '1.25rem'
+            }}>
+              ▼
+            </span>
+          </button>
+
+          {isTodosExpanded && (
+            <div style={{ 
+              padding: '0 1.25rem 1.25rem', 
+              borderTop: '1px solid #fcd34d',
+              background: 'rgba(255,255,255,0.7)'
+            }}>
+              {isLoadingTodos ? (
+                <div style={{ padding: '2rem', textAlign: 'center', color: '#b45309' }}>
+                  Loading TO-DOs...
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginTop: '1rem' }}>
+                  {upcomingTodos.map(todo => {
+                    const dueDate = todo.dueDate ? new Date(todo.dueDate + 'T00:00:00') : null;
+                    const todayDate = new Date(selectedDate + 'T00:00:00');
+                    const daysUntil = dueDate ? Math.ceil((dueDate.getTime() - todayDate.getTime()) / (1000 * 60 * 60 * 24)) : null;
+                    
+                    return (
+                      <div
+                        key={todo.id}
+                        onClick={() => setSelectedTodo(todo)}
+                        style={{
+                          padding: '1rem',
+                          borderRadius: '0.75rem',
+                          background: 'white',
+                          border: '2px solid #f59e0b',
+                          borderLeftWidth: '4px',
+                          cursor: 'pointer',
+                          transition: 'all 0.2s'
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.transform = 'translateY(-2px)';
+                          e.currentTarget.style.boxShadow = '0 4px 12px rgba(245, 158, 11, 0.2)';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.transform = 'translateY(0)';
+                          e.currentTarget.style.boxShadow = 'none';
+                        }}
+                      >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                          <div style={{ flex: 1 }}>
+                            {todo.groupId && todoGroups[todo.groupId] && (
+                              <div style={{ fontSize: '0.7rem', color: '#6b7280', marginBottom: '0.25rem', fontWeight: 500 }}>
+                                {todoGroups[todo.groupId]}
+                              </div>
+                            )}
+                            <div style={{ fontWeight: 600, color: '#1f2937', marginBottom: '0.25rem' }}>
+                              {todo.text}
+                            </div>
+                            {todo.notes && (
+                              <p style={{ margin: '0.25rem 0 0', fontSize: '0.85rem', color: '#6b7280' }}>
+                                {todo.notes}
+                              </p>
+                            )}
+                            {todo.priority && (
+                              <span style={{
+                                fontSize: '0.7rem',
+                                padding: '0.125rem 0.5rem',
+                                background: todo.priority === 'HIGH' ? '#fee2e2' : todo.priority === 'MEDIUM' ? '#fef3c7' : '#dbeafe',
+                                color: todo.priority === 'HIGH' ? '#991b1b' : todo.priority === 'MEDIUM' ? '#92400e' : '#1e40af',
+                                borderRadius: '0.25rem',
+                                marginTop: '0.5rem',
+                                display: 'inline-block'
+                              }}>
+                                {todo.priority}
+                              </span>
+                            )}
+                          </div>
+                          {dueDate && (
+                            <div style={{ textAlign: 'right', marginLeft: '1rem', flexShrink: 0 }}>
+                              <div style={{ fontSize: '0.8rem', color: '#9ca3af' }}>
+                                {dueDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                              </div>
+                              {daysUntil !== null && daysUntil >= 0 && (
+                                <div style={{
+                                  fontSize: '0.75rem',
+                                  color: daysUntil === 0 ? '#dc2626' : '#b45309',
+                                  fontWeight: 500,
+                                  marginTop: '0.25rem'
+                                }}>
+                                  {daysUntil === 0 ? 'Today' : `in ${daysUntil} day${daysUntil > 1 ? 's' : ''}`}
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Reference Calendar Days Section - Collapsible, loads on expand */}
       <div style={{
         marginTop: '1.5rem',
@@ -1972,13 +2241,24 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
                   return (
                     <div
                       key={day.id}
+                      onClick={() => setSelectedObservance(day)}
                       style={{
                         padding: '1rem',
                         borderRadius: '0.75rem',
                         background: isToday ? 'linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)' : 'white',
                         border: `2px solid ${isToday ? '#f59e0b' : day.primaryColor || '#e5e7eb'}`,
                         borderLeftWidth: '4px',
-                        borderLeftColor: day.primaryColor || '#6366f1'
+                        borderLeftColor: day.primaryColor || '#6366f1',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s'
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.transform = 'scale(1.02)';
+                        e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.1)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.transform = 'scale(1)';
+                        e.currentTarget.style.boxShadow = 'none';
                       }}
                     >
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
@@ -2053,21 +2333,26 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
         )}
       </div>
 
-      {/* Mobile Action Buttons - shown only on mobile after tasks */}
+      <ResolutionProgressWidget />
+
+      <WeatherWidget />
+
+      {/* Mobile Action Buttons - shown only on mobile after weather */}
       <div className="mobile-action-buttons" style={{
         display: 'none', // Hidden by default, shown via CSS on mobile
-        flexWrap: 'wrap',
+        flexWrap: 'nowrap',
         gap: '0.5rem',
         marginTop: '1.5rem',
         padding: '1rem',
         background: 'rgba(255,255,255,0.9)',
         borderRadius: '0.75rem',
-        justifyContent: 'center'
+        justifyContent: 'flex-start',
+        overflowX: 'auto'
       }}>
         <button
           onClick={() => setViewMode(viewMode === 'dashboard' ? 'monthly' : 'dashboard')}
           className="btn-secondary"
-          style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', padding: '0.5rem 0.75rem', fontSize: '0.85rem' }}
+          style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', padding: '0.5rem 0.75rem', fontSize: '0.85rem', flexShrink: 0 }}
         >
           <span>{viewMode === 'dashboard' ? '📅' : '🏠'}</span>
           <span>{viewMode === 'dashboard' ? 'Monthly' : 'Dashboard'}</span>
@@ -2075,7 +2360,7 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
         <button 
           onClick={() => setShowProgressAndReview(true)}
           className="btn-secondary"
-          style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', padding: '0.5rem 0.75rem', fontSize: '0.85rem' }}
+          style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', padding: '0.5rem 0.75rem', fontSize: '0.85rem', flexShrink: 0 }}
         >
           <span>📊</span>
           <span>Progress</span>
@@ -2095,7 +2380,8 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
             fontSize: '0.85rem',
             background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
             color: 'white',
-            border: 'none'
+            border: 'none',
+            flexShrink: 0
           }}
         >
           <span>🤖</span>
@@ -2113,7 +2399,8 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
             alignItems: 'center',
             gap: '0.375rem',
             padding: '0.5rem 0.75rem',
-            fontSize: '0.85rem'
+            fontSize: '0.85rem',
+            flexShrink: 0
           }}
         >
           <span>{isReorderMode ? '✓' : '↕️'}</span>
@@ -2130,7 +2417,8 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
             fontSize: '0.85rem',
             background: 'white',
             color: '#f97316',
-            border: '2px solid #f97316'
+            border: '2px solid #f97316',
+            flexShrink: 0
           }}
         >
           <span>⏸️</span>
@@ -2138,9 +2426,412 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
         </button>
       </div>
 
-      <WeatherWidget />
+      {/* Observance Details Modal */}
+      {selectedObservance && (
+        <div 
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(0, 0, 0, 0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 2000,
+            padding: '1rem'
+          }}
+          onClick={() => setSelectedObservance(null)}
+        >
+          <div 
+            style={{
+              background: 'white',
+              borderRadius: '1rem',
+              padding: '1.5rem',
+              maxWidth: '500px',
+              width: '100%',
+              maxHeight: '80vh',
+              overflowY: 'auto',
+              boxShadow: '0 20px 60px rgba(0,0,0,0.3)'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flex: 1 }}>
+                {selectedObservance.icon && <span style={{ fontSize: '2rem' }}>{selectedObservance.icon}</span>}
+                <div>
+                  <h2 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 600, color: '#1f2937' }}>
+                    {selectedObservance.eventName}
+                  </h2>
+                  <p style={{ margin: '0.25rem 0 0', fontSize: '0.9rem', color: '#6b7280' }}>
+                    {new Date(selectedObservance.date + 'T00:00:00').toLocaleDateString('en-US', {
+                      weekday: 'long',
+                      year: 'numeric',
+                      month: 'long',
+                      day: 'numeric'
+                    })}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setSelectedObservance(null)}
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  fontSize: '1.5rem',
+                  cursor: 'pointer',
+                  color: '#6b7280',
+                  padding: '0.25rem'
+                }}
+              >
+                ✕
+              </button>
+            </div>
 
-      <ResolutionProgressWidget />
+            {/* Event Category and Type */}
+            <div style={{ marginBottom: '1rem', display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+              {selectedObservance.eventCategory && (
+                <span style={{
+                  fontSize: '0.75rem',
+                  padding: '0.25rem 0.75rem',
+                  background: '#e0e7ff',
+                  color: '#3730a3',
+                  borderRadius: '0.5rem',
+                  fontWeight: 500
+                }}>
+                  {selectedObservance.eventCategory}
+                </span>
+              )}
+              {selectedObservance.eventType && (
+                <span style={{
+                  fontSize: '0.75rem',
+                  padding: '0.25rem 0.75rem',
+                  background: '#f3f4f6',
+                  color: '#6b7280',
+                  borderRadius: '0.5rem',
+                  fontWeight: 500
+                }}>
+                  {selectedObservance.eventType}
+                </span>
+              )}
+              {selectedObservance.importanceLevel && (
+                <span style={{
+                  fontSize: '0.75rem',
+                  padding: '0.25rem 0.75rem',
+                  background: '#fef3c7',
+                  color: '#92400e',
+                  borderRadius: '0.5rem',
+                  fontWeight: 600
+                }}>
+                  {selectedObservance.importanceLevel}% Important
+                </span>
+              )}
+            </div>
+
+            {selectedObservance.significance && (
+              <div style={{ marginBottom: '1rem' }}>
+                <h3 style={{ fontSize: '1rem', fontWeight: 600, color: '#374151', marginBottom: '0.5rem' }}>About</h3>
+                <p style={{ margin: 0, fontSize: '0.9rem', color: '#6b7280', lineHeight: '1.6' }}>
+                  {selectedObservance.significance}
+                </p>
+              </div>
+            )}
+
+            {selectedObservance.eventDescription && (
+              <div style={{ marginBottom: '1rem' }}>
+                <h3 style={{ fontSize: '1rem', fontWeight: 600, color: '#374151', marginBottom: '0.5rem' }}>Description</h3>
+                <p style={{ margin: 0, fontSize: '0.9rem', color: '#6b7280', lineHeight: '1.6' }}>
+                  {selectedObservance.eventDescription}
+                </p>
+              </div>
+            )}
+
+            {/* Observance Rules */}
+            {selectedObservance.observanceRule && (
+              <div style={{ marginBottom: '1rem', padding: '0.75rem', background: '#fef3c7', borderRadius: '0.5rem', border: '1px solid #fcd34d' }}>
+                <h3 style={{ fontSize: '0.9rem', fontWeight: 600, color: '#92400e', marginBottom: '0.25rem' }}>📋 Observance Rule</h3>
+                <p style={{ margin: 0, fontSize: '0.85rem', color: '#78350f', lineHeight: '1.5' }}>
+                  {selectedObservance.observanceRule}
+                </p>
+              </div>
+            )}
+
+            {/* Holiday Status */}
+            {(selectedObservance.isPublicHoliday || selectedObservance.isBankHoliday || selectedObservance.isSchoolHoliday) && (
+              <div style={{ marginBottom: '1rem' }}>
+                <h3 style={{ fontSize: '1rem', fontWeight: 600, color: '#374151', marginBottom: '0.5rem' }}>Holiday Status</h3>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                  {selectedObservance.isPublicHoliday && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.9rem', color: '#6b7280' }}>
+                      <span>🏛️</span>
+                      <span>Public Holiday</span>
+                    </div>
+                  )}
+                  {selectedObservance.isBankHoliday && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.9rem', color: '#6b7280' }}>
+                      <span>🏦</span>
+                      <span>Bank Holiday</span>
+                    </div>
+                  )}
+                  {selectedObservance.isSchoolHoliday && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.9rem', color: '#6b7280' }}>
+                      <span>🎓</span>
+                      <span>School Holiday</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Local Customs */}
+            {selectedObservance.localCustoms && selectedObservance.localCustoms.length > 0 && (
+              <div style={{ marginBottom: '1rem' }}>
+                <h3 style={{ fontSize: '1rem', fontWeight: 600, color: '#374151', marginBottom: '0.5rem' }}>Local Customs</h3>
+                <ul style={{ margin: 0, paddingLeft: '1.5rem', fontSize: '0.9rem', color: '#6b7280', lineHeight: '1.8' }}>
+                  {selectedObservance.localCustoms.map((custom, idx) => (
+                    <li key={idx}>{custom}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {selectedObservance.urls && (
+              <div style={{ marginBottom: '1rem' }}>
+                <h3 style={{ fontSize: '1rem', fontWeight: 600, color: '#374151', marginBottom: '0.5rem' }}>Learn More</h3>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                  {selectedObservance.urls.wikipedia && (
+                    <a 
+                      href={selectedObservance.urls.wikipedia} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      style={{
+                        color: '#3b82f6',
+                        textDecoration: 'none',
+                        fontSize: '0.9rem',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.5rem'
+                      }}
+                    >
+                      <span>📚</span>
+                      <span>Wikipedia</span>
+                    </a>
+                  )}
+                  {selectedObservance.urls.youtube && (
+                    <a 
+                      href={selectedObservance.urls.youtube} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      style={{
+                        color: '#ef4444',
+                        textDecoration: 'none',
+                        fontSize: '0.9rem',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.5rem'
+                      }}
+                    >
+                      <span>▶️</span>
+                      <span>YouTube</span>
+                    </a>
+                  )}
+                  {selectedObservance.urls.official && (
+                    <a 
+                      href={selectedObservance.urls.official} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      style={{
+                        color: '#10b981',
+                        textDecoration: 'none',
+                        fontSize: '0.9rem',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.5rem'
+                      }}
+                    >
+                      <span>🌐</span>
+                      <span>Official Website</span>
+                    </a>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {selectedObservance.calendarNames && selectedObservance.calendarNames.length > 0 && (
+              <div style={{ marginBottom: '1rem' }}>
+                <h3 style={{ fontSize: '1rem', fontWeight: 600, color: '#374151', marginBottom: '0.5rem' }}>Calendars</h3>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+                  {selectedObservance.calendarNames.map(name => (
+                    <span
+                      key={name}
+                      style={{
+                        fontSize: '0.8rem',
+                        padding: '0.25rem 0.75rem',
+                        background: '#f3f4f6',
+                        color: '#6b7280',
+                        borderRadius: '0.5rem'
+                      }}
+                    >
+                      {name}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {selectedObservance.mythology && selectedObservance.mythology.length > 0 && (
+              <div style={{ marginBottom: '1rem' }}>
+                <h3 style={{ fontSize: '1rem', fontWeight: 600, color: '#374151', marginBottom: '0.5rem' }}>Mythology & Stories</h3>
+                <ul style={{ margin: 0, paddingLeft: '1.5rem', fontSize: '0.9rem', color: '#6b7280', lineHeight: '1.6' }}>
+                  {selectedObservance.mythology.map((story, idx) => (
+                    <li key={idx} style={{ marginBottom: '0.5rem' }}>{story}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {/* Regional Variations */}
+            {selectedObservance.regionalVariations && selectedObservance.regionalVariations.length > 0 && (
+              <div style={{ marginBottom: '1rem' }}>
+                <h3 style={{ fontSize: '1rem', fontWeight: 600, color: '#374151', marginBottom: '0.5rem' }}>Regional Variations</h3>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                  {selectedObservance.regionalVariations.map((variation, idx) => (
+                    <div key={idx} style={{ 
+                      padding: '0.75rem', 
+                      background: '#f9fafb', 
+                      borderRadius: '0.5rem',
+                      border: '1px solid #e5e7eb'
+                    }}>
+                      {(variation.region || variation.state || variation.country) && (
+                        <div style={{ fontWeight: 600, fontSize: '0.85rem', color: '#374151', marginBottom: '0.25rem' }}>
+                          {variation.region || variation.state || variation.country}
+                        </div>
+                      )}
+                      {variation.custom && (
+                        <div style={{ fontSize: '0.85rem', color: '#6b7280', lineHeight: '1.5' }}>
+                          {variation.custom}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Mood */}
+            {selectedObservance.mood && (
+              <div style={{ marginBottom: '1rem' }}>
+                <h3 style={{ fontSize: '1rem', fontWeight: 600, color: '#374151', marginBottom: '0.5rem' }}>Mood</h3>
+                <span style={{
+                  fontSize: '0.9rem',
+                  padding: '0.5rem 1rem',
+                  background: selectedObservance.mood === 'celebratory' ? '#fef3c7' : 
+                             selectedObservance.mood === 'solemn' ? '#f3f4f6' : '#e0e7ff',
+                  color: selectedObservance.mood === 'celebratory' ? '#92400e' : 
+                         selectedObservance.mood === 'solemn' ? '#374151' : '#3730a3',
+                  borderRadius: '0.5rem',
+                  fontWeight: 500,
+                  textTransform: 'capitalize'
+                }}>
+                  {selectedObservance.mood}
+                </span>
+              </div>
+            )}
+
+            {/* Tags */}
+            {selectedObservance.tags && selectedObservance.tags.length > 0 && (
+              <div style={{ marginBottom: '1rem' }}>
+                <h3 style={{ fontSize: '1rem', fontWeight: 600, color: '#374151', marginBottom: '0.5rem' }}>Tags</h3>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+                  {selectedObservance.tags.map(tag => (
+                    <span
+                      key={tag}
+                      style={{
+                        fontSize: '0.8rem',
+                        padding: '0.25rem 0.75rem',
+                        background: '#e0e7ff',
+                        color: '#3730a3',
+                        borderRadius: '0.5rem'
+                      }}
+                    >
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* TO-DO Action Modal */}
+      {selectedTodo && (
+        <div className="modal-overlay" onClick={() => setSelectedTodo(null)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>{selectedTodo.text}</h3>
+              {selectedTodo.groupId && todoGroups[selectedTodo.groupId] && (
+                <p className="modal-description" style={{ fontSize: '0.9rem', color: '#6b7280', marginTop: '0.5rem' }}>
+                  📁 {todoGroups[selectedTodo.groupId]}
+                </p>
+              )}
+              {selectedTodo.notes && <p className="modal-description">{selectedTodo.notes}</p>}
+              {selectedTodo.dueDate && (
+                <p className="modal-description" style={{ fontSize: '0.9rem', color: '#6b7280', marginTop: '0.5rem' }}>
+                  📅 Due: {new Date(selectedTodo.dueDate + 'T00:00:00').toLocaleDateString('en-US', { 
+                    weekday: 'long', 
+                    year: 'numeric', 
+                    month: 'long', 
+                    day: 'numeric' 
+                  })}
+                </p>
+              )}
+              {selectedTodo.priority && (
+                <span style={{
+                  fontSize: '0.75rem',
+                  padding: '0.25rem 0.75rem',
+                  background: selectedTodo.priority === 'HIGH' ? '#fee2e2' : selectedTodo.priority === 'MEDIUM' ? '#fef3c7' : '#dbeafe',
+                  color: selectedTodo.priority === 'HIGH' ? '#991b1b' : selectedTodo.priority === 'MEDIUM' ? '#92400e' : '#1e40af',
+                  borderRadius: '0.5rem',
+                  marginTop: '0.5rem',
+                  display: 'inline-block'
+                }}>
+                  {selectedTodo.priority} Priority
+                </span>
+              )}
+            </div>
+            
+            <div className="modal-body">
+              <p className="modal-question">What would you like to do?</p>
+              
+              <div className="modal-actions">
+                <button 
+                  className="modal-btn modal-btn-complete"
+                  onClick={handleTodoComplete}
+                >
+                  <span className="btn-icon-large">✓</span>
+                  <span className="btn-text">
+                    <strong>Mark as Complete</strong>
+                    <small>I finished this task</small>
+                  </span>
+                </button>
+                
+                <button 
+                  className="modal-btn modal-btn-cancel"
+                  onClick={() => setSelectedTodo(null)}
+                >
+                  <span className="btn-icon-large">✕</span>
+                  <span className="btn-text">
+                    <strong>Cancel</strong>
+                    <small>Go back</small>
+                  </span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );

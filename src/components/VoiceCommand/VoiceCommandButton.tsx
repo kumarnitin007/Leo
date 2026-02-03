@@ -105,13 +105,14 @@ const VoiceCommandButton: React.FC<VoiceCommandButtonProps> = ({
         onMouseLeave={() => setIsHovered(false)}
         aria-label="Voice command (Ctrl+Shift+V)"
         title="Voice Command (Ctrl+Shift+V)"
+        className="floating-voice-button"
         style={{
           position: 'fixed',
-          top: 24,
-          right: 24,
+          bottom: '26rem',
+          right: '2rem',
           zIndex: 1000,
-          width: 56,
-          height: 56,
+          width: 60,
+          height: 60,
           borderRadius: '50%',
           background: isHovered
             ? 'linear-gradient(135deg, #7c3aed 0%, #9333ea 100%)'

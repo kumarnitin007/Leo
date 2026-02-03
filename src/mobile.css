@@ -198,6 +198,11 @@
     padding: 0.5rem !important;
   }
 
+  /* Ensure calendar grid shows all 7 days on mobile */
+  .calendar-grid {
+    grid-template-columns: repeat(7, 1fr) !important;
+  }
+
   /* Improve journal layout */
   .journal-container {
     grid-template-columns: 1fr !important;

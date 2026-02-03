@@ -126,16 +126,24 @@ const AppContent: React.FC = () => {
         else if (/terrible|awful|horrible|depressed/.test(transcript)) mood = 'terrible';
         
         setJournalPrefillMood(mood);
+        // Extract content from entities if available, otherwise use transcript
+        const titleEntity = getEntity('TITLE');
+        let content = titleEntity ? String(titleEntity.normalizedValue || titleEntity.value) : parsed.transcript;
+        
         // Remove trigger phrases and use rest as content
-        let content = parsed.transcript;
-        const journalPrefixes = ['journal', 'note to self', 'write in my journal', 'dear diary', 'today'];
+        const journalPrefixes = ['journal', 'note to self', 'write in my journal', 'dear diary', 'today', 'create journal', 'new journal'];
         for (const prefix of journalPrefixes) {
-          if (content.toLowerCase().startsWith(prefix)) {
+          const lowerContent = content.toLowerCase();
+          if (lowerContent.startsWith(prefix)) {
             content = content.substring(prefix.length).replace(/^[:\s,]+/, '').trim();
             break;
           }
         }
-        setJournalPrefillContent(content);
+        // Ensure we have content - if empty after processing, use the original transcript
+        if (!content || content.trim().length === 0) {
+          content = parsed.transcript;
+        }
+        setJournalPrefillContent(content.trim());
         handleNavigate('journal');
         break;
       }
@@ -361,6 +369,60 @@ const AppContent: React.FC = () => {
           </div>
         </div>
         <div className="header-nav-row">
+          <div className="header-left-desktop">
+            <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <span style={{ fontSize: '1.75rem' }}>🦁</span>
+                <h1 style={{ margin: 0, fontSize: '1.5rem' }}>Leo Planner</h1>
+              </div>
+              <div className="user-badge" title={username}>
+                <span className="user-avatar">{avatar.emoji}</span>
+                <span className="user-name">{username}</span>
+              </div>
+            </div>
+            <div className="header-actions-desktop">
+              <button
+                className="icon-button"
+                onClick={() => handleNavigate('settings')}
+                title="Settings & Configuration"
+                style={{ color: theme.colors.primary }}
+              >
+                ⚙️
+              </button>
+              <button
+                className="icon-button"
+                onClick={() => setShowAbout(true)}
+                title="About Leo Planner"
+                style={{ color: theme.colors.primary }}
+              >
+                ℹ️
+              </button>
+              {isAuthenticated && user ? (
+                <button
+                  className="icon-button"
+                  onClick={async () => {
+                    if (confirm('Are you sure you want to sign out?')) {
+                      const { signOut } = await import('./lib/supabase');
+                      await signOut();
+                    }
+                  }}
+                  title={`Sign Out (${user.email || 'User'})`}
+                  style={{ color: theme.colors.primary }}
+                >
+                  🚪
+                </button>
+              ) : !authLoading ? (
+                <button
+                  className="icon-button"
+                  onClick={() => setShowAuthModal(true)}
+                  title="Sign In / Sign Up"
+                  style={{ color: theme.colors.primary }}
+                >
+                  🔑
+                </button>
+              ) : null}
+            </div>
+          </div>
           <nav className="nav">
             <button
               className={`nav-button ${currentView === 'today' ? 'active' : ''}`}

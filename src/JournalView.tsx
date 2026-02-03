@@ -41,17 +41,28 @@ const JournalView: React.FC<JournalViewProps> = ({
   const [prefillApplied, setPrefillApplied] = useState(false);
 
   // Apply prefill data from voice command
+  // This should run after loadEntryForDate to ensure prefill content is not overwritten
   useEffect(() => {
     if (!prefillApplied && (prefillContent || prefillMood)) {
-      if (prefillContent) {
-        setContent(prev => prev ? `${prev}\n\n${prefillContent}` : prefillContent);
-        setIsEditing(true);
-      }
-      if (prefillMood) {
-        setMood(prefillMood);
-      }
-      setPrefillApplied(true);
-      onPrefillUsed?.();
+      // Use setTimeout to ensure this runs after loadEntryForDate completes
+      const timer = setTimeout(() => {
+        if (prefillContent) {
+          // If there's existing content, append; otherwise use prefill
+          setContent(prev => {
+            if (prev && prev.trim() && !prev.includes(prefillContent || '')) {
+              return `${prev}\n\n${prefillContent}`;
+            }
+            return prefillContent;
+          });
+          setIsEditing(true);
+        }
+        if (prefillMood) {
+          setMood(prefillMood);
+        }
+        setPrefillApplied(true);
+        onPrefillUsed?.();
+      }, 100);
+      return () => clearTimeout(timer);
     }
   }, [prefillContent, prefillMood, prefillApplied, onPrefillUsed]);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
@@ -93,14 +104,27 @@ const JournalView: React.FC<JournalViewProps> = ({
       const entry = await getJournalEntryByDate(date);
       if (entry) {
         setCurrentEntry(entry);
-        setContent(entry.content);
-        setMood(entry.mood);
+        // Only set content if we don't have prefill content waiting to be applied
+        // This prevents overwriting prefill content when editing a voice memo
+        if (!prefillContent || prefillApplied) {
+          setContent(entry.content);
+        }
+        // Only set mood if we don't have prefill mood waiting to be applied
+        if (!prefillMood || prefillApplied) {
+          setMood(entry.mood);
+        }
         setSelectedTags(entry.tags || []);
         setIsEditing(false);
       } else {
         setCurrentEntry(null);
-        setContent('');
-        setMood(undefined);
+        // Only clear content if we don't have prefill content waiting
+        if (!prefillContent || prefillApplied) {
+          setContent('');
+        }
+        // Only clear mood if we don't have prefill mood waiting
+        if (!prefillMood || prefillApplied) {
+          setMood(undefined);
+        }
         setSelectedTags([]);
         setIsEditing(true); // Auto-enter edit mode for new entries
       }
@@ -302,54 +326,6 @@ const JournalView: React.FC<JournalViewProps> = ({
       </div>
 
       <div className="journal-container">
-        {/* Sidebar with entry list */}
-        <div className="journal-sidebar">
-          <div className="journal-search">
-            <input
-              type="text"
-              placeholder="🔍 Search entries..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="search-input"
-            />
-          </div>
-
-          <div className="journal-entries-list">
-            <h3>Recent Entries</h3>
-            {filteredEntries.length === 0 ? (
-              <div className="no-entries">
-                <p>No journal entries yet.</p>
-                <p>Start writing to track your journey!</p>
-              </div>
-            ) : (
-              <div className="entries-list">
-                {filteredEntries.map(entry => (
-                  <div
-                    key={entry.id}
-                    className={`entry-item ${entry.date === selectedDate ? 'active' : ''}`}
-                    onClick={() => setSelectedDate(entry.date)}
-                  >
-                    <div className="entry-item-header">
-                      <span className="entry-mood">{getMoodEmoji(entry.mood)}</span>
-                      <span className="entry-date">
-                        {new Date(entry.date + 'T00:00:00').toLocaleDateString('en-US', {
-                          month: 'short',
-                          day: 'numeric',
-                          year: 'numeric'
-                        })}
-                      </span>
-                    </div>
-                    <div className="entry-preview">
-                      {entry.content.substring(0, 100)}
-                      {entry.content.length > 100 && '...'}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-
         {/* Main editor area */}
         <div className="journal-editor">
           {/* Combined Journal Card - Mobile-optimized single card */}

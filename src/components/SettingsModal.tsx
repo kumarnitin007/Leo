@@ -5,6 +5,27 @@
  */
 
 import React, { useState } from 'react';
+
+// Add fadeIn animation style
+const fadeInStyle = `
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(-10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+`;
+
+if (typeof document !== 'undefined' && !document.getElementById('avatar-fadein-style')) {
+  const style = document.createElement('style');
+  style.id = 'avatar-fadein-style';
+  style.textContent = fadeInStyle;
+  document.head.appendChild(style);
+}
 import Portal from './Portal';
 import { useTheme } from '../contexts/ThemeContext';
 import { useUser } from '../contexts/UserContext';
@@ -25,6 +46,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ show, onClose }) => {
   const [editingEmail, setEditingEmail] = useState(email);
   const [selectedCategory, setSelectedCategory] = useState(avatar.category);
   const [showAvatarPicker, setShowAvatarPicker] = useState(false);
+  const [avatarSearch, setAvatarSearch] = useState('');
+  const [hoveredAvatar, setHoveredAvatar] = useState<string | null>(null);
   const [dashboardLayout, setDashboardLayout] = useState<DashboardLayout>('uniform');
   const [location, setLocation] = useState<{ zipCode?: string; city?: string; country?: string }>({});
 
@@ -33,10 +56,12 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ show, onClose }) => {
     const loadSettings = async () => {
       try {
         const settings = await getUserSettings();
+        console.log('✅ Settings loaded:', settings);
+        console.log('📍 Location data:', settings.location);
         setDashboardLayout(settings.dashboardLayout);
         setLocation(settings.location || {});
       } catch (error) {
-        console.error('Error loading settings:', error);
+        console.error('❌ Error loading settings:', error);
       }
     };
     if (show) {
@@ -48,14 +73,17 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ show, onClose }) => {
 
   const handleSave = async () => {
     try {
+      console.log('💾 Saving settings...');
+      console.log('📍 Location to save:', location);
       await setUsername(editingUsername);
       await setEmail(editingEmail);
       await saveUserSettings({ dashboardLayout, location });
+      console.log('✅ Settings saved successfully!');
       onClose();
       // Note: Layout and theme changes apply immediately via context
       // No reload needed - preserves navigation state
     } catch (error) {
-      console.error('Error saving settings:', error);
+      console.error('❌ Error saving settings:', error);
       alert('Failed to save settings. Please try again.');
     }
   };
@@ -81,7 +109,13 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ show, onClose }) => {
     }
   ];
 
-  const filteredAvatars = avatars.filter(a => a.category === selectedCategory);
+  const filteredAvatars = avatars.filter(a => {
+    const matchesCategory = a.category === selectedCategory;
+    const matchesSearch = avatarSearch.trim() === '' || 
+      a.name.toLowerCase().includes(avatarSearch.toLowerCase()) ||
+      a.category.toLowerCase().includes(avatarSearch.toLowerCase());
+    return matchesCategory && matchesSearch;
+  });
 
   return (
     <Portal>
@@ -115,34 +149,203 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ show, onClose }) => {
             </div>
 
             {/* Avatar */}
-            <div style={{ background: 'linear-gradient(to right, #fce7f3, #fce7f3)', borderRadius: '1rem', padding: '1.5rem', marginBottom: '1.5rem', border: '1px solid #fbcfe8' }}>
+            <div style={{ 
+              background: 'linear-gradient(135deg, #fce7f3 0%, #fbcfe8 50%, #f9a8d4 100%)', 
+              borderRadius: '1rem', 
+              padding: '1.5rem', 
+              marginBottom: '1.5rem', 
+              border: '2px solid #ec4899',
+              boxShadow: '0 4px 12px rgba(236, 72, 153, 0.2)'
+            }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
                 <span style={{ fontSize: '1.5rem' }}>🎭</span>
-                <h3 style={{ fontSize: '1.25rem', fontWeight: 'bold', margin: 0 }}>Avatar</h3>
+                <h3 style={{ fontSize: '1.25rem', fontWeight: 'bold', margin: 0 }}>Choose Your Avatar</h3>
               </div>
-              <div style={{ textAlign: 'center', marginBottom: '1rem' }}>
-                <div style={{ fontSize: '4rem', marginBottom: '0.5rem' }}>{avatar.emoji}</div>
-                <button onClick={() => setShowAvatarPicker(!showAvatarPicker)} style={{ padding: '0.5rem 1rem', background: 'white', border: '1px solid #fbcfe8', borderRadius: '0.5rem', cursor: 'pointer', fontWeight: 600 }}>
-                  {showAvatarPicker ? '▲ Hide' : '▼ Change Avatar'}
+              <div style={{ 
+                textAlign: 'center', 
+                marginBottom: '1rem',
+                padding: '1.5rem',
+                background: 'white',
+                borderRadius: '1rem',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+              }}>
+                <div style={{ 
+                  fontSize: '5rem', 
+                  marginBottom: '0.5rem',
+                  transition: 'transform 0.3s ease',
+                  transform: hoveredAvatar === avatar.id ? 'scale(1.2) rotate(5deg)' : 'scale(1)',
+                  display: 'inline-block'
+                }}>
+                  {avatar.emoji}
+                </div>
+                <div style={{ fontSize: '1rem', fontWeight: 600, color: '#374151', marginBottom: '0.5rem' }}>
+                  {avatar.name}
+                </div>
+                <button 
+                  onClick={() => { setShowAvatarPicker(!showAvatarPicker); setAvatarSearch(''); }}
+                  style={{ 
+                    padding: '0.75rem 1.5rem', 
+                    background: showAvatarPicker ? 'linear-gradient(135deg, #ec4899, #be185d)' : 'linear-gradient(135deg, #f472b6, #ec4899)',
+                    border: 'none',
+                    borderRadius: '0.75rem', 
+                    cursor: 'pointer', 
+                    fontWeight: 600,
+                    color: 'white',
+                    fontSize: '0.95rem',
+                    boxShadow: '0 2px 8px rgba(236, 72, 153, 0.3)',
+                    transition: 'all 0.2s ease'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.transform = 'translateY(-2px)';
+                    e.currentTarget.style.boxShadow = '0 4px 12px rgba(236, 72, 153, 0.4)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.transform = 'translateY(0)';
+                    e.currentTarget.style.boxShadow = '0 2px 8px rgba(236, 72, 153, 0.3)';
+                  }}
+                >
+                  {showAvatarPicker ? '▲ Hide Picker' : '✨ Change Avatar'}
                 </button>
               </div>
               {showAvatarPicker && (
-                <>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '1rem' }}>
+                <div style={{
+                  background: 'white',
+                  borderRadius: '1rem',
+                  padding: '1.5rem',
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                  animation: 'fadeIn 0.3s ease'
+                }}>
+                  {/* Search */}
+                  <div style={{ marginBottom: '1rem' }}>
+                    <input
+                      type="text"
+                      placeholder="🔍 Search avatars..."
+                      value={avatarSearch}
+                      onChange={(e) => setAvatarSearch(e.target.value)}
+                      style={{
+                        width: '100%',
+                        padding: '0.75rem 1rem',
+                        border: '2px solid #fbcfe8',
+                        borderRadius: '0.75rem',
+                        fontSize: '0.95rem',
+                        outline: 'none',
+                        transition: 'border-color 0.2s'
+                      }}
+                      onFocus={(e) => e.currentTarget.style.borderColor = '#ec4899'}
+                      onBlur={(e) => e.currentTarget.style.borderColor = '#fbcfe8'}
+                    />
+                  </div>
+                  
+                  {/* Category Filters */}
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '1.5rem' }}>
                     {AVATAR_CATEGORIES.map(cat => (
-                      <button key={cat} onClick={() => setSelectedCategory(cat)} style={{ padding: '0.5rem 1rem', borderRadius: '0.5rem', border: 'none', fontWeight: 600, fontSize: '0.875rem', cursor: 'pointer', background: selectedCategory === cat ? '#ec4899' : 'white', color: selectedCategory === cat ? 'white' : '#374151' }}>
+                      <button 
+                        key={cat} 
+                        onClick={() => setSelectedCategory(cat)} 
+                        style={{ 
+                          padding: '0.5rem 1rem', 
+                          borderRadius: '0.75rem', 
+                          border: 'none', 
+                          fontWeight: 600, 
+                          fontSize: '0.875rem', 
+                          cursor: 'pointer', 
+                          background: selectedCategory === cat 
+                            ? 'linear-gradient(135deg, #ec4899, #be185d)' 
+                            : 'linear-gradient(135deg, #f3f4f6, #e5e7eb)',
+                          color: selectedCategory === cat ? 'white' : '#374151',
+                          transition: 'all 0.2s ease',
+                          boxShadow: selectedCategory === cat ? '0 2px 8px rgba(236, 72, 153, 0.3)' : 'none'
+                        }}
+                        onMouseEnter={(e) => {
+                          if (selectedCategory !== cat) {
+                            e.currentTarget.style.transform = 'translateY(-2px)';
+                            e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.1)';
+                          }
+                        }}
+                        onMouseLeave={(e) => {
+                          if (selectedCategory !== cat) {
+                            e.currentTarget.style.transform = 'translateY(0)';
+                            e.currentTarget.style.boxShadow = 'none';
+                          }
+                        }}
+                      >
                         {cat}
                       </button>
                     ))}
                   </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(50px, 1fr))', gap: '0.5rem', background: 'white', padding: '1rem', borderRadius: '0.5rem' }}>
-                    {filteredAvatars.map(av => (
-                      <button key={av.id} onClick={async () => { await setAvatar(av.id); setShowAvatarPicker(false); }} style={{ fontSize: '2rem', padding: '0.5rem', border: avatar.id === av.id ? '3px solid #ec4899' : '1px solid #e5e7eb', borderRadius: '0.5rem', background: avatar.id === av.id ? '#fce7f3' : 'white', cursor: 'pointer' }} title={av.name}>
-                        {av.emoji}
-                      </button>
-                    ))}
-                  </div>
-                </>
+                  
+                  {/* Avatar Grid */}
+                  {filteredAvatars.length === 0 ? (
+                    <div style={{ textAlign: 'center', padding: '2rem', color: '#6b7280' }}>
+                      No avatars found matching "{avatarSearch}"
+                    </div>
+                  ) : (
+                    <div style={{ 
+                      display: 'grid', 
+                      gridTemplateColumns: 'repeat(auto-fill, minmax(70px, 1fr))', 
+                      gap: '1rem',
+                      maxHeight: '400px',
+                      overflowY: 'auto',
+                      padding: '0.5rem'
+                    }}>
+                      {filteredAvatars.map(av => (
+                        <button 
+                          key={av.id} 
+                          onClick={async () => { 
+                            await setAvatar(av.id); 
+                            setShowAvatarPicker(false);
+                            setAvatarSearch('');
+                          }}
+                          onMouseEnter={() => setHoveredAvatar(av.id)}
+                          onMouseLeave={() => setHoveredAvatar(null)}
+                          style={{ 
+                            fontSize: '3rem', 
+                            padding: '1rem', 
+                            border: avatar.id === av.id ? '3px solid #ec4899' : '2px solid #e5e7eb', 
+                            borderRadius: '1rem', 
+                            background: avatar.id === av.id 
+                              ? 'linear-gradient(135deg, #fce7f3, #fbcfe8)' 
+                              : hoveredAvatar === av.id
+                              ? 'linear-gradient(135deg, #fef3c7, #fde68a)'
+                              : 'white',
+                            cursor: 'pointer',
+                            transition: 'all 0.2s ease',
+                            transform: hoveredAvatar === av.id ? 'scale(1.1) rotate(5deg)' : 'scale(1)',
+                            boxShadow: avatar.id === av.id 
+                              ? '0 4px 12px rgba(236, 72, 153, 0.3)' 
+                              : hoveredAvatar === av.id
+                              ? '0 4px 12px rgba(245, 158, 11, 0.3)'
+                              : '0 2px 4px rgba(0,0,0,0.1)',
+                            position: 'relative'
+                          }} 
+                          title={av.name}
+                        >
+                          {av.emoji}
+                          {avatar.id === av.id && (
+                            <div style={{
+                              position: 'absolute',
+                              top: '-8px',
+                              right: '-8px',
+                              background: '#ec4899',
+                              color: 'white',
+                              borderRadius: '50%',
+                              width: '24px',
+                              height: '24px',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              fontSize: '0.75rem',
+                              fontWeight: 'bold',
+                              boxShadow: '0 2px 8px rgba(236, 72, 153, 0.4)'
+                            }}>
+                              ✓
+                            </div>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
               )}
             </div>
 

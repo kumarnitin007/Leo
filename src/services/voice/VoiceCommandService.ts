@@ -7,6 +7,7 @@ import * as storage from '../../storage';
 import * as todoService from '../todoService';
 import dbService from './VoiceCommandDatabaseService';
 import { JournalEntry, Task, Event, Item, Routine } from '../../types';
+import { getTodoGroups } from '../todoService';
 
 // Small UUID v4 generator used for creating deterministic IDs for created items
 const generateUUID = (): string => {
@@ -157,6 +158,15 @@ export class VoiceCommandService {
                 voiceConfidence: parsed.overallConfidence 
               });
             }
+            // Log analytics
+            try {
+              const savedCommand = await dbService.getCommandById(cmdId);
+              if (savedCommand) {
+                await dbService.logAnalytics(savedCommand);
+              }
+            } catch (analyticsErr) {
+              console.warn('CREATE_TASK: analytics logging failed', analyticsErr);
+            }
           } catch (err) { console.warn('CREATE_TASK: db logging failed', err); }
           break;
         }
@@ -216,6 +226,15 @@ export class VoiceCommandService {
                 voiceConfidence: parsed.overallConfidence 
               });
             }
+            // Log analytics
+            try {
+              const savedCommand = await dbService.getCommandById(cmdId);
+              if (savedCommand) {
+                await dbService.logAnalytics(savedCommand);
+              }
+            } catch (analyticsErr) {
+              console.warn('CREATE_EVENT: analytics logging failed', analyticsErr);
+            }
           } catch (err) { console.warn('CREATE_EVENT: db logging failed', err); }
           break;
         }
@@ -240,12 +259,45 @@ export class VoiceCommandService {
           // Map to DB Priority type (uppercase)
           const dbPriority = todoPriority.toUpperCase() as 'LOW' | 'MEDIUM' | 'HIGH';
 
+          // Find or create "Voice Memo" group for voice-created todos
+          let voiceMemosGroupId: string | undefined;
+          try {
+            const groups = await getTodoGroups();
+            const voiceMemosGroup = groups.find(g => 
+              g.name === '🎤 Voice Memo' || 
+              g.name === 'Voice Memo' || 
+              g.name === '🎤 Voice Memos' || 
+              g.name === 'Voice Memos'
+            );
+            if (voiceMemosGroup) {
+              voiceMemosGroupId = voiceMemosGroup.id;
+              // Update name if it's the old plural version
+              if (voiceMemosGroup.name.includes('Memos')) {
+                await todoService.updateTodoGroup(voiceMemosGroup.id, { name: '🎤 Voice Memo' });
+              }
+            } else {
+              // Create the Voice Memo group (singular)
+              const newGroup = await todoService.createTodoGroup({
+                name: '🎤 Voice Memo',
+                icon: '🎤',
+                color: '#667eea'
+              });
+              voiceMemosGroupId = newGroup.id;
+            }
+          } catch (err) {
+            console.warn('Failed to get/create Voice Memo group:', err);
+            // Continue without groupId if group creation fails
+          }
+
           // Add "🎤 Voice" to the text as a prefix for visibility (since todos don't have tags)
           const voicePrefix = '🎤 ';
           const todoItem = await todoService.createTodoItem({
             text: voicePrefix + String(titleInfo.value),
             priority: todoPriority,
             dueDate: dateInfo.value || undefined,
+            groupId: voiceMemosGroupId,
+            // Auto-enable showOnDashboard if due date is set
+            showOnDashboard: !!dateInfo.value
           });
           createdId = todoItem.id;
 
@@ -269,6 +321,15 @@ export class VoiceCommandService {
                   voiceConfidence: parsed.overallConfidence 
                 });
               } catch { /* column may not exist yet */ }
+            }
+            // Log analytics
+            try {
+              const savedCommand = await dbService.getCommandById(cmdId);
+              if (savedCommand) {
+                await dbService.logAnalytics(savedCommand);
+              }
+            } catch (analyticsErr) {
+              console.warn('CREATE_TODO: analytics logging failed', analyticsErr);
             }
           } catch (err) { console.warn('CREATE_TODO: db logging failed', err); }
           break;
@@ -331,6 +392,15 @@ export class VoiceCommandService {
                 voiceConfidence: parsed.overallConfidence 
               });
             }
+            // Log analytics
+            try {
+              const savedCommand = await dbService.getCommandById(cmdId);
+              if (savedCommand) {
+                await dbService.logAnalytics(savedCommand);
+              }
+            } catch (analyticsErr) {
+              console.warn('CREATE_JOURNAL: analytics logging failed', analyticsErr);
+            }
           } catch (err) { console.warn('CREATE_JOURNAL: db logging failed', err); }
           break;
         }
@@ -359,7 +429,7 @@ export class VoiceCommandService {
           }
 
           try {
-            await dbService.saveCommand({
+            const cmdId = await dbService.saveCommand({
               userId: userId || undefined, sessionId,
               rawTranscript: parsed.transcript,
               intentType: intent as any, entityType,
@@ -368,6 +438,15 @@ export class VoiceCommandService {
               isValid: true, outcome: 'SUCCESS' as any,
               createdItemType: 'item', createdItemId: createdId
             });
+            // Log analytics
+            try {
+              const savedCommand = await dbService.getCommandById(cmdId);
+              if (savedCommand) {
+                await dbService.logAnalytics(savedCommand);
+              }
+            } catch (analyticsErr) {
+              console.warn('CREATE_ITEM: analytics logging failed', analyticsErr);
+            }
           } catch (err) { console.warn('CREATE_ITEM: db logging failed', err); }
           break;
         }
@@ -406,7 +485,7 @@ export class VoiceCommandService {
           }
 
           try {
-            await dbService.saveCommand({
+            const cmdId = await dbService.saveCommand({
               userId: userId || undefined, sessionId,
               rawTranscript: parsed.transcript,
               intentType: intent as any, entityType,
@@ -415,6 +494,15 @@ export class VoiceCommandService {
               isValid: true, outcome: 'SUCCESS' as any,
               createdItemType: 'routine', createdItemId: createdId
             });
+            // Log analytics
+            try {
+              const savedCommand = await dbService.getCommandById(cmdId);
+              if (savedCommand) {
+                await dbService.logAnalytics(savedCommand);
+              }
+            } catch (analyticsErr) {
+              console.warn('CREATE_ROUTINE: analytics logging failed', analyticsErr);
+            }
           } catch (err) { console.warn('CREATE_ROUTINE: db logging failed', err); }
           break;
         }
@@ -444,7 +532,7 @@ export class VoiceCommandService {
           }
 
           try {
-            await dbService.saveCommand({
+            const cmdId = await dbService.saveCommand({
               userId: userId || undefined, sessionId,
               rawTranscript: parsed.transcript,
               intentType: intent as any, entityType,
@@ -454,6 +542,15 @@ export class VoiceCommandService {
               isValid: true, outcome: 'SUCCESS' as any,
               createdItemType: entityType.toLowerCase(), createdItemId: createdId
             });
+            // Log analytics
+            try {
+              const savedCommand = await dbService.getCommandById(cmdId);
+              if (savedCommand) {
+                await dbService.logAnalytics(savedCommand);
+              }
+            } catch (analyticsErr) {
+              console.warn(`${intent}: analytics logging failed`, analyticsErr);
+            }
           } catch (err) { console.warn(`${intent}: db logging failed`, err); }
           break;
         }
@@ -505,6 +602,8 @@ export class VoiceCommandService {
             needsUserInput: true
           };
       }
+
+      // Analytics logging is now done per-command in each case block
 
       await this.logger.audit('execute_success', { intent, userId });
       return {

@@ -117,9 +117,15 @@ const TodoView: React.FC<TodoViewProps> = () => {
   const saveDetailEdits = async () => {
     if (!selectedItem) return;
     try {
-      const updated = await todoService.updateTodoItem(selectedItem.id, {
+      // Auto-enable showOnDashboard if due date is set
+      const finalDueDate = detailEdits.dueDate ?? selectedItem.dueDate;
+      const updates = {
         ...detailEdits,
-      });
+        // Automatically enable showOnDashboard when due date is set
+        showOnDashboard: finalDueDate ? true : (detailEdits.showOnDashboard ?? selectedItem.showOnDashboard ?? false)
+      };
+      
+      const updated = await todoService.updateTodoItem(selectedItem.id, updates);
       setItems(prev => prev.map(item => item.id === selectedItem.id ? updated : item));
       setShowDetailModal(false);
       setSelectedItem(null);
@@ -163,10 +169,12 @@ const TodoView: React.FC<TodoViewProps> = () => {
   const handleAddItem = async () => {
     if (!newItemText.trim()) return;
     try {
+      // Auto-enable showOnDashboard if due date is provided
       const newItem = await todoService.createTodoItem({
         text: newItemText.trim(),
         groupId: newItemGroup || undefined,
         priority: newItemPriority,
+        // Note: showOnDashboard will be auto-enabled when due date is set via the detail modal
       });
       setItems(prev => [...prev, newItem]);
       setNewItemText('');
@@ -900,29 +908,26 @@ const TodoView: React.FC<TodoViewProps> = () => {
                 />
               </div>
 
-              {/* Show on Dashboard */}
-              <div style={{ marginBottom: '1.25rem' }}>
-                <label style={{ 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  gap: '0.75rem', 
-                  cursor: 'pointer',
+              {/* Show on Dashboard Info */}
+              {(detailEdits.dueDate ?? selectedItem.dueDate) && (
+                <div style={{ 
+                  marginBottom: '1.25rem',
                   padding: '0.75rem',
-                  background: '#f9fafb',
-                  borderRadius: '0.5rem'
+                  background: '#eff6ff',
+                  borderRadius: '0.5rem',
+                  border: '1px solid #bfdbfe'
                 }}>
-                  <input
-                    type="checkbox"
-                    checked={detailEdits.showOnDashboard ?? selectedItem.showOnDashboard ?? false}
-                    onChange={(e) => setDetailEdits({ ...detailEdits, showOnDashboard: e.target.checked })}
-                    style={{ width: '18px', height: '18px', cursor: 'pointer' }}
-                  />
-                  <div>
-                    <div style={{ fontWeight: 600, fontSize: '0.9rem', color: '#374151' }}>🏠 Show on Home</div>
-                    <div style={{ fontSize: '0.8rem', color: '#6b7280' }}>Display on dashboard when due date is set</div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <span style={{ fontSize: '1rem' }}>ℹ️</span>
+                    <div>
+                      <div style={{ fontWeight: 600, fontSize: '0.85rem', color: '#1e40af' }}>Will show on Home</div>
+                      <div style={{ fontSize: '0.75rem', color: '#3b82f6', marginTop: '0.25rem' }}>
+                        This TO-DO will automatically appear on your dashboard since it has a due date
+                      </div>
+                    </div>
                   </div>
-                </label>
-              </div>
+                </div>
+              )}
 
               {/* Assigned To */}
               <div style={{ marginBottom: '1.25rem' }}>

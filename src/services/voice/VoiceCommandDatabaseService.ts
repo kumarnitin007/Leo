@@ -268,6 +268,7 @@ export class VoiceCommandDatabaseService {
         created_item_type: (commandData as any).createdItemType,
         created_item_id: (commandData as any).createdItemId || null,
         created_item_data: (commandData as any).createdItemData,
+        outcome: (commandData as any).outcome || 'PENDING',
         expires_at: expiresAt,
       };
 
