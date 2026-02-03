@@ -95,6 +95,9 @@ export interface JournalEntry {
   mood?: 'great' | 'good' | 'okay' | 'bad' | 'terrible';
   tags?: string[]; // Array of tag IDs
   isFavorite?: boolean;
+  createdViaVoice?: boolean;
+  voiceCommandId?: string;
+  voiceConfidence?: number;
   createdAt: string;
   updatedAt: string;
 }

@@ -774,6 +774,9 @@ export const getJournalEntries = async (): Promise<JournalEntry[]> => {
     mood: entry.mood,
     tags: entry.tags || [],
     isFavorite: entry.is_favorite || false,
+    createdViaVoice: entry.voice_memo || false,
+    voiceCommandId: entry.voice_command_id,
+    voiceConfidence: entry.voice_confidence,
     createdAt: entry.created_at || new Date().toISOString(),
     updatedAt: entry.updated_at || new Date().toISOString()
   }));
@@ -785,19 +788,27 @@ export const saveJournalEntry = async (entry: JournalEntry): Promise<void> => {
   // First, check if an entry already exists for this date
   const { data: existing } = await client
     .from('myday_journal_entries')
-    .select('id')
+    .select('id, content, voice_memo')
     .eq('user_id', userId)
     .eq('entry_date', entry.date)
     .maybeSingle();
 
   if (existing) {
+    // If this is a voice entry and there's already content, append instead of replace
+    let newContent = entry.content;
+    if (entry.createdViaVoice && existing.content && existing.content.trim()) {
+      // Append voice entry with a separator
+      newContent = existing.content + '\n\n---\n\n' + entry.content;
+    }
+
     // Update existing entry
     const { error } = await client
       .from('myday_journal_entries')
       .update({
-        content: entry.content,
+        content: newContent,
         mood: entry.mood || null,
         tags: entry.tags || [],
+        voice_memo: entry.createdViaVoice || existing.voice_memo || false,
         updated_at: new Date().toISOString()
       })
       .eq('id', existing.id);
@@ -813,6 +824,7 @@ export const saveJournalEntry = async (entry: JournalEntry): Promise<void> => {
       content: entry.content || '',
       mood: entry.mood || null,
       tags: entry.tags || [],
+      voice_memo: entry.createdViaVoice || false,
       created_at: now,
       updated_at: now
     };
@@ -826,6 +838,29 @@ export const saveJournalEntry = async (entry: JournalEntry): Promise<void> => {
       throw error;
     }
   }
+};
+
+export const updateJournalEntry = async (entryId: string, updates: Partial<JournalEntry>): Promise<void> => {
+  const { client } = await requireAuth();
+
+  const updateData: any = {
+    updated_at: new Date().toISOString()
+  };
+
+  if (updates.content !== undefined) updateData.content = updates.content;
+  if (updates.mood !== undefined) updateData.mood = updates.mood;
+  if (updates.tags !== undefined) updateData.tags = updates.tags;
+  if (updates.isFavorite !== undefined) updateData.is_favorite = updates.isFavorite;
+  if (updates.createdViaVoice !== undefined) updateData.voice_memo = updates.createdViaVoice;
+  if (updates.voiceCommandId !== undefined) updateData.voice_command_id = updates.voiceCommandId;
+  if (updates.voiceConfidence !== undefined) updateData.voice_confidence = updates.voiceConfidence;
+
+  const { error } = await client
+    .from('myday_journal_entries')
+    .update(updateData)
+    .eq('id', entryId);
+
+  if (error) throw error;
 };
 
 export const deleteJournalEntry = async (entryId: string): Promise<void> => {

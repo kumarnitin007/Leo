@@ -42,15 +42,50 @@ const VoiceCommandModal: React.FC<VoiceCommandModalProps> = ({
   const [pulseAnimation, setPulseAnimation] = useState(false);
   const [executionResult, setExecutionResult] = useState<ExecutionResult | null>(null);
 
-  // Reset state when modal opens
+  // Reset state when modal opens/closes
   useEffect(() => {
     if (isOpen) {
       setState('IDLE');
       setTranscript('');
       setParsed(null);
       setError(null);
+    } else {
+      // Clean up when modal closes - abort any active listening
+      service.abortListening();
     }
   }, [isOpen]);
+
+  // Cleanup on unmount (critical for releasing microphone)
+  useEffect(() => {
+    return () => {
+      service.abortListening();
+    };
+  }, []);
+
+  // Stop listening when tab becomes hidden or page is about to unload
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.hidden && state === 'LISTENING') {
+        service.abortListening();
+        setState('ERROR');
+        setError('Voice recognition stopped because tab was hidden');
+      }
+    };
+
+    const handleBeforeUnload = () => {
+      service.abortListening();
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    window.addEventListener('pagehide', handleBeforeUnload);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      window.removeEventListener('pagehide', handleBeforeUnload);
+    };
+  }, [state]);
 
   // Auto-start listening when modal opens
   useEffect(() => {
@@ -122,6 +157,8 @@ const VoiceCommandModal: React.FC<VoiceCommandModalProps> = ({
   };
 
   const handleCancel = () => {
+    // Stop any active speech recognition and release microphone
+    service.abortListening();
     setParsed(null);
     setState('IDLE');
     onClose();

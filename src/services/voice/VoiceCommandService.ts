@@ -56,6 +56,20 @@ export class VoiceCommandService {
     this.logger = new VoiceCommandLogger();
   }
 
+  /**
+   * Stop any active speech recognition and release the microphone
+   */
+  stopListening(): void {
+    this.speech.stop();
+  }
+
+  /**
+   * Abort any active speech recognition immediately (for cleanup)
+   */
+  abortListening(): void {
+    this.speech.abort();
+  }
+
   async listenAndParse(): Promise<ParsedCommand> {
     const { transcript, confidence: sttConfidence } = await this.speech.transcribeOnce();
 
@@ -299,7 +313,7 @@ export class VoiceCommandService {
           createdId = newId;
 
           try {
-            await dbService.saveCommand({
+            const cmdId = await dbService.saveCommand({
               userId: userId || undefined, sessionId,
               rawTranscript: parsed.transcript,
               intentType: intent as any, entityType,
@@ -309,6 +323,14 @@ export class VoiceCommandService {
               isValid: true, outcome: 'SUCCESS' as any,
               createdItemType: 'journal', createdItemId: createdId
             });
+            // Update journal entry with voice metadata
+            if (createdId && (storage as any).updateJournalEntry) {
+              await (storage as any).updateJournalEntry(createdId, { 
+                createdViaVoice: true, 
+                voiceCommandId: cmdId, 
+                voiceConfidence: parsed.overallConfidence 
+              });
+            }
           } catch (err) { console.warn('CREATE_JOURNAL: db logging failed', err); }
           break;
         }
