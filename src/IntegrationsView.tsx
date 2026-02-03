@@ -216,14 +216,6 @@ const IntegrationsView: React.FC = () => {
           <h2>🔌 Integration Hub</h2>
           <p>Connect Leo Planner with your favorite productivity tools - plan with strength!</p>
         </div>
-        <div style={{ display: 'flex', gap: '0.75rem' }}>
-          <button onClick={() => setShowImportModal(true)} className="btn-secondary">
-            📥 Import Tasks
-          </button>
-          <button onClick={handleExport} className="btn-secondary">
-            📤 Export Tasks
-          </button>
-        </div>
       </div>
 
       <div className="integrations-grid">

@@ -16,9 +16,6 @@ import {
   getRoutines,
   getTags,
   getItems,
-  getSafeEntries,
-  getSafeTags,
-  getDocumentVaults,
   getUserProfile,
   getUserSettings
 } from '../storage';
@@ -38,8 +35,8 @@ interface ExportOptions {
   tags: boolean;
   items: boolean;
   todos: boolean;
-  safeEntries: boolean; // Note: Only metadata, not encrypted data
-  documents: boolean; // Note: Only metadata
+  // Note: Safe entries and documents are NOT exported from here
+  // They can only be exported from within the Safe section for security
 }
 
 interface ExportData {
@@ -61,8 +58,8 @@ interface ExportData {
   tags?: Tag[];
   items?: Item[];
   todos?: { groups: any[]; items: any[] };
-  safeEntriesMetadata?: { id: string; title: string; categoryTagId: string; createdAt: string; updatedAt: string }[];
-  documentsMetadata?: { id: string; title: string; createdAt: string; updatedAt: string }[];
+  // Note: Safe entries and documents are NOT included in general export
+  // They can only be exported from within the Safe section
 }
 
 const DataExport: React.FC = () => {
@@ -77,8 +74,6 @@ const DataExport: React.FC = () => {
     tags: true,
     items: true,
     todos: true,
-    safeEntries: false, // Off by default for security
-    documents: false,
   });
   const [isExporting, setIsExporting] = useState(false);
   const [exportProgress, setExportProgress] = useState<string>('');
@@ -100,22 +95,18 @@ const DataExport: React.FC = () => {
       tags: selected,
       items: selected,
       todos: selected,
-      safeEntries: selected,
-      documents: selected,
     });
   };
 
   // Gather export data
   const gatherExportData = async (): Promise<ExportData> => {
     // Load reference data for ID-to-name mapping
-    const [allTags, safeTags, todoGroups] = await Promise.all([
+    const [allTags, todoGroups] = await Promise.all([
       options.tasks || options.events || options.journals || options.items ? getTags() : Promise.resolve([]),
-      options.safeEntries ? getSafeTags() : Promise.resolve([]),
       options.todos ? getTodoGroups() : Promise.resolve([])
     ]);
     
     const tagMap = new Map(allTags.map(t => [t.id, t.name]));
-    const safeTagMap = new Map(safeTags.map(t => [t.id, t.name]));
     const todoGroupMap = new Map(todoGroups.map(g => [g.id, g.name]));
     
     // Load user profile and settings
@@ -219,50 +210,8 @@ const DataExport: React.FC = () => {
       };
     }
 
-    if (options.safeEntries) {
-      setExportProgress('Loading safe entries...');
-      try {
-        const entries = await getSafeEntries();
-        // Replace categoryTagId and tag IDs with names, include encrypted data
-        data.safeEntriesMetadata = entries.map(e => ({
-          id: e.id,
-          title: e.title,
-          url: e.url,
-          categoryName: e.categoryTagId ? safeTagMap.get(e.categoryTagId) : undefined,
-          categoryTagId: e.categoryTagId || 'unknown',
-          tagNames: e.tags?.map(tagId => safeTagMap.get(tagId) || tagId) || [],
-          tags: e.tags || [],
-          isFavorite: e.isFavorite,
-          expiresAt: e.expiresAt,
-          encryptedData: e.encryptedData, // Include encrypted data for export
-          encryptedDataIv: e.encryptedDataIv,
-          isShared: e.isShared,
-          sharedBy: e.sharedBy,
-          sharedAt: e.sharedAt,
-          createdAt: e.createdAt,
-          updatedAt: e.updatedAt,
-        }));
-      } catch {
-        // Safe not unlocked, skip
-        data.safeEntriesMetadata = [];
-      }
-    }
-
-    if (options.documents) {
-      setExportProgress('Loading document metadata...');
-      try {
-        const docs = await getDocumentVaults();
-        data.documentsMetadata = docs.map(d => ({
-          id: d.id,
-          title: d.title,
-          createdAt: d.createdAt,
-          updatedAt: d.updatedAt,
-        }));
-      } catch {
-        // Safe not unlocked, skip
-        data.documentsMetadata = [];
-      }
-    }
+    // Note: Safe entries and documents are NOT exported from here
+    // They can only be exported from within the Safe section for security
 
     return data;
   };
@@ -296,8 +245,6 @@ const DataExport: React.FC = () => {
     if (data.items) sheets.push(arrayToCSV(data.items, 'Items'));
     if (data.todos?.groups) sheets.push(arrayToCSV(data.todos.groups, 'TodoGroups'));
     if (data.todos?.items) sheets.push(arrayToCSV(data.todos.items, 'TodoItems'));
-    if (data.safeEntriesMetadata) sheets.push(arrayToCSV(data.safeEntriesMetadata, 'SafeEntriesMetadata'));
-    if (data.documentsMetadata) sheets.push(arrayToCSV(data.documentsMetadata, 'DocumentsMetadata'));
 
     return `Leo App Data Export\nExported: ${data.exportedAt}\nVersion: ${data.version}\n\n${sheets.join('\n')}`;
   };
@@ -443,7 +390,7 @@ const DataExport: React.FC = () => {
           📤 Export Your Data
         </h3>
         <p style={{ margin: 0, color: '#6b7280', fontSize: '0.9rem' }}>
-          Download a backup of all your Leo app data. Safe entries export only metadata (titles/dates), not passwords.
+          Download a backup of all your Leo app data. Note: Safe entries and documents can only be exported from within the Safe section for security.
         </p>
       </div>
 
@@ -494,8 +441,6 @@ const DataExport: React.FC = () => {
             { key: 'tags' as const, label: '🏷️ Tags', icon: '🏷️' },
             { key: 'items' as const, label: '📦 Items', icon: '📦' },
             { key: 'todos' as const, label: '📝 To-Dos', icon: '📝' },
-            { key: 'safeEntries' as const, label: '🔐 Safe (meta)', icon: '🔐' },
-            { key: 'documents' as const, label: '📄 Docs (meta)', icon: '📄' },
           ].map(({ key, label }) => (
             <label
               key={key}

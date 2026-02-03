@@ -369,60 +369,6 @@ const AppContent: React.FC = () => {
           </div>
         </div>
         <div className="header-nav-row">
-          <div className="header-left-desktop">
-            <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <span style={{ fontSize: '1.75rem' }}>🦁</span>
-                <h1 style={{ margin: 0, fontSize: '1.5rem' }}>Leo Planner</h1>
-              </div>
-              <div className="user-badge" title={username}>
-                <span className="user-avatar">{avatar.emoji}</span>
-                <span className="user-name">{username}</span>
-              </div>
-            </div>
-            <div className="header-actions-desktop">
-              <button
-                className="icon-button"
-                onClick={() => handleNavigate('settings')}
-                title="Settings & Configuration"
-                style={{ color: theme.colors.primary }}
-              >
-                ⚙️
-              </button>
-              <button
-                className="icon-button"
-                onClick={() => setShowAbout(true)}
-                title="About Leo Planner"
-                style={{ color: theme.colors.primary }}
-              >
-                ℹ️
-              </button>
-              {isAuthenticated && user ? (
-                <button
-                  className="icon-button"
-                  onClick={async () => {
-                    if (confirm('Are you sure you want to sign out?')) {
-                      const { signOut } = await import('./lib/supabase');
-                      await signOut();
-                    }
-                  }}
-                  title={`Sign Out (${user.email || 'User'})`}
-                  style={{ color: theme.colors.primary }}
-                >
-                  🚪
-                </button>
-              ) : !authLoading ? (
-                <button
-                  className="icon-button"
-                  onClick={() => setShowAuthModal(true)}
-                  title="Sign In / Sign Up"
-                  style={{ color: theme.colors.primary }}
-                >
-                  🔑
-                </button>
-              ) : null}
-            </div>
-          </div>
           <nav className="nav">
             <button
               className={`nav-button ${currentView === 'today' ? 'active' : ''}`}
@@ -470,6 +416,56 @@ const AppContent: React.FC = () => {
               <span className="nav-text">Safe</span>
             </button>
           </nav>
+          <div className="header-right-desktop">
+            <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
+              <div className="user-badge" title={username}>
+                <span className="user-avatar">{avatar.emoji}</span>
+                <span className="user-name">{username}</span>
+              </div>
+              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <button
+                  className="icon-button"
+                  onClick={() => handleNavigate('settings')}
+                  title="Settings & Configuration"
+                  style={{ color: theme.colors.primary }}
+                >
+                  ⚙️
+                </button>
+                <button
+                  className="icon-button"
+                  onClick={() => setShowAbout(true)}
+                  title="About Leo Planner"
+                  style={{ color: theme.colors.primary }}
+                >
+                  ℹ️
+                </button>
+                {isAuthenticated && user ? (
+                  <button
+                    className="icon-button"
+                    onClick={async () => {
+                      if (confirm('Are you sure you want to sign out?')) {
+                        const { signOut } = await import('./lib/supabase');
+                        await signOut();
+                      }
+                    }}
+                    title={`Sign Out (${user.email || 'User'})`}
+                    style={{ color: theme.colors.primary }}
+                  >
+                    🚪
+                  </button>
+                ) : !authLoading ? (
+                  <button
+                    className="icon-button"
+                    onClick={() => setShowAuthModal(true)}
+                    title="Sign In / Sign Up"
+                    style={{ color: theme.colors.primary }}
+                  >
+                    🔑
+                  </button>
+                ) : null}
+              </div>
+            </div>
+          </div>
         </div>
         <div className="header-mic-row">
           <VoiceCommandButton 

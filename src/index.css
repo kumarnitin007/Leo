@@ -49,11 +49,7 @@ body {
   gap: 0.5rem;
 }
 
-.header-left-desktop {
-  display: none;
-}
-
-.header-actions-desktop {
+.header-right-desktop {
   display: none;
 }
 
@@ -66,25 +62,20 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    flex-wrap: wrap;
     gap: 1rem;
-  }
-  
-  .header-left-desktop {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-    flex: 1;
-  }
-  
-  .header-actions-desktop {
-    display: flex;
-    gap: 0.5rem;
   }
   
   .header-nav-row .nav {
     display: flex;
     gap: 0.5rem;
+    order: 1;
+  }
+  
+  .header-right-desktop {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    order: 2;
   }
 }
 
@@ -93,11 +84,7 @@ body {
     justify-content: center;
   }
   
-  .header-left-desktop {
-    display: none !important;
-  }
-  
-  .header-actions-desktop {
+  .header-right-desktop {
     display: none !important;
   }
 }

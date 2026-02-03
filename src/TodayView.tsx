@@ -2105,15 +2105,15 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
                             )}
                             {todo.priority && (
                               <span style={{
-                                fontSize: '0.7rem',
-                                padding: '0.125rem 0.5rem',
-                                background: todo.priority === 'HIGH' ? '#fee2e2' : todo.priority === 'MEDIUM' ? '#fef3c7' : '#dbeafe',
-                                color: todo.priority === 'HIGH' ? '#991b1b' : todo.priority === 'MEDIUM' ? '#92400e' : '#1e40af',
-                                borderRadius: '0.25rem',
-                                marginTop: '0.5rem',
-                                display: 'inline-block'
-                              }}>
-                                {todo.priority}
+                              fontSize: '0.7rem',
+                              padding: '0.125rem 0.5rem',
+                              background: todo.priority === 'high' || todo.priority === 'urgent' ? '#fee2e2' : todo.priority === 'medium' ? '#fef3c7' : '#dbeafe',
+                              color: todo.priority === 'high' || todo.priority === 'urgent' ? '#991b1b' : todo.priority === 'medium' ? '#92400e' : '#1e40af',
+                              borderRadius: '0.25rem',
+                              marginTop: '0.5rem',
+                              display: 'inline-block'
+                            }}>
+                              {todo.priority.toUpperCase()}
                               </span>
                             )}
                           </div>
@@ -2789,15 +2789,15 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
               )}
               {selectedTodo.priority && (
                 <span style={{
-                  fontSize: '0.75rem',
-                  padding: '0.25rem 0.75rem',
-                  background: selectedTodo.priority === 'HIGH' ? '#fee2e2' : selectedTodo.priority === 'MEDIUM' ? '#fef3c7' : '#dbeafe',
-                  color: selectedTodo.priority === 'HIGH' ? '#991b1b' : selectedTodo.priority === 'MEDIUM' ? '#92400e' : '#1e40af',
-                  borderRadius: '0.5rem',
-                  marginTop: '0.5rem',
-                  display: 'inline-block'
-                }}>
-                  {selectedTodo.priority} Priority
+                fontSize: '0.75rem',
+                padding: '0.25rem 0.75rem',
+                background: selectedTodo.priority === 'high' || selectedTodo.priority === 'urgent' ? '#fee2e2' : selectedTodo.priority === 'medium' ? '#fef3c7' : '#dbeafe',
+                color: selectedTodo.priority === 'high' || selectedTodo.priority === 'urgent' ? '#991b1b' : selectedTodo.priority === 'medium' ? '#92400e' : '#1e40af',
+                borderRadius: '0.5rem',
+                marginTop: '0.5rem',
+                display: 'inline-block'
+              }}>
+                {selectedTodo.priority.toUpperCase()} Priority
                 </span>
               )}
             </div>
