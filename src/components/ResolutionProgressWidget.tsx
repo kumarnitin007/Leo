@@ -60,9 +60,10 @@ const ResolutionProgressWidget: React.FC = () => {
           const gap = mostBehind.actualProgress - mostBehind.expectedProgress;
           
           import('../services/notificationService').then(({ showResolutionAlert }) => {
+            const alertStatus = mostBehind.status === 'far-behind' ? 'behind' : mostBehind.status;
             showResolutionAlert(
               mostBehind.resolution.title,
-              mostBehind.status,
+              alertStatus,
               `${mostBehind.actualProgress}/${mostBehind.targetValue} (${gap} behind)`
             ).catch(err => console.warn('Resolution alert failed:', err));
           });

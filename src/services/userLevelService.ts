@@ -6,6 +6,12 @@
 
 import { getSupabaseClient } from '../lib/supabase';
 
+export interface LevelFeature {
+  feature_id: string;
+  is_enabled: boolean;
+  limit_value: number | null;
+}
+
 export interface UserLevel {
   id: string;
   name: string;
@@ -26,6 +32,7 @@ export interface UserLevelAssignment {
   expiresAt: string | null;
   isActive: boolean;
   level?: UserLevel;
+  level_features?: LevelFeature[];
 }
 
 /**
@@ -56,6 +63,12 @@ export async function getUserLevel(): Promise<UserLevelAssignment | null> {
 
     if (!data) return null;
 
+    // Fetch level features separately
+    const { data: featuresData } = await client
+      .from('myday_level_features')
+      .select('feature_id, is_enabled, limit_value')
+      .eq('level_id', data.level_id);
+
     // Transform to camelCase
     return {
       id: data.id,
@@ -74,7 +87,8 @@ export async function getUserLevel(): Promise<UserLevelAssignment | null> {
         icon: data.level.icon,
         monthlyPrice: data.level.monthly_price,
         yearlyPrice: data.level.yearly_price,
-      } : undefined
+      } : undefined,
+      level_features: featuresData || []
     };
   } catch (err) {
     console.error('Error loading user level:', err);

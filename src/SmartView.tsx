@@ -129,25 +129,24 @@ const SmartView: React.FC<SmartViewProps> = ({ onNavigate }) => {
       id: crypto.randomUUID(),
       name: item.title,
       date: data.date || new Date().toISOString().split('T')[0],
-      time: data.time,
       description: item.description || '',
-      category: data.recurring ? 'birthday' : 'personal',
-      isRecurring: data.recurring || false,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
+      category: data.recurring ? 'Birthday' : 'Personal',
+      frequency: data.recurring ? 'yearly' : 'one-time',
+      year: data.recurring ? undefined : new Date().getFullYear(),
+      createdAt: new Date().toISOString()
     });
   };
 
   const createTask = async (item: ExtractedItem) => {
     await addTask({
       id: crypto.randomUUID(),
-      title: item.title,
+      name: item.title,
       description: item.description || '',
-      isCompleted: false,
-      priority: item.data.priority || 'medium',
-      dueDate: item.data.dueDate,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
+      category: 'General',
+      weightage: 5,
+      frequency: 'daily',
+      specificDate: item.data.dueDate,
+      createdAt: new Date().toISOString()
     });
   };
 
@@ -156,7 +155,7 @@ const SmartView: React.FC<SmartViewProps> = ({ onNavigate }) => {
     for (const todoText of items) {
       await createTodoItem({
         text: todoText,
-        completed: false,
+        completedAt: null,
         priority: item.data.priority || 'medium',
         dueDate: item.data.dueDate,
         showOnDashboard: !!item.data.dueDate

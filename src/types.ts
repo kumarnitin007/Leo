@@ -108,6 +108,8 @@ export interface UserSettings {
   dashboardLayout: DashboardLayout;
   theme?: string;
   notifications?: boolean;
+  aiScanEnabled?: boolean;
+  aiScanWarningShown?: boolean;
   location?: {
     zipCode?: string;
     city?: string;

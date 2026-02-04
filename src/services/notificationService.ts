@@ -85,13 +85,9 @@ export const showLocalNotification = async (
     badge: options?.badge || '/leo-icon.svg',
     tag: options?.tag,
     data: options?.data,
-    actions: options?.actions || [
-      { action: 'open', title: 'Open App' },
-      { action: 'close', title: 'Dismiss' }
-    ],
     vibrate: [200, 100, 200],
     requireInteraction: false,
-  });
+  } as NotificationOptions);
 };
 
 /**

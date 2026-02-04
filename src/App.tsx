@@ -17,6 +17,7 @@ import { ThemeProvider, useTheme } from './contexts/ThemeContext';
 import { UserProvider, useUser } from './contexts/UserContext';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { VoiceCommandPrefillProvider, useVoiceCommandPrefill } from './contexts/VoiceCommandPrefillContext';
+import { useUserLevel } from './hooks/useUserLevel';
 import TodayView from './TodayView';
 import TasksAndEventsView from './TasksAndEventsView';
 import JournalView from './JournalView';
@@ -48,6 +49,7 @@ import TodoView from './TodoView';
 import GroupsManager from './components/GroupsManager';
 import SmartView from './SmartView';
 import { ParsedCommand } from './services/voice/types';
+import DemoBanner from './components/DemoBanner';
 import { VoiceCommandLog } from './types/voice-command-db.types';
 
 type View = 'today' | 'tasks-events' | 'items' | 'journal' | 'resolutions' | 'analytics' | 'settings' | 'safe' | 'todo' | 'groups' | 'smart';
@@ -77,6 +79,7 @@ const AppContent: React.FC = () => {
   
   const { theme } = useTheme();
   const { avatar, username } = useUser();
+  const { features, loading: levelLoading } = useUserLevel();
   const { user, loading: authLoading, isAuthenticated } = useAuth();
 
   // Clear localStorage and test Supabase connection on mount
@@ -334,6 +337,9 @@ const AppContent: React.FC = () => {
               <span className="user-name">{username}</span>
             </div>
           </div>
+          {features.isDemo && (
+            <DemoBanner levelIcon={features.levelIcon} levelName={features.levelName} />
+          )}
           <div className="header-actions">
             <button
               className="icon-button"
@@ -406,15 +412,17 @@ const AppContent: React.FC = () => {
               <span className="nav-icon">📔</span>
               <span className="nav-text">Journal</span>
             </button>
-            <button
-              className={`nav-button ${currentView === 'smart' ? 'active' : ''}`}
-              onClick={() => handleNavigate('smart')}
-              title="Smart Features - Voice & Image Scanning"
-              style={currentView === 'smart' ? { backgroundColor: theme.colors.primary } : {}}
-            >
-              <span className="nav-icon">✨</span>
-              <span className="nav-text">Smart</span>
-            </button>
+            {!features.isDemo && (
+              <button
+                className={`nav-button ${currentView === 'smart' ? 'active' : ''}`}
+                onClick={() => handleNavigate('smart')}
+                title="Smart Features - Voice & Image Scanning"
+                style={currentView === 'smart' ? { backgroundColor: theme.colors.primary } : {}}
+              >
+                <span className="nav-icon">✨</span>
+                <span className="nav-text">Smart</span>
+              </button>
+            )}
             <button
               className={`nav-button ${currentView === 'analytics' ? 'active' : ''}`}
               onClick={() => handleNavigate('analytics')}
@@ -424,15 +432,17 @@ const AppContent: React.FC = () => {
               <span className="nav-icon">📊</span>
               <span className="nav-text">Analytics</span>
             </button>
-            <button
-              className={`nav-button ${currentView === 'safe' ? 'active' : ''}`}
-              onClick={() => handleNavigate('safe')}
-              title="Safe - Encrypted Password Manager"
-              style={currentView === 'safe' ? { backgroundColor: theme.colors.primary } : {}}
-            >
-              <span className="nav-icon">🔒</span>
-              <span className="nav-text">Safe</span>
-            </button>
+            {features.canUseSafe && (
+              <button
+                className={`nav-button ${currentView === 'safe' ? 'active' : ''}`}
+                onClick={() => handleNavigate('safe')}
+                title="Safe - Encrypted Password Manager"
+                style={currentView === 'safe' ? { backgroundColor: theme.colors.primary } : {}}
+              >
+                <span className="nav-icon">🔒</span>
+                <span className="nav-text">Safe</span>
+              </button>
+            )}
           </nav>
           <div className="header-right-desktop">
             <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
@@ -608,35 +618,35 @@ const AppContent: React.FC = () => {
       <MobileBottomSheet
         isOpen={showAddSheet}
         onClose={() => setShowAddSheet(false)}
-        title="Add New"
+        title={features.isDemo ? "View Demo (Read-Only)" : "Add New"}
         options={[
-          {
+          features.canUseVoiceCommands && {
             icon: '🎙️',
             label: 'Voice Input',
             description: 'Add via voice command',
             onClick: () => setShowVoiceAddModal(true),
             primary: true,
           },
-          {
+          !features.isDemo && {
             icon: '🆓',
             label: 'Quick Scan',
             description: 'Free OCR - Scan images instantly',
             onClick: () => handleNavigate('smart'),
           },
-          {
+          features.canUseAI && {
             icon: '✨',
             label: 'Smart Scan',
             description: 'AI-powered image analysis',
             onClick: () => handleNavigate('smart'),
           },
-          {
+          features.canAddTodos && {
             icon: '📝',
             label: 'To-Do List',
             description: 'Quick grouped to-do items',
             onClick: () => handleNavigate('todo'),
             primary: true,
           },
-          {
+          features.canAddTasks && {
             icon: '✅',
             label: 'Task',
             description: 'Scheduled task or habit',
@@ -645,7 +655,7 @@ const AppContent: React.FC = () => {
               handleNavigate('tasks-events');
             },
           },
-          {
+          features.canAddEvents && {
             icon: '📅',
             label: 'Event',
             description: 'Calendar event or reminder',
@@ -654,13 +664,13 @@ const AppContent: React.FC = () => {
               handleNavigate('tasks-events');
             },
           },
-          {
+          features.canAddItems && {
             icon: '📦',
             label: 'Item',
             description: 'Track an item or resource',
             onClick: () => handleNavigate('items'),
           },
-          {
+          features.canAddTasks && {
             icon: '🔄',
             label: 'Routine',
             description: 'Recurring habit or routine',
@@ -669,7 +679,7 @@ const AppContent: React.FC = () => {
               handleNavigate('tasks-events');
             },
           },
-          {
+          !features.isDemo && {
             icon: '🎯',
             label: 'Resolution',
             description: 'Goal or resolution',
@@ -678,7 +688,7 @@ const AppContent: React.FC = () => {
               handleNavigate('tasks-events');
             },
           },
-        ]}
+        ].filter(Boolean)}
       />
 
       {/* Mobile More Bottom Sheet */}
