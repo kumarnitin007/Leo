@@ -366,6 +366,9 @@ export class VoiceCommandService {
             content: voiceIndicator + String(contentInfo.value),
             mood,
             tags: userTags,
+            createdViaVoice: true,
+            voiceCommandId: undefined, // Will be set after saving command
+            voiceConfidence: parsed.overallConfidence,
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString()
           };
@@ -375,14 +378,17 @@ export class VoiceCommandService {
 
           try {
             const cmdId = await dbService.saveCommand({
-              userId: userId || undefined, sessionId,
+              userId: userId || undefined,
+              sessionId,
               rawTranscript: parsed.transcript,
-              intentType: intent as any, entityType,
+              intentType: intent as any,
+              entityType,
               memoDate: dateInfo.value,
               extractedTitle: String(contentInfo.value).substring(0, 100),
               overallConfidence: parsed.overallConfidence,
-              isValid: true, outcome: 'SUCCESS' as any,
-              createdItemType: 'journal', createdItemId: createdId
+              outcome: 'SUCCESS',
+              createdItemType: 'journal',
+              createdItemId: createdId
             });
             // Update journal entry with voice metadata
             if (createdId && (storage as any).updateJournalEntry) {

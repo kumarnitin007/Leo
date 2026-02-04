@@ -45,6 +45,31 @@ const ResolutionProgressWidget: React.FC = () => {
       const activeResolutions = data.filter(r => r.status === 'active' && r.progressMetric === 'count' && r.targetValue);
       const progressData = activeResolutions.map(r => calculateProgress(r));
       setResolutions(progressData);
+      
+      // Check for resolutions that need alerts (only once per day)
+      const today = new Date().toISOString().split('T')[0];
+      const lastAlertDate = localStorage.getItem('last-resolution-alert-date');
+      
+      if (lastAlertDate !== today && progressData.length > 0) {
+        // Find resolutions that are behind
+        const behindResolutions = progressData.filter(p => p.status === 'behind' || p.status === 'far-behind');
+        
+        if (behindResolutions.length > 0) {
+          // Show alert for the most behind resolution
+          const mostBehind = behindResolutions[0];
+          const gap = mostBehind.actualProgress - mostBehind.expectedProgress;
+          
+          import('../services/notificationService').then(({ showResolutionAlert }) => {
+            showResolutionAlert(
+              mostBehind.resolution.title,
+              mostBehind.status,
+              `${mostBehind.actualProgress}/${mostBehind.targetValue} (${gap} behind)`
+            ).catch(err => console.warn('Resolution alert failed:', err));
+          });
+          
+          localStorage.setItem('last-resolution-alert-date', today);
+        }
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load resolutions');
     } finally {

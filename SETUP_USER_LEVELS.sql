@@ -34,11 +34,13 @@ CREATE TABLE IF NOT EXISTS myday_features (
 
 -- Level-Feature Mappings (which features each level has access to)
 CREATE TABLE IF NOT EXISTS myday_level_features (
+    id SERIAL PRIMARY KEY,
     level_id TEXT NOT NULL,
     feature_id TEXT NOT NULL,
     is_enabled BOOLEAN DEFAULT true,
     limit_value INTEGER, -- NULL = unlimited, number = max count
-    PRIMARY KEY (level_id, feature_id)
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE(level_id, feature_id)
 );
 
 -- User Level Assignments (which level each user has)
@@ -124,128 +126,128 @@ ON CONFLICT (id) DO UPDATE SET
 DELETE FROM myday_level_features;
 
 -- FREE TIER - Basic features with limits
-INSERT INTO myday_level_features (level_id, feature_id, is_enabled, limit_value)
+INSERT INTO myday_level_features (id, level_id, feature_id, is_enabled, limit_value)
 VALUES
     -- Core features (limited)
-    ('free', 'tasks', true, 50),
-    ('free', 'events', true, 20),
-    ('free', 'journal', true, 30),
-    ('free', 'todos', true, 100),
-    ('free', 'items', true, 50),
+    (DEFAULT, 'free', 'tasks', true, 50),
+    (DEFAULT, 'free', 'events', true, 20),
+    (DEFAULT, 'free', 'journal', true, 30),
+    (DEFAULT, 'free', 'todos', true, 100),
+    (DEFAULT, 'free', 'items', true, 50),
     
     -- Advanced features (disabled or limited)
-    ('free', 'routines', false, NULL),
-    ('free', 'resolutions', false, NULL),
-    ('free', 'analytics', true, NULL), -- Basic analytics
-    ('free', 'safe', true, 10),
-    ('free', 'documents', false, NULL),
+    (DEFAULT, 'free', 'routines', false, NULL),
+    (DEFAULT, 'free', 'resolutions', false, NULL),
+    (DEFAULT, 'free', 'analytics', true, NULL), -- Basic analytics
+    (DEFAULT, 'free', 'safe', true, 10),
+    (DEFAULT, 'free', 'documents', false, NULL),
     
     -- Premium features (disabled)
-    ('free', 'voice_commands', false, NULL),
-    ('free', 'ai_insights', false, NULL),
-    ('free', 'sharing', false, NULL),
-    ('free', 'export', false, NULL),
-    ('free', 'themes', true, NULL), -- Basic themes only
+    (DEFAULT, 'free', 'voice_commands', false, NULL),
+    (DEFAULT, 'free', 'ai_insights', false, NULL),
+    (DEFAULT, 'free', 'sharing', false, NULL),
+    (DEFAULT, 'free', 'export', false, NULL),
+    (DEFAULT, 'free', 'themes', true, NULL), -- Basic themes only
     
     -- Limits
-    ('free', 'task_limit', true, 50),
-    ('free', 'event_limit', true, 20),
-    ('free', 'journal_limit', true, 30),
-    ('free', 'safe_entries_limit', true, 10),
-    ('free', 'document_limit', true, 0);
+    (DEFAULT, 'free', 'task_limit', true, 50),
+    (DEFAULT, 'free', 'event_limit', true, 20),
+    (DEFAULT, 'free', 'journal_limit', true, 30),
+    (DEFAULT, 'free', 'safe_entries_limit', true, 10),
+    (DEFAULT, 'free', 'document_limit', true, 0);
 
 -- BASIC TIER - More features, higher limits
-INSERT INTO myday_level_features (level_id, feature_id, is_enabled, limit_value)
+INSERT INTO myday_level_features (id, level_id, feature_id, is_enabled, limit_value)
 VALUES
     -- Core features (higher limits)
-    ('basic', 'tasks', true, 200),
-    ('basic', 'events', true, 100),
-    ('basic', 'journal', true, 100),
-    ('basic', 'todos', true, 500),
-    ('basic', 'items', true, 200),
+    (DEFAULT, 'basic', 'tasks', true, 200),
+    (DEFAULT, 'basic', 'events', true, 100),
+    (DEFAULT, 'basic', 'journal', true, 100),
+    (DEFAULT, 'basic', 'todos', true, 500),
+    (DEFAULT, 'basic', 'items', true, 200),
     
     -- Advanced features (enabled)
-    ('basic', 'routines', true, NULL),
-    ('basic', 'resolutions', true, NULL),
-    ('basic', 'analytics', true, NULL),
-    ('basic', 'safe', true, 50),
-    ('basic', 'documents', true, 20),
+    (DEFAULT, 'basic', 'routines', true, NULL),
+    (DEFAULT, 'basic', 'resolutions', true, NULL),
+    (DEFAULT, 'basic', 'analytics', true, NULL),
+    (DEFAULT, 'basic', 'safe', true, 50),
+    (DEFAULT, 'basic', 'documents', true, 20),
     
     -- Premium features (some enabled)
-    ('basic', 'voice_commands', true, NULL),
-    ('basic', 'ai_insights', false, NULL),
-    ('basic', 'sharing', false, NULL),
-    ('basic', 'export', true, NULL),
-    ('basic', 'themes', true, NULL),
+    (DEFAULT, 'basic', 'voice_commands', true, NULL),
+    (DEFAULT, 'basic', 'ai_insights', false, NULL),
+    (DEFAULT, 'basic', 'sharing', false, NULL),
+    (DEFAULT, 'basic', 'export', true, NULL),
+    (DEFAULT, 'basic', 'themes', true, NULL),
     
     -- Limits
-    ('basic', 'task_limit', true, 200),
-    ('basic', 'event_limit', true, 100),
-    ('basic', 'journal_limit', true, 100),
-    ('basic', 'safe_entries_limit', true, 50),
-    ('basic', 'document_limit', true, 20);
+    (DEFAULT, 'basic', 'task_limit', true, 200),
+    (DEFAULT, 'basic', 'event_limit', true, 100),
+    (DEFAULT, 'basic', 'journal_limit', true, 100),
+    (DEFAULT, 'basic', 'safe_entries_limit', true, 50),
+    (DEFAULT, 'basic', 'document_limit', true, 20);
 
 -- PRO TIER - Professional features, very high limits
-INSERT INTO myday_level_features (level_id, feature_id, is_enabled, limit_value)
+INSERT INTO myday_level_features (id, level_id, feature_id, is_enabled, limit_value)
 VALUES
     -- Core features (very high limits)
-    ('pro', 'tasks', true, 1000),
-    ('pro', 'events', true, 500),
-    ('pro', 'journal', true, 500),
-    ('pro', 'todos', true, 2000),
-    ('pro', 'items', true, 1000),
+    (DEFAULT, 'pro', 'tasks', true, 1000),
+    (DEFAULT, 'pro', 'events', true, 500),
+    (DEFAULT, 'pro', 'journal', true, 500),
+    (DEFAULT, 'pro', 'todos', true, 2000),
+    (DEFAULT, 'pro', 'items', true, 1000),
     
     -- Advanced features (all enabled)
-    ('pro', 'routines', true, NULL),
-    ('pro', 'resolutions', true, NULL),
-    ('pro', 'analytics', true, NULL),
-    ('pro', 'safe', true, 200),
-    ('pro', 'documents', true, 100),
+    (DEFAULT, 'pro', 'routines', true, NULL),
+    (DEFAULT, 'pro', 'resolutions', true, NULL),
+    (DEFAULT, 'pro', 'analytics', true, NULL),
+    (DEFAULT, 'pro', 'safe', true, 200),
+    (DEFAULT, 'pro', 'documents', true, 100),
     
     -- Premium features (most enabled)
-    ('pro', 'voice_commands', true, NULL),
-    ('pro', 'ai_insights', true, NULL),
-    ('pro', 'sharing', true, NULL),
-    ('pro', 'export', true, NULL),
-    ('pro', 'themes', true, NULL),
+    (DEFAULT, 'pro', 'voice_commands', true, NULL),
+    (DEFAULT, 'pro', 'ai_insights', true, NULL),
+    (DEFAULT, 'pro', 'sharing', true, NULL),
+    (DEFAULT, 'pro', 'export', true, NULL),
+    (DEFAULT, 'pro', 'themes', true, NULL),
     
     -- Limits
-    ('pro', 'task_limit', true, 1000),
-    ('pro', 'event_limit', true, 500),
-    ('pro', 'journal_limit', true, 500),
-    ('pro', 'safe_entries_limit', true, 200),
-    ('pro', 'document_limit', true, 100);
+    (DEFAULT, 'pro', 'task_limit', true, 1000),
+    (DEFAULT, 'pro', 'event_limit', true, 500),
+    (DEFAULT, 'pro', 'journal_limit', true, 500),
+    (DEFAULT, 'pro', 'safe_entries_limit', true, 200),
+    (DEFAULT, 'pro', 'document_limit', true, 100);
 
 -- PREMIUM TIER - All features unlimited
-INSERT INTO myday_level_features (level_id, feature_id, is_enabled, limit_value)
+INSERT INTO myday_level_features (id, level_id, feature_id, is_enabled, limit_value)
 VALUES
     -- Core features (unlimited)
-    ('premium', 'tasks', true, NULL),
-    ('premium', 'events', true, NULL),
-    ('premium', 'journal', true, NULL),
-    ('premium', 'todos', true, NULL),
-    ('premium', 'items', true, NULL),
+    (DEFAULT, 'premium', 'tasks', true, NULL),
+    (DEFAULT, 'premium', 'events', true, NULL),
+    (DEFAULT, 'premium', 'journal', true, NULL),
+    (DEFAULT, 'premium', 'todos', true, NULL),
+    (DEFAULT, 'premium', 'items', true, NULL),
     
     -- Advanced features (all enabled, unlimited)
-    ('premium', 'routines', true, NULL),
-    ('premium', 'resolutions', true, NULL),
-    ('premium', 'analytics', true, NULL),
-    ('premium', 'safe', true, NULL),
-    ('premium', 'documents', true, NULL),
+    (DEFAULT, 'premium', 'routines', true, NULL),
+    (DEFAULT, 'premium', 'resolutions', true, NULL),
+    (DEFAULT, 'premium', 'analytics', true, NULL),
+    (DEFAULT, 'premium', 'safe', true, NULL),
+    (DEFAULT, 'premium', 'documents', true, NULL),
     
     -- Premium features (all enabled)
-    ('premium', 'voice_commands', true, NULL),
-    ('premium', 'ai_insights', true, NULL),
-    ('premium', 'sharing', true, NULL),
-    ('premium', 'export', true, NULL),
-    ('premium', 'themes', true, NULL),
+    (DEFAULT, 'premium', 'voice_commands', true, NULL),
+    (DEFAULT, 'premium', 'ai_insights', true, NULL),
+    (DEFAULT, 'premium', 'sharing', true, NULL),
+    (DEFAULT, 'premium', 'export', true, NULL),
+    (DEFAULT, 'premium', 'themes', true, NULL),
     
     -- Limits (unlimited)
-    ('premium', 'task_limit', true, NULL),
-    ('premium', 'event_limit', true, NULL),
-    ('premium', 'journal_limit', true, NULL),
-    ('premium', 'safe_entries_limit', true, NULL),
-    ('premium', 'document_limit', true, NULL);
+    (DEFAULT, 'premium', 'task_limit', true, NULL),
+    (DEFAULT, 'premium', 'event_limit', true, NULL),
+    (DEFAULT, 'premium', 'journal_limit', true, NULL),
+    (DEFAULT, 'premium', 'safe_entries_limit', true, NULL),
+    (DEFAULT, 'premium', 'document_limit', true, NULL);
 
 -- =====================================================
 -- 5. ASSIGN ALL USERS TO PREMIUM LEVEL

@@ -261,16 +261,8 @@ const JournalView: React.FC<JournalViewProps> = ({
 
   return (
     <div className="journal-view">
-      {/* Mobile Header */}
+      {/* Mobile Header - Streak Counter Only */}
       <div className="journal-header mobile-journal-header">
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
-          <span style={{ fontSize: '2rem' }}>📓</span>
-          <div>
-            <h2 style={{ margin: 0, fontSize: '1.875rem', fontWeight: 800 }}>Daily Journal</h2>
-            <p style={{ margin: 0, fontSize: '0.875rem', opacity: 0.85 }}>Reflect & track daily</p>
-          </div>
-        </div>
-
         {/* Streak Counter */}
         <div className="journal-streak-section">
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>

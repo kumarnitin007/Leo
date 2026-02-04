@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import crypto from 'crypto';
+import { randomBytes, pbkdf2Sync, randomUUID } from 'crypto';
 
 // Simple Vercel serverless handler for demo login
 // Expects server env vars (no VITE_ prefix): SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, DEMO_EMAIL, DEMO_PASSWORD, DEMO_SAFE_PASSWORD (optional)
@@ -69,15 +69,15 @@ export default async function handler(req: any, res: any) {
     if (DEMO_SAFE_PASSWORD && session && session.user && session.user.id) {
       try {
         // Derive a PBKDF2 hash similar to client-side hashMasterPassword
-        const salt = crypto.randomBytes(16);
+        const salt = randomBytes(16);
         const iterations = 100000;
-        const derived = crypto.pbkdf2Sync(DEMO_SAFE_PASSWORD, salt, iterations, 32, 'sha256');
+        const derived = pbkdf2Sync(DEMO_SAFE_PASSWORD, salt, iterations, 32, 'sha256');
         const keyHash = derived.toString('hex');
         const saltBase64 = salt.toString('base64');
 
         const now = new Date().toISOString();
         const masterRow = {
-          id: crypto.randomUUID(),
+          id: randomUUID(),
           user_id: session.user.id,
           key_hash: keyHash,
           salt: saltBase64,

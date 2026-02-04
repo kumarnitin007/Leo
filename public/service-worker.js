@@ -133,29 +133,49 @@ async function syncTasks() {
 
 // Push notification handler
 self.addEventListener('push', (event) => {
+  let payload = {
+    title: 'Leo Planner',
+    body: 'You have pending tasks!',
+    icon: '/leo-icon.svg',
+    badge: '/leo-icon.svg',
+    tag: 'default',
+    data: {}
+  };
+
+  // Parse push data if available
+  if (event.data) {
+    try {
+      payload = { ...payload, ...event.data.json() };
+    } catch (e) {
+      payload.body = event.data.text();
+    }
+  }
+
   const options = {
-    body: event.data ? event.data.text() : 'You have pending tasks!',
-    icon: '/icon-192x192.png',
-    badge: '/icon-72x72.png',
+    body: payload.body,
+    icon: payload.icon,
+    badge: payload.badge,
+    tag: payload.tag,
     vibrate: [200, 100, 200],
     data: {
       dateOfArrival: Date.now(),
-      primaryKey: 1
+      ...payload.data
     },
     actions: [
       {
-        action: 'explore',
-        title: 'View Tasks'
+        action: 'open',
+        title: 'Open App'
       },
       {
         action: 'close',
-        title: 'Close'
+        title: 'Dismiss'
       }
-    ]
+    ],
+    requireInteraction: false,
   };
 
   event.waitUntil(
-    self.registration.showNotification('MyDay Reminder', options)
+    self.registration.showNotification(payload.title, options)
   );
 });
 
@@ -163,9 +183,20 @@ self.addEventListener('push', (event) => {
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
 
-  if (event.action === 'explore') {
+  if (event.action === 'open' || !event.action) {
     event.waitUntil(
-      clients.openWindow('/')
+      clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+        // If app is already open, focus it
+        for (const client of clientList) {
+          if (client.url.includes(self.location.origin) && 'focus' in client) {
+            return client.focus();
+          }
+        }
+        // Otherwise open new window
+        if (clients.openWindow) {
+          return clients.openWindow('/');
+        }
+      })
     );
   }
 });

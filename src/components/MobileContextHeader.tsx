@@ -21,6 +21,7 @@ const viewConfig: Record<string, { title: string; icon: string; color: string }>
   'tasks-events': { title: 'Tasks & Events', icon: '📋', color: '#3b82f6' },
   items: { title: 'Items', icon: '📦', color: '#f59e0b' },
   journal: { title: 'Journal', icon: '📔', color: '#8b5cf6' },
+  smart: { title: 'Smart Features', icon: '✨', color: '#8b5cf6' },
   resolutions: { title: 'Resolutions', icon: '🎯', color: '#ec4899' },
   analytics: { title: 'Analytics', icon: '📊', color: '#06b6d4' },
   settings: { title: 'Settings', icon: '⚙️', color: '#6b7280' },

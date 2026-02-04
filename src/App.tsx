@@ -46,10 +46,11 @@ import { isFirstTimeUser, markOnboardingComplete } from './storage';
 import { loadSampleTasks } from './utils/sampleData';
 import TodoView from './TodoView';
 import GroupsManager from './components/GroupsManager';
+import SmartView from './SmartView';
 import { ParsedCommand } from './services/voice/types';
 import { VoiceCommandLog } from './types/voice-command-db.types';
 
-type View = 'today' | 'tasks-events' | 'items' | 'journal' | 'resolutions' | 'analytics' | 'settings' | 'safe' | 'todo' | 'groups';
+type View = 'today' | 'tasks-events' | 'items' | 'journal' | 'resolutions' | 'analytics' | 'settings' | 'safe' | 'todo' | 'groups' | 'smart';
 
 /**
  * Main App Content Component
@@ -85,6 +86,12 @@ const AppContent: React.FC = () => {
       const { clearLocalStorage } = await import('./storage');
       clearLocalStorage();
       
+      // Initialize notifications
+      if (isAuthenticated) {
+        const { initializeNotifications } = await import('./services/notificationService');
+        initializeNotifications().catch(err => console.warn('Notification init failed:', err));
+      }
+      
       // Uncomment to test Supabase connection (verbose logging)
       // if (import.meta.env.DEV) {
       //   const { testSupabaseConnection } = await import('./utils/testSupabase');
@@ -93,7 +100,7 @@ const AppContent: React.FC = () => {
     };
     
     initialize();
-  }, []);
+  }, [isAuthenticated]);
 
   // Show auth modal if user is not authenticated
   useEffect(() => {
@@ -290,6 +297,8 @@ const AppContent: React.FC = () => {
         return <TodoView key={`todo-${key}`} />;
       case 'groups':
         return <GroupsManager key={`groups-${key}`} onClose={() => handleNavigate('today')} />;
+      case 'smart':
+        return <SmartView key={`smart-${key}`} onNavigate={handleNavigate} />;
       default:
         return <TodayView key={`today-${key}`} onNavigate={handleNavigate} />;
     }
@@ -396,6 +405,15 @@ const AppContent: React.FC = () => {
             >
               <span className="nav-icon">📔</span>
               <span className="nav-text">Journal</span>
+            </button>
+            <button
+              className={`nav-button ${currentView === 'smart' ? 'active' : ''}`}
+              onClick={() => handleNavigate('smart')}
+              title="Smart Features - Voice & Image Scanning"
+              style={currentView === 'smart' ? { backgroundColor: theme.colors.primary } : {}}
+            >
+              <span className="nav-icon">✨</span>
+              <span className="nav-text">Smart</span>
             </button>
             <button
               className={`nav-button ${currentView === 'analytics' ? 'active' : ''}`}
@@ -600,6 +618,18 @@ const AppContent: React.FC = () => {
             primary: true,
           },
           {
+            icon: '🆓',
+            label: 'Quick Scan',
+            description: 'Free OCR - Scan images instantly',
+            onClick: () => handleNavigate('smart'),
+          },
+          {
+            icon: '✨',
+            label: 'Smart Scan',
+            description: 'AI-powered image analysis',
+            onClick: () => handleNavigate('smart'),
+          },
+          {
             icon: '📝',
             label: 'To-Do List',
             description: 'Quick grouped to-do items',
@@ -668,12 +698,6 @@ const AppContent: React.FC = () => {
             label: 'Groups',
             description: 'Manage family & sharing groups',
             onClick: () => handleNavigate('groups'),
-          },
-          {
-            icon: '📊',
-            label: 'Analytics',
-            description: 'View your progress and stats',
-            onClick: () => handleNavigate('analytics'),
           },
           {
             icon: '⏱️',

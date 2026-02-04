@@ -571,10 +571,10 @@
     transition: all 0.2s !important;
     color: #6b7280 !important;
     min-width: 48px !important;
-    max-width: 60px !important;
+    max-width: 56px !important;
     min-height: 44px !important;
     max-height: 52px !important;
-    flex: 1 !important;
+    flex: 0 1 auto !important;
   }
 
   .bottom-nav-btn.active {
@@ -634,6 +634,7 @@
     .bottom-nav-btn {
       padding: 0.125rem 0.25rem !important;
       min-width: 40px !important;
+      max-width: 48px !important;
       gap: 0 !important;
     }
     

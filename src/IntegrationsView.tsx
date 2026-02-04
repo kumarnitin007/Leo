@@ -32,6 +32,81 @@ interface IntegrationConfig {
 
 const IntegrationsView: React.FC = () => {
   const [integrations, setIntegrations] = useState<Integration[]>([
+    // Top Priority Integrations
+    {
+      id: 'google-calendar',
+      name: 'Google Calendar',
+      icon: '📅',
+      description: 'Sync events and appointments',
+      status: 'disconnected'
+    },
+    {
+      id: 'google-drive',
+      name: 'Google Drive',
+      icon: '☁️',
+      description: 'Backup/export data, store documents',
+      status: 'disconnected'
+    },
+    {
+      id: 'notion',
+      name: 'Notion',
+      icon: '📝',
+      description: 'Export journal entries, create databases',
+      status: 'disconnected'
+    },
+    {
+      id: 'slack',
+      name: 'Slack',
+      icon: '💬',
+      description: 'Daily digest notifications, task reminders',
+      status: 'disconnected'
+    },
+    {
+      id: 'apple-health',
+      name: 'Apple Health',
+      icon: '⌚',
+      description: 'Track resolution progress (steps, workouts)',
+      status: 'disconnected'
+    },
+    
+    // Additional Integrations
+    {
+      id: 'dropbox',
+      name: 'Dropbox',
+      icon: '📦',
+      description: 'File backup and sync',
+      status: 'disconnected'
+    },
+    {
+      id: 'onedrive',
+      name: 'OneDrive',
+      icon: '🌐',
+      description: 'Microsoft cloud storage',
+      status: 'disconnected'
+    },
+    {
+      id: 'gmail',
+      name: 'Gmail',
+      icon: '📧',
+      description: 'Email tasks to Leo, send daily summaries',
+      status: 'disconnected'
+    },
+    {
+      id: 'fitbit',
+      name: 'Fitbit',
+      icon: '🏃',
+      description: 'Fitness goal tracking for resolutions',
+      status: 'disconnected'
+    },
+    {
+      id: 'headspace',
+      name: 'Headspace/Calm',
+      icon: '🧘',
+      description: 'Meditation tracking for wellness resolutions',
+      status: 'disconnected'
+    },
+    
+    // Original Integrations
     {
       id: 'google-tasks',
       name: 'Google Tasks',

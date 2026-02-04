@@ -32,6 +32,7 @@ import { useUser } from '../contexts/UserContext';
 import { avatars, AVATAR_CATEGORIES } from '../constants/avatars';
 import { DashboardLayout } from '../types';
 import { getUserSettings, saveUserSettings } from '../storage';
+import { getUserLevel, UserLevelAssignment } from '../services/userLevelService';
 
 interface SettingsModalProps {
   show: boolean;
@@ -50,6 +51,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ show, onClose }) => {
   const [hoveredAvatar, setHoveredAvatar] = useState<string | null>(null);
   const [dashboardLayout, setDashboardLayout] = useState<DashboardLayout>('uniform');
   const [location, setLocation] = useState<{ zipCode?: string; city?: string; country?: string }>({});
+  const [userLevel, setUserLevel] = useState<UserLevelAssignment | null>(null);
 
   // Load settings from storage
   React.useEffect(() => {
@@ -60,6 +62,10 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ show, onClose }) => {
         console.log('📍 Location data:', settings.location);
         setDashboardLayout(settings.dashboardLayout);
         setLocation(settings.location || {});
+        
+        // Load user level
+        const level = await getUserLevel();
+        setUserLevel(level);
       } catch (error) {
         console.error('❌ Error loading settings:', error);
       }
@@ -138,6 +144,28 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ show, onClose }) => {
                 <span style={{ fontSize: '1.5rem' }}>👤</span>
                 <h3 style={{ fontSize: '1.25rem', fontWeight: 'bold', margin: 0 }}>Profile</h3>
               </div>
+              
+              {/* User Level Badge */}
+              {userLevel?.level && (
+                <div style={{
+                  background: userLevel.level.color || '#6b7280',
+                  color: 'white',
+                  padding: '0.75rem 1rem',
+                  borderRadius: '0.75rem',
+                  marginBottom: '1rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.5rem',
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.15)'
+                }}>
+                  <span style={{ fontSize: '1.5rem' }}>{userLevel.level.icon}</span>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: 700, fontSize: '1rem' }}>{userLevel.level.displayName} Plan</div>
+                    <div style={{ fontSize: '0.75rem', opacity: 0.9 }}>{userLevel.level.description}</div>
+                  </div>
+                </div>
+              )}
+              
               <div style={{ marginBottom: '1rem' }}>
                 <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, marginBottom: '0.5rem' }}>Your Name</label>
                 <input type="text" value={editingUsername} onChange={(e) => setEditingUsername(e.target.value)} placeholder="Enter your name" maxLength={50} style={{ width: '100%', padding: '0.5rem 1rem', border: '1px solid #d1d5db', borderRadius: '0.5rem', fontSize: '1rem' }} />

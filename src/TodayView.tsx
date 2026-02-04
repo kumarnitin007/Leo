@@ -707,6 +707,25 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
     }
     
     setCurrentStreak(streak);
+    
+    // Check for streak milestones and show notification
+    if (streak > 0) {
+      const milestones = [5, 10, 15, 20, 30, 50, 75, 100, 150, 200, 365];
+      if (milestones.includes(streak)) {
+        // Check if we already notified for this milestone
+        const notifiedKey = `streak-milestone-${streak}`;
+        const lastNotified = localStorage.getItem(notifiedKey);
+        const today = getTodayString();
+        
+        if (lastNotified !== today) {
+          // Show milestone notification
+          import('./services/notificationService').then(({ showStreakMilestone }) => {
+            showStreakMilestone(streak).catch(err => console.warn('Streak notification failed:', err));
+          });
+          localStorage.setItem(notifiedKey, today);
+        }
+      }
+    }
     } catch (error: any) {
       // Silently ignore authentication errors (user not signed in yet)
       if (!error?.message?.includes('User must be signed in')) {
