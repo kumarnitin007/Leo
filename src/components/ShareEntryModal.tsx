@@ -9,13 +9,18 @@
 
 import React, { useState, useEffect } from 'react';
 import { useTheme } from '../contexts/ThemeContext';
-import { SharingGroup, SharedSafeEntry, SharedDocument, ShareMode } from '../types';
+import { SharingGroup, SharedSafeEntry, SharedDocument, ShareMode, SafeEntry } from '../types';
 import * as sharingService from '../services/sharingService';
+import { getOrCreateGroupKey } from '../services/groupEncryptionService';
+import { getSafeEntries } from '../storage';
+import getSupabaseClient from '../lib/supabase';
 
 interface ShareEntryModalProps {
   entryId: string;
   entryTitle: string;
   entryType: 'safe_entry' | 'document';
+  encryptionKey: CryptoKey | null; // NEW: User's master key (to get group key)
+  groupKeys: Map<string, CryptoKey>; // NEW: Already loaded group keys
   onClose: () => void;
   onShared?: () => void;
 }
@@ -24,6 +29,8 @@ const ShareEntryModal: React.FC<ShareEntryModalProps> = ({
   entryId,
   entryTitle,
   entryType,
+  encryptionKey,
+  groupKeys,
   onClose,
   onShared,
 }) => {
@@ -73,18 +80,52 @@ const ShareEntryModal: React.FC<ShareEntryModalProps> = ({
 
   const handleShare = async () => {
     if (!selectedGroupId) return;
+    if (!encryptionKey) {
+      setError('Safe must be unlocked to share entries');
+      return;
+    }
+    
     setSharing(true);
     setError(null);
     try {
       if (entryType === 'safe_entry') {
-        await sharingService.shareEntry(entryId, selectedGroupId, shareMode);
+        // NEW: Use group encryption for sharing
+        
+        // 1. Get the actual entry to access decrypted data
+        const allEntries = await getSafeEntries();
+        const entry = allEntries.find(e => e.id === entryId);
+        if (!entry || !entry.decryptedData) {
+          throw new Error('Entry not found or not decrypted');
+        }
+        
+        // 2. Get or create group key for this group
+        const supabase = getSupabaseClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) throw new Error('Not authenticated');
+        
+        let groupKey = groupKeys.get(selectedGroupId);
+        if (!groupKey) {
+          // Create new group key if user doesn't have one yet
+          groupKey = await getOrCreateGroupKey(selectedGroupId, user.id, encryptionKey);
+        }
+        
+        // 3. Share with group encryption
+        await sharingService.shareEntryWithGroupEncryption(
+          entryId,
+          entry.decryptedData,
+          selectedGroupId,
+          groupKey,
+          shareMode
+        );
       } else {
+        // Documents: Keep existing approach for now
         await sharingService.shareDocument(entryId, selectedGroupId, shareMode);
       }
       setSelectedGroupId('');
       loadData();
       onShared?.();
     } catch (err) {
+      console.error('[ShareEntryModal] Share failed:', err);
       setError(err instanceof Error ? err.message : 'Failed to share');
     } finally {
       setSharing(false);

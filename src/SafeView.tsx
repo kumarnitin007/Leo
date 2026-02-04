@@ -41,6 +41,8 @@ import SafeFilterSidebar, { SafeFilter } from './components/SafeFilterSidebar';
 import DocumentFilterSidebar, { DocumentFilter } from './components/DocumentFilterSidebar';
 import * as sharingService from './services/sharingService';
 import getSupabaseClient from './lib/supabase';
+import { loadUserGroupKeys } from './services/groupEncryptionService';
+import { decryptData } from './utils/encryption';
 
 const AUTO_LOCK_TIMEOUT = 15 * 60 * 1000; // 15 minutes in milliseconds
 const LOCK_WARNING_TIME = 60 * 1000; // 1 minute before lock
@@ -69,6 +71,7 @@ const SafeView: React.FC = () => {
   const [isLocked, setIsLocked] = useState(true);
   const [isUnlocking, setIsUnlocking] = useState(false);
   const [encryptionKey, setEncryptionKey] = useState<CryptoKey | null>(null);
+  const [groupKeys, setGroupKeys] = useState<Map<string, CryptoKey>>(new Map()); // NEW: Store group encryption keys
   const [entries, setEntries] = useState<SafeEntry[]>([]);
   const [documents, setDocuments] = useState<DocumentVault[]>([]);
   const [tags, setTags] = useState<Tag[]>([]);
@@ -172,6 +175,21 @@ const SafeView: React.FC = () => {
         setEncryptionKey(key);
         setIsLocked(false);
         justUnlockedRef.current = true; // Mark that we just unlocked
+        
+        // NEW: Load user's group encryption keys
+        const supabase = getSupabaseClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          try {
+            const loadedGroupKeys = await loadUserGroupKeys(user.id, key);
+            setGroupKeys(loadedGroupKeys);
+            console.log(`[Safe] Loaded ${loadedGroupKeys.size} group encryption keys`);
+          } catch (error) {
+            console.error('[Safe] Failed to load group keys:', error);
+            // Continue without group keys - user can still access personal entries
+          }
+        }
+        
         await loadEntries();
         await loadDocuments();
         await loadTags();
@@ -195,60 +213,80 @@ const SafeView: React.FC = () => {
   // Load entries (including shared entries)
   const loadEntries = async () => {
     const safeEntries = await getSafeEntries();
+    console.log('[SafeView] Loaded own entries:', safeEntries.length);
     
     // Try to load shared entries
     let allEntries = [...safeEntries];
     try {
       const sharedEntryRefs = await sharingService.getEntriesSharedWithMe();
+      console.log('[SafeView] Shared entry references:', sharedEntryRefs.length, sharedEntryRefs);
       
       if (sharedEntryRefs.length > 0) {
         const supabase = getSupabaseClient();
         if (supabase) {
-          // Get the actual entry data for shared entries
-          const sharedEntryIds = sharedEntryRefs.map(s => s.safeEntryId);
-          const { data: sharedData } = await supabase
-            .from('myday_safe_entries')
-            .select('*')
-            .in('id', sharedEntryIds);
+          // Get sharer display names
+          const sharerIds = [...new Set(sharedEntryRefs.map(s => s.sharedBy))];
+          const sharerNames: Record<string, string> = {};
           
-          if (sharedData) {
-            // Get sharer display names
-            const sharerIds = [...new Set(sharedEntryRefs.map(s => s.sharedBy))];
-            const sharerNames: Record<string, string> = {};
-            
-            const { data: membersData } = await supabase
-              .from('myday_group_members')
-              .select('user_id, display_name')
-              .in('user_id', sharerIds);
-            
-            (membersData || []).forEach(m => {
-              if (m.display_name) sharerNames[m.user_id] = m.display_name;
-            });
-            
-            // Map shared entries with isShared flag
-            const sharedEntriesMapped: SafeEntry[] = sharedData.map(row => {
-              const shareRef = sharedEntryRefs.find(s => s.safeEntryId === row.id);
+          const { data: membersData } = await supabase
+            .from('myday_group_members')
+            .select('user_id, display_name')
+            .in('user_id', sharerIds);
+          
+          (membersData || []).forEach(m => {
+            if (m.display_name) sharerNames[m.user_id] = m.display_name;
+          });
+          
+          // NEW: Map shared entries and decrypt with group keys
+          const sharedEntriesMapped: SafeEntry[] = await Promise.all(
+            sharedEntryRefs.map(async (shareRef) => {
+              let decryptedData: any = null;
+              
+              // Try to decrypt if we have group key and encrypted data
+              if (shareRef.groupEncryptedData && shareRef.groupEncryptedDataIv) {
+                const groupKey = groupKeys.get(shareRef.groupId);
+                if (groupKey) {
+                  try {
+                    const decryptedJson = await decryptData(
+                      shareRef.groupEncryptedData,
+                      shareRef.groupEncryptedDataIv,
+                      groupKey
+                    );
+                    decryptedData = JSON.parse(decryptedJson);
+                    console.log(`[SafeView] ✅ Decrypted shared entry ${shareRef.safeEntryId}`);
+                  } catch (error) {
+                    console.error(`[SafeView] Failed to decrypt shared entry ${shareRef.safeEntryId}:`, error);
+                  }
+                } else {
+                  console.warn(`[SafeView] No group key for group ${shareRef.groupId}`);
+                }
+              }
+              
               return {
-                id: row.id,
-                title: row.title,
-                url: row.url,
-                categoryTagId: row.category_tag_id,
-                tags: row.tags || [],
-                isFavorite: row.is_favorite,
-                expiresAt: row.expires_at,
-                encryptedData: row.encrypted_data,
-                encryptedDataIv: row.encrypted_data_iv,
-                createdAt: row.created_at,
-                updatedAt: row.updated_at,
-                lastAccessedAt: row.last_accessed_at,
+                id: shareRef.safeEntryId,
+                title: shareRef.entryTitle || 'Shared Entry',
+                url: decryptedData?.url || '',
+                categoryTagId: shareRef.entryCategory || '',
+                tags: shareRef.entryTags || [],
+                isFavorite: false,
+                expiresAt: null,
+                encryptedData: shareRef.groupEncryptedData || '', // Store encrypted for potential re-encryption
+                encryptedDataIv: shareRef.groupEncryptedDataIv || '',
+                decryptedData: decryptedData, // NEW: Include decrypted data if available
+                createdAt: shareRef.sharedAt,
+                updatedAt: shareRef.sharedAt,
+                lastAccessedAt: null,
                 isShared: true,
-                sharedBy: shareRef ? sharerNames[shareRef.sharedBy] || 'Someone' : 'Someone',
-                sharedAt: shareRef?.sharedAt,
+                sharedBy: sharerNames[shareRef.sharedBy] || 'Someone',
+                sharedAt: shareRef.sharedAt,
+                shareMode: shareRef.shareMode,
               };
-            });
-            
-            allEntries = [...safeEntries, ...sharedEntriesMapped];
-          }
+            })
+          );
+          
+          allEntries = [...safeEntries, ...sharedEntriesMapped];
+          console.log('[SafeView] Total entries after merging shared:', allEntries.length);
+          console.log('[SafeView] Shared entries with decryption:', sharedEntriesMapped.filter(e => e.decryptedData).length);
         }
       }
     } catch (err) {
@@ -1171,9 +1209,12 @@ const SafeView: React.FC = () => {
           entryId={shareEntry.id}
           entryTitle={shareEntry.title}
           entryType={shareEntry.type}
+          encryptionKey={encryptionKey}
+          groupKeys={groupKeys}
           onClose={() => setShareEntry(null)}
           onShared={() => {
             setShareEntry(null);
+            loadEntries(); // Reload to reflect sharing status
           }}
         />
       )}

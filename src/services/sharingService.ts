@@ -20,6 +20,7 @@ import {
   ShareMode,
   GroupMemberRole,
 } from '../types';
+import { encryptData } from '../utils/encryption';
 
 // Get supabase client helper
 const getClient = () => {
@@ -495,6 +496,73 @@ export async function cancelInvitation(invitationId: string): Promise<void> {
 
 // ===== SHARING SAFE ENTRIES =====
 
+/**
+ * Share entry with group encryption (NEW approach)
+ * Entry data is encrypted with group key, not user's personal key
+ * 
+ * @param entryId - Safe entry ID
+ * @param entryData - Decrypted entry data (username, password, notes, etc.)
+ * @param groupId - Target group ID
+ * @param groupKey - Group encryption key (already decrypted)
+ * @param mode - Share mode (readonly or copy)
+ */
+export async function shareEntryWithGroupEncryption(
+  entryId: string,
+  entryData: any, // Decrypted safe entry data
+  groupId: string,
+  groupKey: CryptoKey,
+  mode: ShareMode = 'readonly'
+): Promise<SharedSafeEntry> {
+  const supabase = getClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('Not authenticated');
+
+  // Encrypt entry data with group key
+  const { encrypted, iv } = await encryptData(
+    JSON.stringify(entryData),
+    groupKey
+  );
+
+  const now = new Date().toISOString();
+  const id = generateId();
+
+  const { data, error } = await supabase
+    .from('myday_shared_safe_entries')
+    .insert({
+      id,
+      safe_entry_id: entryId,
+      group_id: groupId,
+      shared_by: user.id,
+      share_mode: mode,
+      shared_at: now,
+      is_active: true,
+      group_encrypted_data: encrypted,
+      group_encrypted_data_iv: iv,
+    })
+    .select()
+    .single();
+
+  if (error) throw error;
+
+  return {
+    id: data.id,
+    safeEntryId: data.safe_entry_id,
+    groupId: data.group_id,
+    sharedBy: data.shared_by,
+    shareMode: data.share_mode,
+    sharedAt: data.shared_at,
+    expiresAt: data.expires_at,
+    revokedAt: data.revoked_at,
+    isActive: data.is_active,
+    groupEncryptedData: data.group_encrypted_data,
+    groupEncryptedDataIv: data.group_encrypted_data_iv,
+  };
+}
+
+/**
+ * Share entry (LEGACY - no encryption)
+ * Kept for backward compatibility but should migrate to shareEntryWithGroupEncryption
+ */
 export async function shareEntry(
   entryId: string,
   groupId: string,
@@ -588,17 +656,40 @@ export async function getEntriesSharedWithMe(): Promise<SharedSafeEntry[]> {
 
   if (error) throw error;
 
-  return (data || []).map(row => ({
-    id: row.id,
-    safeEntryId: row.safe_entry_id,
-    groupId: row.group_id,
-    sharedBy: row.shared_by,
-    shareMode: row.share_mode,
-    sharedAt: row.shared_at,
-    expiresAt: row.expires_at,
-    revokedAt: row.revoked_at,
-    isActive: row.is_active,
-  }));
+  // Get entry details separately
+  const entryIds = (data || []).map(row => row.safe_entry_id).filter(Boolean);
+  let entryDetailsMap: Record<string, any> = {};
+  
+  if (entryIds.length > 0) {
+    const { data: entriesData } = await supabase
+      .from('myday_safe_entries')
+      .select('id, title, category_tag_id, tags')
+      .in('id', entryIds);
+    
+    if (entriesData) {
+      entriesData.forEach(entry => {
+        entryDetailsMap[entry.id] = entry;
+      });
+    }
+  }
+
+  return (data || []).map(row => {
+    const entryDetails = entryDetailsMap[row.safe_entry_id];
+    return {
+      id: row.id,
+      safeEntryId: row.safe_entry_id,
+      groupId: row.group_id,
+      sharedBy: row.shared_by,
+      shareMode: row.share_mode,
+      sharedAt: row.shared_at,
+      expiresAt: row.expires_at,
+      revokedAt: row.revoked_at,
+      isActive: row.is_active,
+      entryTitle: entryDetails?.title || 'Shared Entry',
+      entryCategory: entryDetails?.category_tag_id,
+      entryTags: entryDetails?.tags || [],
+    };
+  });
 }
 
 export async function revokeShare(shareId: string): Promise<void> {
@@ -698,17 +789,39 @@ export async function getDocumentsSharedWithMe(): Promise<SharedDocument[]> {
 
   if (error) throw error;
 
-  return (data || []).map(row => ({
-    id: row.id,
-    documentId: row.document_id,
-    groupId: row.group_id,
-    sharedBy: row.shared_by,
-    shareMode: row.share_mode,
-    sharedAt: row.shared_at,
-    expiresAt: row.expires_at,
-    revokedAt: row.revoked_at,
-    isActive: row.is_active,
-  }));
+  // Get document details separately
+  const docIds = (data || []).map(row => row.document_id).filter(Boolean);
+  let docDetailsMap: Record<string, any> = {};
+  
+  if (docIds.length > 0) {
+    const { data: docsData } = await supabase
+      .from('myday_safe_document_vaults')
+      .select('id, title, file_name, tags')
+      .in('id', docIds);
+    
+    if (docsData) {
+      docsData.forEach(doc => {
+        docDetailsMap[doc.id] = doc;
+      });
+    }
+  }
+
+  return (data || []).map(row => {
+    const docDetails = docDetailsMap[row.document_id];
+    return {
+      id: row.id,
+      documentId: row.document_id,
+      groupId: row.group_id,
+      sharedBy: row.shared_by,
+      shareMode: row.share_mode,
+      sharedAt: row.shared_at,
+      expiresAt: row.expires_at,
+      revokedAt: row.revoked_at,
+      isActive: row.is_active,
+      documentTitle: docDetails?.title || docDetails?.file_name || 'Shared Document',
+      documentTags: docDetails?.tags || [],
+    };
+  });
 }
 
 export async function revokeDocumentShare(shareId: string): Promise<void> {

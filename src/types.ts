@@ -268,6 +268,7 @@ export interface SafeEntry {
   expiresAt?: string; // YYYY-MM-DD (plaintext for filtering)
   encryptedData: string; // Encrypted JSON blob (SafeEntryEncryptedData)
   encryptedDataIv: string; // IV for decryption
+  decryptedData?: SafeEntryEncryptedData; // NEW: Decrypted data (in memory only)
   createdAt: string;
   updatedAt: string;
   lastAccessedAt?: string;
@@ -275,6 +276,7 @@ export interface SafeEntry {
   isShared?: boolean;
   sharedBy?: string; // Display name of the person who shared
   sharedAt?: string;
+  shareMode?: 'readonly' | 'copy'; // Sharing permission level
 }
 
 export interface SafeMasterKey {
@@ -616,10 +618,26 @@ export interface SharedSafeEntry {
   expiresAt?: string;
   revokedAt?: string;
   isActive: boolean;
+  // Group encryption fields (NEW)
+  groupEncryptedData?: string;
+  groupEncryptedDataIv?: string;
   // Extended fields from joins
   entryTitle?: string;
+  entryCategory?: string;
+  entryTags?: string[];
   groupName?: string;
   sharedByName?: string;
+}
+
+export interface GroupEncryptionKey {
+  id: string;
+  groupId: string;
+  userId: string;
+  encryptedGroupKey: string;
+  groupKeyIv: string;
+  grantedAt: string;
+  revokedAt?: string;
+  isActive: boolean;
 }
 
 export interface SharedDocument {
@@ -632,8 +650,9 @@ export interface SharedDocument {
   expiresAt?: string;
   revokedAt?: string;
   isActive: boolean;
-  // Extended fields
+  // Extended fields from joins
   documentTitle?: string;
+  documentTags?: string[];
   groupName?: string;
   sharedByName?: string;
 }
