@@ -634,7 +634,7 @@ export interface GroupEncryptionKey {
   groupId: string;
   userId: string;
   encryptedGroupKey: string;
-  groupKeyIv: string;
+  encryptedGroupKeyIv: string; // Fixed: match SQL column name
   grantedAt: string;
   revokedAt?: string;
   isActive: boolean;

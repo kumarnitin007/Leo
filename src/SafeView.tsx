@@ -34,7 +34,6 @@ import ChangeMasterPasswordModal from './components/ChangeMasterPasswordModal';
 import SafeTags from './components/SafeTags';
 import SafeDocumentVault from './components/SafeDocumentVault';
 import SafeDocumentVaultForm from './components/SafeDocumentVaultForm';
-import GroupsManager from './components/GroupsManager';
 import ShareEntryModal from './components/ShareEntryModal';
 import SharedWithMeView from './components/SharedWithMeView';
 import SafeFilterSidebar, { SafeFilter } from './components/SafeFilterSidebar';
@@ -88,7 +87,6 @@ const SafeView: React.FC = () => {
   const [editingDocument, setEditingDocument] = useState<DocumentVault | null>(null);
   
   // Sharing state
-  const [showGroupsManager, setShowGroupsManager] = useState(false);
   const [showSharedWithMe, setShowSharedWithMe] = useState(false);
   const [shareEntry, setShareEntry] = useState<{ id: string; title: string; type: 'safe_entry' | 'document' } | null>(null);
   
@@ -180,12 +178,37 @@ const SafeView: React.FC = () => {
         const supabase = getSupabaseClient();
         const { data: { user } } = await supabase.auth.getUser();
         if (user) {
+          console.log(`[Safe] 🔑 Starting group key loading for user: ${user.id}`);
           try {
             const loadedGroupKeys = await loadUserGroupKeys(user.id, key);
             setGroupKeys(loadedGroupKeys);
-            console.log(`[Safe] Loaded ${loadedGroupKeys.size} group encryption keys`);
+            console.log(`[Safe] ✅ Loaded ${loadedGroupKeys.size} group encryption keys:`, Array.from(loadedGroupKeys.keys()));
+            
+            // Check if user is in groups but missing keys (e.g., accepted invitation but no key yet)
+            console.log('[Safe] 🔍 Checking for missing group keys...');
+            const { data: memberGroups, error: memberError } = await supabase
+              .from('myday_group_members')
+              .select('group_id, role')
+              .eq('user_id', user.id);
+            
+            if (memberError) {
+              console.error('[Safe] ❌ Error fetching group memberships:', memberError);
+            } else {
+              console.log(`[Safe] 👥 User is member of ${memberGroups?.length || 0} groups:`, memberGroups);
+              
+              const memberGroupIds = (memberGroups || []).map(g => g.group_id);
+              const missingKeyGroups = memberGroupIds.filter(gid => !loadedGroupKeys.has(gid));
+              
+              if (missingKeyGroups.length > 0) {
+                console.warn(`[Safe] ⚠️ MISSING KEYS for ${missingKeyGroups.length} groups:`, missingKeyGroups);
+                console.warn('[Safe] 💡 These groups need encryption keys. User should request access from group owner.');
+                // TODO: Show UI notification to user that they need group owner to re-share
+              } else {
+                console.log('[Safe] ✅ All group keys present');
+              }
+            }
           } catch (error) {
-            console.error('[Safe] Failed to load group keys:', error);
+            console.error('[Safe] ❌ Failed to load group keys:', error);
             // Continue without group keys - user can still access personal entries
           }
         }
@@ -212,14 +235,16 @@ const SafeView: React.FC = () => {
 
   // Load entries (including shared entries)
   const loadEntries = async () => {
+    console.log('[SafeView] 📂 Loading entries...');
     const safeEntries = await getSafeEntries();
-    console.log('[SafeView] Loaded own entries:', safeEntries.length);
+    console.log(`[SafeView] ✅ Loaded ${safeEntries.length} own entries`);
     
     // Try to load shared entries
     let allEntries = [...safeEntries];
     try {
+      console.log('[SafeView] 🔗 Fetching shared entry references...');
       const sharedEntryRefs = await sharingService.getEntriesSharedWithMe();
-      console.log('[SafeView] Shared entry references:', sharedEntryRefs.length, sharedEntryRefs);
+      console.log(`[SafeView] 📥 Found ${sharedEntryRefs.length} shared entry references:`, sharedEntryRefs);
       
       if (sharedEntryRefs.length > 0) {
         const supabase = getSupabaseClient();
@@ -238,14 +263,26 @@ const SafeView: React.FC = () => {
           });
           
           // NEW: Map shared entries and decrypt with group keys
+          console.log('[SafeView] 🔐 Starting decryption of shared entries...');
+          console.log(`[SafeView] 🔑 Available group keys:`, Array.from(groupKeys.keys()));
+          
           const sharedEntriesMapped: SafeEntry[] = await Promise.all(
-            sharedEntryRefs.map(async (shareRef) => {
+            sharedEntryRefs.map(async (shareRef, index) => {
+              console.log(`[SafeView] 🔍 Processing shared entry ${index + 1}/${sharedEntryRefs.length}:`, {
+                entryId: shareRef.safeEntryId,
+                groupId: shareRef.groupId,
+                hasEncryptedData: !!shareRef.groupEncryptedData,
+                hasIV: !!shareRef.groupEncryptedDataIv,
+                title: shareRef.entryTitle
+              });
+              
               let decryptedData: any = null;
               
               // Try to decrypt if we have group key and encrypted data
               if (shareRef.groupEncryptedData && shareRef.groupEncryptedDataIv) {
                 const groupKey = groupKeys.get(shareRef.groupId);
                 if (groupKey) {
+                  console.log(`[SafeView] 🔓 Attempting to decrypt entry ${shareRef.safeEntryId} with group key for ${shareRef.groupId}`);
                   try {
                     const decryptedJson = await decryptData(
                       shareRef.groupEncryptedData,
@@ -253,13 +290,22 @@ const SafeView: React.FC = () => {
                       groupKey
                     );
                     decryptedData = JSON.parse(decryptedJson);
-                    console.log(`[SafeView] ✅ Decrypted shared entry ${shareRef.safeEntryId}`);
+                    console.log(`[SafeView] ✅ Successfully decrypted entry ${shareRef.safeEntryId}:`, {
+                      hasUsername: !!decryptedData.username,
+                      hasPassword: !!decryptedData.password,
+                      hasNotes: !!decryptedData.notes
+                    });
                   } catch (error) {
-                    console.error(`[SafeView] Failed to decrypt shared entry ${shareRef.safeEntryId}:`, error);
+                    console.error(`[SafeView] ❌ Failed to decrypt entry ${shareRef.safeEntryId}:`, error);
                   }
                 } else {
-                  console.warn(`[SafeView] No group key for group ${shareRef.groupId}`);
+                  console.warn(`[SafeView] ⚠️ No group key available for group ${shareRef.groupId} (entry: ${shareRef.safeEntryId})`);
                 }
+              } else {
+                console.warn(`[SafeView] ⚠️ Entry ${shareRef.safeEntryId} missing encrypted data or IV:`, {
+                  hasData: !!shareRef.groupEncryptedData,
+                  hasIV: !!shareRef.groupEncryptedDataIv
+                });
               }
               
               return {
@@ -285,8 +331,14 @@ const SafeView: React.FC = () => {
           );
           
           allEntries = [...safeEntries, ...sharedEntriesMapped];
-          console.log('[SafeView] Total entries after merging shared:', allEntries.length);
-          console.log('[SafeView] Shared entries with decryption:', sharedEntriesMapped.filter(e => e.decryptedData).length);
+          const decryptedCount = sharedEntriesMapped.filter(e => e.decryptedData).length;
+          console.log(`[SafeView] 📊 Summary:`, {
+            ownEntries: safeEntries.length,
+            sharedEntries: sharedEntriesMapped.length,
+            decryptedShared: decryptedCount,
+            failedToDecrypt: sharedEntriesMapped.length - decryptedCount,
+            totalEntries: allEntries.length
+          });
         }
       }
     } catch (err) {
@@ -732,21 +784,6 @@ const SafeView: React.FC = () => {
         </div>
         <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
           <button
-            onClick={() => setShowGroupsManager(true)}
-            style={{
-              padding: '0.625rem 1rem',
-              backgroundColor: '#6366f1',
-              color: 'white',
-              border: 'none',
-              borderRadius: '0.5rem',
-              cursor: 'pointer',
-              fontSize: '0.9rem',
-              fontWeight: 500
-            }}
-          >
-            👥 Groups
-          </button>
-          <button
             onClick={() => setShowSharedWithMe(true)}
             style={{
               padding: '0.625rem 1rem',
@@ -1184,11 +1221,6 @@ const SafeView: React.FC = () => {
             }}
           />
         </>
-      )}
-
-      {/* Groups Manager Modal */}
-      {showGroupsManager && (
-        <GroupsManager onClose={() => setShowGroupsManager(false)} />
       )}
 
       {/* Shared With Me Modal */}

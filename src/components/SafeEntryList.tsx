@@ -243,7 +243,7 @@ const SafeEntryList: React.FC<SafeEntryListProps> = ({
                     Shared by {entry.sharedBy}
                   </div>
                 )}
-                <label style={{ position: 'absolute', top: '8px', left: '8px' }} onClick={e => e.stopPropagation()}>
+                <label style={{ position: 'absolute', bottom: '8px', right: '8px' }} onClick={e => e.stopPropagation()}>
                   <input type="checkbox" checked={selectedIds.includes(entry.id)} onChange={e => { e.stopPropagation(); if (e.target.checked) setSelectedIds(prev => [...prev, entry.id]); else setSelectedIds(prev => prev.filter(id => id !== entry.id)); }} />
                 </label>
 

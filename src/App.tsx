@@ -443,6 +443,15 @@ const AppContent: React.FC = () => {
                 <span className="nav-text">Safe</span>
               </button>
             )}
+            <button
+              className={`nav-button ${currentView === 'groups' ? 'active' : ''}`}
+              onClick={() => handleNavigate('groups')}
+              title="Groups - Manage Sharing Groups"
+              style={currentView === 'groups' ? { backgroundColor: theme.colors.primary } : {}}
+            >
+              <span className="nav-icon">👥</span>
+              <span className="nav-text">Groups</span>
+            </button>
           </nav>
           <div className="header-right-desktop">
             <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>

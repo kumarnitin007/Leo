@@ -513,19 +513,34 @@ export async function shareEntryWithGroupEncryption(
   groupKey: CryptoKey,
   mode: ShareMode = 'readonly'
 ): Promise<SharedSafeEntry> {
+  console.log('[SharingService] 🔐 shareEntryWithGroupEncryption called:', {
+    entryId,
+    groupId,
+    mode,
+    hasEntryData: !!entryData,
+    hasGroupKey: !!groupKey
+  });
+  
   const supabase = getClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('Not authenticated');
+  console.log('[SharingService] 👤 User authenticated:', user.id);
 
   // Encrypt entry data with group key
+  console.log('[SharingService] 🔒 Encrypting entry data with group key...');
   const { encrypted, iv } = await encryptData(
     JSON.stringify(entryData),
     groupKey
   );
+  console.log('[SharingService] ✅ Entry data encrypted:', {
+    encryptedLength: encrypted.length,
+    ivLength: iv.length
+  });
 
   const now = new Date().toISOString();
   const id = generateId();
 
+  console.log('[SharingService] 💾 Inserting into myday_shared_safe_entries...');
   const { data, error } = await supabase
     .from('myday_shared_safe_entries')
     .insert({
@@ -542,7 +557,12 @@ export async function shareEntryWithGroupEncryption(
     .select()
     .single();
 
-  if (error) throw error;
+  if (error) {
+    console.error('[SharingService] ❌ Insert failed:', error);
+    throw error;
+  }
+  
+  console.log('[SharingService] ✅ Share created successfully:', data.id);
 
   return {
     id: data.id,

@@ -34,7 +34,7 @@ export async function getOrCreateGroupKey(
   // Check if user already has group key
   const { data: existingKey, error } = await supabase
     .from('myday_group_encryption_keys')
-    .select('encrypted_group_key, group_key_iv')
+    .select('encrypted_group_key, encrypted_group_key_iv')
     .eq('group_id', groupId)
     .eq('user_id', userId)
     .eq('is_active', true)
@@ -44,7 +44,7 @@ export async function getOrCreateGroupKey(
     // Decrypt and return existing group key
     return await decryptGroupKey(
       existingKey.encrypted_group_key,
-      existingKey.group_key_iv,
+      existingKey.encrypted_group_key_iv,
       masterKey
     );
   }
@@ -62,7 +62,7 @@ export async function getOrCreateGroupKey(
       group_id: groupId,
       user_id: userId,
       encrypted_group_key: encryptedKey,
-      group_key_iv: iv,
+      encrypted_group_key_iv: iv,
       granted_at: new Date().toISOString(),
       is_active: true
     });
@@ -102,7 +102,7 @@ export async function addMemberToGroup(
       group_id: groupId,
       user_id: newMemberUserId,
       encrypted_group_key: encryptedKey,
-      group_key_iv: iv,
+      encrypted_group_key_iv: iv,
       granted_at: new Date().toISOString(),
       is_active: true
     });
@@ -149,34 +149,45 @@ export async function loadUserGroupKeys(
   userId: string,
   masterKey: CryptoKey
 ): Promise<Map<string, CryptoKey>> {
+  console.log('[GroupEncryption] 🔑 Loading group keys for user:', userId);
   const supabase = getSupabaseClient();
   if (!supabase) throw new Error('Supabase not configured');
   
+  console.log('[GroupEncryption] 📡 Querying myday_group_encryption_keys...');
   const { data: keys, error } = await supabase
     .from('myday_group_encryption_keys')
-    .select('group_id, encrypted_group_key, group_key_iv')
+    .select('group_id, encrypted_group_key, encrypted_group_key_iv')
     .eq('user_id', userId)
     .eq('is_active', true);
 
   if (error) {
+    console.error('[GroupEncryption] ❌ Query failed:', error);
     throw new Error(`Failed to load group keys: ${error.message}`);
+  }
+
+  console.log(`[GroupEncryption] 📥 Found ${keys?.length || 0} group keys in database`);
+  if (keys && keys.length > 0) {
+    console.log('[GroupEncryption] 🔍 Group IDs:', keys.map(k => k.group_id));
   }
 
   const groupKeys = new Map<string, CryptoKey>();
 
   for (const key of keys || []) {
+    console.log(`[GroupEncryption] 🔓 Decrypting key for group: ${key.group_id}`);
     try {
       const groupKey = await decryptGroupKey(
         key.encrypted_group_key,
-        key.group_key_iv,
+        key.encrypted_group_key_iv,
         masterKey
       );
       groupKeys.set(key.group_id, groupKey);
+      console.log(`[GroupEncryption] ✅ Successfully decrypted key for group: ${key.group_id}`);
     } catch (err) {
-      console.error(`Failed to decrypt group key for ${key.group_id}:`, err);
+      console.error(`[GroupEncryption] ❌ Failed to decrypt key for group ${key.group_id}:`, err);
       // Skip this group key but continue with others
     }
   }
 
+  console.log(`[GroupEncryption] 🎉 Loaded ${groupKeys.size} group keys successfully`);
   return groupKeys;
 }

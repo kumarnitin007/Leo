@@ -14,6 +14,7 @@ import * as sharingService from '../services/sharingService';
 import { getOrCreateGroupKey } from '../services/groupEncryptionService';
 import { getSafeEntries } from '../storage';
 import getSupabaseClient from '../lib/supabase';
+import { decryptData } from '../utils/encryption';
 
 interface ShareEntryModalProps {
   entryId: string;
@@ -85,47 +86,81 @@ const ShareEntryModal: React.FC<ShareEntryModalProps> = ({
       return;
     }
     
+    console.log('[ShareEntryModal] 🚀 Starting share process:', {
+      entryId,
+      entryTitle,
+      selectedGroupId,
+      shareMode,
+      entryType
+    });
+    
     setSharing(true);
     setError(null);
     try {
       if (entryType === 'safe_entry') {
-        // NEW: Use group encryption for sharing
+        console.log('[ShareEntryModal] 🔐 Using group encryption for safe entry');
         
-        // 1. Get the actual entry to access decrypted data
+        // 1. Get the actual entry and decrypt it
+        console.log('[ShareEntryModal] 📂 Fetching entry from storage...');
         const allEntries = await getSafeEntries();
         const entry = allEntries.find(e => e.id === entryId);
-        if (!entry || !entry.decryptedData) {
-          throw new Error('Entry not found or not decrypted');
+        if (!entry) {
+          console.error('[ShareEntryModal] ❌ Entry not found in storage');
+          throw new Error('Entry not found');
+        }
+        console.log('[ShareEntryModal] ✅ Entry found:', entry.title);
+        
+        // Decrypt the entry data with user's master key
+        console.log('[ShareEntryModal] 🔓 Decrypting entry with user master key...');
+        let entryData;
+        try {
+          const decryptedJson = await decryptData(
+            entry.encryptedData,
+            entry.encryptedDataIv,
+            encryptionKey
+          );
+          entryData = JSON.parse(decryptedJson);
+          console.log('[ShareEntryModal] ✅ Entry decrypted successfully');
+        } catch (err) {
+          console.error('[ShareEntryModal] ❌ Failed to decrypt entry:', err);
+          throw new Error('Failed to decrypt entry. Make sure Safe is unlocked.');
         }
         
         // 2. Get or create group key for this group
+        console.log('[ShareEntryModal] 🔑 Getting group key for:', selectedGroupId);
         const supabase = getSupabaseClient();
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) throw new Error('Not authenticated');
         
         let groupKey = groupKeys.get(selectedGroupId);
         if (!groupKey) {
-          // Create new group key if user doesn't have one yet
+          console.log('[ShareEntryModal] 🆕 Group key not found, creating new one...');
           groupKey = await getOrCreateGroupKey(selectedGroupId, user.id, encryptionKey);
+          console.log('[ShareEntryModal] ✅ New group key created');
+        } else {
+          console.log('[ShareEntryModal] ✅ Using existing group key');
         }
         
         // 3. Share with group encryption
+        console.log('[ShareEntryModal] 📤 Sharing entry with group encryption...');
         await sharingService.shareEntryWithGroupEncryption(
           entryId,
-          entry.decryptedData,
+          entryData,
           selectedGroupId,
           groupKey,
           shareMode
         );
+        console.log('[ShareEntryModal] 🎉 Entry shared successfully!');
       } else {
         // Documents: Keep existing approach for now
         await sharingService.shareDocument(entryId, selectedGroupId, shareMode);
       }
       setSelectedGroupId('');
+      console.log('[ShareEntryModal] 🔄 Reloading data...');
       loadData();
       onShared?.();
     } catch (err) {
-      console.error('[ShareEntryModal] Share failed:', err);
+      console.error('[ShareEntryModal] ❌ Share failed:', err);
       setError(err instanceof Error ? err.message : 'Failed to share');
     } finally {
       setSharing(false);
