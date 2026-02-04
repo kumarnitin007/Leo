@@ -724,7 +724,10 @@ const SafeView: React.FC = () => {
             🔗 Shared With Me
           </button>
           <button
-            onClick={() => setShowChangePassword(true)}
+            onClick={() => {
+              console.log('Change password button clicked');
+              setShowChangePassword(true);
+            }}
             style={{
               padding: '0.625rem 1rem',
               backgroundColor: '#8b5cf6',
@@ -736,7 +739,7 @@ const SafeView: React.FC = () => {
               fontWeight: 500
             }}
           >
-            🔐 Password
+            🔐 Change Password
           </button>
           <button
             onClick={() => setShowImportExport(true)}
@@ -1133,13 +1136,16 @@ const SafeView: React.FC = () => {
 
       {/* Change Password Modal */}
       {showChangePassword && (
-        <ChangeMasterPasswordModal
-          onClose={() => setShowChangePassword(false)}
-          onSuccess={async () => {
-            // Reload entries after password change (they're re-encrypted)
-            await loadEntries();
-          }}
-        />
+        <>
+          {console.log('Rendering ChangeMasterPasswordModal')}
+          <ChangeMasterPasswordModal
+            onClose={() => setShowChangePassword(false)}
+            onSuccess={async () => {
+              // Reload entries after password change (they're re-encrypted)
+              await loadEntries();
+            }}
+          />
+        </>
       )}
 
       {/* Groups Manager Modal */}
