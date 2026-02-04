@@ -86,8 +86,8 @@ IMPORTANT: Return ONLY valid JSON, no markdown, no explanations.`
       return;
     }
 
-    const data = await response.json();
-    const content = data.choices[0]?.message?.content;
+    const data = await response.json() as any;
+    const content = data.choices?.[0]?.message?.content;
 
     if (!content) {
       res.status(500).json({ error: 'No response from OpenAI' });
@@ -128,8 +128,8 @@ IMPORTANT: Return ONLY valid JSON, no markdown, no explanations.`
   }
 }
 
-function getSuggestedDestination(type: string): string {
-  const mapping: Record<string, string> = {
+function getSuggestedDestination(type: string): 'event' | 'task' | 'todo' | 'journal' | 'safe' | 'gift-card' | 'resolution' {
+  const mapping: Record<string, 'event' | 'task' | 'todo' | 'journal' | 'safe' | 'gift-card' | 'resolution'> = {
     'birthday': 'event',
     'invitation': 'event',
     'todo': 'todo',
