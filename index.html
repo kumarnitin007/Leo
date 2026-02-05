@@ -34,9 +34,15 @@
     <meta name="twitter:image:alt" content="Leo Planner - AI-powered daily planner with voice commands, encrypted safe, and family sharing" />
     
     <!-- ===== PWA Meta Tags ===== -->
-    <meta name="theme-color" content="#14b8a6" />
+    <meta name="theme-color" content="#14b8a6" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#0f766e" media="(prefers-color-scheme: dark)" />
     <link rel="manifest" href="/manifest.json" />
     <meta name="application-name" content="Leo Planner" />
+    
+    <!-- ===== Android-Specific ===== -->
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="format-detection" content="telephone=no" />
+    <meta name="msapplication-navbutton-color" content="#14b8a6" />
     
     <!-- ===== Apple Touch Icons ===== -->
     <link rel="apple-touch-icon" href="/icon-192x192.png" />
@@ -385,7 +391,7 @@
     <!-- Note: Service Worker uses network-first strategy in development (localhost) -->
     <!-- To completely disable Service Worker during dev, set DISABLE_SW to true below or comment out this script block -->
     <script>
-      const DISABLE_SW = true; // Set to true to disable service worker (disabled for dev to allow HMR)
+      const DISABLE_SW = false; // Set to true to disable service worker (enabled for production PWA)
       
       if (DISABLE_SW && 'serviceWorker' in navigator) {
         // Unregister any existing service workers

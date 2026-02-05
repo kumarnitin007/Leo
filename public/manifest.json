@@ -1,12 +1,16 @@
 {
-  "name": "Leo Planner - Plan with the strength of a lion",
+  "name": "Leo Planner - AI-Powered Daily Planner",
   "short_name": "Leo Planner",
-  "description": "Plan with the strength of a lion. Beautiful daily task tracking and event management.",
+  "description": "Plan with the strength of a lion. AI-powered task management, encrypted password safe, family sharing, journaling, and analytics.",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
   "background_color": "#14b8a6",
   "theme_color": "#14b8a6",
-  "orientation": "portrait-primary",
+  "orientation": "any",
+  "dir": "ltr",
+  "lang": "en",
+  "categories": ["productivity", "lifestyle", "utilities"],
   "icons": [
     {
       "src": "/leo-icon.svg",
@@ -21,5 +25,27 @@
       "purpose": "maskable"
     }
   ],
-  "categories": ["productivity", "lifestyle"]
+  "shortcuts": [
+    {
+      "name": "Add Task",
+      "short_name": "Task",
+      "description": "Quickly add a new task",
+      "url": "/?action=add-task",
+      "icons": [{ "src": "/leo-icon.svg", "sizes": "any" }]
+    },
+    {
+      "name": "Journal",
+      "short_name": "Journal",
+      "description": "Write a journal entry",
+      "url": "/?action=journal",
+      "icons": [{ "src": "/leo-icon.svg", "sizes": "any" }]
+    },
+    {
+      "name": "Safe",
+      "short_name": "Safe",
+      "description": "Access password safe",
+      "url": "/?action=safe",
+      "icons": [{ "src": "/leo-icon.svg", "sizes": "any" }]
+    }
+  ]
 }

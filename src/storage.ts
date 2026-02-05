@@ -2738,6 +2738,7 @@ export const hasMasterPassword = async (): Promise<boolean> => {
 
 /**
  * Set master password (first time setup)
+ * Also generates RSA key pair for asymmetric encryption
  */
 export const setMasterPassword = async (password: string): Promise<boolean> => {
   const { client, userId } = await requireAuth();
@@ -2753,12 +2754,27 @@ export const setMasterPassword = async (password: string): Promise<boolean> => {
   const saltBase64 = btoa(String.fromCharCode(...salt));
   const keyHash = await hashMasterPassword(password, salt);
 
+  // Generate RSA key pair for asymmetric encryption
+  console.log('[Storage] 🔑 Generating RSA key pair for new user...');
+  const { generateRSAKeyPair, exportPublicKeyToPEM, encryptPrivateKey } = await import('./utils/asymmetricEncryption');
+  const { publicKey, privateKey } = await generateRSAKeyPair();
+  
+  // Export public key to PEM
+  const publicKeyPEM = await exportPublicKeyToPEM(publicKey);
+  
+  // Encrypt private key with master password
+  const masterEncryptionKey = await deriveKeyFromPassword(password, salt);
+  const { encrypted: encryptedPrivateKey, iv: privateKeyIV } = await encryptPrivateKey(privateKey, masterEncryptionKey);
+
   const now = new Date();
   const masterKey = {
     id: generateUUID(),
     user_id: userId,
     key_hash: keyHash,
     salt: saltBase64,
+    public_key: publicKeyPEM,
+    encrypted_private_key: encryptedPrivateKey,
+    encrypted_private_key_iv: privateKeyIV,
     created_at: now.toISOString(),
     updated_at: now.toISOString()
   };
@@ -2771,6 +2787,8 @@ export const setMasterPassword = async (password: string): Promise<boolean> => {
     console.error('Error setting master password:', error);
     return false;
   }
+
+  console.log('[Storage] ✅ Master password and RSA keys saved');
 
   // Initialize default categories
   await initializeSafeCategories();
@@ -2889,6 +2907,121 @@ export async function getEncryptionKey(password: string): Promise<CryptoKey> {
 
   const saltArray = Uint8Array.from(atob(data.salt), c => c.charCodeAt(0));
   return await deriveKeyFromPassword(password, saltArray);
+}
+
+/**
+ * Check if user has RSA keys generated
+ */
+export async function hasRSAKeys(): Promise<boolean> {
+  const { client, userId } = await requireAuth();
+  
+  const { data, error } = await client
+    .from('myday_safe_master_keys')
+    .select('public_key, encrypted_private_key')
+    .eq('user_id', userId)
+    .single();
+
+  if (error || !data) {
+    return false;
+  }
+
+  return !!(data.public_key && data.encrypted_private_key);
+}
+
+/**
+ * Generate RSA keys for existing user (migration)
+ */
+export async function generateRSAKeysForUser(password: string): Promise<boolean> {
+  const { client, userId } = await requireAuth();
+  
+  console.log('[Storage] 🔑 Generating RSA keys for existing user...');
+  
+  // Get salt for key derivation
+  const { data: keyData, error: keyError } = await client
+    .from('myday_safe_master_keys')
+    .select('salt')
+    .eq('user_id', userId)
+    .single();
+
+  if (keyError || !keyData) {
+    throw new Error('Master password not found');
+  }
+
+  const saltArray = Uint8Array.from(atob(keyData.salt), c => c.charCodeAt(0));
+  
+  // Generate RSA key pair
+  const { generateRSAKeyPair, exportPublicKeyToPEM, encryptPrivateKey } = await import('./utils/asymmetricEncryption');
+  const { publicKey, privateKey } = await generateRSAKeyPair();
+  
+  // Export public key to PEM
+  const publicKeyPEM = await exportPublicKeyToPEM(publicKey);
+  
+  // Encrypt private key with master password
+  const masterEncryptionKey = await deriveKeyFromPassword(password, saltArray);
+  const { encrypted: encryptedPrivateKey, iv: privateKeyIV } = await encryptPrivateKey(privateKey, masterEncryptionKey);
+
+  // Update database
+  const { error: updateError } = await client
+    .from('myday_safe_master_keys')
+    .update({
+      public_key: publicKeyPEM,
+      encrypted_private_key: encryptedPrivateKey,
+      encrypted_private_key_iv: privateKeyIV,
+      updated_at: new Date().toISOString()
+    })
+    .eq('user_id', userId);
+
+  if (updateError) {
+    console.error('[Storage] ❌ Failed to save RSA keys:', updateError);
+    return false;
+  }
+
+  console.log('[Storage] ✅ RSA keys generated and saved');
+  return true;
+}
+
+/**
+ * Get user's decrypted private key
+ */
+export async function getPrivateKey(masterKey: CryptoKey): Promise<CryptoKey> {
+  const { client, userId } = await requireAuth();
+  
+  const { data, error } = await client
+    .from('myday_safe_master_keys')
+    .select('encrypted_private_key, encrypted_private_key_iv')
+    .eq('user_id', userId)
+    .single();
+
+  if (error || !data || !data.encrypted_private_key) {
+    throw new Error('Private key not found');
+  }
+
+  const { decryptPrivateKey } = await import('./utils/asymmetricEncryption');
+  return await decryptPrivateKey(
+    data.encrypted_private_key,
+    data.encrypted_private_key_iv,
+    masterKey
+  );
+}
+
+/**
+ * Get user's public key (for others to encrypt data for you)
+ */
+export async function getPublicKey(userId?: string): Promise<string> {
+  const { client, userId: currentUserId } = await requireAuth();
+  const targetUserId = userId || currentUserId;
+  
+  const { data, error } = await client
+    .from('myday_safe_master_keys')
+    .select('public_key')
+    .eq('user_id', targetUserId)
+    .single();
+
+  if (error || !data || !data.public_key) {
+    throw new Error('Public key not found');
+  }
+
+  return data.public_key;
 }
 
 /**

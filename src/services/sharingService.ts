@@ -540,6 +540,13 @@ export async function shareEntryWithGroupEncryption(
   const now = new Date().toISOString();
   const id = generateId();
 
+  // Get entry title for display (so recipients don't need RLS access to parent entry)
+  const { data: titleData } = await supabase
+    .from('myday_safe_entries')
+    .select('title')
+    .eq('id', entryId)
+    .single();
+
   console.log('[SharingService] 💾 Inserting into myday_shared_safe_entries...');
   const { data, error } = await supabase
     .from('myday_shared_safe_entries')
@@ -553,6 +560,7 @@ export async function shareEntryWithGroupEncryption(
       is_active: true,
       group_encrypted_data: encrypted,
       group_encrypted_data_iv: iv,
+      entry_title: titleData?.title || 'Shared Entry', // Store title
     })
     .select()
     .single();
@@ -676,25 +684,8 @@ export async function getEntriesSharedWithMe(): Promise<SharedSafeEntry[]> {
 
   if (error) throw error;
 
-  // Get entry details separately
-  const entryIds = (data || []).map(row => row.safe_entry_id).filter(Boolean);
-  let entryDetailsMap: Record<string, any> = {};
-  
-  if (entryIds.length > 0) {
-    const { data: entriesData } = await supabase
-      .from('myday_safe_entries')
-      .select('id, title, category_tag_id, tags')
-      .in('id', entryIds);
-    
-    if (entriesData) {
-      entriesData.forEach(entry => {
-        entryDetailsMap[entry.id] = entry;
-      });
-    }
-  }
-
+  // Return shared entries with title stored in the share record
   return (data || []).map(row => {
-    const entryDetails = entryDetailsMap[row.safe_entry_id];
     return {
       id: row.id,
       safeEntryId: row.safe_entry_id,
@@ -705,9 +696,11 @@ export async function getEntriesSharedWithMe(): Promise<SharedSafeEntry[]> {
       expiresAt: row.expires_at,
       revokedAt: row.revoked_at,
       isActive: row.is_active,
-      entryTitle: entryDetails?.title || 'Shared Entry',
-      entryCategory: entryDetails?.category_tag_id,
-      entryTags: entryDetails?.tags || [],
+      groupEncryptedData: row.group_encrypted_data,
+      groupEncryptedDataIv: row.group_encrypted_data_iv,
+      entryTitle: row.entry_title || 'Shared Entry', // Use stored title
+      entryCategory: '', // Will be in encrypted data
+      entryTags: [], // Will be in encrypted data
     };
   });
 }

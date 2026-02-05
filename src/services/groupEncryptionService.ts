@@ -75,34 +75,41 @@ export async function getOrCreateGroupKey(
 }
 
 /**
- * Add a new member to a group
- * Encrypts the group key with new member's master key
+ * Add a new member to a group (RSA-based)
+ * Encrypts the group key with new member's PUBLIC key
  * New member will see ALL shares (past and future)
  */
 export async function addMemberToGroup(
   groupId: string,
   currentUserId: string,
   newMemberUserId: string,
-  currentUserMasterKey: CryptoKey,
-  newMemberMasterKey: CryptoKey
+  currentUserMasterKey: CryptoKey
 ): Promise<void> {
   const supabase = getSupabaseClient();
   if (!supabase) throw new Error('Supabase not configured');
   
+  console.log(`[GroupEncryption] 🔑 Adding member ${newMemberUserId} to group ${groupId}...`);
+  
   // Get group key (decrypt with current user's master key)
   const groupKey = await getOrCreateGroupKey(groupId, currentUserId, currentUserMasterKey);
 
-  // Encrypt group key for new member
-  const { encryptedKey, iv } = await encryptGroupKeyForUser(groupKey, newMemberMasterKey);
+  // Get new member's public key
+  const { getPublicKey } = await import('../storage');
+  const newMemberPublicKeyPEM = await getPublicKey(newMemberUserId);
+  
+  // Import public key and encrypt group key with it
+  const { importPublicKeyFromPEM, encryptGroupKeyForRecipient } = await import('../utils/asymmetricEncryption');
+  const newMemberPublicKey = await importPublicKeyFromPEM(newMemberPublicKeyPEM);
+  const encryptedGroupKey = await encryptGroupKeyForRecipient(groupKey, newMemberPublicKey);
 
-  // Store - new member can now decrypt ALL shares
+  // Store - new member can now decrypt ALL shares with their private key
   const { error } = await supabase
     .from('myday_group_encryption_keys')
     .insert({
       group_id: groupId,
       user_id: newMemberUserId,
-      encrypted_group_key: encryptedKey,
-      encrypted_group_key_iv: iv,
+      encrypted_group_key: encryptedGroupKey,
+      encrypted_group_key_iv: '', // RSA doesn't use IV
       granted_at: new Date().toISOString(),
       is_active: true
     });
@@ -111,7 +118,7 @@ export async function addMemberToGroup(
     throw new Error(`Failed to add member to group: ${error.message}`);
   }
 
-  console.log(`✅ User ${newMemberUserId} added to group ${groupId} (sees all shares)`);
+  console.log(`[GroupEncryption] ✅ User ${newMemberUserId} added to group ${groupId} (sees all shares)`);
 }
 
 /**
@@ -142,7 +149,8 @@ export async function removeMemberFromGroup(
 }
 
 /**
- * Load all group keys for a user
+ * Load all group keys for a user (RSA-based)
+ * Decrypts group keys using user's private key
  * Returns a Map of groupId -> CryptoKey
  */
 export async function loadUserGroupKeys(
@@ -153,10 +161,21 @@ export async function loadUserGroupKeys(
   const supabase = getSupabaseClient();
   if (!supabase) throw new Error('Supabase not configured');
   
+  // Get user's private key (decrypted with master key)
+  const { getPrivateKey } = await import('../storage');
+  let privateKey: CryptoKey;
+  try {
+    privateKey = await getPrivateKey(masterKey);
+    console.log('[GroupEncryption] 🔓 User private key loaded');
+  } catch (err) {
+    console.error('[GroupEncryption] ❌ Failed to load private key:', err);
+    throw new Error('Failed to load private key. User may need to generate RSA keys.');
+  }
+  
   console.log('[GroupEncryption] 📡 Querying myday_group_encryption_keys...');
   const { data: keys, error } = await supabase
     .from('myday_group_encryption_keys')
-    .select('group_id, encrypted_group_key, encrypted_group_key_iv')
+    .select('group_id, encrypted_group_key')
     .eq('user_id', userId)
     .eq('is_active', true);
 
@@ -171,14 +190,15 @@ export async function loadUserGroupKeys(
   }
 
   const groupKeys = new Map<string, CryptoKey>();
+  const { decryptGroupKeyFromRecipient } = await import('../utils/asymmetricEncryption');
 
   for (const key of keys || []) {
     console.log(`[GroupEncryption] 🔓 Decrypting key for group: ${key.group_id}`);
     try {
-      const groupKey = await decryptGroupKey(
+      // Decrypt group key with user's private key (RSA)
+      const groupKey = await decryptGroupKeyFromRecipient(
         key.encrypted_group_key,
-        key.encrypted_group_key_iv,
-        masterKey
+        privateKey
       );
       groupKeys.set(key.group_id, groupKey);
       console.log(`[GroupEncryption] ✅ Successfully decrypted key for group: ${key.group_id}`);

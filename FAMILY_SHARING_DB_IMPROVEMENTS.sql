@@ -68,7 +68,8 @@ CREATE POLICY "Group admins can insert group keys for members"
 -- Add columns to store the entry encrypted with group key
 ALTER TABLE myday_shared_safe_entries
 ADD COLUMN IF NOT EXISTS group_encrypted_data TEXT,
-ADD COLUMN IF NOT EXISTS group_encrypted_data_iv TEXT;
+ADD COLUMN IF NOT EXISTS group_encrypted_data_iv TEXT,
+ADD COLUMN IF NOT EXISTS entry_title TEXT; -- Store title so recipients can see it without RLS access to parent entry
 
 -- The sharer will:
 -- 1. Decrypt entry with their master key

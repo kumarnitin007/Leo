@@ -22,6 +22,7 @@ interface ShareEntryModalProps {
   entryType: 'safe_entry' | 'document';
   encryptionKey: CryptoKey | null; // NEW: User's master key (to get group key)
   groupKeys: Map<string, CryptoKey>; // NEW: Already loaded group keys
+  onGroupKeyCreated?: (groupId: string, groupKey: CryptoKey) => void; // NEW: Callback when new key created
   onClose: () => void;
   onShared?: () => void;
 }
@@ -32,6 +33,7 @@ const ShareEntryModal: React.FC<ShareEntryModalProps> = ({
   entryType,
   encryptionKey,
   groupKeys,
+  onGroupKeyCreated,
   onClose,
   onShared,
 }) => {
@@ -137,6 +139,12 @@ const ShareEntryModal: React.FC<ShareEntryModalProps> = ({
           console.log('[ShareEntryModal] 🆕 Group key not found, creating new one...');
           groupKey = await getOrCreateGroupKey(selectedGroupId, user.id, encryptionKey);
           console.log('[ShareEntryModal] ✅ New group key created');
+          
+          // Notify parent to update groupKeys state
+          if (onGroupKeyCreated) {
+            onGroupKeyCreated(selectedGroupId, groupKey);
+            console.log('[ShareEntryModal] 📢 Notified parent of new group key');
+          }
         } else {
           console.log('[ShareEntryModal] ✅ Using existing group key');
         }

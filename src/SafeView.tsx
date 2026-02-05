@@ -174,6 +174,20 @@ const SafeView: React.FC = () => {
         setIsLocked(false);
         justUnlockedRef.current = true; // Mark that we just unlocked
         
+        // Check if user has RSA keys (needed for sharing)
+        const { hasRSAKeys, generateRSAKeysForUser } = await import('./storage');
+        const hasKeys = await hasRSAKeys();
+        if (!hasKeys) {
+          console.log('[Safe] 🔑 User missing RSA keys, generating...');
+          try {
+            await generateRSAKeysForUser(password);
+            console.log('[Safe] ✅ RSA keys generated successfully');
+          } catch (err) {
+            console.error('[Safe] ❌ Failed to generate RSA keys:', err);
+            // Continue anyway - user can still use Safe, just can't share
+          }
+        }
+        
         // NEW: Load user's group encryption keys
         const supabase = getSupabaseClient();
         const { data: { user } } = await supabase.auth.getUser();
@@ -1243,6 +1257,15 @@ const SafeView: React.FC = () => {
           entryType={shareEntry.type}
           encryptionKey={encryptionKey}
           groupKeys={groupKeys}
+          onGroupKeyCreated={(groupId, groupKey) => {
+            // Update groupKeys state when new key is created
+            setGroupKeys(prev => {
+              const updated = new Map(prev);
+              updated.set(groupId, groupKey);
+              console.log(`[SafeView] 🔑 Added new group key to state: ${groupId}`);
+              return updated;
+            });
+          }}
           onClose={() => setShareEntry(null)}
           onShared={() => {
             setShareEntry(null);
