@@ -501,6 +501,8 @@ export async function cancelInvitation(invitationId: string): Promise<void> {
  * Entry data is encrypted with group key, not user's personal key
  * 
  * @param entryId - Safe entry ID
+ * @param entryTitle - Entry title for display
+ * @param entryCategory - Entry category for filtering
  * @param entryData - Decrypted entry data (username, password, notes, etc.)
  * @param groupId - Target group ID
  * @param groupKey - Group encryption key (already decrypted)
@@ -508,6 +510,8 @@ export async function cancelInvitation(invitationId: string): Promise<void> {
  */
 export async function shareEntryWithGroupEncryption(
   entryId: string,
+  entryTitle: string, // Entry title for display
+  entryCategory: string, // Entry category for filtering
   entryData: any, // Decrypted safe entry data
   groupId: string,
   groupKey: CryptoKey,
@@ -515,6 +519,8 @@ export async function shareEntryWithGroupEncryption(
 ): Promise<SharedSafeEntry> {
   console.log('[SharingService] 🔐 shareEntryWithGroupEncryption called:', {
     entryId,
+    entryTitle,
+    entryCategory,
     groupId,
     mode,
     hasEntryData: !!entryData,
@@ -540,13 +546,6 @@ export async function shareEntryWithGroupEncryption(
   const now = new Date().toISOString();
   const id = generateId();
 
-  // Get entry title for display (so recipients don't need RLS access to parent entry)
-  const { data: titleData } = await supabase
-    .from('myday_safe_entries')
-    .select('title')
-    .eq('id', entryId)
-    .single();
-
   console.log('[SharingService] 💾 Inserting into myday_shared_safe_entries...');
   const { data, error } = await supabase
     .from('myday_shared_safe_entries')
@@ -560,7 +559,8 @@ export async function shareEntryWithGroupEncryption(
       is_active: true,
       group_encrypted_data: encrypted,
       group_encrypted_data_iv: iv,
-      entry_title: titleData?.title || 'Shared Entry', // Store title
+      entry_title: entryTitle, // Store title directly
+      entry_category: entryCategory, // Store category for filtering
     })
     .select()
     .single();
@@ -701,6 +701,10 @@ export async function getEntriesSharedWithMe(): Promise<SharedSafeEntry[]> {
       entryTitle: row.entry_title || 'Shared Entry', // Use stored title
       entryCategory: '', // Will be in encrypted data
       entryTags: [], // Will be in encrypted data
+      // Version tracking (Live Sync)
+      entryVersion: row.entry_version,
+      lastUpdatedBy: row.last_updated_by,
+      lastUpdatedAt: row.last_updated_at,
     };
   });
 }

@@ -12,11 +12,13 @@ import { generatePassword } from '../utils/encryption';
 import SafeCategoryFields from './SafeCategoryFields';
 import { generateTOTPSecret } from '../utils/totp';
 import TOTPQRCode from './TOTPQRCode';
+import { updateSharedEntries, hasActiveShares } from '../services/sharedEntryUpdateService';
 
 interface SafeEntryFormProps {
   entry?: SafeEntry;
   tags: Tag[];
   encryptionKey: CryptoKey;
+  groupKeys?: Map<string, CryptoKey>; // For updating shared entries
   onSave: () => void;
   onCancel: () => void;
 }
@@ -25,6 +27,7 @@ const SafeEntryForm: React.FC<SafeEntryFormProps> = ({
   entry,
   tags,
   encryptionKey,
+  groupKeys,
   onSave,
   onCancel
 }) => {
@@ -149,6 +152,31 @@ const SafeEntryForm: React.FC<SafeEntryFormProps> = ({
           },
           encryptionKey
         );
+
+        // Check if this entry has active shares and propagate updates
+        if (groupKeys && groupKeys.size > 0) {
+          console.log('[SafeEntryForm] 🔍 Checking if entry has shares...');
+          const hasShares = await hasActiveShares(entry.id);
+          
+          if (hasShares) {
+            console.log('[SafeEntryForm] 🔄 Entry has shares, propagating updates...');
+            const updateResult = await updateSharedEntries(
+              entry.id,
+              title.trim(),
+              categoryTagId || '',
+              encryptedData,
+              groupKeys
+            );
+
+            if (!updateResult.success) {
+              console.warn('[SafeEntryForm] ⚠️ Some shares failed to update:', updateResult.errors);
+              // Don't block the save, just log the warning
+              // User can retry or we can implement background retry
+            } else {
+              console.log(`[SafeEntryForm] ✅ Successfully updated ${updateResult.updatedCount} shares`);
+            }
+          }
+        }
       } else {
         // Create new entry
         await addSafeEntry(

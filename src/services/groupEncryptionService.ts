@@ -19,9 +19,9 @@ export interface GroupEncryptionKey {
 }
 
 /**
- * Get or create encryption key for a group
- * If user already has key, decrypt and return it
- * If creating new group, generate key and encrypt for user
+ * Get or create encryption key for a group (RSA-based)
+ * If user already has key, decrypt with their private key and return it
+ * If creating new group, generate key and encrypt with user's public key
  */
 export async function getOrCreateGroupKey(
   groupId: string,
@@ -31,46 +31,61 @@ export async function getOrCreateGroupKey(
   const supabase = getSupabaseClient();
   if (!supabase) throw new Error('Supabase not configured');
   
+  console.log(`[GroupEncryption] 🔑 Getting or creating group key for group: ${groupId}, user: ${userId}`);
+  
   // Check if user already has group key
   const { data: existingKey, error } = await supabase
     .from('myday_group_encryption_keys')
-    .select('encrypted_group_key, encrypted_group_key_iv')
+    .select('encrypted_group_key')
     .eq('group_id', groupId)
     .eq('user_id', userId)
     .eq('is_active', true)
     .single();
 
   if (existingKey && !error) {
-    // Decrypt and return existing group key
-    return await decryptGroupKey(
-      existingKey.encrypted_group_key,
-      existingKey.encrypted_group_key_iv,
-      masterKey
-    );
+    console.log(`[GroupEncryption] ✅ Found existing group key, decrypting with private key...`);
+    // Get user's private key
+    const { getPrivateKey } = await import('../storage');
+    const privateKey = await getPrivateKey(masterKey);
+    
+    // Decrypt group key with private key (RSA)
+    const { decryptGroupKeyFromRecipient } = await import('../utils/asymmetricEncryption');
+    return await decryptGroupKeyFromRecipient(existingKey.encrypted_group_key, privateKey);
   }
 
+  console.log(`[GroupEncryption] 🆕 No existing key found, creating new group key...`);
+  
   // Create new group key (happens when creating group)
   const groupKey = await generateGroupKey();
 
-  // Encrypt with user's master key
-  const { encryptedKey, iv } = await encryptGroupKeyForUser(groupKey, masterKey);
+  // Get user's public key
+  const { getPublicKey } = await import('../storage');
+  const userPublicKeyPEM = await getPublicKey(userId);
+  
+  // Import public key and encrypt group key with it (RSA)
+  const { importPublicKeyFromPEM, encryptGroupKeyForRecipient } = await import('../utils/asymmetricEncryption');
+  const userPublicKey = await importPublicKeyFromPEM(userPublicKeyPEM);
+  const encryptedGroupKey = await encryptGroupKeyForRecipient(groupKey, userPublicKey);
 
   // Store in database
+  console.log(`[GroupEncryption] 💾 Storing group key for user...`);
   const { error: insertError } = await supabase
     .from('myday_group_encryption_keys')
     .insert({
       group_id: groupId,
       user_id: userId,
-      encrypted_group_key: encryptedKey,
-      encrypted_group_key_iv: iv,
+      encrypted_group_key: encryptedGroupKey,
+      encrypted_group_key_iv: '', // RSA doesn't use IV
       granted_at: new Date().toISOString(),
       is_active: true
     });
 
   if (insertError) {
+    console.error(`[GroupEncryption] ❌ Failed to store group key:`, insertError);
     throw new Error(`Failed to store group key: ${insertError.message}`);
   }
 
+  console.log(`[GroupEncryption] ✅ Group key created and stored successfully`);
   return groupKey;
 }
 

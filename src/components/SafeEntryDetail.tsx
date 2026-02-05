@@ -64,9 +64,17 @@ const SafeEntryDetail: React.FC<SafeEntryDetailProps> = ({
 
   const loadEntryData = async () => {
     try {
-      const decryptedJson = await decryptSafeEntry(entry, encryptionKey);
-      const data: SafeEntryEncryptedData = JSON.parse(decryptedJson);
-      setEncryptedData(data);
+      // Check if entry is already decrypted (shared entries)
+      if (entry.decryptedData) {
+        console.log('[SafeEntryDetail] ✅ Using pre-decrypted data (shared entry)');
+        setEncryptedData(entry.decryptedData);
+      } else {
+        // Decrypt with user's master key (own entries)
+        console.log('[SafeEntryDetail] 🔓 Decrypting with master key (own entry)');
+        const decryptedJson = await decryptSafeEntry(entry, encryptionKey);
+        const data: SafeEntryEncryptedData = JSON.parse(decryptedJson);
+        setEncryptedData(data);
+      }
       
       // Mark as accessed
       await markSafeEntryAccessed(entry.id);

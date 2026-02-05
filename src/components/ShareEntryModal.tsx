@@ -140,6 +140,36 @@ const ShareEntryModal: React.FC<ShareEntryModalProps> = ({
           groupKey = await getOrCreateGroupKey(selectedGroupId, user.id, encryptionKey);
           console.log('[ShareEntryModal] ✅ New group key created');
           
+          // Grant access to all group members
+          console.log('[ShareEntryModal] 🔑 Granting access to all group members...');
+          const { data: members, error: membersError } = await supabase
+            .from('myday_group_members')
+            .select('user_id')
+            .eq('group_id', selectedGroupId);
+          
+          if (membersError) {
+            console.error('[ShareEntryModal] ❌ Failed to fetch group members:', membersError);
+          }
+          
+          console.log(`[ShareEntryModal] 📋 Found ${members?.length || 0} total members`);
+          
+          // Filter out current user (already has key)
+          const otherMembers = (members || []).filter(m => m.user_id !== user.id);
+          console.log(`[ShareEntryModal] 👥 ${otherMembers.length} other members to grant access`);
+          
+          if (otherMembers && otherMembers.length > 0) {
+            const { addMemberToGroup } = await import('../services/groupEncryptionService');
+            for (const member of otherMembers) {
+              try {
+                console.log(`[ShareEntryModal] 🔐 Adding member ${member.user_id} to group encryption...`);
+                await addMemberToGroup(selectedGroupId, user.id, member.user_id, encryptionKey);
+                console.log(`[ShareEntryModal] ✅ Member ${member.user_id} granted access`);
+              } catch (err) {
+                console.error(`[ShareEntryModal] ❌ Failed to grant access to ${member.user_id}:`, err);
+              }
+            }
+          }
+          
           // Notify parent to update groupKeys state
           if (onGroupKeyCreated) {
             onGroupKeyCreated(selectedGroupId, groupKey);
@@ -153,6 +183,8 @@ const ShareEntryModal: React.FC<ShareEntryModalProps> = ({
         console.log('[ShareEntryModal] 📤 Sharing entry with group encryption...');
         await sharingService.shareEntryWithGroupEncryption(
           entryId,
+          entry.title, // Pass title for display
+          entry.categoryTagId || '', // Pass category for filtering
           entryData,
           selectedGroupId,
           groupKey,

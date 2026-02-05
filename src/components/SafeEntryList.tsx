@@ -3,6 +3,29 @@ import { SafeEntry, Tag } from '../types';
 import { CryptoKey } from '../utils/encryption';
 import { deleteSafeEntriesByTag, deleteSafeEntry } from '../storage';
 
+// Helper to format "X mins ago" timestamp
+function formatTimeAgo(isoTimestamp: string): string {
+  const now = new Date();
+  const then = new Date(isoTimestamp);
+  const diffMs = now.getTime() - then.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  
+  if (diffMins < 1) return 'just now';
+  if (diffMins < 60) return `${diffMins}m ago`;
+  
+  const diffHours = Math.floor(diffMins / 60);
+  if (diffHours < 24) return `${diffHours}h ago`;
+  
+  const diffDays = Math.floor(diffHours / 24);
+  if (diffDays < 7) return `${diffDays}d ago`;
+  
+  const diffWeeks = Math.floor(diffDays / 7);
+  if (diffWeeks < 4) return `${diffWeeks}w ago`;
+  
+  const diffMonths = Math.floor(diffDays / 30);
+  return `${diffMonths}mo ago`;
+}
+
 interface SafeEntryListProps {
   entries: SafeEntry[];
   tags: Tag[];
@@ -233,14 +256,33 @@ const SafeEntryList: React.FC<SafeEntryListProps> = ({
                     position: 'absolute',
                     top: '-8px',
                     right: '12px',
-                    background: '#10b981',
-                    color: 'white',
-                    fontSize: '0.65rem',
-                    fontWeight: 600,
-                    padding: '2px 8px',
-                    borderRadius: '4px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '4px',
+                    alignItems: 'flex-end',
                   }}>
-                    Shared by {entry.sharedBy}
+                    <div style={{
+                      background: '#10b981',
+                      color: 'white',
+                      fontSize: '0.65rem',
+                      fontWeight: 600,
+                      padding: '2px 8px',
+                      borderRadius: '4px',
+                    }}>
+                      Shared by {entry.sharedBy}
+                    </div>
+                    {entry.lastUpdatedAt && entry.lastUpdatedBy && (
+                      <div style={{
+                        background: '#3b82f6',
+                        color: 'white',
+                        fontSize: '0.6rem',
+                        fontWeight: 500,
+                        padding: '2px 6px',
+                        borderRadius: '3px',
+                      }}>
+                        Updated {formatTimeAgo(entry.lastUpdatedAt)} by {entry.lastUpdatedBy}
+                      </div>
+                    )}
                   </div>
                 )}
                 <label style={{ position: 'absolute', bottom: '8px', right: '8px' }} onClick={e => e.stopPropagation()}>

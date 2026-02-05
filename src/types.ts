@@ -277,6 +277,10 @@ export interface SafeEntry {
   sharedBy?: string; // Display name of the person who shared
   sharedAt?: string;
   shareMode?: 'readonly' | 'copy'; // Sharing permission level
+  // Version tracking (Live Sync)
+  entryVersion?: number;
+  lastUpdatedBy?: string; // Display name of user who last updated
+  lastUpdatedAt?: string; // ISO timestamp
 }
 
 export interface SafeMasterKey {
@@ -621,12 +625,17 @@ export interface SharedSafeEntry {
   // Group encryption fields (NEW)
   groupEncryptedData?: string;
   groupEncryptedDataIv?: string;
+  // Version tracking fields (Live Sync)
+  entryVersion?: number;
+  lastUpdatedBy?: string; // user_id
+  lastUpdatedAt?: string; // ISO timestamp
   // Extended fields from joins
   entryTitle?: string;
   entryCategory?: string;
   entryTags?: string[];
   groupName?: string;
   sharedByName?: string;
+  lastUpdatedByName?: string; // Display name of user who last updated
 }
 
 export interface GroupEncryptionKey {
