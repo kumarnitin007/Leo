@@ -42,34 +42,40 @@ COMMENT ON COLUMN myday_shared_safe_entries.last_updated_at IS
 -- =====================================================
 -- 3. ADD VERSION TRACKING TO SAFE ENTRIES (for comparison)
 -- =====================================================
+-- NOTE: This table might not exist in your schema yet
+-- If you get an error here, comment out this section
+-- The shared entries tracking will still work without it
 
-ALTER TABLE myday_safe_entries
-ADD COLUMN IF NOT EXISTS entry_version INTEGER DEFAULT 1;
+-- ALTER TABLE myday_safe_entries
+-- ADD COLUMN IF NOT EXISTS entry_version INTEGER DEFAULT 1;
 
-COMMENT ON COLUMN myday_safe_entries.entry_version IS 
-'Version number incremented on each edit. Used to detect when shared copies are out of sync.';
+-- COMMENT ON COLUMN myday_safe_entries.entry_version IS 
+-- 'Version number incremented on each edit. Used to detect when shared copies are out of sync.';
 
 -- =====================================================
 -- 4. CREATE FUNCTION TO UPDATE ALL SHARES WHEN ENTRY IS EDITED
 -- =====================================================
+-- NOTE: This trigger is for the main safe entries table
+-- If you get an error, comment out this section
+-- The shared entries tracking will still work without it
 
-CREATE OR REPLACE FUNCTION update_shared_entry_versions()
-RETURNS TRIGGER AS $$
-BEGIN
-  -- Increment version on the main entry
-  NEW.entry_version = COALESCE(OLD.entry_version, 0) + 1;
-  
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
+-- CREATE OR REPLACE FUNCTION update_shared_entry_versions()
+-- RETURNS TRIGGER AS $$
+-- BEGIN
+--   -- Increment version on the main entry
+--   NEW.entry_version = COALESCE(OLD.entry_version, 0) + 1;
+--   
+--   RETURN NEW;
+-- END;
+-- $$ LANGUAGE plpgsql;
 
 -- Trigger to auto-increment version on myday_safe_entries
-DROP TRIGGER IF EXISTS increment_entry_version ON myday_safe_entries;
-CREATE TRIGGER increment_entry_version
-  BEFORE UPDATE ON myday_safe_entries
-  FOR EACH ROW
-  WHEN (OLD.encrypted_data IS DISTINCT FROM NEW.encrypted_data)
-  EXECUTE FUNCTION update_shared_entry_versions();
+-- DROP TRIGGER IF EXISTS increment_entry_version ON myday_safe_entries;
+-- CREATE TRIGGER increment_entry_version
+--   BEFORE UPDATE ON myday_safe_entries
+--   FOR EACH ROW
+--   WHEN (OLD.encrypted_data IS DISTINCT FROM NEW.encrypted_data)
+--   EXECUTE FUNCTION update_shared_entry_versions();
 
 -- =====================================================
 -- 5. HELPER FUNCTION: Get all shares for an entry
@@ -121,7 +127,7 @@ CREATE INDEX IF NOT EXISTS idx_shared_safe_entries_updated_at
 -- 4. Updates myday_shared_safe_entries rows with new data + version + timestamp
 -- 5. User2 sees update on next load (or via real-time listener)
 
--- Example query to check sync status:
+-- Example query to check sync status (if main table exists):
 -- SELECT 
 --   se.id, 
 --   se.title, 
@@ -174,7 +180,7 @@ CREATE INDEX IF NOT EXISTS idx_shared_safe_entries_updated_at
 -- Check if indexes exist:
 -- SELECT indexname, tablename 
 -- FROM pg_indexes 
--- WHERE tablename IN ('myday_shared_safe_entries', 'myday_safe_entries')
+-- WHERE tablename = 'myday_shared_safe_entries'
 -- AND indexname LIKE 'idx_%';
 
 -- =====================================================
