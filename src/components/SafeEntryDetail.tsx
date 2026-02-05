@@ -961,36 +961,55 @@ const SafeEntryDetail: React.FC<SafeEntryDetailProps> = ({
 
       {/* Actions */}
       <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end', paddingTop: '0.75rem', borderTop: '1px solid #e5e7eb' }}>
-        <button
-          onClick={() => onEdit(entry)}
-          style={{
+        {entry.isShared && entry.shareMode === 'readonly' ? (
+          <div style={{
             padding: '0.5rem 1rem',
-            backgroundColor: '#3b82f6',
-            color: 'white',
-            border: 'none',
+            backgroundColor: '#f3f4f6',
+            color: '#6b7280',
+            border: '1px solid #d1d5db',
             borderRadius: '0.375rem',
-            cursor: 'pointer',
             fontSize: '0.8rem',
-            fontWeight: 500
-          }}
-        >
-          ✎ Edit
-        </button>
-        <button
-          onClick={handleDelete}
-          style={{
-            padding: '0.5rem 1rem',
-            backgroundColor: '#ef4444',
-            color: 'white',
-            border: 'none',
-            borderRadius: '0.375rem',
-            cursor: 'pointer',
-            fontSize: '0.8rem',
-            fontWeight: 500
-          }}
-        >
-          🗑 Delete
-        </button>
+            fontWeight: 500,
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.5rem'
+          }}>
+            🔒 Read-only (Shared by {entry.sharedBy})
+          </div>
+        ) : (
+          <>
+            <button
+              onClick={() => onEdit(entry)}
+              style={{
+                padding: '0.5rem 1rem',
+                backgroundColor: '#3b82f6',
+                color: 'white',
+                border: 'none',
+                borderRadius: '0.375rem',
+                cursor: 'pointer',
+                fontSize: '0.8rem',
+                fontWeight: 500
+              }}
+            >
+              ✎ Edit
+            </button>
+            <button
+              onClick={handleDelete}
+              style={{
+                padding: '0.5rem 1rem',
+                backgroundColor: '#ef4444',
+                color: 'white',
+                border: 'none',
+                borderRadius: '0.375rem',
+                cursor: 'pointer',
+                fontSize: '0.8rem',
+                fontWeight: 500
+              }}
+            >
+              🗑 Delete
+            </button>
+          </>
+        )}
       </div>
           </div>{/* Close Content */}
         </div>{/* Close modal box */}

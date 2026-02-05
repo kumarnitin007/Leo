@@ -699,8 +699,8 @@ export async function getEntriesSharedWithMe(): Promise<SharedSafeEntry[]> {
       groupEncryptedData: row.group_encrypted_data,
       groupEncryptedDataIv: row.group_encrypted_data_iv,
       entryTitle: row.entry_title || 'Shared Entry', // Use stored title
-      entryCategory: '', // Will be in encrypted data
-      entryTags: [], // Will be in encrypted data
+      entryCategory: row.entry_category || '', // Category from share metadata
+      entryTags: [], // Tags are user-specific, not shared
       // Version tracking (Live Sync)
       entryVersion: row.entry_version,
       lastUpdatedBy: row.last_updated_by,

@@ -73,6 +73,7 @@ const SafeView: React.FC = () => {
   const [encryptionKey, setEncryptionKey] = useState<CryptoKey | null>(null);
   const [groupKeys, setGroupKeys] = useState<Map<string, CryptoKey>>(new Map()); // NEW: Store group encryption keys
   const [entries, setEntries] = useState<SafeEntry[]>([]);
+  const [sharedEntryIds, setSharedEntryIds] = useState<Set<string>>(new Set()); // Track which entries user has shared
   const [documents, setDocuments] = useState<DocumentVault[]>([]);
   const [tags, setTags] = useState<Tag[]>([]);
   const [entryCount, setEntryCount] = useState(0);
@@ -380,6 +381,24 @@ const SafeView: React.FC = () => {
     
     setEntries(allEntries);
     setEntryCount(safeEntries.length); // Only count own entries
+    
+    // Fetch entries that user has shared (for "Shared by Me" filter)
+    try {
+      const supabase = getSupabaseClient();
+      if (supabase && user) {
+        const { data: sharedByMe } = await supabase
+          .from('myday_shared_safe_entries')
+          .select('safe_entry_id')
+          .eq('shared_by', user.id)
+          .eq('is_active', true);
+        
+        if (sharedByMe) {
+          setSharedEntryIds(new Set(sharedByMe.map(s => s.safe_entry_id)));
+        }
+      }
+    } catch (err) {
+      console.warn('Failed to load shared-by-me entries:', err);
+    }
   };
 
   // Load documents
@@ -558,7 +577,7 @@ const SafeView: React.FC = () => {
       all: entries.length,
       favorites: entries.filter(e => e.isFavorite).length,
       shared: entries.filter(e => e.isShared).length,
-      sharedByMe: entries.filter(e => !e.isShared).length, // Placeholder: need to check actual shares
+      sharedByMe: entries.filter(e => !e.isShared && sharedEntryIds.has(e.id)).length,
       recent: entries.filter(e => new Date(e.updatedAt) >= sevenDaysAgo).length,
       expiring: entries.filter(e => {
         if (!e.expiresAt) return false;
@@ -576,7 +595,7 @@ const SafeView: React.FC = () => {
     });
     
     return counts;
-  }, [entries, tags]);
+  }, [entries, tags, sharedEntryIds]);
   
   // Filter entries based on active filter
   const filteredEntries = React.useMemo(() => {
@@ -592,7 +611,7 @@ const SafeView: React.FC = () => {
       case 'shared':
         return entries.filter(e => e.isShared); // Entries shared WITH me
       case 'sharedByMe':
-        return entries.filter(e => !e.isShared); // My own entries that I've shared (need to check if they have shares)
+        return entries.filter(e => !e.isShared && sharedEntryIds.has(e.id)); // My own entries that I've shared
       case 'recent':
         return entries.filter(e => new Date(e.updatedAt) >= sevenDaysAgo);
       case 'expiring':
