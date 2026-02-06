@@ -7,7 +7,7 @@
 
 CREATE TABLE IF NOT EXISTS myday_shared_safe_documents (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  document_id TEXT NOT NULL, -- Reference to myday_safe_documents.id
+  document_id TEXT NOT NULL, -- Reference to myday_document_vaults.id
   group_id TEXT NOT NULL REFERENCES myday_groups(id) ON DELETE CASCADE,
   shared_by UUID NOT NULL,
   share_mode TEXT NOT NULL CHECK (share_mode IN ('readonly', 'readwrite')),
@@ -59,34 +59,34 @@ USING (
 -- Users can share their own documents
 CREATE POLICY "Users can share their own documents"
 ON myday_shared_safe_documents FOR INSERT
-WITH CHECK (
-  auth.uid() = shared_by
-  AND EXISTS (
-    SELECT 1 FROM myday_safe_documents
-    WHERE id = document_id AND user_id = auth.uid()
-  )
-);
+  WITH CHECK (
+    auth.uid() = shared_by
+    AND EXISTS (
+      SELECT 1 FROM myday_document_vaults
+      WHERE id = document_id AND user_id = auth.uid()
+    )
+  );
 
 -- Document owners can update shared documents
 CREATE POLICY "Document owners can update shared documents"
 ON myday_shared_safe_documents FOR UPDATE
-USING (
-  EXISTS (
-    SELECT 1 FROM myday_safe_documents
-    WHERE id = document_id AND user_id = auth.uid()
-  )
-);
+  USING (
+    EXISTS (
+      SELECT 1 FROM myday_document_vaults
+      WHERE id = document_id AND user_id = auth.uid()
+    )
+  );
 
 -- Document owners can delete shares
 CREATE POLICY "Document owners can delete shares"
 ON myday_shared_safe_documents FOR DELETE
-USING (
-  auth.uid() = shared_by
-  OR EXISTS (
-    SELECT 1 FROM myday_safe_documents
-    WHERE id = document_id AND user_id = auth.uid()
-  )
-);
+  USING (
+    auth.uid() = shared_by
+    OR EXISTS (
+      SELECT 1 FROM myday_document_vaults
+      WHERE id = document_id AND user_id = auth.uid()
+    )
+  );
 
 -- ============================================================================
 -- CASCADE DELETE TRIGGER
@@ -103,7 +103,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 CREATE TRIGGER trigger_delete_document_shares
-BEFORE DELETE ON myday_safe_documents
+BEFORE DELETE ON myday_document_vaults
 FOR EACH ROW
 EXECUTE FUNCTION delete_document_shares();
 
@@ -195,7 +195,7 @@ RETURNS BOOLEAN AS $$
 BEGIN
   -- User owns the document OR document is shared with user's group
   RETURN EXISTS (
-    SELECT 1 FROM myday_safe_documents
+    SELECT 1 FROM myday_document_vaults
     WHERE id = p_document_id AND user_id = p_user_id
   ) OR EXISTS (
     SELECT 1 
