@@ -99,11 +99,18 @@ export async function addComment(
   let entryTitle = 'Entry';
   if (entryType === 'safe_entry') {
     const { data: entryData } = await supabase
-      .from('myday_safe_entries')
+      .from('myday_encrypted_entries')
       .select('title')
       .eq('id', entryId)
       .single();
     entryTitle = entryData?.title || 'Entry';
+  } else if (entryType === 'document') {
+    const { data: docData } = await supabase
+      .from('myday_document_vaults')
+      .select('title')
+      .eq('id', entryId)
+      .single();
+    entryTitle = docData?.title || 'Document';
   }
 
   const { data, error } = await supabase
