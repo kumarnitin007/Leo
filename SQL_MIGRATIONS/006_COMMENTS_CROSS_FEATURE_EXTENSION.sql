@@ -139,8 +139,8 @@ WITH CHECK (auth.uid() = user_id);
 
 CREATE POLICY "Users can soft-delete their own comments"
 ON myday_entry_comments FOR UPDATE
-USING (auth.uid() = user_id AND deleted_at IS NULL)
-WITH CHECK (deleted_at IS NOT NULL);
+USING (auth.uid() = user_id AND is_deleted = false)
+WITH CHECK (is_deleted = true);
 
 -- ============================================================================
 -- HELPER FUNCTIONS FOR ENTRY TITLE FETCHING (Cross-Feature)
@@ -189,7 +189,7 @@ CREATE INDEX IF NOT EXISTS idx_comments_entry_type ON myday_entry_comments(entry
 -- Composite index for entry lookups
 CREATE INDEX IF NOT EXISTS idx_comments_entry_lookup 
 ON myday_entry_comments(entry_id, entry_type) 
-WHERE deleted_at IS NULL;
+WHERE is_deleted = false;
 
 -- ============================================================================
 -- GRANT PERMISSIONS
