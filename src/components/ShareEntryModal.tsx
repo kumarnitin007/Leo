@@ -241,7 +241,6 @@ const ShareEntryModal: React.FC<ShareEntryModalProps> = ({
         
         const document: DocumentVault = {
           id: docData.id,
-          userId: docData.user_id,
           title: docData.title,
           provider: docData.provider,
           documentType: docData.document_type,
@@ -254,11 +253,12 @@ const ShareEntryModal: React.FC<ShareEntryModalProps> = ({
           updatedAt: docData.updated_at,
         };
         
-        // 2. Share using document sharing service
+        // 2. Share using document sharing service (only readonly/readwrite modes)
+        const docShareMode = shareMode === 'copy' ? 'readonly' : shareMode;
         await documentSharingService.shareDocumentWithGroup(
           document,
           selectedGroupId,
-          shareMode,
+          docShareMode as 'readonly' | 'readwrite',
           user.id,
           encryptionKey
         );
