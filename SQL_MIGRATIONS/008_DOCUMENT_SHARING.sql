@@ -8,7 +8,7 @@
 CREATE TABLE IF NOT EXISTS myday_shared_safe_documents (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   document_id TEXT NOT NULL, -- Reference to myday_safe_documents.id
-  group_id UUID NOT NULL REFERENCES myday_groups(id) ON DELETE CASCADE,
+  group_id TEXT NOT NULL REFERENCES myday_groups(id) ON DELETE CASCADE,
   shared_by UUID NOT NULL,
   share_mode TEXT NOT NULL CHECK (share_mode IN ('readonly', 'readwrite')),
   
