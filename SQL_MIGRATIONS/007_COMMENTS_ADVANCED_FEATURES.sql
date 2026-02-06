@@ -86,9 +86,9 @@ SELECT
   entry_id,
   entry_type,
   entry_title,
-  COUNT(*) FILTER (WHERE deleted_at IS NULL) as total_comments,
-  COUNT(*) FILTER (WHERE deleted_at IS NULL AND is_resolved = false) as active_comments,
-  COUNT(*) FILTER (WHERE deleted_at IS NULL AND is_resolved = true) as resolved_comments,
+  COUNT(*) FILTER (WHERE is_deleted = false) as total_comments,
+  COUNT(*) FILTER (WHERE is_deleted = false AND is_resolved = false) as active_comments,
+  COUNT(*) FILTER (WHERE is_deleted = false AND is_resolved = true) as resolved_comments,
   COUNT(DISTINCT user_id) as unique_commenters,
   MAX(created_at) as last_comment_at,
   MIN(created_at) as first_comment_at
@@ -100,8 +100,8 @@ CREATE OR REPLACE VIEW myday_user_comment_stats AS
 SELECT 
   user_id,
   user_display_name,
-  COUNT(*) FILTER (WHERE deleted_at IS NULL) as total_comments,
-  COUNT(*) FILTER (WHERE deleted_at IS NULL AND is_resolved = false) as active_comments,
+  COUNT(*) FILTER (WHERE is_deleted = false) as total_comments,
+  COUNT(*) FILTER (WHERE is_deleted = false AND is_resolved = false) as active_comments,
   COUNT(DISTINCT entry_id) as entries_commented_on,
   MAX(created_at) as last_comment_at
 FROM myday_entry_comments
@@ -191,7 +191,7 @@ BEGIN
   WHERE entry_id = p_entry_id
   AND entry_type = p_entry_type
   AND is_resolved = false
-  AND deleted_at IS NULL;
+  AND is_deleted = false;
   
   GET DIAGNOSTICS v_count = ROW_COUNT;
   RETURN v_count;
@@ -211,7 +211,7 @@ BEGIN
     SELECT id FROM myday_entry_comments
     WHERE show_on_dashboard = true
     AND is_resolved = false
-    AND deleted_at IS NULL
+    AND is_deleted = false
     AND NOT (dismissed_by @> jsonb_build_array(to_jsonb(p_user_id)))
   LOOP
     UPDATE myday_entry_comments
@@ -249,7 +249,7 @@ BEGIN
   FROM myday_entry_comments
   WHERE entry_id = p_entry_id
   AND entry_type = p_entry_type
-  AND deleted_at IS NULL;
+  AND is_deleted = false;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 

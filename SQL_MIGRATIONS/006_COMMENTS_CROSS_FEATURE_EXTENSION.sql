@@ -89,15 +89,17 @@ BEGIN
     ELSE
       -- For other types (journal, resolution, routine, gift_card), check basic ownership
       -- These tables might not exist yet, so we use dynamic SQL with exception handling
+      DECLARE
+        v_result BOOLEAN;
       BEGIN
         EXECUTE format('SELECT EXISTS(SELECT 1 FROM myday_%ss WHERE id = $1 AND user_id = $2)', 
                       CASE 
                         WHEN p_entry_type = 'bank_list' THEN 'bank_item'
                         ELSE p_entry_type 
                       END)
-        INTO RETURN
+        INTO v_result
         USING p_entry_id, p_user_id;
-        RETURN COALESCE(RETURN, FALSE);
+        RETURN COALESCE(v_result, FALSE);
       EXCEPTION WHEN OTHERS THEN
         -- Table doesn't exist, deny access
         RETURN FALSE;
