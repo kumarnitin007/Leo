@@ -43,7 +43,7 @@ RETURNS BOOLEAN AS $$
 BEGIN
   -- User owns the todo OR todo is shared with user
   RETURN EXISTS (
-    SELECT 1 FROM myday_todos
+    SELECT 1 FROM myday_todo_items
     WHERE id = p_todo_id AND user_id = p_user_id
   );
   -- Note: Add shared todo logic when sharing is implemented
@@ -154,21 +154,21 @@ DECLARE
 BEGIN
   CASE p_entry_type
     WHEN 'safe_entry' THEN
-      SELECT title INTO v_title FROM myday_safe_entries WHERE id = p_entry_id;
+      SELECT title INTO v_title FROM myday_encrypted_entries WHERE id = p_entry_id;
     WHEN 'safe_document' THEN
-      SELECT filename INTO v_title FROM myday_safe_documents WHERE id = p_entry_id;
+      SELECT title INTO v_title FROM myday_document_vaults WHERE id = p_entry_id;
     WHEN 'todo' THEN
-      SELECT title INTO v_title FROM myday_todos WHERE id = p_entry_id;
+      SELECT title INTO v_title FROM myday_todo_items WHERE id = p_entry_id;
     WHEN 'event' THEN
       SELECT title INTO v_title FROM myday_events WHERE id = p_entry_id;
     WHEN 'journal' THEN
-      SELECT title INTO v_title FROM myday_journals WHERE id = p_entry_id;
+      SELECT title INTO v_title FROM myday_journal_entries WHERE id = p_entry_id;
     WHEN 'resolution' THEN
       SELECT title INTO v_title FROM myday_resolutions WHERE id = p_entry_id;
     WHEN 'routine' THEN
       SELECT title INTO v_title FROM myday_routines WHERE id = p_entry_id;
     WHEN 'gift_card' THEN
-      SELECT merchant INTO v_title FROM myday_gift_cards WHERE id = p_entry_id;
+      SELECT name INTO v_title FROM myday_items WHERE id = p_entry_id AND category = 'Gift Card';
     ELSE
       v_title := 'Unknown Entry';
   END CASE;
