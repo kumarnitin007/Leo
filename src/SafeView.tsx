@@ -74,6 +74,7 @@ const SafeView: React.FC = () => {
   const [groupKeys, setGroupKeys] = useState<Map<string, CryptoKey>>(new Map()); // NEW: Store group encryption keys
   const [entries, setEntries] = useState<SafeEntry[]>([]);
   const [sharedEntryIds, setSharedEntryIds] = useState<Set<string>>(new Set()); // Track which entries user has shared
+  const sharedEntryIdsRef = React.useRef<Set<string>>(new Set()); // Ref for immediate access
   const [documents, setDocuments] = useState<DocumentVault[]>([]);
   const [tags, setTags] = useState<Tag[]>([]);
   const [entryCount, setEntryCount] = useState(0);
@@ -382,10 +383,7 @@ const SafeView: React.FC = () => {
       console.warn('Failed to load shared entries:', err);
     }
     
-    setEntries(allEntries);
-    setEntryCount(safeEntries.length); // Only count own entries
-    
-    // Fetch entries that user has shared (for "Shared by Me" filter)
+    // Fetch entries that user has shared (for "Shared by Me" filter) - BEFORE setting entries
     try {
       const supabase = getSupabaseClient();
       if (supabase && user) {
@@ -398,12 +396,16 @@ const SafeView: React.FC = () => {
         if (sharedByMe) {
           const ids = new Set(sharedByMe.map(s => s.safe_entry_id));
           console.log('[SafeView] 📤 Shared by me count:', ids.size, 'IDs:', Array.from(ids));
-          setSharedEntryIds(ids);
+          sharedEntryIdsRef.current = ids; // Update ref immediately
+          setSharedEntryIds(ids); // Update state for re-renders
         }
       }
     } catch (err) {
       console.warn('Failed to load shared-by-me entries:', err);
     }
+    
+    setEntries(allEntries);
+    setEntryCount(safeEntries.length); // Only count own entries
   };
 
   // Load documents (including shared documents)
@@ -637,7 +639,7 @@ const SafeView: React.FC = () => {
       all: entries.length,
       favorites: entries.filter(e => e.isFavorite).length,
       shared: entries.filter(e => e.isShared).length,
-      sharedByMe: entries.filter(e => !e.isShared && sharedEntryIds.has(e.id)).length,
+      sharedByMe: entries.filter(e => !e.isShared && (sharedEntryIds.has(e.id) || sharedEntryIdsRef.current.has(e.id))).length,
       recent: entries.filter(e => new Date(e.updatedAt) >= sevenDaysAgo).length,
       expiring: entries.filter(e => {
         if (!e.expiresAt) return false;
@@ -654,6 +656,7 @@ const SafeView: React.FC = () => {
       ).length;
     });
     
+    console.log('[SafeView] 📊 Entry counts:', counts);
     return counts;
   }, [entries, tags, sharedEntryIds]);
   
@@ -671,7 +674,7 @@ const SafeView: React.FC = () => {
       case 'shared':
         return entries.filter(e => e.isShared); // Entries shared WITH me
       case 'sharedByMe':
-        return entries.filter(e => !e.isShared && sharedEntryIds.has(e.id)); // My own entries that I've shared
+        return entries.filter(e => !e.isShared && (sharedEntryIds.has(e.id) || sharedEntryIdsRef.current.has(e.id))); // My own entries that I've shared
       case 'recent':
         return entries.filter(e => new Date(e.updatedAt) >= sevenDaysAgo);
       case 'expiring':

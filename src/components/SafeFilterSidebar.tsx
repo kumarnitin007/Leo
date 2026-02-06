@@ -355,6 +355,7 @@ const SafeFilterSidebar: React.FC<SafeFilterSidebarProps> = ({
           <FilterButton filter={{ type: 'all' }} icon="📋" label="All Entries" count={entryCounts.all} />
           <FilterButton filter={{ type: 'favorites' }} icon="⭐" label="Favorites" count={entryCounts.favorites} color="#f59e0b" />
           <FilterButton filter={{ type: 'shared' }} icon="👥" label="Shared with Me" count={entryCounts.shared} color="#10b981" />
+          <FilterButton filter={{ type: 'sharedByMe' }} icon="📤" label="Shared by Me" count={entryCounts.sharedByMe} color="#3b82f6" />
           <FilterButton filter={{ type: 'recent' }} icon="🕐" label="Recently Edited" count={entryCounts.recent} color="#8b5cf6" />
           <FilterButton filter={{ type: 'expiring' }} icon="⏰" label="Expiring Soon" count={entryCounts.expiring} color="#ef4444" />
         </div>
