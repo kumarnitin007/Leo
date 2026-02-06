@@ -686,6 +686,12 @@ export async function getEntriesSharedWithMe(): Promise<SharedSafeEntry[]> {
 
   // Return shared entries with title stored in the share record
   return (data || []).map(row => {
+    console.log('[SharingService] 📦 Mapping shared entry:', {
+      id: row.id,
+      title: row.entry_title,
+      category: row.entry_category,
+      rawRow: row
+    });
     return {
       id: row.id,
       safeEntryId: row.safe_entry_id,
@@ -755,7 +761,7 @@ export async function shareDocument(
   const id = generateId();
 
   const { data, error } = await supabase
-    .from('myday_shared_documents')
+    .from('myday_shared_safe_documents')
     .insert({
       id,
       document_id: documentId,
@@ -797,7 +803,7 @@ export async function getDocumentsSharedWithMe(): Promise<SharedDocument[]> {
   if (groupIds.length === 0) return [];
 
   const { data, error } = await supabase
-    .from('myday_shared_documents')
+    .from('myday_shared_safe_documents')
     .select('*')
     .in('group_id', groupIds)
     .neq('shared_by', user.id)
@@ -847,7 +853,7 @@ export async function revokeDocumentShare(shareId: string): Promise<void> {
   if (!user) throw new Error('Not authenticated');
 
   const { error } = await supabase
-    .from('myday_shared_documents')
+    .from('myday_shared_safe_documents')
     .update({
       is_active: false,
       revoked_at: new Date().toISOString(),
