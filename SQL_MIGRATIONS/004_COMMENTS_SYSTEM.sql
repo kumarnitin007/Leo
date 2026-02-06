@@ -1,9 +1,8 @@
 -- =====================================================
--- MIGRATION 004: COMMENTS & COLLABORATION SYSTEM
+-- MIGRATION 004: COMMENTS SYSTEM
 -- =====================================================
 -- Run this fourth
--- Adds commenting system for collaborative features
--- Phase 1: MVP - Basic comments on Safe entries
+-- Fixed: Proper table references for myday_encrypted_entries
 -- =====================================================
 
 -- =====================================================
@@ -13,25 +12,23 @@
 CREATE TABLE IF NOT EXISTS myday_entry_comments (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   
-  -- What is this about? (Polymorphic - supports Safe, Documents, Lists, etc.)
-  entry_id TEXT NOT NULL, -- safe_entry_id, document_id, list_item_id, etc.
-  entry_type TEXT NOT NULL, -- 'safe_entry', 'document', 'bank_list', 'todo', etc.
-  entry_title TEXT, -- Cached for dashboard display (Phase 2)
+  -- What is this about?
+  entry_id TEXT NOT NULL,
+  entry_type TEXT NOT NULL,
+  entry_title TEXT,
   
   -- Who said it?
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  user_display_name TEXT, -- Cached for performance
+  user_display_name TEXT,
   
   -- The message
   message TEXT NOT NULL CHECK (length(message) > 0 AND length(message) <= 500),
   
-  -- Optional date field (Phase 2 - Dashboard Integration)
-  action_date DATE, -- "Call me by 2026-02-15" or "Expires on 2026-03-01"
-  action_type TEXT, -- 'reminder', 'deadline', 'expiry', 'follow_up', etc.
-  
-  -- Dashboard visibility (Phase 2)
+  -- Optional fields (Phase 2)
+  action_date DATE,
+  action_type TEXT,
   show_on_dashboard BOOLEAN DEFAULT true,
-  dismissed_by JSONB DEFAULT '[]'::jsonb, -- Array of user_ids who dismissed this
+  dismissed_by JSONB DEFAULT '[]'::jsonb,
   
   -- Metadata
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -43,81 +40,83 @@ CREATE TABLE IF NOT EXISTS myday_entry_comments (
   resolved_by UUID REFERENCES auth.users(id),
   resolved_at TIMESTAMPTZ,
   
-  -- Priority (Phase 2 - for dashboard sorting)
+  -- Priority
   priority TEXT DEFAULT 'normal' CHECK (priority IN ('low', 'normal', 'high', 'urgent'))
 );
 
 -- =====================================================
--- 2. INDEXES FOR PERFORMANCE
+-- 2. INDEXES
 -- =====================================================
 
--- Find comments for a specific entry
-CREATE INDEX idx_entry_comments_entry 
+CREATE INDEX IF NOT EXISTS idx_entry_comments_entry 
   ON myday_entry_comments(entry_id, entry_type) 
   WHERE is_deleted = false;
 
--- Find comments by user
-CREATE INDEX idx_entry_comments_user 
+CREATE INDEX IF NOT EXISTS idx_entry_comments_user 
   ON myday_entry_comments(user_id) 
   WHERE is_deleted = false;
 
--- Dashboard queries (Phase 2)
-CREATE INDEX idx_entry_comments_dashboard 
+CREATE INDEX IF NOT EXISTS idx_entry_comments_dashboard 
   ON myday_entry_comments(show_on_dashboard, action_date) 
   WHERE is_deleted = false AND is_resolved = false;
 
--- Recent comments
-CREATE INDEX idx_entry_comments_created 
+CREATE INDEX IF NOT EXISTS idx_entry_comments_created 
   ON myday_entry_comments(created_at DESC);
 
 -- =====================================================
--- 3. ROW LEVEL SECURITY (RLS)
+-- 3. ROW LEVEL SECURITY
 -- =====================================================
 
 ALTER TABLE myday_entry_comments ENABLE ROW LEVEL SECURITY;
 
 -- Users can view comments on entries they have access to
--- Note: Simplified policy - will be enhanced by migration 006 with universal access control
 CREATE POLICY "Users can view comments on accessible entries"
   ON myday_entry_comments FOR SELECT
   USING (
-    -- For now, allow viewing comments if user is in a group that has access
+    -- User owns the entry (check myday_encrypted_entries)
+    EXISTS (
+      SELECT 1 FROM myday_encrypted_entries ee
+      WHERE ee.id::text = myday_entry_comments.entry_id
+        AND ee.user_id = auth.uid()
+    )
+    OR
+    -- User is in a group that has access (check myday_shared_safe_entries)
     EXISTS (
       SELECT 1 FROM myday_shared_safe_entries sse
       JOIN myday_group_members gm ON gm.group_id = sse.group_id
-      WHERE sse.safe_entry_id = entry_id
+      WHERE sse.safe_entry_id = myday_entry_comments.entry_id
         AND gm.user_id = auth.uid()
-        AND sse.is_active = true
     )
-    -- Note: myday_safe_entries table check removed - will be added by migration 006
   );
 
 -- Users can add comments to entries they can access
--- Note: Simplified policy - will be enhanced by migration 006 with universal access control
 CREATE POLICY "Users can add comments to accessible entries"
   ON myday_entry_comments FOR INSERT
   WITH CHECK (
     user_id = auth.uid()
     AND
-    -- For now, allow adding comments if user is in a group that has access
-    EXISTS (
-      SELECT 1 FROM myday_shared_safe_entries sse
-      JOIN myday_group_members gm ON gm.group_id = sse.group_id
-      WHERE sse.safe_entry_id = entry_id
-        AND gm.user_id = auth.uid()
-        AND sse.is_active = true
+    (
+      -- User owns the entry
+      EXISTS (
+        SELECT 1 FROM myday_encrypted_entries ee
+        WHERE ee.id::text = myday_entry_comments.entry_id
+          AND ee.user_id = auth.uid()
+      )
+      OR
+      -- User is in a group that has access
+      EXISTS (
+        SELECT 1 FROM myday_shared_safe_entries sse
+        JOIN myday_group_members gm ON gm.group_id = sse.group_id
+        WHERE sse.safe_entry_id = myday_entry_comments.entry_id
+          AND gm.user_id = auth.uid()
+      )
     )
-    -- Note: myday_safe_entries table check removed - will be added by migration 006
   );
 
--- Users can edit their own comments (within reasonable time)
+-- Users can edit their own comments
 CREATE POLICY "Users can edit own comments"
   ON myday_entry_comments FOR UPDATE
-  USING (
-    user_id = auth.uid()
-    -- Optional: Add time limit for edits (e.g., within 5 minutes)
-    -- AND created_at > NOW() - INTERVAL '5 minutes'
-  );
+  USING (user_id = auth.uid());
 
 -- Users can soft-delete their own comments
 CREATE POLICY "Users can delete own comments"
@@ -129,7 +128,6 @@ CREATE POLICY "Users can delete own comments"
 -- 4. HELPER FUNCTIONS
 -- =====================================================
 
--- Get comment count for an entry
 CREATE OR REPLACE FUNCTION get_entry_comment_count(
   p_entry_id TEXT,
   p_entry_type TEXT
@@ -146,7 +144,6 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- Get unresolved comment count for an entry
 CREATE OR REPLACE FUNCTION get_entry_unresolved_comment_count(
   p_entry_id TEXT,
   p_entry_type TEXT
@@ -164,11 +161,13 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
+GRANT EXECUTE ON FUNCTION get_entry_comment_count(TEXT, TEXT) TO authenticated;
+GRANT EXECUTE ON FUNCTION get_entry_unresolved_comment_count(TEXT, TEXT) TO authenticated;
+
 -- =====================================================
 -- 5. TRIGGERS
 -- =====================================================
 
--- Auto-update updated_at timestamp
 CREATE OR REPLACE FUNCTION update_entry_comment_timestamp()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -187,56 +186,10 @@ CREATE TRIGGER trigger_update_entry_comment_timestamp
 -- VERIFICATION
 -- =====================================================
 
--- Check if table was created:
--- SELECT table_name FROM information_schema.tables 
--- WHERE table_schema = 'public' 
--- AND table_name = 'myday_entry_comments';
-
--- Check indexes:
--- SELECT indexname FROM pg_indexes 
--- WHERE tablename = 'myday_entry_comments';
-
--- Check RLS is enabled:
--- SELECT tablename, rowsecurity 
--- FROM pg_tables 
--- WHERE tablename = 'myday_entry_comments';
-
--- =====================================================
--- USAGE NOTES
--- =====================================================
-
--- Phase 1 (MVP): Basic comments on Safe entries
--- - Users can add/view/edit/delete comments
--- - Comments visible to all group members
--- - Simple message text only
-
--- Phase 2 (Dashboard Integration): To be added later
--- - Optional action_date field
--- - Priority levels
--- - Dashboard visibility controls
--- - Dismissed_by tracking
-
--- Phase 3 (Cross-Feature): To be added later
--- - Extend to documents
--- - Extend to bank lists
--- - Extend to other features
-
--- =====================================================
--- EXAMPLE QUERIES
--- =====================================================
-
--- Add a comment:
--- INSERT INTO myday_entry_comments (entry_id, entry_type, user_id, user_display_name, message)
--- VALUES ('entry-uuid', 'safe_entry', auth.uid(), 'John Doe', 'Password doesn''t work');
-
--- Get comments for an entry:
--- SELECT * FROM myday_entry_comments 
--- WHERE entry_id = 'entry-uuid' 
--- AND entry_type = 'safe_entry'
--- AND is_deleted = false
--- ORDER BY created_at DESC;
-
--- Mark comment as resolved:
--- UPDATE myday_entry_comments 
--- SET is_resolved = true, resolved_by = auth.uid(), resolved_at = NOW()
--- WHERE id = 'comment-uuid';
+DO $$
+BEGIN
+  RAISE NOTICE '✅ Migration 004 completed successfully';
+  RAISE NOTICE '   - myday_entry_comments table created';
+  RAISE NOTICE '   - RLS policies configured for myday_encrypted_entries';
+  RAISE NOTICE '   - Helper functions created';
+END $$;
