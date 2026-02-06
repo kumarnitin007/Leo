@@ -47,7 +47,7 @@ BEGIN
   WHERE 
     c.show_on_dashboard = true
     AND c.is_resolved = false
-    AND c.deleted_at IS NULL
+    AND c.is_deleted = false
     AND c.action_date IS NOT NULL
     AND NOT (c.dismissed_by @> jsonb_build_array(to_jsonb(p_user_id)))
     -- User must have access to the entry (member of group that has access)
@@ -122,7 +122,7 @@ BEGIN
   WHERE 
     c.show_on_dashboard = true
     AND c.is_resolved = false
-    AND c.deleted_at IS NULL
+    AND c.is_deleted = false
     AND c.action_date IS NOT NULL
     AND NOT (c.dismissed_by @> jsonb_build_array(to_jsonb(p_user_id)))
     AND (
@@ -155,7 +155,7 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 -- Index for dashboard queries (show_on_dashboard + action_date + is_resolved)
 CREATE INDEX IF NOT EXISTS idx_comments_dashboard 
 ON myday_entry_comments(show_on_dashboard, action_date, is_resolved) 
-WHERE show_on_dashboard = true AND is_resolved = false AND deleted_at IS NULL;
+WHERE show_on_dashboard = true AND is_resolved = false AND is_deleted = false;
 
 -- Index for priority sorting
 CREATE INDEX IF NOT EXISTS idx_comments_priority 
