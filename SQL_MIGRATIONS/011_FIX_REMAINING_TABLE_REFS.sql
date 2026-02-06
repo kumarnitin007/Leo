@@ -5,6 +5,9 @@
 -- =====================================================
 
 -- Fix user_has_entry_access function (from 006)
+-- Note: CASCADE will drop dependent RLS policies, which will be recreated by this migration
+DROP FUNCTION IF EXISTS user_has_entry_access(uuid, text, text) CASCADE;
+
 CREATE OR REPLACE FUNCTION user_has_entry_access(p_user_id UUID, p_entry_id TEXT, p_entry_type TEXT)
 RETURNS BOOLEAN AS $$
 BEGIN
@@ -49,6 +52,8 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- Fix get_dashboard_comments_for_user function (from 005)
+DROP FUNCTION IF EXISTS get_dashboard_comments_for_user(uuid);
+
 CREATE OR REPLACE FUNCTION get_dashboard_comments_for_user(p_user_id UUID)
 RETURNS TABLE (
   id UUID,
@@ -113,6 +118,8 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- Fix get_dashboard_comment_count function (from 005)
+DROP FUNCTION IF EXISTS get_dashboard_comment_count(uuid);
+
 CREATE OR REPLACE FUNCTION get_dashboard_comment_count(p_user_id UUID)
 RETURNS INTEGER AS $$
 DECLARE
@@ -147,6 +154,36 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- =====================================================
+-- RECREATE POLICIES (dropped by CASCADE)
+-- =====================================================
+
+-- Recreate comment policies that depend on user_has_entry_access
+CREATE POLICY "Users can view comments on entries they have access to"
+  ON myday_entry_comments FOR SELECT
+  USING (
+    is_deleted = false
+    AND user_has_entry_access(auth.uid(), entry_id, entry_type)
+  );
+
+CREATE POLICY "Users can add comments to entries they have access to"
+  ON myday_entry_comments FOR INSERT
+  WITH CHECK (
+    user_id = auth.uid()
+    AND user_has_entry_access(auth.uid(), entry_id, entry_type)
+  );
+
+-- Recreate reaction policy
+CREATE POLICY "Users can view reactions on comments they can see"
+  ON myday_comment_reactions FOR SELECT
+  USING (
+    EXISTS (
+      SELECT 1 FROM myday_entry_comments c
+      WHERE c.id = myday_comment_reactions.comment_id
+        AND user_has_entry_access(auth.uid(), c.entry_id, c.entry_type)
+    )
+  );
+
+-- =====================================================
 -- VERIFICATION
 -- =====================================================
 
@@ -157,4 +194,5 @@ BEGIN
   RAISE NOTICE '   - get_dashboard_comments_for_user: myday_safe_entries → myday_encrypted_entries';
   RAISE NOTICE '   - get_dashboard_comment_count: myday_safe_entries → myday_encrypted_entries';
   RAISE NOTICE '   - Added ::text casting for UUID comparisons';
+  RAISE NOTICE '   - Recreated dependent RLS policies';
 END $$;
