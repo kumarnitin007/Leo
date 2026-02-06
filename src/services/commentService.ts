@@ -95,22 +95,20 @@ export async function addComment(
 
   const displayName = memberData?.display_name || 'Someone';
 
-  // Get entry title for caching
+  // Get entry title using SQL function (bypasses RLS with SECURITY DEFINER)
   let entryTitle = 'Entry';
-  if (entryType === 'safe_entry') {
-    const { data: entryData } = await supabase
-      .from('myday_encrypted_entries')
-      .select('title')
-      .eq('id', entryId)
-      .single();
-    entryTitle = entryData?.title || 'Entry';
-  } else if (entryType === 'document') {
-    const { data: docData } = await supabase
-      .from('myday_document_vaults')
-      .select('title')
-      .eq('id', entryId)
-      .single();
-    entryTitle = docData?.title || 'Document';
+  try {
+    const { data: titleData, error: titleError } = await supabase
+      .rpc('get_entry_title', {
+        p_entry_id: entryId,
+        p_entry_type: entryType
+      });
+    
+    if (!titleError && titleData) {
+      entryTitle = titleData;
+    }
+  } catch (err) {
+    console.warn('[CommentService] Could not fetch entry title, using default');
   }
 
   const { data, error } = await supabase

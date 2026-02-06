@@ -67,7 +67,21 @@ export async function shareDocumentWithGroup(
     throw new Error('Group encryption key not found');
   }
 
-  // Encrypt document data with group key
+  // First, decrypt the document's encrypted data with the master key
+  const { decryptData: decryptDataUtil } = await import('../utils/encryption');
+  let decryptedDocData: any = {};
+  try {
+    const decrypted = await decryptDataUtil(
+      document.encryptedData,
+      document.encryptedDataIv,
+      masterKey
+    );
+    decryptedDocData = JSON.parse(decrypted);
+  } catch (err) {
+    console.error('[DocumentSharingService] Failed to decrypt document data:', err);
+  }
+
+  // Prepare document data with DECRYPTED content for group encryption
   const documentData = {
     id: document.id,
     title: document.title,
@@ -76,8 +90,10 @@ export async function shareDocumentWithGroup(
     expiryDate: document.expiryDate,
     tags: document.tags,
     isFavorite: document.isFavorite,
-    encryptedData: document.encryptedData, // Original encrypted data
-    encryptedDataIv: document.encryptedDataIv,
+    // Store the decrypted data directly (will be encrypted with group key)
+    fileReference: decryptedDocData.fileReference,
+    notes: decryptedDocData.notes,
+    priority: decryptedDocData.priority,
     createdAt: document.createdAt,
     updatedAt: document.updatedAt,
   };
@@ -347,7 +363,21 @@ export async function updateSharedDocuments(
         continue;
       }
 
-      // Re-encrypt with group key
+      // Decrypt the document's encrypted data first
+      const { decryptData: decryptDataUtil } = await import('../utils/encryption');
+      let decryptedDocData: any = {};
+      try {
+        const decrypted = await decryptDataUtil(
+          document.encryptedData,
+          document.encryptedDataIv,
+          masterKey
+        );
+        decryptedDocData = JSON.parse(decrypted);
+      } catch (err) {
+        console.error('[DocumentSharingService] Failed to decrypt document data:', err);
+      }
+
+      // Re-encrypt with group key (with decrypted content)
       const documentData = {
         id: document.id,
         title: document.title,
@@ -356,8 +386,10 @@ export async function updateSharedDocuments(
         expiryDate: document.expiryDate,
         tags: document.tags,
         isFavorite: document.isFavorite,
-        encryptedData: document.encryptedData,
-        encryptedDataIv: document.encryptedDataIv,
+        // Store decrypted data
+        fileReference: decryptedDocData.fileReference,
+        notes: decryptedDocData.notes,
+        priority: decryptedDocData.priority,
         createdAt: document.createdAt,
         updatedAt: document.updatedAt,
       };

@@ -10,6 +10,8 @@ import { DocumentVault, Tag, DocumentVaultEncryptedData, DocumentProvider, Docum
 import { CryptoKey } from '../utils/encryption';
 import { addDocumentVault, updateDocumentVault, decryptDocumentVault } from '../storage';
 import Portal from './Portal';
+import EntryComments from './EntryComments';
+import { useAuth } from '../contexts/AuthContext';
 
 interface SafeDocumentVaultFormProps {
   document?: DocumentVault;
@@ -44,6 +46,7 @@ const SafeDocumentVaultForm: React.FC<SafeDocumentVaultFormProps> = ({
   onSave,
   onCancel
 }) => {
+  const { user } = useAuth();
   const [title, setTitle] = useState('');
   const [provider, setProvider] = useState<DocumentProvider>('google');
   const [documentType, setDocumentType] = useState<DocumentType>('other');
@@ -75,17 +78,23 @@ const SafeDocumentVaultForm: React.FC<SafeDocumentVaultFormProps> = ({
 
     setIsLoading(true);
     try {
-      const decrypted = await decryptDocumentVault(document, encryptionKey);
+      // Check if document is already decrypted (shared document)
+      let decrypted: DocumentVaultEncryptedData;
+      if ((document as any).decryptedData) {
+        decrypted = (document as any).decryptedData;
+      } else {
+        decrypted = await decryptDocumentVault(document, encryptionKey);
+      }
       
       setTitle(document.title);
       setProvider(document.provider);
       setDocumentType(document.documentType);
-      setIssueDate(document.issueDate || '');
-      setExpiryDate(document.expiryDate || '');
+      setIssueDate((document as any).issueDate || '');
+      setExpiryDate((document as any).expiryDate || '');
       setSelectedTagIds(document.tags || []);
       setIsFavorite(document.isFavorite);
       
-      setFileReference(decrypted.fileReference);
+      setFileReference(decrypted.fileReference || '');
       setNotes(decrypted.notes || '');
       setPriority(decrypted.priority || 5);
     } catch (error) {
@@ -98,6 +107,12 @@ const SafeDocumentVaultForm: React.FC<SafeDocumentVaultFormProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Check if this is a read-only shared document
+    if ((document as any)?.isShared && (document as any)?.shareMode === 'readonly') {
+      alert('This is a read-only shared document. You cannot edit it.');
+      return;
+    }
     
     if (!title.trim() || !fileReference.trim()) {
       alert('Title and file reference are required');
@@ -130,6 +145,36 @@ const SafeDocumentVaultForm: React.FC<SafeDocumentVaultFormProps> = ({
           encryptionKey
         );
         if (!success) throw new Error('Failed to update document');
+        
+        // Check if this document is shared and propagate updates
+        try {
+          const { hasActiveShares, updateSharedDocuments } = await import('../services/documentSharingService');
+          const isShared = await hasActiveShares(document.id);
+          if (isShared) {
+            const getSupabaseClient = (await import('../lib/supabase')).default;
+            const supabase = getSupabaseClient();
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user) {
+              // Fetch the updated document
+              const updatedDoc = {
+                ...document,
+                title,
+                provider,
+                documentType,
+                issueDate: issueDate || undefined,
+                expiryDate: expiryDate || undefined,
+                tags: selectedTagIds,
+                isFavorite,
+                encryptedData: JSON.stringify(encryptedData)
+              };
+              await updateSharedDocuments(updatedDoc as any, user.id, encryptionKey);
+              console.log('[SafeDocumentVaultForm] ✅ Propagated updates to shared copies');
+            }
+          }
+        } catch (err) {
+          console.warn('[SafeDocumentVaultForm] Failed to propagate updates:', err);
+          // Don't fail the save if live sync fails
+        }
       } else {
         // Add new
         const result = await addDocumentVault(
@@ -823,11 +868,11 @@ const SafeDocumentVaultForm: React.FC<SafeDocumentVaultFormProps> = ({
               </button>
               <button
                 type="submit"
-                disabled={isSubmitting}
+                disabled={isSubmitting || ((document as any)?.isShared && (document as any)?.shareMode === 'readonly')}
                 style={{
                   flex: 1,
                   padding: '0.625rem 1rem',
-                  background: isSubmitting ? '#9ca3af' : '#14b8a6',
+                  background: (isSubmitting || ((document as any)?.isShared && (document as any)?.shareMode === 'readonly')) ? '#9ca3af' : '#14b8a6',
                   color: 'white',
                   border: 'none',
                   borderRadius: '0.5rem',
@@ -840,6 +885,18 @@ const SafeDocumentVaultForm: React.FC<SafeDocumentVaultFormProps> = ({
               </button>
             </div>
           </form>
+
+          {/* Comments Section (only for existing documents) */}
+          {document && user && (
+            <div style={{ padding: '1.5rem', borderTop: '1px solid #e5e7eb' }}>
+              <EntryComments
+                entryId={document.id}
+                entryType="document"
+                currentUserId={user.id}
+                isReadOnly={false}
+              />
+            </div>
+          )}
         </div>
       </div>
 

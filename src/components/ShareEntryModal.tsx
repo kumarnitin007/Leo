@@ -9,8 +9,9 @@
 
 import React, { useState, useEffect } from 'react';
 import { useTheme } from '../contexts/ThemeContext';
-import { SharingGroup, SharedSafeEntry, SharedDocument, ShareMode, SafeEntry } from '../types';
+import { SharingGroup, SharedSafeEntry, SharedDocument, ShareMode, SafeEntry, DocumentVault } from '../types';
 import * as sharingService from '../services/sharingService';
+import * as documentSharingService from '../services/documentSharingService';
 import { getOrCreateGroupKey } from '../services/groupEncryptionService';
 import { getSafeEntries } from '../storage';
 import getSupabaseClient from '../lib/supabase';
@@ -60,19 +61,36 @@ const ShareEntryModal: React.FC<ShareEntryModalProps> = ({
       setGroups(groupsData);
 
       // Get existing shares for this entry
-      // For now, we'll check each group
       const allShares: (SharedSafeEntry | SharedDocument)[] = [];
-      for (const group of groupsData) {
-        try {
-          if (entryType === 'safe_entry') {
+      
+      if (entryType === 'safe_entry') {
+        // Load password entry shares
+        for (const group of groupsData) {
+          try {
             const shares = await sharingService.getSharedEntriesForGroup(group.id);
             const match = shares.find(s => s.safeEntryId === entryId);
             if (match) allShares.push({ ...match, groupName: group.name } as SharedSafeEntry);
+          } catch (err) {
+            // Continue
           }
+        }
+      } else if (entryType === 'document') {
+        // Load document shares
+        try {
+          const { getDocumentShares } = await import('../services/documentSharingService');
+          const docShares = await getDocumentShares(entryId);
+          allShares.push(...docShares.map(s => ({
+            id: s.shareId, // Map shareId to id for consistency
+            groupId: s.groupId,
+            groupName: s.groupName,
+            shareMode: s.shareMode,
+            sharedAt: s.sharedAt,
+          } as any)));
         } catch (err) {
-          // Continue
+          console.warn('Failed to load document shares:', err);
         }
       }
+      
       setExistingShares(allShares);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load data');
@@ -179,21 +197,72 @@ const ShareEntryModal: React.FC<ShareEntryModalProps> = ({
           console.log('[ShareEntryModal] ✅ Using existing group key');
         }
         
-        // 3. Share with group encryption
+        // 3. Get category name from tag ID
+        let categoryName = '';
+        if (entry.categoryTagId) {
+          const { data: tagData } = await supabase
+            .from('myday_tags')
+            .select('name')
+            .eq('id', entry.categoryTagId)
+            .single();
+          categoryName = tagData?.name || '';
+        }
+        
+        // 4. Share with group encryption
         console.log('[ShareEntryModal] 📤 Sharing entry with group encryption...');
         await sharingService.shareEntryWithGroupEncryption(
           entryId,
           entry.title, // Pass title for display
-          entry.categoryTagId || '', // Pass category for filtering
+          categoryName, // Pass category NAME (not ID) so recipients can see it
           entryData,
           selectedGroupId,
           groupKey,
           shareMode
         );
         console.log('[ShareEntryModal] 🎉 Entry shared successfully!');
-      } else {
-        // Documents: Keep existing approach for now
-        await sharingService.shareDocument(entryId, selectedGroupId, shareMode);
+      } else if (entryType === 'document') {
+        console.log('[ShareEntryModal] 📄 Sharing document with group encryption');
+        
+        // 1. Fetch the document
+        const supabase = getSupabaseClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) throw new Error('Not authenticated');
+        
+        const { data: docData, error: docError } = await supabase
+          .from('myday_document_vaults')
+          .select('*')
+          .eq('id', entryId)
+          .eq('user_id', user.id)
+          .single();
+        
+        if (docError || !docData) {
+          throw new Error('Document not found');
+        }
+        
+        const document: DocumentVault = {
+          id: docData.id,
+          userId: docData.user_id,
+          title: docData.title,
+          provider: docData.provider,
+          documentType: docData.document_type,
+          expiryDate: docData.expiry_date,
+          tags: docData.tags || [],
+          isFavorite: docData.is_favorite || false,
+          encryptedData: docData.encrypted_data,
+          encryptedDataIv: docData.encrypted_data_iv,
+          createdAt: docData.created_at,
+          updatedAt: docData.updated_at,
+        };
+        
+        // 2. Share using document sharing service
+        await documentSharingService.shareDocumentWithGroup(
+          document,
+          selectedGroupId,
+          shareMode,
+          user.id,
+          encryptionKey
+        );
+        console.log('[ShareEntryModal] ✅ Document shared successfully');
       }
       setSelectedGroupId('');
       console.log('[ShareEntryModal] 🔄 Reloading data...');

@@ -202,7 +202,7 @@ const SafeView: React.FC = () => {
             console.log(`[Safe] ✅ Loaded ${loadedGroupKeys.size} group encryption keys:`, Array.from(loadedGroupKeys.keys()));
             
             // Check if user is in groups but missing keys (e.g., accepted invitation but no key yet)
-            console.log('[Safe] 🔍 Checking for missing group keys...');
+            // console.log('[Safe] 🔍 Checking for missing group keys...');
             const { data: memberGroups, error: memberError } = await supabase
               .from('myday_group_members')
               .select('group_id, role')
@@ -221,7 +221,7 @@ const SafeView: React.FC = () => {
                 console.warn('[Safe] 💡 These groups need encryption keys. User should request access from group owner.');
                 // TODO: Show UI notification to user that they need group owner to re-share
               } else {
-                console.log('[Safe] ✅ All group keys present');
+                // console.log('[Safe] ✅ All group keys present');
               }
             }
           } catch (error) {
@@ -232,7 +232,7 @@ const SafeView: React.FC = () => {
         
         // Pass loadedGroupKeys directly to avoid React state update delay
         await loadEntries(loadedGroupKeys);
-        await loadDocuments();
+        await loadDocuments(loadedGroupKeys);
         await loadTags();
         startInactivityTimer();
         
@@ -253,7 +253,7 @@ const SafeView: React.FC = () => {
 
   // Load entries (including shared entries)
   const loadEntries = async (keysOverride?: Map<string, CryptoKey>) => {
-    console.log('[SafeView] 📂 Loading entries...');
+    // console.log('[SafeView] 📂 Loading entries...');
     const safeEntries = await getSafeEntries();
     console.log(`[SafeView] ✅ Loaded ${safeEntries.length} own entries`);
     
@@ -263,7 +263,7 @@ const SafeView: React.FC = () => {
     // Try to load shared entries
     let allEntries = [...safeEntries];
     try {
-      console.log('[SafeView] 🔗 Fetching shared entry references...');
+      // console.log('[SafeView] 🔗 Fetching shared entry references...');
       const sharedEntryRefs = await sharingService.getEntriesSharedWithMe();
       console.log(`[SafeView] 📥 Found ${sharedEntryRefs.length} shared entry references:`, sharedEntryRefs);
       
@@ -312,7 +312,7 @@ const SafeView: React.FC = () => {
               if (shareRef.groupEncryptedData && shareRef.groupEncryptedDataIv) {
                 const groupKey = activeGroupKeys.get(shareRef.groupId);
                 if (groupKey) {
-                  console.log(`[SafeView] 🔓 Attempting to decrypt entry ${shareRef.safeEntryId} with group key for ${shareRef.groupId}`);
+                  // console.log(`[SafeView] 🔓 Attempting to decrypt entry ${shareRef.safeEntryId} with group key for ${shareRef.groupId}`);
                   try {
                     const decryptedJson = await decryptData(
                       shareRef.groupEncryptedData,
@@ -338,11 +338,14 @@ const SafeView: React.FC = () => {
                 });
               }
               
+              // Find category tag by name (since we store category NAME in share, not ID)
+              const categoryTag = tags.find(t => t.name === shareRef.entryCategory && t.isSystemCategory);
+              
               return {
                 id: shareRef.safeEntryId,
                 title: shareRef.entryTitle || 'Shared Entry',
                 url: decryptedData?.url || '',
-                categoryTagId: shareRef.entryCategory || '', // Category from share metadata (not encrypted)
+                categoryTagId: categoryTag?.id || '', // Map category name to local tag ID
                 tags: [], // Tags are user-specific, don't share them
                 isFavorite: false,
                 expiresAt: decryptedData?.expiresAt || null,
@@ -393,7 +396,9 @@ const SafeView: React.FC = () => {
           .eq('is_active', true);
         
         if (sharedByMe) {
-          setSharedEntryIds(new Set(sharedByMe.map(s => s.safe_entry_id)));
+          const ids = new Set(sharedByMe.map(s => s.safe_entry_id));
+          console.log('[SafeView] 📤 Shared by me count:', ids.size, 'IDs:', Array.from(ids));
+          setSharedEntryIds(ids);
         }
       }
     } catch (err) {
@@ -401,10 +406,65 @@ const SafeView: React.FC = () => {
     }
   };
 
-  // Load documents
-  const loadDocuments = async () => {
-    const docs = await getDocumentVaults();
-    setDocuments(docs);
+  // Load documents (including shared documents)
+  const loadDocuments = async (keysOverride?: Map<string, CryptoKey>) => {
+    const ownDocs = await getDocumentVaults();
+    const ownDocIds = new Set(ownDocs.map(d => d.id));
+    
+    // Use provided keys or fall back to state
+    const activeGroupKeys = keysOverride || groupKeys;
+    
+    // Load shared documents if we have group keys
+    let sharedDocs: DocumentVault[] = [];
+    if (activeGroupKeys.size > 0) {
+      try {
+        const supabase = getSupabaseClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const { getDocumentsSharedWithMe } = await import('./services/documentSharingService');
+          const sharedDocData = await getDocumentsSharedWithMe(user.id, activeGroupKeys);
+          
+          // Convert SharedDocument to DocumentVault format
+          // Filter out documents the user already owns
+          sharedDocs = sharedDocData
+            .filter(sd => !ownDocIds.has(sd.documentId))
+            .map(sd => {
+              const decryptedData = sd.decryptedData || {};
+              return {
+                id: sd.documentId,
+                userId: user.id, // Recipient's ID for display purposes
+                title: sd.documentTitle || 'Shared Document',
+                provider: sd.provider as any,
+                documentType: sd.documentType as any,
+                tags: [],
+                isFavorite: decryptedData.isFavorite || false,
+                encryptedData: '', // Not needed - data is already decrypted
+                encryptedDataIv: '',
+                createdAt: sd.createdAt,
+                updatedAt: sd.updatedAt,
+                // Mark as shared for special handling
+                isShared: true,
+                sharedBy: sd.sharedByName,
+                shareMode: sd.shareMode,
+                lastUpdatedByName: sd.lastUpdatedByName,
+                lastUpdatedAt: sd.lastUpdatedAt,
+                // Store the actual decrypted document data
+                decryptedData: {
+                  fileReference: decryptedData.fileReference,
+                  notes: decryptedData.notes,
+                  priority: decryptedData.priority,
+                },
+              } as any;
+            });
+          
+          console.log(`[SafeView] 📄 Loaded ${sharedDocs.length} shared documents`);
+        }
+      } catch (err) {
+        console.warn('[SafeView] ⚠️ Failed to load shared documents:', err);
+      }
+    }
+    
+    setDocuments([...ownDocs, ...sharedDocs]);
   };
 
   // Handle activity (reset inactivity timer)

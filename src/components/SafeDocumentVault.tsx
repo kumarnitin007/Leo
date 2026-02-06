@@ -40,6 +40,21 @@ const documentTypeLabels: Record<DocumentType, string> = {
   other: 'Other'
 };
 
+const formatTimeAgo = (timestamp: string): string => {
+  const now = new Date();
+  const past = new Date(timestamp);
+  const diffMs = now.getTime() - past.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+  const diffDays = Math.floor(diffMs / 86400000);
+
+  if (diffMins < 1) return 'just now';
+  if (diffMins < 60) return `${diffMins}m ago`;
+  if (diffHours < 24) return `${diffHours}h ago`;
+  if (diffDays < 7) return `${diffDays}d ago`;
+  return past.toLocaleDateString();
+};
+
 const SafeDocumentVault: React.FC<SafeDocumentVaultProps> = ({
   documents,
   tags,
@@ -334,6 +349,38 @@ const SafeDocumentVault: React.FC<SafeDocumentVaultProps> = ({
                     {doc.isFavorite && <span>⭐</span>}
                   </div>
                 </div>
+
+                {/* Shared/Updated badges */}
+                {(doc as any).isShared && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', marginBottom: '0.5rem' }}>
+                    <span style={{
+                      display: 'inline-block',
+                      padding: '0.25rem 0.5rem',
+                      backgroundColor: '#10b981',
+                      color: 'white',
+                      borderRadius: '4px',
+                      fontSize: '0.7rem',
+                      fontWeight: 600,
+                      alignSelf: 'flex-start'
+                    }}>
+                      🔗 Shared by {(doc as any).sharedBy}
+                    </span>
+                    {(doc as any).lastUpdatedByName && (doc as any).lastUpdatedAt && (
+                      <span style={{
+                        display: 'inline-block',
+                        padding: '0.25rem 0.5rem',
+                        backgroundColor: '#3b82f6',
+                        color: 'white',
+                        borderRadius: '4px',
+                        fontSize: '0.7rem',
+                        fontWeight: 600,
+                        alignSelf: 'flex-start'
+                      }}>
+                        ✏️ Updated {formatTimeAgo((doc as any).lastUpdatedAt)} by {(doc as any).lastUpdatedByName}
+                      </span>
+                    )}
+                  </div>
+                )}
 
                 {/* Provider and Type */}
                 <p style={{ margin: '0 0 0.5rem 0', color: '#3b82f6' }}>
