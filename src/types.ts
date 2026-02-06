@@ -638,6 +638,36 @@ export interface SharedSafeEntry {
   lastUpdatedByName?: string; // Display name of user who last updated
 }
 
+// =====================================================
+// COMMENTS & COLLABORATION
+// =====================================================
+
+export interface EntryComment {
+  id: string;
+  entryId: string;
+  entryType: 'safe_entry' | 'document' | 'bank_list' | 'todo';
+  entryTitle?: string; // Cached for dashboard display
+  userId: string;
+  userDisplayName: string;
+  message: string;
+  // Optional date field (Phase 2)
+  actionDate?: string; // YYYY-MM-DD
+  actionType?: 'reminder' | 'deadline' | 'expiry' | 'follow_up';
+  // Dashboard visibility (Phase 2)
+  showOnDashboard: boolean;
+  dismissedBy: string[]; // Array of user_ids
+  // Metadata
+  createdAt: string;
+  updatedAt: string;
+  isDeleted: boolean;
+  // Resolution
+  isResolved: boolean;
+  resolvedBy?: string;
+  resolvedAt?: string;
+  // Priority (Phase 2)
+  priority: 'low' | 'normal' | 'high' | 'urgent';
+}
+
 export interface GroupEncryptionKey {
   id: string;
   groupId: string;

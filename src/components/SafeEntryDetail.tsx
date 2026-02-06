@@ -11,6 +11,8 @@ import { CryptoKey } from '../utils/encryption';
 import { decryptSafeEntry, deleteSafeEntry, markSafeEntryAccessed } from '../storage';
 import { generateTOTP, getTOTPRemainingSeconds } from '../utils/totp';
 import Portal from './Portal';
+import EntryComments from './EntryComments';
+import { useAuth } from '../contexts/AuthContext';
 
 interface SafeEntryDetailProps {
   entry: SafeEntry;
@@ -29,6 +31,7 @@ const SafeEntryDetail: React.FC<SafeEntryDetailProps> = ({
   onDelete,
   onClose
 }) => {
+  const { user } = useAuth();
   const [encryptedData, setEncryptedData] = useState<SafeEntryEncryptedData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
@@ -1011,6 +1014,16 @@ const SafeEntryDetail: React.FC<SafeEntryDetailProps> = ({
           </>
         )}
       </div>
+
+      {/* Comments Section - Only show for shared entries or entries user has shared */}
+      {(entry.isShared || entry.id) && user && (
+        <EntryComments
+          entryId={entry.id}
+          entryType="safe_entry"
+          currentUserId={user.id}
+          isReadOnly={false}
+        />
+      )}
           </div>{/* Close Content */}
         </div>{/* Close modal box */}
       </div>{/* Close backdrop */}

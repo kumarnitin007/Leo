@@ -1,7 +1,8 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { SafeEntry, Tag } from '../types';
 import { CryptoKey } from '../utils/encryption';
 import { deleteSafeEntriesByTag, deleteSafeEntry } from '../storage';
+import { getUnresolvedCommentCount } from '../services/commentService';
 
 // Helper to format "X mins ago" timestamp
 function formatTimeAgo(isoTimestamp: string): string {
@@ -55,6 +56,31 @@ const SafeEntryList: React.FC<SafeEntryListProps> = ({
   // delete confirmations
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showSelectedDeleteConfirm, setShowSelectedDeleteConfirm] = useState(false);
+  
+  // comment counts
+  const [commentCounts, setCommentCounts] = useState<Record<string, number>>({});
+  
+  // Load comment counts for entries
+  useEffect(() => {
+    const loadCommentCounts = async () => {
+      const counts: Record<string, number> = {};
+      for (const entry of entries) {
+        try {
+          const count = await getUnresolvedCommentCount(entry.id, 'safe_entry');
+          if (count > 0) {
+            counts[entry.id] = count;
+          }
+        } catch (err) {
+          // Ignore errors (table might not exist yet)
+        }
+      }
+      setCommentCounts(counts);
+    };
+    
+    if (entries.length > 0) {
+      loadCommentCounts();
+    }
+  }, [entries]);
 
   const filteredEntries = useMemo(() => {
     let filtered = [...entries];
@@ -290,7 +316,24 @@ const SafeEntryList: React.FC<SafeEntryListProps> = ({
                 </label>
 
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '0.75rem' }}>
-                  <h3 style={{ margin: 0, fontSize: '1.1rem', flex: 1 }}>{entry.title}</h3>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flex: 1 }}>
+                    <h3 style={{ margin: 0, fontSize: '1.1rem' }}>{entry.title}</h3>
+                    {commentCounts[entry.id] > 0 && (
+                      <span style={{
+                        background: '#3b82f6',
+                        color: 'white',
+                        fontSize: '0.65rem',
+                        fontWeight: 600,
+                        padding: '2px 6px',
+                        borderRadius: '10px',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '2px',
+                      }}>
+                        💬 {commentCounts[entry.id]}
+                      </span>
+                    )}
+                  </div>
                   <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
                     {onShare && !entry.isShared && (
                       <button
