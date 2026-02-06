@@ -63,7 +63,7 @@ ON myday_shared_safe_documents FOR INSERT
     auth.uid() = shared_by
     AND EXISTS (
       SELECT 1 FROM myday_document_vaults
-      WHERE id = document_id AND user_id = auth.uid()
+      WHERE id::text = document_id AND user_id = auth.uid()
     )
   );
 
@@ -73,7 +73,7 @@ ON myday_shared_safe_documents FOR UPDATE
   USING (
     EXISTS (
       SELECT 1 FROM myday_document_vaults
-      WHERE id = document_id AND user_id = auth.uid()
+      WHERE id::text = document_id AND user_id = auth.uid()
     )
   );
 
@@ -84,7 +84,7 @@ ON myday_shared_safe_documents FOR DELETE
     auth.uid() = shared_by
     OR EXISTS (
       SELECT 1 FROM myday_document_vaults
-      WHERE id = document_id AND user_id = auth.uid()
+      WHERE id::text = document_id AND user_id = auth.uid()
     )
   );
 
@@ -196,7 +196,7 @@ BEGIN
   -- User owns the document OR document is shared with user's group
   RETURN EXISTS (
     SELECT 1 FROM myday_document_vaults
-    WHERE id = p_document_id AND user_id = p_user_id
+    WHERE id::text = p_document_id AND user_id = p_user_id
   ) OR EXISTS (
     SELECT 1 
     FROM myday_shared_safe_documents ssd
