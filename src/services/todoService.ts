@@ -48,6 +48,60 @@ export async function getTodoGroups(): Promise<TodoGroup[]> {
   }));
 }
 
+export async function getTodoGroupById(groupId: string): Promise<TodoGroup | null> {
+  const supabase = getClient();
+  
+  const { data, error } = await supabase
+    .from('myday_todo_groups')
+    .select('*')
+    .eq('id', groupId)
+    .single();
+
+  if (error || !data) return null;
+
+  return {
+    id: data.id,
+    name: data.name,
+    color: data.color,
+    icon: data.icon,
+    order: data.order_num,
+    isExpanded: data.is_expanded,
+    createdAt: data.created_at,
+    updatedAt: data.updated_at,
+  };
+}
+
+export async function getTodoItemsByGroup(groupId: string): Promise<TodoItem[]> {
+  const supabase = getClient();
+  
+  const { data, error } = await supabase
+    .from('myday_todo_items')
+    .select('*')
+    .eq('group_id', groupId)
+    .order('order_num', { ascending: true });
+
+  if (error) throw error;
+
+  return (data || []).map(row => ({
+    id: row.id,
+    text: row.text,
+    groupId: row.group_id,
+    isCompleted: row.is_completed,
+    completedAt: row.completed_at,
+    priority: row.priority,
+    dueDate: row.due_date,
+    notes: row.notes,
+    tags: row.tags,
+    showOnDashboard: row.show_on_dashboard,
+    assignedTo: row.assigned_to,
+    assignedAt: row.assigned_at,
+    assignedBy: row.assigned_by,
+    order: row.order_num,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  }));
+}
+
 export async function createTodoGroup(group: Partial<TodoGroup>): Promise<TodoGroup> {
   const supabase = getClient();
   const { data: { user } } = await supabase.auth.getUser();

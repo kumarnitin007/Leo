@@ -15,6 +15,7 @@ import { TodoItem, TodoGroup, TodoPriority } from './types';
 import VoiceCommandModal from './components/VoiceCommand/VoiceCommandModal';
 import ShareModal from './components/ShareModal';
 import * as todoService from './services/todoService';
+import * as sharingService from './services/sharingService';
 import { AssignableUser } from './services/todoService';
 
 interface TodoViewProps {
@@ -80,14 +81,47 @@ const TodoView: React.FC<TodoViewProps> = () => {
     setLoading(true);
     setError(null);
     try {
-      const [groupsData, itemsData] = await Promise.all([
+      const [groupsData, itemsData, sharedGroupsData] = await Promise.all([
         todoService.getTodoGroups(),
         todoService.getTodoItems('all'),
+        sharingService.getTodoGroupsSharedWithMe(),
       ]);
-      setGroups(groupsData);
-      setItems(itemsData);
+      
+      // Load shared TODO groups and their items
+      const sharedGroups: TodoGroup[] = [];
+      const sharedItems: TodoItem[] = [];
+      
+      for (const share of sharedGroupsData) {
+        try {
+          // Get the shared group details
+          const groupDetails = await todoService.getTodoGroupById(share.todoGroupId);
+          if (groupDetails) {
+            sharedGroups.push({
+              ...groupDetails,
+              // Mark as shared for UI indication
+              isShared: true,
+              sharedBy: share.sharedBy,
+              shareMode: share.shareMode,
+            } as any);
+          }
+          
+          // Get items in this shared group
+          const groupItems = await todoService.getTodoItemsByGroup(share.todoGroupId);
+          sharedItems.push(...groupItems.map(item => ({
+            ...item,
+            isShared: true,
+            shareMode: share.shareMode,
+          } as any)));
+        } catch (err) {
+          console.warn(`Failed to load shared group ${share.todoGroupId}:`, err);
+        }
+      }
+      
+      setGroups([...groupsData, ...sharedGroups]);
+      setItems([...itemsData, ...sharedItems]);
+      
       // Expand all groups by default
-      const expandedSet = new Set(['ungrouped', ...groupsData.map(g => g.id)]);
+      const expandedSet = new Set(['ungrouped', ...groupsData.map(g => g.id), ...sharedGroups.map(g => g.id)]);
       setExpandedGroups(expandedSet);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load data');
@@ -622,6 +656,10 @@ const TodoView: React.FC<TodoViewProps> = () => {
           // Don't allow sharing of Voice Memo group
           const canShare = !group.name.toLowerCase().includes('voice memo');
           
+          const isSharedGroup = (group as any).isShared;
+          const sharedByName = (group as any).sharedBy;
+          const groupShareMode = (group as any).shareMode;
+          
           return (
             <GroupSection
               key={group.id}
@@ -634,18 +672,21 @@ const TodoView: React.FC<TodoViewProps> = () => {
               onToggleItem={handleToggleItem}
               onDeleteItem={handleDeleteItem}
               onItemClick={openDetailModal}
-              onEditGroup={() => {
+              onEditGroup={!isSharedGroup ? () => {
                 setEditingGroup(group);
                 setGroupName(group.name);
                 setGroupIcon(group.icon || '📁');
                 setGroupColor(group.color || '#6366f1');
                 setShowGroupModal(true);
-              }}
-              onDeleteGroup={() => handleDeleteGroup(group.id)}
-              onShare={canShare ? () => {
+              } : undefined}
+              onDeleteGroup={!isSharedGroup ? () => handleDeleteGroup(group.id) : undefined}
+              onShare={canShare && !isSharedGroup ? () => {
                 setSharingGroup(group);
                 setShowShareModal(true);
               } : undefined}
+              isShared={isSharedGroup}
+              sharedBy={sharedByName}
+              shareMode={groupShareMode}
               theme={theme}
             />
           );
@@ -1130,6 +1171,9 @@ interface GroupSectionProps {
   onEditGroup?: () => void;
   onDeleteGroup?: () => void;
   onShare?: () => void;
+  isShared?: boolean;
+  sharedBy?: string;
+  shareMode?: 'readonly' | 'editable';
   theme: any;
 }
 
@@ -1146,6 +1190,9 @@ const GroupSection: React.FC<GroupSectionProps> = ({
   onEditGroup,
   onDeleteGroup,
   onShare,
+  isShared,
+  sharedBy,
+  shareMode,
   theme,
 }) => {
   const completedCount = items.filter(i => i.isCompleted).length;
@@ -1172,9 +1219,33 @@ const GroupSection: React.FC<GroupSectionProps> = ({
           userSelect: 'none'
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
           <span style={{ fontSize: '1.25rem' }}>{icon}</span>
           <span style={{ fontWeight: 600, color: '#1f2937' }}>{title}</span>
+          {isShared && sharedBy && (
+            <span style={{
+              background: '#10b981',
+              color: 'white',
+              padding: '0.25rem 0.5rem',
+              borderRadius: '4px',
+              fontSize: '0.65rem',
+              fontWeight: 600
+            }}>
+              🔗 Shared
+            </span>
+          )}
+          {isShared && shareMode === 'readonly' && (
+            <span style={{
+              background: '#f59e0b',
+              color: 'white',
+              padding: '0.25rem 0.5rem',
+              borderRadius: '4px',
+              fontSize: '0.65rem',
+              fontWeight: 600
+            }}>
+              👁️ View Only
+            </span>
+          )}
           <span style={{
             background: '#e5e7eb',
             color: '#6b7280',
@@ -1266,14 +1337,21 @@ const GroupSection: React.FC<GroupSectionProps> = ({
             >
               {/* Checkbox */}
               <button
-                onClick={(e) => { e.stopPropagation(); onToggleItem(item.id); }}
+                onClick={(e) => { 
+                  e.stopPropagation(); 
+                  if (shareMode !== 'readonly') {
+                    onToggleItem(item.id);
+                  }
+                }}
+                disabled={shareMode === 'readonly'}
                 style={{
                   width: '24px',
                   height: '24px',
                   borderRadius: '50%',
                   border: `2px solid ${item.isCompleted ? '#10b981' : PRIORITY_CONFIG[item.priority || 'medium'].color}`,
                   background: item.isCompleted ? '#10b981' : 'transparent',
-                  cursor: 'pointer',
+                  cursor: shareMode === 'readonly' ? 'not-allowed' : 'pointer',
+                  opacity: shareMode === 'readonly' ? 0.5 : 1,
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -1320,22 +1398,24 @@ const GroupSection: React.FC<GroupSectionProps> = ({
               </div>
               
               {/* Delete */}
-              <button
-                onClick={(e) => { e.stopPropagation(); onDeleteItem(item.id); }}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  cursor: 'pointer',
-                  color: '#d1d5db',
-                  padding: '0.25rem',
-                  opacity: 0.6,
-                  transition: 'opacity 0.2s'
-                }}
-                onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
-                onMouseLeave={(e) => e.currentTarget.style.opacity = '0.6'}
-              >
-                ✕
-              </button>
+              {shareMode !== 'readonly' && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); onDeleteItem(item.id); }}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    cursor: 'pointer',
+                    color: '#d1d5db',
+                    padding: '0.25rem',
+                    opacity: 0.6,
+                    transition: 'opacity 0.2s'
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
+                  onMouseLeave={(e) => e.currentTarget.style.opacity = '0.6'}
+                >
+                  ✕
+                </button>
+              )}
             </div>
           ))}
           
