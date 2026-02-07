@@ -81,13 +81,21 @@ const TodoView: React.FC<TodoViewProps> = () => {
     setLoading(true);
     setError(null);
     try {
-      const [groupsData, itemsData, sharedGroupsData] = await Promise.all([
+      console.log('[TodoView] Loading data...');
+      const [groupsData, itemsData, sharedGroupsData, sharedByMeData] = await Promise.all([
         todoService.getTodoGroups(),
         todoService.getTodoItems('all'),
         sharingService.getTodoGroupsSharedWithMe(),
+        sharingService.getMyGroups(), // Get groups I'm a member of to check for shares
       ]);
       
-      // Load shared TODO groups and their items
+      console.log('[TodoView] Loaded:', {
+        ownGroups: groupsData.length,
+        ownItems: itemsData.length,
+        sharedGroupsData: sharedGroupsData.length
+      });
+      
+      // Load shared TODO groups and their items (received by me)
       const sharedGroups: TodoGroup[] = [];
       const sharedItems: TodoItem[] = [];
       
@@ -96,17 +104,22 @@ const TodoView: React.FC<TodoViewProps> = () => {
           // Get the shared group details
           const groupDetails = await todoService.getTodoGroupById(share.todoGroupId);
           if (groupDetails) {
+            // Get the sharer's display name
+            const sharerName = await todoService.getUserDisplayName(share.sharedBy);
+            
             sharedGroups.push({
               ...groupDetails,
               // Mark as shared for UI indication
               isShared: true,
-              sharedBy: share.sharedBy,
+              sharedBy: sharerName || 'Unknown',
               shareMode: share.shareMode,
             } as any);
           }
           
           // Get items in this shared group
+          console.log('[TodoView] Fetching items for shared group:', share.todoGroupId);
           const groupItems = await todoService.getTodoItemsByGroup(share.todoGroupId);
+          console.log('[TodoView] Got', groupItems.length, 'items from shared group');
           sharedItems.push(...groupItems.map(item => ({
             ...item,
             isShared: true,
@@ -117,8 +130,36 @@ const TodoView: React.FC<TodoViewProps> = () => {
         }
       }
       
+      // Also load items from MY OWN groups (to see items added by others)
+      for (const group of groupsData) {
+        try {
+          console.log('[TodoView] Fetching ALL items for own group:', group.id);
+          const allGroupItems = await todoService.getTodoItemsByGroup(group.id);
+          console.log('[TodoView] Got', allGroupItems.length, 'total items in own group');
+          
+          // Add items that aren't already in itemsData (items created by others)
+          const newItems = allGroupItems.filter(
+            groupItem => !itemsData.some(ownItem => ownItem.id === groupItem.id)
+          );
+          
+          if (newItems.length > 0) {
+            console.log('[TodoView] Found', newItems.length, 'items created by others in my group');
+            sharedItems.push(...newItems);
+          }
+        } catch (err) {
+          console.warn(`Failed to load all items for group ${group.id}:`, err);
+        }
+      }
+      
       setGroups([...groupsData, ...sharedGroups]);
-      setItems([...itemsData, ...sharedItems]);
+      
+      // Deduplicate items: if an item appears in both itemsData and sharedItems, keep only one
+      const allItems = [...itemsData, ...sharedItems];
+      const uniqueItems = Array.from(
+        new Map(allItems.map(item => [item.id, item])).values()
+      );
+      
+      setItems(uniqueItems);
       
       // Don't auto-expand groups - let user expand as needed
     } catch (err) {
@@ -1276,7 +1317,7 @@ const GroupSection: React.FC<GroupSectionProps> = ({
               fontSize: '0.65rem',
               fontWeight: 600
             }}>
-              🔗 Shared
+              🔗 Shared by {sharedBy}
             </span>
           )}
           {isShared && shareMode === 'readonly' && (

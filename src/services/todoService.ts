@@ -74,13 +74,20 @@ export async function getTodoGroupById(groupId: string): Promise<TodoGroup | nul
 export async function getTodoItemsByGroup(groupId: string): Promise<TodoItem[]> {
   const supabase = getClient();
   
+  console.log('[getTodoItemsByGroup] Fetching items for group:', groupId);
+  
   const { data, error } = await supabase
     .from('myday_todo_items')
     .select('*')
     .eq('group_id', groupId)
     .order('order_num', { ascending: true });
 
-  if (error) throw error;
+  if (error) {
+    console.error('[getTodoItemsByGroup] Error:', error);
+    throw error;
+  }
+
+  console.log('[getTodoItemsByGroup] Found', data?.length || 0, 'items');
 
   return (data || []).map(row => ({
     id: row.id,
@@ -256,7 +263,8 @@ export async function getDashboardTodos(): Promise<TodoItem[]> {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('Not authenticated');
 
-  const { data, error } = await supabase
+  // Get user's own items
+  const { data: ownData, error: ownError } = await supabase
     .from('myday_todo_items')
     .select('*')
     .eq('user_id', user.id)
@@ -265,7 +273,67 @@ export async function getDashboardTodos(): Promise<TodoItem[]> {
     .not('due_date', 'is', null)
     .order('due_date', { ascending: true });
 
-  if (error) throw error;
+  if (ownError) throw ownError;
+
+  // Also get items from:
+  // 1. Groups user owns (to see items added by others)
+  // 2. Groups shared with user
+  
+  const { data: ownGroups } = await supabase
+    .from('myday_todo_groups')
+    .select('id')
+    .eq('user_id', user.id);
+
+  // Get groups shared with user
+  const { data: memberData } = await supabase
+    .from('myday_group_members')
+    .select('group_id')
+    .eq('user_id', user.id);
+
+  const memberGroupIds = (memberData || []).map(m => m.group_id);
+  
+  let sharedTodoGroupIds: string[] = [];
+  if (memberGroupIds.length > 0) {
+    const { data: sharedTodoGroups } = await supabase
+      .from('myday_shared_todo_groups')
+      .select('todo_group_id')
+      .in('group_id', memberGroupIds)
+      .neq('shared_by', user.id)
+      .eq('is_active', true);
+    
+    sharedTodoGroupIds = (sharedTodoGroups || []).map(s => s.todo_group_id);
+  }
+
+  const ownGroupIds = (ownGroups || []).map(g => g.id);
+  const allGroupIds = [...ownGroupIds, ...sharedTodoGroupIds];
+  
+  let sharedGroupItems: any[] = [];
+  if (allGroupIds.length > 0) {
+    const { data: sharedData, error: sharedError } = await supabase
+      .from('myday_todo_items')
+      .select('*')
+      .in('group_id', allGroupIds)
+      .eq('show_on_dashboard', true)
+      .eq('is_completed', false)
+      .not('due_date', 'is', null)
+      .neq('user_id', user.id); // Only items NOT created by current user
+
+    if (!sharedError && sharedData) {
+      sharedGroupItems = sharedData;
+    }
+  }
+
+  // Combine and deduplicate
+  const allItems = [...(ownData || []), ...sharedGroupItems];
+  const uniqueItems = Array.from(
+    new Map(allItems.map(item => [item.id, item])).values()
+  );
+
+  const data = uniqueItems.sort((a, b) => 
+    (a.due_date || '').localeCompare(b.due_date || '')
+  );
+
+  if (!data) return [];
 
   return (data || []).map(row => ({
     id: row.id,
