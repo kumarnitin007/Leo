@@ -45,7 +45,7 @@ const TodoView: React.FC<TodoViewProps> = () => {
   const [selectedGroups, setSelectedGroups] = useState<Set<string>>(new Set()); // empty = all
   const [showCompleted, setShowCompleted] = useState(true);
   const [showVoiceModal, setShowVoiceModal] = useState(false);
-  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set(['ungrouped']));
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set()); // Start collapsed
   
   // Input state
   const [newItemText, setNewItemText] = useState('');
@@ -120,9 +120,7 @@ const TodoView: React.FC<TodoViewProps> = () => {
       setGroups([...groupsData, ...sharedGroups]);
       setItems([...itemsData, ...sharedItems]);
       
-      // Expand all groups by default
-      const expandedSet = new Set(['ungrouped', ...groupsData.map(g => g.id), ...sharedGroups.map(g => g.id)]);
-      setExpandedGroups(expandedSet);
+      // Don't auto-expand groups - let user expand as needed
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load data');
     } finally {
@@ -601,9 +599,16 @@ const TodoView: React.FC<TodoViewProps> = () => {
               }}
             >
               <option value="">Quick Items</option>
-              {groups.map(g => (
-                <option key={g.id} value={g.id}>{g.icon} {g.name}</option>
-              ))}
+              {groups
+                .filter(g => {
+                  // Exclude view-only shared lists
+                  const isShared = (g as any).isShared;
+                  const shareMode = (g as any).shareMode;
+                  return !isShared || shareMode === 'editable';
+                })
+                .map(g => (
+                  <option key={g.id} value={g.id}>{g.icon} {g.name}</option>
+                ))}
             </select>
           </div>
           
@@ -856,38 +861,56 @@ const TodoView: React.FC<TodoViewProps> = () => {
       />
 
       {/* Detail Modal */}
-      {showDetailModal && selectedItem && (
-        <div style={{
-          position: 'fixed',
-          inset: 0,
-          background: 'rgba(0,0,0,0.5)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 1100,
-          padding: '1rem'
-        }}>
+      {showDetailModal && selectedItem && (() => {
+        const isReadonly = (selectedItem as any).shareMode === 'readonly';
+        
+        return (
           <div style={{
-            background: 'white',
-            borderRadius: '1rem',
-            width: '100%',
-            maxWidth: '450px',
-            maxHeight: '90vh',
-            overflow: 'auto',
-            animation: 'slideUp 0.3s ease-out'
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1100,
+            padding: '1rem'
           }}>
             <div style={{
-              padding: '1rem 1.5rem',
-              borderBottom: '1px solid #e5e7eb',
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              position: 'sticky',
-              top: 0,
               background: 'white',
-              zIndex: 1
+              borderRadius: '1rem',
+              width: '100%',
+              maxWidth: '450px',
+              maxHeight: '90vh',
+              overflow: 'auto',
+              animation: 'slideUp 0.3s ease-out'
             }}>
-              <h3 style={{ margin: 0, fontSize: '1.1rem' }}>📝 List Item Details</h3>
+              <div style={{
+                padding: '1rem 1.5rem',
+                borderBottom: '1px solid #e5e7eb',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                position: 'sticky',
+                top: 0,
+                background: 'white',
+                zIndex: 1
+              }}>
+                <h3 style={{ margin: 0, fontSize: '1.1rem' }}>
+                  📝 List Item Details
+                  {isReadonly && (
+                    <span style={{
+                      marginLeft: '0.5rem',
+                      fontSize: '0.75rem',
+                      background: '#f59e0b',
+                      color: 'white',
+                      padding: '0.25rem 0.5rem',
+                      borderRadius: '0.25rem',
+                      fontWeight: 500
+                    }}>
+                      👁️ View Only
+                    </span>
+                  )}
+                </h3>
               <button
                 onClick={() => { setShowDetailModal(false); setSelectedItem(null); }}
                 style={{ background: 'none', border: 'none', fontSize: '1.25rem', cursor: 'pointer', color: '#9ca3af' }}
@@ -906,12 +929,15 @@ const TodoView: React.FC<TodoViewProps> = () => {
                   type="text"
                   value={detailEdits.text ?? selectedItem.text}
                   onChange={(e) => setDetailEdits({ ...detailEdits, text: e.target.value })}
+                  disabled={isReadonly}
                   style={{
                     width: '100%',
                     padding: '0.75rem',
                     border: '2px solid #e5e7eb',
                     borderRadius: '0.5rem',
-                    fontSize: '1rem'
+                    fontSize: '1rem',
+                    opacity: isReadonly ? 0.6 : 1,
+                    cursor: isReadonly ? 'not-allowed' : 'text'
                   }}
                 />
               </div>
@@ -925,17 +951,19 @@ const TodoView: React.FC<TodoViewProps> = () => {
                   {(Object.keys(PRIORITY_CONFIG) as TodoPriority[]).map(p => (
                     <button
                       key={p}
-                      onClick={() => setDetailEdits({ ...detailEdits, priority: p })}
+                      onClick={() => !isReadonly && setDetailEdits({ ...detailEdits, priority: p })}
+                      disabled={isReadonly}
                       style={{
                         flex: 1,
                         padding: '0.5rem',
                         background: (detailEdits.priority ?? selectedItem.priority) === p ? PRIORITY_CONFIG[p].bg : '#f9fafb',
                         border: `2px solid ${(detailEdits.priority ?? selectedItem.priority) === p ? PRIORITY_CONFIG[p].color : '#e5e7eb'}`,
                         borderRadius: '0.5rem',
-                        cursor: 'pointer',
+                        cursor: isReadonly ? 'not-allowed' : 'pointer',
                         fontSize: '0.85rem',
                         fontWeight: 500,
-                        color: PRIORITY_CONFIG[p].color
+                        color: PRIORITY_CONFIG[p].color,
+                        opacity: isReadonly ? 0.6 : 1
                       }}
                     >
                       {PRIORITY_CONFIG[p].icon} {PRIORITY_CONFIG[p].label}
@@ -953,12 +981,15 @@ const TodoView: React.FC<TodoViewProps> = () => {
                   type="date"
                   value={detailEdits.dueDate ?? selectedItem.dueDate ?? ''}
                   onChange={(e) => setDetailEdits({ ...detailEdits, dueDate: e.target.value || undefined })}
+                  disabled={isReadonly}
                   style={{
                     width: '100%',
                     padding: '0.75rem',
                     border: '2px solid #e5e7eb',
                     borderRadius: '0.5rem',
-                    fontSize: '1rem'
+                    fontSize: '1rem',
+                    opacity: isReadonly ? 0.6 : 1,
+                    cursor: isReadonly ? 'not-allowed' : 'text'
                   }}
                 />
               </div>
@@ -993,13 +1024,16 @@ const TodoView: React.FC<TodoViewProps> = () => {
                   <select
                     value={detailEdits.assignedTo ?? selectedItem.assignedTo ?? ''}
                     onChange={(e) => setDetailEdits({ ...detailEdits, assignedTo: e.target.value || undefined })}
+                    disabled={isReadonly}
                     style={{
                       width: '100%',
                       padding: '0.75rem',
                       border: '2px solid #e5e7eb',
                       borderRadius: '0.5rem',
                       fontSize: '1rem',
-                      background: 'white'
+                      background: 'white',
+                      opacity: isReadonly ? 0.6 : 1,
+                      cursor: isReadonly ? 'not-allowed' : 'pointer'
                     }}
                   >
                     <option value="">Not assigned</option>
@@ -1057,19 +1091,29 @@ const TodoView: React.FC<TodoViewProps> = () => {
                 <select
                   value={detailEdits.groupId ?? selectedItem.groupId ?? ''}
                   onChange={(e) => setDetailEdits({ ...detailEdits, groupId: e.target.value || undefined })}
+                  disabled={isReadonly}
                   style={{
                     width: '100%',
                     padding: '0.75rem',
                     border: '2px solid #e5e7eb',
                     borderRadius: '0.5rem',
                     fontSize: '1rem',
-                    background: 'white'
+                    background: 'white',
+                    opacity: isReadonly ? 0.6 : 1,
+                    cursor: isReadonly ? 'not-allowed' : 'pointer'
                   }}
                 >
                   <option value="">📋 Quick Items</option>
-                  {groups.map(g => (
-                    <option key={g.id} value={g.id}>{g.icon} {g.name}</option>
-                  ))}
+                  {groups
+                    .filter(g => {
+                      // Exclude view-only shared lists
+                      const isShared = (g as any).isShared;
+                      const shareMode = (g as any).shareMode;
+                      return !isShared || shareMode === 'editable';
+                    })
+                    .map(g => (
+                      <option key={g.id} value={g.id}>{g.icon} {g.name}</option>
+                    ))}
                 </select>
               </div>
 
@@ -1110,25 +1154,26 @@ const TodoView: React.FC<TodoViewProps> = () => {
                 </button>
                 <button
                   onClick={saveDetailEdits}
-                  disabled={Object.keys(detailEdits).length === 0}
+                  disabled={isReadonly || Object.keys(detailEdits).length === 0}
                   style={{
                     flex: 1,
                     padding: '0.75rem',
-                    background: Object.keys(detailEdits).length > 0 ? theme.colors.primary : '#e5e7eb',
-                    color: Object.keys(detailEdits).length > 0 ? 'white' : '#9ca3af',
+                    background: isReadonly ? '#f59e0b' : (Object.keys(detailEdits).length > 0 ? theme.colors.primary : '#e5e7eb'),
+                    color: isReadonly ? 'white' : (Object.keys(detailEdits).length > 0 ? 'white' : '#9ca3af'),
                     border: 'none',
                     borderRadius: '0.5rem',
-                    cursor: Object.keys(detailEdits).length > 0 ? 'pointer' : 'not-allowed',
+                    cursor: isReadonly || Object.keys(detailEdits).length === 0 ? 'not-allowed' : 'pointer',
                     fontWeight: 500
                   }}
                 >
-                  Save Changes
+                  {isReadonly ? '👁️ View Only' : 'Save Changes'}
                 </button>
               </div>
             </div>
           </div>
         </div>
-      )}
+        );
+      })()}
 
       {/* Share Modal */}
       {showShareModal && sharingGroup && (

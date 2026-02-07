@@ -1156,6 +1156,14 @@ export async function shareTodoGroup(
   const now = new Date().toISOString();
   const id = generateId();
 
+  console.log('[shareTodoGroup] Attempting to share:', {
+    id,
+    todoGroupId,
+    groupId,
+    userId: user.id,
+    mode,
+  });
+
   const { data, error } = await supabase
     .from('myday_shared_todo_groups')
     .insert({
@@ -1170,7 +1178,10 @@ export async function shareTodoGroup(
     .select()
     .single();
 
-  if (error) throw error;
+  if (error) {
+    console.error('[shareTodoGroup] Error:', error);
+    throw new Error(`Failed to share TODO group: ${error.message}`);
+  }
 
   return {
     id: data.id,
@@ -1254,12 +1265,10 @@ export async function revokeTodoGroupShare(shareId: string): Promise<void> {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('Not authenticated');
 
+  // Hard delete to allow re-sharing (UNIQUE constraint on todo_group_id + group_id)
   const { error } = await supabase
     .from('myday_shared_todo_groups')
-    .update({
-      is_active: false,
-      revoked_at: new Date().toISOString(),
-    })
+    .delete()
     .eq('id', shareId)
     .eq('shared_by', user.id);
 

@@ -217,7 +217,7 @@ export async function getTodoItems(groupIds?: string[] | 'all' | 'ungrouped'): P
   let query = supabase
     .from('myday_todo_items')
     .select('*')
-    .eq('user_id', user.id);
+    .eq('user_id', user.id); // Only fetch user's own items (shared items fetched separately)
 
   if (groupIds === 'ungrouped') {
     query = query.is('group_id', null);
@@ -389,7 +389,7 @@ export async function updateTodoItem(id: string, updates: Partial<TodoItem>): Pr
     .from('myday_todo_items')
     .update(updatePayload)
     .eq('id', id)
-    .eq('user_id', user.id)
+    // Don't filter by user_id - RLS policies handle access control for shared items
     .select()
     .single();
 
@@ -423,8 +423,8 @@ export async function deleteTodoItem(id: string): Promise<void> {
   const { error } = await supabase
     .from('myday_todo_items')
     .delete()
-    .eq('id', id)
-    .eq('user_id', user.id);
+    .eq('id', id);
+    // Don't filter by user_id - RLS policies handle access control for shared items
 
   if (error) throw error;
 }
@@ -439,7 +439,7 @@ export async function toggleTodoItem(id: string): Promise<TodoItem> {
     .from('myday_todo_items')
     .select('is_completed')
     .eq('id', id)
-    .eq('user_id', user.id)
+    // Don't filter by user_id - RLS policies handle access control for shared items
     .single();
 
   if (fetchError) throw fetchError;
@@ -455,7 +455,7 @@ export async function toggleTodoItem(id: string): Promise<TodoItem> {
       updated_at: now,
     })
     .eq('id', id)
-    .eq('user_id', user.id)
+    // Don't filter by user_id - RLS policies handle access control for shared items
     .select()
     .single();
 
