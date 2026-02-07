@@ -14,18 +14,9 @@ interface OnboardingFlowProps {
 
 const FEATURES = [
   {
-    icon: '🎤',
-    title: 'Voice Commands',
-    description: 'Create tasks, events & todos with your voice',
-    bg: '#faf5ff',
-    border: '#e9d5ff',
-    titleColor: '#581c87',
-    textColor: '#7c3aed'
-  },
-  {
     icon: '🔒',
-    title: 'Password Safe',
-    description: 'Securely store passwords & documents',
+    title: 'Encrypted Safe',
+    description: 'Military-grade encryption for passwords & documents with RSA + AES',
     bg: '#fef2f2',
     border: '#fecaca',
     titleColor: '#991b1b',
@@ -33,26 +24,35 @@ const FEATURES = [
   },
   {
     icon: '👨‍👩‍👧‍👦',
-    title: 'Family Sharing',
-    description: 'Share tasks & passwords with family groups',
+    title: 'Real-Time Collaboration',
+    description: 'Share passwords, documents & lists with live sync & comments',
     bg: '#f0fdf4',
     border: '#bbf7d0',
     titleColor: '#14532d',
     textColor: '#166534'
   },
   {
+    icon: '🎤',
+    title: 'Voice Commands',
+    description: 'Create tasks, events & lists hands-free with voice',
+    bg: '#faf5ff',
+    border: '#e9d5ff',
+    titleColor: '#581c87',
+    textColor: '#7c3aed'
+  },
+  {
     icon: '📝',
-    title: 'Quick List Item',
-    description: 'Fast, simple to-do lists for quick notes',
+    title: 'My Lists',
+    description: 'Smart TODO lists with sharing, priorities & due dates',
     bg: '#f0f9ff',
     border: '#bae6fd',
     titleColor: '#0c4a6e',
     textColor: '#075985'
   },
   {
-    icon: '📔',
-    title: 'Daily Journal',
-    description: 'Reflect on your day with mood tracking',
+    icon: '💬',
+    title: 'Team Comments',
+    description: 'Collaborate with @mentions, reactions & action tracking',
     bg: '#fef3c7',
     border: '#fde68a',
     titleColor: '#78350f',
@@ -60,8 +60,8 @@ const FEATURES = [
   },
   {
     icon: '📊',
-    title: 'Analytics',
-    description: 'Track streaks, patterns & productivity',
+    title: 'Analytics & Insights',
+    description: 'Track streaks, productivity patterns & achievements',
     bg: '#ecfeff',
     border: '#a5f3fc',
     titleColor: '#164e63',

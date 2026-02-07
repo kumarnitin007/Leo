@@ -53,6 +53,7 @@ const TimerView: React.FC<TimerViewProps> = ({ onClose }) => {
   const [scheduleActivities, setScheduleActivities] = useState<ScheduleActivity[]>([
     { id: '1', name: '', durationMinutes: 25 }
   ]);
+  const [isScheduleFormExpanded, setIsScheduleFormExpanded] = useState(false);
   
   // Running Schedule State
   const [runningSchedule, setRunningSchedule] = useState<SavedSchedule | null>(null);
@@ -1250,11 +1251,36 @@ const TimerView: React.FC<TimerViewProps> = ({ onClose }) => {
           <div style={{
             background: 'rgba(255, 255, 255, 0.1)',
             borderRadius: '12px',
-            padding: '1.5rem'
+            overflow: 'hidden'
           }}>
-            <h4 style={{ color: 'white', fontSize: '1rem', marginBottom: '1rem' }}>
-              {editingSchedule ? '✏️ Edit Schedule' : '➕ Create New Schedule'}
-            </h4>
+            <button
+              onClick={() => setIsScheduleFormExpanded(!isScheduleFormExpanded)}
+              style={{
+                width: '100%',
+                padding: '1rem 1.5rem',
+                background: 'rgba(255, 255, 255, 0.05)',
+                border: 'none',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                color: 'white'
+              }}
+            >
+              <h4 style={{ margin: 0, fontSize: '1rem' }}>
+                {editingSchedule ? '✏️ Edit Schedule' : '➕ Create New Schedule'}
+              </h4>
+              <span style={{
+                transform: isScheduleFormExpanded ? 'rotate(180deg)' : 'rotate(0)',
+                transition: 'transform 0.2s',
+                fontSize: '1.25rem'
+              }}>
+                ▼
+              </span>
+            </button>
+
+            {isScheduleFormExpanded && (
+              <div style={{ padding: '1.5rem' }}>
 
             {/* Schedule Name */}
             <div style={{ marginBottom: '1rem' }}>
@@ -1407,6 +1433,8 @@ const TimerView: React.FC<TimerViewProps> = ({ onClose }) => {
                 </button>
               )}
             </div>
+              </div>
+            )}
           </div>
         </div>
       )}
