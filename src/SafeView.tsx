@@ -76,6 +76,7 @@ const SafeView: React.FC = () => {
   const [sharedEntryIds, setSharedEntryIds] = useState<Set<string>>(new Set()); // Track which entries user has shared
   const sharedEntryIdsRef = React.useRef<Set<string>>(new Set()); // Ref for immediate access
   const [documents, setDocuments] = useState<DocumentVault[]>([]);
+  const [sharedDocumentIds, setSharedDocumentIds] = useState<Set<string>>(new Set()); // Track which documents user has shared
   const [tags, setTags] = useState<Tag[]>([]);
   const [entryCount, setEntryCount] = useState(0);
   const [selectedEntry, setSelectedEntry] = useState<SafeEntry | null>(null);
@@ -256,7 +257,7 @@ const SafeView: React.FC = () => {
   const loadEntries = async (keysOverride?: Map<string, CryptoKey>) => {
     // console.log('[SafeView] 📂 Loading entries...');
     const safeEntries = await getSafeEntries();
-    console.log(`[SafeView] ✅ Loaded ${safeEntries.length} own entries`);
+    // console.log(`[SafeView] ✅ Loaded ${safeEntries.length} own entries`);
     
     // Use provided keys or fall back to state
     const activeGroupKeys = keysOverride || groupKeys;
@@ -266,7 +267,7 @@ const SafeView: React.FC = () => {
     try {
       // console.log('[SafeView] 🔗 Fetching shared entry references...');
       const sharedEntryRefs = await sharingService.getEntriesSharedWithMe();
-      console.log(`[SafeView] 📥 Found ${sharedEntryRefs.length} shared entry references:`, sharedEntryRefs);
+      // console.log(`[SafeView] 📥 Found ${sharedEntryRefs.length} shared entry references:`, sharedEntryRefs);
       
       if (sharedEntryRefs.length > 0) {
         const supabase = getSupabaseClient();
@@ -294,18 +295,18 @@ const SafeView: React.FC = () => {
           }
           
           // NEW: Map shared entries and decrypt with group keys
-          console.log('[SafeView] 🔐 Starting decryption of shared entries...');
-          console.log(`[SafeView] 🔑 Available group keys:`, Array.from(activeGroupKeys.keys()));
+          // console.log('[SafeView] 🔐 Starting decryption of shared entries...');
+          // console.log(`[SafeView] 🔑 Available group keys:`, Array.from(activeGroupKeys.keys()));
           
           const sharedEntriesMapped: SafeEntry[] = await Promise.all(
             sharedEntryRefs.map(async (shareRef, index) => {
-              console.log(`[SafeView] 🔍 Processing shared entry ${index + 1}/${sharedEntryRefs.length}:`, {
-                entryId: shareRef.safeEntryId,
-                groupId: shareRef.groupId,
-                hasEncryptedData: !!shareRef.groupEncryptedData,
-                hasIV: !!shareRef.groupEncryptedDataIv,
-                title: shareRef.entryTitle
-              });
+              // console.log(`[SafeView] 🔍 Processing shared entry ${index + 1}/${sharedEntryRefs.length}:`, {
+              //   entryId: shareRef.safeEntryId,
+              //   groupId: shareRef.groupId,
+              //   hasEncryptedData: !!shareRef.groupEncryptedData,
+              //   hasIV: !!shareRef.groupEncryptedDataIv,
+              //   title: shareRef.entryTitle
+              // });
               
               let decryptedData: any = null;
               
@@ -321,11 +322,11 @@ const SafeView: React.FC = () => {
                       groupKey
                     );
                     decryptedData = JSON.parse(decryptedJson);
-                    console.log(`[SafeView] ✅ Successfully decrypted entry ${shareRef.safeEntryId}:`, {
-                      hasUsername: !!decryptedData.username,
-                      hasPassword: !!decryptedData.password,
-                      hasNotes: !!decryptedData.notes
-                    });
+                    // console.log(`[SafeView] ✅ Successfully decrypted entry ${shareRef.safeEntryId}:`, {
+                    //   hasUsername: !!decryptedData.username,
+                    //   hasPassword: !!decryptedData.password,
+                    //   hasNotes: !!decryptedData.notes
+                    // });
                   } catch (error) {
                     console.error(`[SafeView] ❌ Failed to decrypt entry ${shareRef.safeEntryId}:`, error);
                   }
@@ -370,13 +371,13 @@ const SafeView: React.FC = () => {
           
           allEntries = [...safeEntries, ...sharedEntriesMapped];
           const decryptedCount = sharedEntriesMapped.filter(e => e.decryptedData).length;
-          console.log(`[SafeView] 📊 Summary:`, {
-            ownEntries: safeEntries.length,
-            sharedEntries: sharedEntriesMapped.length,
-            decryptedShared: decryptedCount,
-            failedToDecrypt: sharedEntriesMapped.length - decryptedCount,
-            totalEntries: allEntries.length
-          });
+          // console.log(`[SafeView] 📊 Summary:`, {
+          //   ownEntries: safeEntries.length,
+          //   sharedEntries: sharedEntriesMapped.length,
+          //   decryptedShared: decryptedCount,
+          //   failedToDecrypt: sharedEntriesMapped.length - decryptedCount,
+          //   totalEntries: allEntries.length
+          // });
         }
       }
     } catch (err) {
@@ -384,6 +385,7 @@ const SafeView: React.FC = () => {
     }
     
     // Fetch entries that user has shared (for "Shared by Me" filter) - BEFORE setting entries
+    let sharedEntryIdsLocal = new Set<string>();
     try {
       const supabase = getSupabaseClient();
       if (supabase && user) {
@@ -394,17 +396,25 @@ const SafeView: React.FC = () => {
           .eq('is_active', true);
         
         if (sharedByMe) {
-          const ids = new Set(sharedByMe.map(s => s.safe_entry_id));
-          console.log('[SafeView] 📤 Shared by me count:', ids.size, 'IDs:', Array.from(ids));
-          sharedEntryIdsRef.current = ids; // Update ref immediately
-          setSharedEntryIds(ids); // Update state for re-renders
+          sharedEntryIdsLocal = new Set(sharedByMe.map(s => s.safe_entry_id));
+          // console.log('[SafeView] 📤 Shared by me count:', sharedEntryIdsLocal.size, 'IDs:', Array.from(sharedEntryIdsLocal));
+          sharedEntryIdsRef.current = sharedEntryIdsLocal; // Update ref immediately
+          setSharedEntryIds(sharedEntryIdsLocal); // Update state for re-renders
         }
       }
     } catch (err) {
       console.warn('Failed to load shared-by-me entries:', err);
     }
     
-    setEntries(allEntries);
+    // Mark owned entries that are shared
+    const finalEntries = allEntries.map(entry => {
+      if (!entry.isShared && sharedEntryIdsLocal.has(entry.id)) {
+        return { ...entry, isShared: true };
+      }
+      return entry;
+    });
+    
+    setEntries(finalEntries);
     setEntryCount(safeEntries.length); // Only count own entries
   };
 
@@ -459,14 +469,44 @@ const SafeView: React.FC = () => {
               } as any;
             });
           
-          console.log(`[SafeView] 📄 Loaded ${sharedDocs.length} shared documents`);
+          // console.log(`[SafeView] 📄 Loaded ${sharedDocs.length} shared documents`);
         }
       } catch (err) {
         console.warn('[SafeView] ⚠️ Failed to load shared documents:', err);
       }
     }
     
-    setDocuments([...ownDocs, ...sharedDocs]);
+    // Track documents shared by current user
+    let sharedDocIds = new Set<string>();
+    try {
+      const supabase = getSupabaseClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: sharedByMe } = await supabase
+          .from('myday_shared_safe_documents')
+          .select('document_id')
+          .eq('shared_by', user.id)
+          .eq('is_active', true);
+        
+        if (sharedByMe) {
+          sharedDocIds = new Set(sharedByMe.map(s => s.document_id));
+          setSharedDocumentIds(sharedDocIds);
+          // console.log('[SafeView] 📤 Documents shared by me:', sharedDocIds.size);
+        }
+      }
+    } catch (err) {
+      console.warn('Failed to load shared-by-me documents:', err);
+    }
+    
+    // Mark owned documents that are shared
+    const allDocs = ownDocs.map(doc => {
+      if (sharedDocIds.has(doc.id)) {
+        return { ...doc, isShared: true } as any;
+      }
+      return doc;
+    });
+    
+    setDocuments([...allDocs, ...sharedDocs]);
   };
 
   // Handle activity (reset inactivity timer)
@@ -638,8 +678,8 @@ const SafeView: React.FC = () => {
     const counts = {
       all: entries.length,
       favorites: entries.filter(e => e.isFavorite).length,
-      shared: entries.filter(e => e.isShared).length,
-      sharedByMe: entries.filter(e => !e.isShared && (sharedEntryIds.has(e.id) || sharedEntryIdsRef.current.has(e.id))).length,
+      shared: entries.filter(e => e.isShared && e.sharedBy).length,
+      sharedByMe: entries.filter(e => sharedEntryIds.has(e.id) || sharedEntryIdsRef.current.has(e.id)).length,
       recent: entries.filter(e => new Date(e.updatedAt) >= sevenDaysAgo).length,
       expiring: entries.filter(e => {
         if (!e.expiresAt) return false;
@@ -656,7 +696,7 @@ const SafeView: React.FC = () => {
       ).length;
     });
     
-    console.log('[SafeView] 📊 Entry counts:', counts);
+    // console.log('[SafeView] 📊 Entry counts:', counts);
     return counts;
   }, [entries, tags, sharedEntryIds]);
   
@@ -672,9 +712,9 @@ const SafeView: React.FC = () => {
       case 'favorites':
         return entries.filter(e => e.isFavorite);
       case 'shared':
-        return entries.filter(e => e.isShared); // Entries shared WITH me
+        return entries.filter(e => e.isShared && e.sharedBy); // Entries shared WITH me (has sharedBy field)
       case 'sharedByMe':
-        return entries.filter(e => !e.isShared && (sharedEntryIds.has(e.id) || sharedEntryIdsRef.current.has(e.id))); // My own entries that I've shared
+        return entries.filter(e => sharedEntryIds.has(e.id) || sharedEntryIdsRef.current.has(e.id)); // My own entries that I've shared
       case 'recent':
         return entries.filter(e => new Date(e.updatedAt) >= sevenDaysAgo);
       case 'expiring':
@@ -701,6 +741,8 @@ const SafeView: React.FC = () => {
     const counts = {
       all: documents.length,
       favorites: documents.filter(d => d.isFavorite).length,
+      shared: documents.filter(d => (d as any).isShared && (d as any).sharedBy).length,
+      sharedByMe: documents.filter(d => sharedDocumentIds.has(d.id)).length,
       expiring: documents.filter(d => {
         if (!d.expiryDate) return false;
         const expDate = new Date(d.expiryDate);
@@ -721,7 +763,7 @@ const SafeView: React.FC = () => {
     });
     
     return counts;
-  }, [documents]);
+  }, [documents, sharedDocumentIds, user]);
   
   // Filter documents based on active filter
   const filteredDocuments = React.useMemo(() => {
@@ -734,6 +776,10 @@ const SafeView: React.FC = () => {
         return documents;
       case 'favorites':
         return documents.filter(d => d.isFavorite);
+      case 'shared':
+        return documents.filter(d => (d as any).isShared && (d as any).sharedBy);
+      case 'sharedByMe':
+        return documents.filter(d => sharedDocumentIds.has(d.id));
       case 'expiring':
         return documents.filter(d => {
           if (!d.expiryDate) return false;
@@ -751,13 +797,15 @@ const SafeView: React.FC = () => {
       default:
         return documents;
     }
-  }, [documents, activeDocFilter]);
+  }, [documents, activeDocFilter, sharedDocumentIds, user]);
   
   // Helper to get document filter label
   const getDocFilterLabel = (filter: DocumentFilter): string => {
     switch (filter.type) {
       case 'all': return 'All Documents';
       case 'favorites': return 'Favorites';
+      case 'shared': return 'Shared with Me';
+      case 'sharedByMe': return 'Shared by Me';
       case 'expiring': return 'Expiring Soon';
       case 'recent': return 'Recently Updated';
       case 'docType': return filter.value || 'Type';
@@ -918,7 +966,7 @@ const SafeView: React.FC = () => {
           </button>
           <button
             onClick={() => {
-              console.log('Change password button clicked');
+              // console.log('Change password button clicked');
               setShowChangePassword(true);
             }}
             style={{
@@ -1331,7 +1379,7 @@ const SafeView: React.FC = () => {
       {/* Change Password Modal */}
       {showChangePassword && (
         <>
-          {console.log('Rendering ChangeMasterPasswordModal')}
+          {/* console.log('Rendering ChangeMasterPasswordModal') */}
           <ChangeMasterPasswordModal
             onClose={() => setShowChangePassword(false)}
             onSuccess={async () => {
@@ -1367,7 +1415,7 @@ const SafeView: React.FC = () => {
             setGroupKeys(prev => {
               const updated = new Map(prev);
               updated.set(groupId, groupKey);
-              console.log(`[SafeView] 🔑 Added new group key to state: ${groupId}`);
+              // console.log(`[SafeView] 🔑 Added new group key to state: ${groupId}`);
               return updated;
             });
           }}

@@ -140,10 +140,16 @@ export async function addComment(
 /**
  * Get dashboard comments for current user
  */
-export async function getDashboardComments(userId: string): Promise<EntryComment[]> {
+export async function getDashboardComments(): Promise<EntryComment[]> {
   const supabase = getSupabaseClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  
+  if (!user) {
+    throw new Error('User not authenticated');
+  }
+
   const { data, error } = await supabase.rpc('get_dashboard_comments_for_user', {
-    p_user_id: userId,
+    p_user_id: user.id,
   });
 
   if (error) {
@@ -157,10 +163,16 @@ export async function getDashboardComments(userId: string): Promise<EntryComment
 /**
  * Get dashboard comment count for badge display
  */
-export async function getDashboardCommentCount(userId: string): Promise<number> {
+export async function getDashboardCommentCount(): Promise<number> {
   const supabase = getSupabaseClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  
+  if (!user) {
+    return 0;
+  }
+
   const { data, error } = await supabase.rpc('get_dashboard_comment_count', {
-    p_user_id: userId,
+    p_user_id: user.id,
   });
 
   if (error) {
@@ -174,14 +186,17 @@ export async function getDashboardCommentCount(userId: string): Promise<number> 
 /**
  * Dismiss a comment from dashboard for current user
  */
-export async function dismissCommentFromDashboard(
-  commentId: string,
-  userId: string
-): Promise<void> {
+export async function dismissCommentFromDashboard(commentId: string): Promise<void> {
   const supabase = getSupabaseClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  
+  if (!user) {
+    throw new Error('User not authenticated');
+  }
+
   const { error } = await supabase.rpc('dismiss_comment_from_dashboard', {
     p_comment_id: commentId,
-    p_user_id: userId,
+    p_user_id: user.id,
   });
 
   if (error) {

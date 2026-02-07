@@ -297,45 +297,49 @@ const GroupsManager: React.FC<GroupsManagerProps> = ({ onClose }) => {
               <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 700, color: '#1f2937' }}>
                 My Groups
               </h2>
-              <p style={{ margin: 0, fontSize: '0.8rem', color: '#6b7280', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                {myDisplayName ? (
-                  <>
-                    Hi {myDisplayName}!
-                    <button
-                      onClick={() => {
-                        setEditDisplayName(myDisplayName);
-                        setShowProfileModal(true);
-                      }}
-                      style={{
-                        background: 'none',
-                        border: 'none',
-                        cursor: 'pointer',
-                        fontSize: '0.75rem',
-                        color: theme.colors.primary,
-                        padding: 0,
-                      }}
-                      title="Edit display name"
-                    >
-                      ✏️
-                    </button>
-                  </>
-                ) : 'Share passwords & tasks with family'}
+              <p style={{ margin: 0, fontSize: '0.8rem', color: '#6b7280' }}>
+                {myDisplayName ? `Visible to others as "${myDisplayName}"` : 'Share passwords & tasks with family'}
               </p>
             </div>
           </div>
-          <button
-            onClick={onClose}
-            style={{
-              background: 'none',
-              border: 'none',
-              fontSize: '1.5rem',
-              cursor: 'pointer',
-              color: '#9ca3af',
-              padding: '0.25rem'
-            }}
-          >
-            ✕
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            {myDisplayName && (
+              <button
+                onClick={() => {
+                  setEditDisplayName(myDisplayName);
+                  setShowProfileModal(true);
+                }}
+                style={{
+                  padding: '0.5rem 1rem',
+                  background: theme.colors.primary,
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '0.5rem',
+                  cursor: 'pointer',
+                  fontWeight: 500,
+                  fontSize: '0.85rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.5rem'
+                }}
+              >
+                ✏️ Edit Display Name
+              </button>
+            )}
+            <button
+              onClick={onClose}
+              style={{
+                background: 'none',
+                border: 'none',
+                fontSize: '1.5rem',
+                cursor: 'pointer',
+                color: '#9ca3af',
+                padding: '0.25rem'
+              }}
+            >
+              ✕
+            </button>
+          </div>
         </div>
 
         {/* Tabs */}

@@ -440,7 +440,7 @@ const DataExport: React.FC = () => {
             { key: 'routines' as const, label: '🔄 Routines', icon: '🔄' },
             { key: 'tags' as const, label: '🏷️ Tags', icon: '🏷️' },
             { key: 'items' as const, label: '📦 Items', icon: '📦' },
-            { key: 'todos' as const, label: '📝 To-Dos', icon: '📝' },
+            { key: 'todos' as const, label: '📝 My Lists', icon: '📝' },
           ].map(({ key, label }) => (
             <label
               key={key}

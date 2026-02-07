@@ -168,7 +168,7 @@ const VoiceCommandModal: React.FC<VoiceCommandModalProps> = ({
 
   const getIntentLabel = (type: string) => {
     const labels: Record<string, { icon: string; label: string; color: string }> = {
-      'CREATE_TODO': { icon: '📝', label: 'Add To-Do', color: '#8b5cf6' },
+      'CREATE_TODO': { icon: '📝', label: 'Add List Item', color: '#8b5cf6' },
       'CREATE_TASK': { icon: '✅', label: 'Create Task', color: '#10b981' },
       'CREATE_EVENT': { icon: '📅', label: 'Create Event', color: '#3b82f6' },
       'CREATE_JOURNAL': { icon: '📔', label: 'Journal Entry', color: '#8b5cf6' },

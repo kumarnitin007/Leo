@@ -315,11 +315,20 @@ const SafeDocumentVault: React.FC<SafeDocumentVaultProps> = ({
                 key={doc.id}
                 style={{
                   position: 'relative',
-                  backgroundColor: 'rgba(255,255,255,0.95)',
+                  backgroundColor: (doc as any).isShared && (doc as any).sharedBy
+                    ? 'rgba(236, 253, 245, 0.95)' // Green tint for "shared with me"
+                    : (doc as any).isShared
+                    ? 'rgba(238, 242, 255, 0.95)' // Purple/indigo tint for "shared by me"
+                    : 'rgba(255,255,255,0.95)',
                   borderRadius: '8px',
                   padding: '1.25rem',
                   cursor: 'pointer',
-                  boxShadow: '0 2px 4px rgba(0,0,0,0.08)'
+                  boxShadow: '0 2px 4px rgba(0,0,0,0.08)',
+                  border: (doc as any).isShared && (doc as any).sharedBy
+                    ? '2px solid #10b981' // Green border for "shared with me"
+                    : (doc as any).isShared
+                    ? '2px solid #6366f1' // Purple border for "shared by me"
+                    : 'none'
                 }}
                 onClick={() => onEditDocument(doc)}
               >
@@ -356,14 +365,14 @@ const SafeDocumentVault: React.FC<SafeDocumentVaultProps> = ({
                     <span style={{
                       display: 'inline-block',
                       padding: '0.25rem 0.5rem',
-                      backgroundColor: '#10b981',
+                      backgroundColor: (doc as any).sharedBy ? '#10b981' : '#6366f1',
                       color: 'white',
                       borderRadius: '4px',
                       fontSize: '0.7rem',
                       fontWeight: 600,
                       alignSelf: 'flex-start'
                     }}>
-                      🔗 Shared by {(doc as any).sharedBy}
+                      {(doc as any).sharedBy ? `🔗 Shared by ${(doc as any).sharedBy}` : '📤 Shared with others'}
                     </span>
                     {(doc as any).lastUpdatedByName && (doc as any).lastUpdatedAt && (
                       <span style={{

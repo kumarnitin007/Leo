@@ -13,6 +13,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useTheme } from './contexts/ThemeContext';
 import { TodoItem, TodoGroup, TodoPriority } from './types';
 import VoiceCommandModal from './components/VoiceCommand/VoiceCommandModal';
+import ShareModal from './components/ShareModal';
 import * as todoService from './services/todoService';
 import { AssignableUser } from './services/todoService';
 
@@ -62,6 +63,10 @@ const TodoView: React.FC<TodoViewProps> = () => {
   const [selectedItem, setSelectedItem] = useState<TodoItem | null>(null);
   const [assignableUsers, setAssignableUsers] = useState<AssignableUser[]>([]);
   const [detailEdits, setDetailEdits] = useState<Partial<TodoItem>>({});
+  
+  // Share modal
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [sharingGroup, setSharingGroup] = useState<TodoGroup | null>(null);
   
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -315,7 +320,7 @@ const TodoView: React.FC<TodoViewProps> = () => {
             gap: '0.5rem',
             color: theme.colors.text
           }}>
-            📝 To-Do List
+            📝 My Lists
           </h1>
           <p style={{ margin: '0.25rem 0 0', color: '#6b7280', fontSize: '0.9rem' }}>
             {completedItems} of {totalItems} completed ({progressPercent}%)
@@ -613,29 +618,38 @@ const TodoView: React.FC<TodoViewProps> = () => {
       {/* Groups */}
       {groups
         .filter(g => selectedGroups.size === 0 || selectedGroups.has(g.id))
-        .map(group => (
-          <GroupSection
-            key={group.id}
-            title={group.name}
-            icon={group.icon || '📁'}
-            color={group.color || '#6366f1'}
-            items={groupedItems[group.id] || []}
-            isExpanded={expandedGroups.has(group.id)}
-            onToggleExpand={() => toggleGroupExpanded(group.id)}
-            onToggleItem={handleToggleItem}
-            onDeleteItem={handleDeleteItem}
-            onItemClick={openDetailModal}
-            onEditGroup={() => {
-              setEditingGroup(group);
-              setGroupName(group.name);
-              setGroupIcon(group.icon || '📁');
-              setGroupColor(group.color || '#6366f1');
-              setShowGroupModal(true);
-            }}
-            onDeleteGroup={() => handleDeleteGroup(group.id)}
-            theme={theme}
-          />
-        ))}
+        .map(group => {
+          // Don't allow sharing of Voice Memo group
+          const canShare = !group.name.toLowerCase().includes('voice memo');
+          
+          return (
+            <GroupSection
+              key={group.id}
+              title={group.name}
+              icon={group.icon || '📁'}
+              color={group.color || '#6366f1'}
+              items={groupedItems[group.id] || []}
+              isExpanded={expandedGroups.has(group.id)}
+              onToggleExpand={() => toggleGroupExpanded(group.id)}
+              onToggleItem={handleToggleItem}
+              onDeleteItem={handleDeleteItem}
+              onItemClick={openDetailModal}
+              onEditGroup={() => {
+                setEditingGroup(group);
+                setGroupName(group.name);
+                setGroupIcon(group.icon || '📁');
+                setGroupColor(group.color || '#6366f1');
+                setShowGroupModal(true);
+              }}
+              onDeleteGroup={() => handleDeleteGroup(group.id)}
+              onShare={canShare ? () => {
+                setSharingGroup(group);
+                setShowShareModal(true);
+              } : undefined}
+              theme={theme}
+            />
+          );
+        })}
 
       {/* Empty state */}
       {filteredItems.length === 0 && (
@@ -832,7 +846,7 @@ const TodoView: React.FC<TodoViewProps> = () => {
               background: 'white',
               zIndex: 1
             }}>
-              <h3 style={{ margin: 0, fontSize: '1.1rem' }}>📝 To-Do Details</h3>
+              <h3 style={{ margin: 0, fontSize: '1.1rem' }}>📝 List Item Details</h3>
               <button
                 onClick={() => { setShowDetailModal(false); setSelectedItem(null); }}
                 style={{ background: 'none', border: 'none', fontSize: '1.25rem', cursor: 'pointer', color: '#9ca3af' }}
@@ -922,7 +936,7 @@ const TodoView: React.FC<TodoViewProps> = () => {
                     <div>
                       <div style={{ fontWeight: 600, fontSize: '0.85rem', color: '#1e40af' }}>Will show on Home</div>
                       <div style={{ fontSize: '0.75rem', color: '#3b82f6', marginTop: '0.25rem' }}>
-                        This TO-DO will automatically appear on your dashboard since it has a due date
+                        This item will automatically appear on your dashboard since it has a due date
                       </div>
                     </div>
                   </div>
@@ -1075,6 +1089,23 @@ const TodoView: React.FC<TodoViewProps> = () => {
         </div>
       )}
 
+      {/* Share Modal */}
+      {showShareModal && sharingGroup && (
+        <ShareModal
+          entityId={sharingGroup.id}
+          entityTitle={sharingGroup.name}
+          entityType="todo_group"
+          onClose={() => {
+            setShowShareModal(false);
+            setSharingGroup(null);
+          }}
+          onShared={() => {
+            // Optionally reload data to show shared status
+            loadData();
+          }}
+        />
+      )}
+
       <style>{`
         @keyframes slideUp {
           from { opacity: 0; transform: translateY(20px); }
@@ -1098,6 +1129,7 @@ interface GroupSectionProps {
   onItemClick: (item: TodoItem) => void;
   onEditGroup?: () => void;
   onDeleteGroup?: () => void;
+  onShare?: () => void;
   theme: any;
 }
 
@@ -1113,6 +1145,7 @@ const GroupSection: React.FC<GroupSectionProps> = ({
   onItemClick,
   onEditGroup,
   onDeleteGroup,
+  onShare,
   theme,
 }) => {
   const completedCount = items.filter(i => i.isCompleted).length;
@@ -1155,6 +1188,21 @@ const GroupSection: React.FC<GroupSectionProps> = ({
         </div>
         
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          {onShare && (
+            <button
+              onClick={(e) => { e.stopPropagation(); onShare(); }}
+              style={{
+                background: 'none',
+                border: 'none',
+                cursor: 'pointer',
+                padding: '0.25rem',
+                color: '#9ca3af'
+              }}
+              title="Share list"
+            >
+              🔗
+            </button>
+          )}
           {onEditGroup && (
             <button
               onClick={(e) => { e.stopPropagation(); onEditGroup(); }}

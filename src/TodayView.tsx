@@ -27,6 +27,7 @@ import MonthlyView from './MonthlyView';
 import WeatherWidget from './components/WeatherWidget';
 import ResolutionProgressWidget from './components/ResolutionProgressWidget';
 import { getDashboardTodos, getTodoGroups, toggleTodoItem } from './services/todoService';
+import { getDashboardComments, dismissCommentFromDashboard } from './services/commentService';
 import { TodoItem, TodoGroup } from './types';
 
 type DashboardItem = {
@@ -80,6 +81,9 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
   const [isLoadingTodos, setIsLoadingTodos] = useState(false);
   const [selectedTodo, setSelectedTodo] = useState<TodoItem | null>(null);
   const [todoGroups, setTodoGroups] = useState<Record<string, string>>({});
+  const [dashboardComments, setDashboardComments] = useState<any[]>([]);
+  const [isCommentsExpanded, setIsCommentsExpanded] = useState(false);
+  const [isLoadingComments, setIsLoadingComments] = useState(false);
   const today = getTodayString();
 
   const handleLayoutChange = async (layout: DashboardLayout) => {
@@ -142,6 +146,21 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
     }
   };
 
+  // Load dashboard comments (with action dates)
+  const loadDashboardComments = async () => {
+    if (isLoadingComments) return;
+    setIsLoadingComments(true);
+    try {
+      const comments = await getDashboardComments();
+      setDashboardComments(comments);
+    } catch (err) {
+      console.warn('Could not load dashboard comments:', err);
+      setDashboardComments([]);
+    } finally {
+      setIsLoadingComments(false);
+    }
+  };
+
   // Load TODOs when section is expanded OR on initial load if there might be todos
   useEffect(() => {
     if (isTodosExpanded && upcomingTodos.length === 0 && !isLoadingTodos) {
@@ -153,6 +172,20 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
   useEffect(() => {
     if (!isLoadingTodos && upcomingTodos.length === 0) {
       loadUpcomingTodos();
+    }
+  }, []);
+
+  // Load comments when section is expanded
+  useEffect(() => {
+    if (isCommentsExpanded && dashboardComments.length === 0 && !isLoadingComments) {
+      loadDashboardComments();
+    }
+  }, [isCommentsExpanded]);
+
+  // Load comments on mount
+  useEffect(() => {
+    if (!isLoadingComments && dashboardComments.length === 0) {
+      loadDashboardComments();
     }
   }, []);
 
@@ -2021,7 +2054,7 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
         </div>
       )}
 
-      {/* Upcoming TODOs Section - Collapsible, above Observances */}
+      {/* Upcoming My Lists Section - Collapsible, above Observances */}
       {upcomingTodos.length > 0 && (
         <div style={{
           marginTop: '1.5rem',
@@ -2049,12 +2082,12 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
               <span style={{ fontSize: '1.5rem' }}>📝</span>
               <div style={{ textAlign: 'left' }}>
                 <div style={{ fontWeight: 600, color: '#92400e', fontSize: '1rem' }}>
-                  Upcoming TO-DOs
+                  My Lists
                 </div>
                 <div style={{ fontSize: '0.8rem', color: '#b45309' }}>
                   {isTodosExpanded 
                     ? `${upcomingTodos.length} in next 7 days`
-                    : 'Tap to view upcoming TO-DOs'}
+                    : 'Tap to view My Lists'}
                 </div>
               </div>
             </div>
@@ -2076,7 +2109,7 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
             }}>
               {isLoadingTodos ? (
                 <div style={{ padding: '2rem', textAlign: 'center', color: '#b45309' }}>
-                  Loading TO-DOs...
+                  Loading My Lists...
                 </div>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginTop: '1rem' }}>
@@ -2153,6 +2186,169 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
                               )}
                             </div>
                           )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Dashboard Comments Section - Collapsible */}
+      {dashboardComments.length > 0 && (
+        <div style={{
+          marginTop: '1.5rem',
+          borderRadius: '1rem',
+          overflow: 'hidden',
+          background: 'linear-gradient(135deg, #dbeafe 0%, #bfdbfe 50%, #93c5fd 100%)',
+          border: '1px solid #3b82f6',
+          boxShadow: '0 4px 12px rgba(59, 130, 246, 0.1)'
+        }}>
+          <button
+            onClick={() => setIsCommentsExpanded(!isCommentsExpanded)}
+            style={{
+              width: '100%',
+              padding: '1rem 1.25rem',
+              background: 'transparent',
+              border: 'none',
+              cursor: 'pointer',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              color: '#1e40af',
+              fontWeight: 600,
+              fontSize: '1rem'
+            }}
+          >
+            <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              💬 Comments & Messages
+              <span style={{
+                padding: '0.25rem 0.5rem',
+                background: '#3b82f6',
+                color: 'white',
+                borderRadius: '12px',
+                fontSize: '0.75rem',
+                fontWeight: 700
+              }}>
+                {dashboardComments.length}
+              </span>
+            </span>
+            <span style={{
+              display: 'inline-block',
+              transform: isCommentsExpanded ? 'rotate(180deg)' : 'rotate(0)',
+              transition: 'transform 0.2s',
+              color: '#1e40af',
+              fontSize: '1.25rem'
+            }}>
+              ▼
+            </span>
+          </button>
+
+          {isCommentsExpanded && (
+            <div style={{ 
+              padding: '0 1.25rem 1.25rem', 
+              borderTop: '1px solid #93c5fd',
+              background: 'rgba(255,255,255,0.7)'
+            }}>
+              {isLoadingComments ? (
+                <div style={{ padding: '2rem', textAlign: 'center', color: '#1e40af' }}>
+                  Loading comments...
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginTop: '1rem' }}>
+                  {dashboardComments.map(comment => {
+                    const actionDate = comment.actionDate ? new Date(comment.actionDate) : null;
+                    const todayDate = new Date(selectedDate + 'T00:00:00');
+                    const daysUntil = actionDate ? Math.ceil((actionDate.getTime() - todayDate.getTime()) / (1000 * 60 * 60 * 24)) : null;
+                    
+                    return (
+                      <div
+                        key={comment.id}
+                        style={{
+                          padding: '1rem',
+                          borderRadius: '0.75rem',
+                          background: 'white',
+                          border: '2px solid #3b82f6',
+                          borderLeftWidth: '4px',
+                          cursor: 'pointer',
+                          transition: 'all 0.2s'
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.transform = 'translateY(-2px)';
+                          e.currentTarget.style.boxShadow = '0 4px 12px rgba(59, 130, 246, 0.2)';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.transform = 'translateY(0)';
+                          e.currentTarget.style.boxShadow = 'none';
+                        }}
+                      >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontSize: '0.7rem', color: '#6b7280', marginBottom: '0.25rem', fontWeight: 500 }}>
+                              {comment.entryTitle} • {comment.entryType}
+                            </div>
+                            <div style={{ fontWeight: 600, color: '#1f2937', marginBottom: '0.25rem' }}>
+                              {comment.message}
+                            </div>
+                            <div style={{ fontSize: '0.75rem', color: '#6b7280', marginTop: '0.25rem' }}>
+                              by {comment.userDisplayName}
+                            </div>
+                            {comment.actionType && (
+                              <span style={{
+                                display: 'inline-block',
+                                marginTop: '0.5rem',
+                                padding: '0.25rem 0.5rem',
+                                background: '#dbeafe',
+                                color: '#1e40af',
+                                borderRadius: '4px',
+                                fontSize: '0.7rem',
+                                fontWeight: 600
+                              }}>
+                                {comment.actionType}
+                              </span>
+                            )}
+                          </div>
+                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.5rem' }}>
+                            {actionDate && (
+                              <div style={{
+                                textAlign: 'right',
+                                fontSize: '0.75rem',
+                                color: daysUntil !== null && daysUntil < 0 ? '#dc2626' : '#1e40af',
+                                fontWeight: 600
+                              }}>
+                                {daysUntil === 0 ? '📅 Today' : 
+                                 daysUntil === 1 ? '📅 Tomorrow' :
+                                 daysUntil && daysUntil > 0 ? `📅 in ${daysUntil}d` :
+                                 daysUntil && daysUntil < 0 ? `⚠️ ${Math.abs(daysUntil)}d ago` : ''}
+                              </div>
+                            )}
+                            <button
+                              onClick={async (e) => {
+                                e.stopPropagation();
+                                try {
+                                  await dismissCommentFromDashboard(comment.id);
+                                  setDashboardComments(prev => prev.filter(c => c.id !== comment.id));
+                                } catch (err) {
+                                  console.error('Failed to dismiss comment:', err);
+                                }
+                              }}
+                              style={{
+                                padding: '0.25rem 0.5rem',
+                                background: '#fee2e2',
+                                color: '#dc2626',
+                                border: 'none',
+                                borderRadius: '4px',
+                                fontSize: '0.7rem',
+                                cursor: 'pointer',
+                                fontWeight: 600
+                              }}
+                            >
+                              Dismiss
+                            </button>
+                          </div>
                         </div>
                       </div>
                     );
@@ -2784,7 +2980,7 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
         </div>
       )}
 
-      {/* TO-DO Action Modal */}
+      {/* My Lists Action Modal */}
       {selectedTodo && (
         <div className="modal-overlay" onClick={() => setSelectedTodo(null)}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>

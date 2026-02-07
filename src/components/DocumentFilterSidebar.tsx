@@ -6,7 +6,7 @@ import React, { useState } from 'react';
 import { Tag, DocumentType, DocumentProvider } from '../types';
 
 export interface DocumentFilter {
-  type: 'all' | 'favorites' | 'expiring' | 'recent' | 'docType' | 'provider' | 'tag';
+  type: 'all' | 'favorites' | 'shared' | 'sharedByMe' | 'expiring' | 'recent' | 'docType' | 'provider' | 'tag';
   value?: string;
 }
 
@@ -17,6 +17,8 @@ interface DocumentFilterSidebarProps {
   entryCounts: {
     all: number;
     favorites: number;
+    shared: number;
+    sharedByMe: number;
     expiring: number;
     recent: number;
     byDocType: Record<string, number>;
@@ -200,6 +202,8 @@ const DocumentFilterSidebar: React.FC<DocumentFilterSidebarProps> = ({
         <div style={{ marginBottom: '0.75rem' }}>
           <FilterButton filter={{ type: 'all' }} icon="📋" label="All Documents" count={entryCounts.all} />
           <FilterButton filter={{ type: 'favorites' }} icon="⭐" label="Favorites" count={entryCounts.favorites} color="#f59e0b" />
+          <FilterButton filter={{ type: 'shared' }} icon="👥" label="Shared with Me" count={entryCounts.shared} color="#10b981" />
+          <FilterButton filter={{ type: 'sharedByMe' }} icon="📤" label="Shared by Me" count={entryCounts.sharedByMe} color="#6366f1" />
           <FilterButton filter={{ type: 'expiring' }} icon="⏰" label="Expiring Soon" count={entryCounts.expiring} color="#ef4444" />
           <FilterButton filter={{ type: 'recent' }} icon="🕐" label="Recently Updated" count={entryCounts.recent} color="#8b5cf6" />
         </div>

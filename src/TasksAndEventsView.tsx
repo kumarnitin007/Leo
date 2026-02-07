@@ -166,7 +166,7 @@ const TasksAndEventsView: React.FC<TasksAndEventsViewProps> = ({ initialTab }) =
           }}
         >
           <span style={{ marginRight: '0.5rem' }}>📝</span>
-          To-Do
+          My Lists
         </button>
       </div>
 

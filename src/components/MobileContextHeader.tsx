@@ -26,7 +26,7 @@ const viewConfig: Record<string, { title: string; icon: string; color: string }>
   analytics: { title: 'Analytics', icon: '📊', color: '#06b6d4' },
   settings: { title: 'Settings', icon: '⚙️', color: '#6b7280' },
   safe: { title: 'Safe', icon: '🔒', color: '#10b981' },
-  todo: { title: 'To-Do List', icon: '✅', color: '#14b8a6' },
+  todo: { title: 'My Lists', icon: '✅', color: '#14b8a6' },
   groups: { title: 'Groups', icon: '👨‍👩‍👧‍👦', color: '#f43f5e' },
 };
 

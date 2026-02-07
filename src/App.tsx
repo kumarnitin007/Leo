@@ -650,7 +650,7 @@ const AppContent: React.FC = () => {
           },
           features.canAddTodos && {
             icon: '📝',
-            label: 'To-Do List',
+            label: 'My Lists',
             description: 'Quick grouped to-do items',
             onClick: () => handleNavigate('todo'),
             primary: true,
@@ -708,7 +708,7 @@ const AppContent: React.FC = () => {
         options={[
           {
             icon: '✅',
-            label: 'To-Do List',
+            label: 'My Lists',
             description: 'Manage your to-do items',
             onClick: () => handleNavigate('todo'),
           },

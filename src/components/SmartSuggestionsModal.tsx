@@ -42,7 +42,7 @@ const SmartSuggestionsModal: React.FC<SmartSuggestionsModalProps> = ({
     const labels: Record<string, string> = {
       'event': 'Events',
       'task': 'Tasks',
-      'todo': 'TO-DO List',
+      'todo': 'My Lists',
       'journal': 'Journal',
       'safe': 'Safe',
       'gift-card': 'Gift Cards',

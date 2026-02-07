@@ -268,12 +268,20 @@ const SafeEntryList: React.FC<SafeEntryListProps> = ({
                 key={entry.id} 
                 style={{ 
                   position: 'relative', 
-                  backgroundColor: entry.isShared ? 'rgba(236, 253, 245, 0.95)' : 'rgba(255,255,255,0.95)', 
+                  backgroundColor: entry.isShared && entry.sharedBy 
+                    ? 'rgba(236, 253, 245, 0.95)' // Green tint for "shared with me"
+                    : entry.isShared 
+                    ? 'rgba(238, 242, 255, 0.95)' // Purple/indigo tint for "shared by me"
+                    : 'rgba(255,255,255,0.95)', 
                   borderRadius: '8px', 
                   padding: '1.25rem', 
                   cursor: 'pointer', 
                   boxShadow: '0 2px 4px rgba(0,0,0,0.08)',
-                  border: entry.isShared ? '2px solid #10b981' : 'none'
+                  border: entry.isShared && entry.sharedBy 
+                    ? '2px solid #10b981' // Green border for "shared with me"
+                    : entry.isShared 
+                    ? '2px solid #6366f1' // Purple border for "shared by me"
+                    : 'none'
                 }} 
                 onClick={() => onEntrySelect(entry)}
               >
@@ -288,14 +296,14 @@ const SafeEntryList: React.FC<SafeEntryListProps> = ({
                     alignItems: 'flex-end',
                   }}>
                     <div style={{
-                      background: '#10b981',
+                      background: entry.sharedBy ? '#10b981' : '#6366f1',
                       color: 'white',
                       fontSize: '0.65rem',
                       fontWeight: 600,
                       padding: '2px 8px',
                       borderRadius: '4px',
                     }}>
-                      Shared by {entry.sharedBy}
+                      {entry.sharedBy ? `🔗 Shared by ${entry.sharedBy}` : '📤 Shared with others'}
                     </div>
                     {entry.lastUpdatedAt && entry.lastUpdatedBy && (
                       <div style={{
@@ -306,7 +314,7 @@ const SafeEntryList: React.FC<SafeEntryListProps> = ({
                         padding: '2px 6px',
                         borderRadius: '3px',
                       }}>
-                        Updated {formatTimeAgo(entry.lastUpdatedAt)} by {entry.lastUpdatedBy}
+                        ✏️ Updated {formatTimeAgo(entry.lastUpdatedAt)} by {entry.lastUpdatedBy}
                       </div>
                     )}
                   </div>

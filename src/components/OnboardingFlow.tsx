@@ -42,7 +42,7 @@ const FEATURES = [
   },
   {
     icon: '📝',
-    title: 'Quick To-Do',
+    title: 'Quick List Item',
     description: 'Fast, simple to-do lists for quick notes',
     bg: '#f0f9ff',
     border: '#bae6fd',

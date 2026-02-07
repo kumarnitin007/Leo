@@ -1185,6 +1185,34 @@ export async function shareTodoGroup(
   };
 }
 
+export async function getSharedTodoGroupsForOwner(todoGroupId: string): Promise<SharedTodoGroup[]> {
+  const supabase = getClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('Not authenticated');
+
+  const { data, error } = await supabase
+    .from('myday_shared_todo_groups')
+    .select('*')
+    .eq('todo_group_id', todoGroupId)
+    .eq('shared_by', user.id)
+    .eq('is_active', true)
+    .order('shared_at', { ascending: false });
+
+  if (error) throw error;
+
+  return (data || []).map(row => ({
+    id: row.id,
+    todoGroupId: row.todo_group_id,
+    groupId: row.group_id,
+    sharedBy: row.shared_by,
+    shareMode: row.share_mode,
+    sharedAt: row.shared_at,
+    expiresAt: row.expires_at,
+    revokedAt: row.revoked_at,
+    isActive: row.is_active,
+  }));
+}
+
 export async function getTodoGroupsSharedWithMe(): Promise<SharedTodoGroup[]> {
   const supabase = getClient();
   const { data: { user } } = await supabase.auth.getUser();

@@ -29,7 +29,7 @@ const INTENT_CONFIG: Record<string, { icon: string; label: string; color: string
   'CREATE_ROUTINE': { icon: '🔄', label: 'Routine', color: '#f59e0b' },
   'CREATE_ITEM': { icon: '📦', label: 'Item', color: '#06b6d4' },
   'CREATE_MILESTONE': { icon: '🎯', label: 'Milestone', color: '#ec4899' },
-  'CREATE_TODO': { icon: '📝', label: 'To-Do', color: '#22c55e' },
+  'CREATE_TODO': { icon: '📝', label: 'List Item', color: '#22c55e' },
   'CREATE_TAG': { icon: '🏷️', label: 'Tag', color: '#6366f1' },
   'UPDATE_TASK': { icon: '✏️', label: 'Update Task', color: '#f97316' },
   'UPDATE_EVENT': { icon: '✏️', label: 'Update Event', color: '#f97316' },
