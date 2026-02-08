@@ -28,6 +28,8 @@ import WeatherWidget from './components/WeatherWidget';
 import ResolutionProgressWidget from './components/ResolutionProgressWidget';
 import { getDashboardTodos, getTodoGroups, toggleTodoItem } from './services/todoService';
 import { getDashboardComments, dismissCommentFromDashboard } from './services/commentService';
+import { EnrichedCalendarCard } from './components/EnrichedCalendarCard';
+import { hasEnrichedData } from './services/referenceCalendarService';
 import { TodoItem, TodoGroup } from './types';
 
 type DashboardItem = {
@@ -76,6 +78,7 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
   const [isLoadingObservances, setIsLoadingObservances] = useState(false);
   const [observancesLoaded, setObservancesLoaded] = useState(false);
   const [selectedObservance, setSelectedObservance] = useState<UserVisibleDay | null>(null);
+  const [hasEnrichedObservanceData, setHasEnrichedObservanceData] = useState(false);
   const [upcomingTodos, setUpcomingTodos] = useState<TodoItem[]>([]);
   const [isTodosExpanded, setIsTodosExpanded] = useState(false);
   const [isLoadingTodos, setIsLoadingTodos] = useState(false);
@@ -195,6 +198,23 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
       loadObservances();
     }
   }, [isObservancesExpanded, observancesLoaded, selectedDate]);
+
+  // Check for enriched data when observance is selected
+  useEffect(() => {
+    if (selectedObservance) {
+      // Try to create a day identifier from the event name
+      // Common format: "valentine-day", "christmas", "new-year"
+      const dayIdentifier = selectedObservance.eventName
+        .toLowerCase()
+        .replace(/['']/g, '')
+        .replace(/\s+/g, '-')
+        .replace(/[^a-z0-9-]/g, '');
+      
+      hasEnrichedData(dayIdentifier).then(setHasEnrichedObservanceData);
+    } else {
+      setHasEnrichedObservanceData(false);
+    }
+  }, [selectedObservance]);
 
   /**
    * Helper function to check if a date matches an interval-based task schedule
@@ -2659,19 +2679,38 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
           }}
           onClick={() => setSelectedObservance(null)}
         >
-          <div 
-            style={{
-              background: 'white',
-              borderRadius: '1rem',
-              padding: '1.5rem',
-              maxWidth: '500px',
-              width: '100%',
-              maxHeight: '80vh',
-              overflowY: 'auto',
-              boxShadow: '0 20px 60px rgba(0,0,0,0.3)'
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
+          {hasEnrichedObservanceData ? (
+            <div onClick={(e) => e.stopPropagation()}>
+              <EnrichedCalendarCard
+                dayIdentifier={selectedObservance.eventName
+                  .toLowerCase()
+                  .replace(/['']/g, '')
+                  .replace(/\s+/g, '-')
+                  .replace(/[^a-z0-9-]/g, '')}
+                eventDate={new Date(selectedObservance.date + 'T00:00:00')}
+                daysUntil={Math.ceil((new Date(selectedObservance.date + 'T00:00:00').getTime() - new Date(selectedDate + 'T00:00:00').getTime()) / (1000 * 60 * 60 * 24))}
+                onClose={() => setSelectedObservance(null)}
+                onActionClick={(actionType, actionTarget) => {
+                  console.log('[TodayView] Action clicked:', actionType, actionTarget);
+                  // TODO: Handle actions (create_event, create_reminder, create_todo)
+                  setSelectedObservance(null);
+                }}
+              />
+            </div>
+          ) : (
+            <div 
+              style={{
+                background: 'white',
+                borderRadius: '1rem',
+                padding: '1.5rem',
+                maxWidth: '500px',
+                width: '100%',
+                maxHeight: '80vh',
+                overflowY: 'auto',
+                boxShadow: '0 20px 60px rgba(0,0,0,0.3)'
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flex: 1 }}>
                 {selectedObservance.icon && <span style={{ fontSize: '2rem' }}>{selectedObservance.icon}</span>}
@@ -2977,6 +3016,7 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
               </div>
             )}
           </div>
+          )}
         </div>
       )}
 
