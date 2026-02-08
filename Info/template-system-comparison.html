@@ -1,0 +1,638 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Holiday Card Template System - Leo App</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f5f5;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 40px;
+        }
+
+        .template-explanation {
+            background: white;
+            padding: 24px;
+            border-radius: 12px;
+            margin-bottom: 30px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .template-explanation h2 {
+            margin-top: 0;
+            color: #333;
+        }
+
+        .template-types {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin: 20px 0;
+        }
+
+        .template-type {
+            background: #f8f9fa;
+            padding: 16px;
+            border-radius: 8px;
+            border-left: 4px solid #007bff;
+        }
+
+        .template-type h3 {
+            margin-top: 0;
+            font-size: 16px;
+            color: #333;
+        }
+
+        .template-type ul {
+            margin: 8px 0;
+            padding-left: 20px;
+            font-size: 14px;
+            color: #666;
+        }
+
+        .cards-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+            gap: 30px;
+            margin-top: 20px;
+        }
+
+        .card-container {
+            background: white;
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+            transition: transform 0.2s;
+        }
+
+        .card-container:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+        }
+
+        .card-header {
+            padding: 24px;
+            position: relative;
+            color: white;
+            min-height: 140px;
+        }
+
+        .card-header::before {
+            position: absolute;
+            font-size: 100px;
+            opacity: 0.15;
+            right: -10px;
+            top: -20px;
+            transform: rotate(15deg);
+        }
+
+        .valentine .card-header {
+            background: linear-gradient(135deg, #ff6b9d 0%, #c94b7f 100%);
+        }
+        .valentine .card-header::before { content: "💕"; }
+
+        .christmas .card-header {
+            background: linear-gradient(135deg, #c41e3a 0%, #165b33 100%);
+        }
+        .christmas .card-header::before { content: "🎄"; }
+
+        .halloween .card-header {
+            background: linear-gradient(135deg, #ff6600 0%, #1a1a1a 100%);
+        }
+        .halloween .card-header::before { content: "🎃"; }
+
+        .newyear .card-header {
+            background: linear-gradient(135deg, #ffd700 0%, #ff6b9d 100%);
+        }
+        .newyear .card-header::before { content: "🎉"; }
+
+        .thanksgiving .card-header {
+            background: linear-gradient(135deg, #d2691e 0%, #8b4513 100%);
+        }
+        .thanksgiving .card-header::before { content: "🦃"; }
+
+        .independence .card-header {
+            background: linear-gradient(135deg, #b22234 0%, #3c3b6e 100%);
+        }
+        .independence .card-header::before { content: "🇺🇸"; }
+
+        .countdown {
+            background: rgba(255,255,255,0.25);
+            backdrop-filter: blur(10px);
+            border-radius: 12px;
+            padding: 6px 14px;
+            display: inline-block;
+            margin-bottom: 10px;
+            font-size: 13px;
+            font-weight: 600;
+        }
+
+        .card-header h2 {
+            margin: 0 0 6px 0;
+            font-size: 28px;
+            font-weight: 700;
+        }
+
+        .card-header .date {
+            font-size: 14px;
+            opacity: 0.9;
+            margin-bottom: 10px;
+        }
+
+        .tags {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+
+        .tag {
+            padding: 4px 12px;
+            border-radius: 16px;
+            font-size: 12px;
+            font-weight: 500;
+            background: rgba(255,255,255,0.3);
+        }
+
+        .card-body {
+            padding: 20px;
+        }
+
+        .section {
+            margin-bottom: 18px;
+        }
+
+        .section-title {
+            font-size: 14px;
+            font-weight: 700;
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        .content-preview {
+            background: #f8f9fa;
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 13px;
+            color: #555;
+            line-height: 1.5;
+        }
+
+        .stats-mini {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+
+        .stat-mini {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 6px;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 18px;
+            font-weight: 700;
+            color: #333;
+        }
+
+        .stat-label {
+            font-size: 11px;
+            color: #666;
+            margin-top: 2px;
+        }
+
+        .action-btn-mini {
+            width: 100%;
+            padding: 10px;
+            border-radius: 8px;
+            border: none;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 8px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+            color: white;
+        }
+
+        .template-badge {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(0,0,0,0.6);
+            color: white;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        .recommendation {
+            background: #e7f5ff;
+            border: 2px solid #339af0;
+            border-radius: 12px;
+            padding: 20px;
+            margin-top: 30px;
+        }
+
+        .recommendation h2 {
+            margin-top: 0;
+            color: #1971c2;
+        }
+
+        .recommendation-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-top: 16px;
+        }
+
+        .recommendation-item {
+            background: white;
+            padding: 16px;
+            border-radius: 8px;
+        }
+
+        .recommendation-item h3 {
+            margin-top: 0;
+            font-size: 16px;
+            color: #1971c2;
+        }
+
+        .pros-cons {
+            font-size: 14px;
+        }
+
+        .pros-cons strong {
+            color: #2b8a3e;
+        }
+
+        .pros-cons strong.con {
+            color: #c92a2a;
+        }
+
+        .implementation-note {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 16px;
+            margin-top: 20px;
+            border-radius: 4px;
+        }
+
+        .implementation-note strong {
+            color: #856404;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎨 Holiday Card Template System</h1>
+        <p class="subtitle">One flexible template adapts to every holiday with dynamic theming</p>
+
+        <div class="template-explanation">
+            <h2>📋 Template Approach (Recommended)</h2>
+            <p>Use <strong>3-4 flexible templates</strong> that adapt based on holiday category, rather than custom designs for each holiday. This provides consistency while allowing personality.</p>
+            
+            <div class="template-types">
+                <div class="template-type" style="border-left-color: #ff6b9d;">
+                    <h3>💝 Romantic Template</h3>
+                    <ul>
+                        <li>Valentine's Day</li>
+                        <li>Anniversary celebrations</li>
+                        <li>Warm gradients, hearts</li>
+                        <li>Focus: Gift ideas, restaurants</li>
+                    </ul>
+                </div>
+
+                <div class="template-type" style="border-left-color: #c41e3a;">
+                    <h3>🎊 Celebration Template</h3>
+                    <ul>
+                        <li>Christmas, New Year's</li>
+                        <li>Birthdays, Graduations</li>
+                        <li>Bold colors, festive icons</li>
+                        <li>Focus: Events, traditions</li>
+                    </ul>
+                </div>
+
+                <div class="template-type" style="border-left-color: #ff6600;">
+                    <h3>🎃 Cultural Template</h3>
+                    <ul>
+                        <li>Halloween, Thanksgiving</li>
+                        <li>Independence Day, Easter</li>
+                        <li>Themed colors, symbols</li>
+                        <li>Focus: History, activities</li>
+                    </ul>
+                </div>
+
+                <div class="template-type" style="border-left-color: #4a5568;">
+                    <h3>📅 Awareness Template</h3>
+                    <ul>
+                        <li>Earth Day, Mother's Day</li>
+                        <li>Memorial days, awareness days</li>
+                        <li>Subtle tones, respectful</li>
+                        <li>Focus: Education, reflection</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <h2 style="margin-top: 40px; color: #333;">Examples: Same Template, Different Themes</h2>
+        
+        <div class="cards-grid">
+            <!-- Valentine's Day -->
+            <div class="card-container valentine">
+                <div class="card-header">
+                    <span class="template-badge">Romantic Template</span>
+                    <div class="countdown">⏰ IN 7 DAYS</div>
+                    <h2>Valentine's Day</h2>
+                    <div class="date">Saturday, February 14, 2026</div>
+                    <div class="tags">
+                        <span class="tag">Romantic</span>
+                        <span class="tag">85% Important</span>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="section">
+                        <div class="section-title">💡 Did You Know?</div>
+                        <div class="content-preview">
+                            Americans spend $25.8B on Valentine's Day annually. Saint Valentine secretly married soldiers in 3rd century Rome.
+                        </div>
+                    </div>
+                    <div class="section">
+                        <div class="section-title">📊 By The Numbers</div>
+                        <div class="stats-mini">
+                            <div class="stat-mini">
+                                <div class="stat-value">1B+</div>
+                                <div class="stat-label">Cards sent</div>
+                            </div>
+                            <div class="stat-mini">
+                                <div class="stat-value">220M</div>
+                                <div class="stat-label">Roses sold</div>
+                            </div>
+                        </div>
+                    </div>
+                    <button class="action-btn-mini btn-primary">💝 Get Gift Ideas</button>
+                </div>
+            </div>
+
+            <!-- Christmas -->
+            <div class="card-container christmas">
+                <div class="card-header">
+                    <span class="template-badge">Celebration Template</span>
+                    <div class="countdown">⏰ IN 42 DAYS</div>
+                    <h2>Christmas</h2>
+                    <div class="date">Wednesday, December 25, 2025</div>
+                    <div class="tags">
+                        <span class="tag">Cultural</span>
+                        <span class="tag">95% Important</span>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="section">
+                        <div class="section-title">🎄 Tradition</div>
+                        <div class="content-preview">
+                            The modern Christmas tree tradition began in Germany in the 16th century. Over 2 billion Christmas cards are sent each year.
+                        </div>
+                    </div>
+                    <div class="section">
+                        <div class="section-title">📊 Holiday Stats</div>
+                        <div class="stats-mini">
+                            <div class="stat-mini">
+                                <div class="stat-value">$1T+</div>
+                                <div class="stat-label">Global spending</div>
+                            </div>
+                            <div class="stat-mini">
+                                <div class="stat-value">160M</div>
+                                <div class="stat-label">Trees sold (US)</div>
+                            </div>
+                        </div>
+                    </div>
+                    <button class="action-btn-mini btn-primary">🎁 Shopping Checklist</button>
+                </div>
+            </div>
+
+            <!-- Halloween -->
+            <div class="card-container halloween">
+                <div class="card-header">
+                    <span class="template-badge">Cultural Template</span>
+                    <div class="countdown">⏰ IN 21 DAYS</div>
+                    <h2>Halloween</h2>
+                    <div class="date">Friday, October 31, 2025</div>
+                    <div class="tags">
+                        <span class="tag">Cultural</span>
+                        <span class="tag">70% Important</span>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="section">
+                        <div class="section-title">👻 Origins</div>
+                        <div class="content-preview">
+                            Halloween evolved from the Celtic festival Samhain. Americans spend $10.6B on costumes, candy, and decorations.
+                        </div>
+                    </div>
+                    <div class="section">
+                        <div class="section-title">📊 Spooky Stats</div>
+                        <div class="stats-mini">
+                            <div class="stat-mini">
+                                <div class="stat-value">$10.6B</div>
+                                <div class="stat-label">Total spending</div>
+                            </div>
+                            <div class="stat-mini">
+                                <div class="stat-value">148M</div>
+                                <div class="stat-label">Participate (US)</div>
+                            </div>
+                        </div>
+                    </div>
+                    <button class="action-btn-mini btn-primary">🎃 Costume Ideas</button>
+                </div>
+            </div>
+
+            <!-- New Year's Day -->
+            <div class="card-container newyear">
+                <div class="card-header">
+                    <span class="template-badge">Celebration Template</span>
+                    <div class="countdown">⏰ TOMORROW</div>
+                    <h2>New Year's Day</h2>
+                    <div class="date">Wednesday, January 1, 2026</div>
+                    <div class="tags">
+                        <span class="tag">Cultural</span>
+                        <span class="tag">90% Important</span>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="section">
+                        <div class="section-title">🎉 Fresh Start</div>
+                        <div class="content-preview">
+                            New Year celebrations date back 4,000 years to ancient Babylon. 45% of Americans make resolutions, but only 8% keep them.
+                        </div>
+                    </div>
+                    <div class="section">
+                        <div class="section-title">📊 Resolution Stats</div>
+                        <div class="stats-mini">
+                            <div class="stat-mini">
+                                <div class="stat-value">45%</div>
+                                <div class="stat-label">Make resolutions</div>
+                            </div>
+                            <div class="stat-mini">
+                                <div class="stat-value">8%</div>
+                                <div class="stat-label">Actually keep them</div>
+                            </div>
+                        </div>
+                    </div>
+                    <button class="action-btn-mini btn-primary">📝 Track Resolutions</button>
+                </div>
+            </div>
+
+            <!-- Thanksgiving -->
+            <div class="card-container thanksgiving">
+                <div class="card-header">
+                    <span class="template-badge">Cultural Template</span>
+                    <div class="countdown">⏰ IN 14 DAYS</div>
+                    <h2>Thanksgiving</h2>
+                    <div class="date">Thursday, November 27, 2025</div>
+                    <div class="tags">
+                        <span class="tag">Cultural</span>
+                        <span class="tag">88% Important</span>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="section">
+                        <div class="section-title">🦃 Tradition</div>
+                        <div class="content-preview">
+                            The first Thanksgiving was in 1621. 46 million turkeys are consumed each year. It's the busiest travel day in the US.
+                        </div>
+                    </div>
+                    <div class="section">
+                        <div class="section-title">📊 Turkey Day Stats</div>
+                        <div class="stats-mini">
+                            <div class="stat-mini">
+                                <div class="stat-value">46M</div>
+                                <div class="stat-label">Turkeys eaten</div>
+                            </div>
+                            <div class="stat-mini">
+                                <div class="stat-value">4,500</div>
+                                <div class="stat-label">Calories consumed</div>
+                            </div>
+                        </div>
+                    </div>
+                    <button class="action-btn-mini btn-primary">🍽️ Menu Planner</button>
+                </div>
+            </div>
+
+            <!-- Independence Day -->
+            <div class="card-container independence">
+                <div class="card-header">
+                    <span class="template-badge">Cultural Template</span>
+                    <div class="countdown">⏰ IN 35 DAYS</div>
+                    <h2>Independence Day</h2>
+                    <div class="date">Saturday, July 4, 2026</div>
+                    <div class="tags">
+                        <span class="tag">National</span>
+                        <span class="tag">92% Important</span>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="section">
+                        <div class="section-title">🇺🇸 History</div>
+                        <div class="content-preview">
+                            Celebrating US independence since 1776. Americans spend $8B on BBQs, fireworks, and celebrations annually.
+                        </div>
+                    </div>
+                    <div class="section">
+                        <div class="section-title">📊 July 4th Stats</div>
+                        <div class="stats-mini">
+                            <div class="stat-mini">
+                                <div class="stat-value">$8B</div>
+                                <div class="stat-label">Total spending</div>
+                            </div>
+                            <div class="stat-mini">
+                                <div class="stat-value">16K</div>
+                                <div class="stat-label">Firework shows</div>
+                            </div>
+                        </div>
+                    </div>
+                    <button class="action-btn-mini btn-primary">🎆 Find Events Nearby</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="recommendation">
+            <h2>💡 My Recommendation: Hybrid Template System</h2>
+            <p>Use <strong>template categories</strong> with <strong>dynamic theming</strong> for the best balance of consistency and personality.</p>
+            
+            <div class="recommendation-grid">
+                <div class="recommendation-item">
+                    <h3>✅ Template-Based (Recommended)</h3>
+                    <div class="pros-cons">
+                        <p><strong>Pros:</strong></p>
+                        <ul>
+                            <li>Consistent user experience</li>
+                            <li>Easy to maintain & scale</li>
+                            <li>Predictable development time</li>
+                            <li>Works for 100+ holidays instantly</li>
+                            <li>Only update content, not code</li>
+                        </ul>
+                        <p><strong class="con">Cons:</strong></p>
+                        <ul>
+                            <li>Less unique per holiday</li>
+                            <li>Requires good theming system</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="recommendation-item">
+                    <h3>❌ Custom Per Holiday</h3>
+                    <div class="pros-cons">
+                        <p><strong>Pros:</strong></p>
+                        <ul>
+                            <li>Maximum personality</li>
+                            <li>Unique for major holidays</li>
+                            <li>Can showcase creativity</li>
+                        </ul>
+                        <p><strong class="con">Cons:</strong></p>
+                        <ul>
+                            <li>Maintenance nightmare</li>
+                            <li>Inconsistent UX</li>
+                            <li>Can't scale to 100+ holidays</li>
+                            <li>Every change needs design review</li>
+                            <li>Bug fixes multiply across designs</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="implementation-note">
+            <strong>🎯 Implementation Strategy:</strong>
+            <p style="margin: 8px 0 0 0;">
+                Use 3-4 base templates, customize via database-driven theming (colors, icons, content structure). 
+                For the top 10 major holidays (Christmas, New Year, Valentine's, etc.), you could optionally 
+                add small unique flourishes (special animations, layout tweaks) while keeping the same core template. 
+                This gives you 90% efficiency with 10% personality boost where it matters most.
+            </p>
+        </div>
+    </div>
+</body>
+</html>

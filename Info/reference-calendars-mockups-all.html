@@ -1,0 +1,1541 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reference Calendars - Leo App Mockups</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f0f2f5;
+        }
+
+        .hero-section {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 60px 20px;
+            text-align: center;
+        }
+
+        .hero-section h1 {
+            font-size: 48px;
+            margin: 0 0 16px 0;
+            font-weight: 900;
+        }
+
+        .hero-section p {
+            font-size: 20px;
+            opacity: 0.95;
+            max-width: 800px;
+            margin: 0 auto 32px;
+            line-height: 1.6;
+        }
+
+        .feature-badges {
+            display: flex;
+            gap: 16px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .badge {
+            background: rgba(255,255,255,0.2);
+            backdrop-filter: blur(10px);
+            padding: 12px 24px;
+            border-radius: 24px;
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+
+        .section-header {
+            text-align: center;
+            margin-bottom: 48px;
+        }
+
+        .section-header h2 {
+            font-size: 36px;
+            color: #1a1a1a;
+            margin: 0 0 12px 0;
+        }
+
+        .section-header p {
+            font-size: 18px;
+            color: #666;
+            max-width: 700px;
+            margin: 0 auto;
+        }
+
+        .mockups-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+            gap: 40px;
+            margin-top: 32px;
+        }
+
+        .phone-frame {
+            background: #1a1a1a;
+            border-radius: 40px;
+            padding: 12px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            transition: transform 0.3s;
+        }
+
+        .phone-frame:hover {
+            transform: translateY(-8px);
+        }
+
+        .phone-screen {
+            background: white;
+            border-radius: 32px;
+            overflow: hidden;
+            position: relative;
+            height: 700px;
+            overflow-y: auto;
+        }
+
+        .phone-screen::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        .phone-screen::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+
+        .phone-screen::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 2px;
+        }
+
+        .status-bar {
+            padding: 8px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            color: white;
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .card-container {
+            background: white;
+        }
+
+        .card-header {
+            padding: 28px 24px;
+            position: relative;
+            overflow: hidden;
+            color: white;
+        }
+
+        .card-header::before {
+            position: absolute;
+            font-size: 140px;
+            opacity: 0.12;
+            right: -20px;
+            top: -35px;
+            transform: rotate(15deg);
+        }
+
+        .card-header::after {
+            position: absolute;
+            font-size: 60px;
+            opacity: 0.1;
+            left: 20px;
+            bottom: 10px;
+            transform: rotate(-20deg);
+        }
+
+        /* Valentine's Day */
+        .valentine .status-bar { background: linear-gradient(135deg, #ff6b9d 0%, #c94b7f 100%); }
+        .valentine .card-header { background: linear-gradient(135deg, #ff6b9d 0%, #c94b7f 100%); }
+        .valentine .card-header::before { content: "💕"; }
+        .valentine .card-header::after { content: "💝"; }
+
+        /* Christmas */
+        .christmas .status-bar { background: linear-gradient(135deg, #c41e3a 0%, #165b33 100%); }
+        .christmas .card-header { background: linear-gradient(135deg, #c41e3a 0%, #165b33 100%); }
+        .christmas .card-header::before { content: "🎄"; }
+        .christmas .card-header::after { content: "🎅"; }
+
+        /* Halloween */
+        .halloween .status-bar { background: linear-gradient(135deg, #ff6600 0%, #1a1a1a 100%); }
+        .halloween .card-header { background: linear-gradient(135deg, #ff6600 0%, #1a1a1a 100%); }
+        .halloween .card-header::before { content: "🎃"; }
+        .halloween .card-header::after { content: "👻"; }
+
+        /* Thanksgiving */
+        .thanksgiving .status-bar { background: linear-gradient(135deg, #d2691e 0%, #8b4513 100%); }
+        .thanksgiving .card-header { background: linear-gradient(135deg, #d2691e 0%, #8b4513 100%); }
+        .thanksgiving .card-header::before { content: "🦃"; }
+        .thanksgiving .card-header::after { content: "🍂"; }
+
+        /* Mother's Day */
+        .mothersday .status-bar { background: linear-gradient(135deg, #e91e63 0%, #9c27b0 100%); }
+        .mothersday .card-header { background: linear-gradient(135deg, #e91e63 0%, #9c27b0 100%); }
+        .mothersday .card-header::before { content: "💐"; }
+        .mothersday .card-header::after { content: "❤️"; }
+
+        /* Maha Shivratri */
+        .shivratri .status-bar { background: linear-gradient(135deg, #ff9933 0%, #138808 100%); }
+        .shivratri .card-header { background: linear-gradient(135deg, #ff9933 0%, #138808 100%); }
+        .shivratri .card-header::before { content: "🕉️"; }
+        .shivratri .card-header::after { content: "🔱"; }
+
+        /* Diwali */
+        .diwali .status-bar { background: linear-gradient(135deg, #ff6b35 0%, #f7931e 100%); }
+        .diwali .card-header { background: linear-gradient(135deg, #ff6b35 0%, #f7931e 100%); }
+        .diwali .card-header::before { content: "🪔"; }
+        .diwali .card-header::after { content: "✨"; }
+
+        .close-btn {
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            width: 32px;
+            height: 32px;
+            background: rgba(255,255,255,0.25);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 20px;
+            cursor: pointer;
+            backdrop-filter: blur(10px);
+            z-index: 10;
+            border: none;
+        }
+
+        .countdown {
+            background: rgba(255,255,255,0.25);
+            backdrop-filter: blur(10px);
+            border-radius: 14px;
+            padding: 8px 18px;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            margin-bottom: 14px;
+            position: relative;
+            z-index: 5;
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.85; }
+        }
+
+        .countdown-text {
+            color: white;
+            font-size: 14px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+        }
+
+        .title-section h1 {
+            color: white;
+            font-size: 34px;
+            margin: 0 0 8px 0;
+            font-weight: 800;
+            position: relative;
+            z-index: 5;
+        }
+
+        .subtitle {
+            color: rgba(255,255,255,0.95);
+            font-size: 16px;
+            margin: 0 0 14px 0;
+            position: relative;
+            z-index: 5;
+        }
+
+        .tags {
+            display: flex;
+            gap: 8px;
+            position: relative;
+            z-index: 5;
+            flex-wrap: wrap;
+        }
+
+        .tag {
+            padding: 6px 16px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 600;
+            background: rgba(255,255,255,0.3);
+        }
+
+        .tag.important {
+            background: #FFD700;
+            color: #8B4513;
+        }
+
+        .card-body {
+            padding: 24px;
+        }
+
+        .section {
+            margin-bottom: 24px;
+        }
+
+        .section-title {
+            font-size: 16px;
+            font-weight: 800;
+            color: #1a1a1a;
+            margin-bottom: 14px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .fun-fact {
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            border-left: 4px solid currentColor;
+            padding: 16px;
+            border-radius: 10px;
+            font-size: 14px;
+            line-height: 1.7;
+            color: #2d2d2d;
+        }
+
+        .valentine .fun-fact { border-color: #ff6b9d; background: linear-gradient(135deg, #fff5f7 0%, #ffe8ed 100%); }
+        .christmas .fun-fact { border-color: #c41e3a; background: linear-gradient(135deg, #fff5f5 0%, #ffe5e5 100%); }
+        .halloween .fun-fact { border-color: #ff6600; background: linear-gradient(135deg, #fff5f0 0%, #ffe8d6 100%); }
+        .thanksgiving .fun-fact { border-color: #d2691e; background: linear-gradient(135deg, #fff9f5 0%, #fff0e6 100%); }
+        .mothersday .fun-fact { border-color: #e91e63; background: linear-gradient(135deg, #fce4ec 0%, #f8bbd0 100%); }
+        .shivratri .fun-fact { border-color: #ff9933; background: linear-gradient(135deg, #fff8f0 0%, #ffe8d6 100%); }
+        .diwali .fun-fact { border-color: #ff6b35; background: linear-gradient(135deg, #fff5f0 0%, #ffe8d6 100%); }
+
+        .fun-fact strong {
+            font-weight: 700;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            padding: 16px;
+            border-radius: 12px;
+            text-align: center;
+            border: 1px solid #dee2e6;
+            transition: transform 0.2s;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-2px);
+        }
+
+        .stat-value {
+            font-size: 26px;
+            font-weight: 900;
+            margin-bottom: 6px;
+        }
+
+        .valentine .stat-value { background: linear-gradient(135deg, #ff6b9d 0%, #c94b7f 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .christmas .stat-value { background: linear-gradient(135deg, #c41e3a 0%, #165b33 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .halloween .stat-value { background: linear-gradient(135deg, #ff6600 0%, #1a1a1a 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .thanksgiving .stat-value { background: linear-gradient(135deg, #d2691e 0%, #8b4513 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .mothersday .stat-value { background: linear-gradient(135deg, #e91e63 0%, #9c27b0 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .shivratri .stat-value { background: linear-gradient(135deg, #ff9933 0%, #138808 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .diwali .stat-value { background: linear-gradient(135deg, #ff6b35 0%, #f7931e 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+
+        .stat-label {
+            font-size: 12px;
+            color: #495057;
+            line-height: 1.4;
+            font-weight: 500;
+        }
+
+        .timeline {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 16px;
+        }
+
+        .timeline-item {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 14px;
+            padding-bottom: 14px;
+            border-bottom: 1px solid #dee2e6;
+        }
+
+        .timeline-item:last-child {
+            margin-bottom: 0;
+            padding-bottom: 0;
+            border-bottom: none;
+        }
+
+        .timeline-icon {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            flex-shrink: 0;
+        }
+
+        .valentine .timeline-icon { background: linear-gradient(135deg, #ff6b9d 0%, #c94b7f 100%); }
+        .christmas .timeline-icon { background: linear-gradient(135deg, #c41e3a 0%, #165b33 100%); }
+        .halloween .timeline-icon { background: linear-gradient(135deg, #ff6600 0%, #1a1a1a 100%); }
+        .thanksgiving .timeline-icon { background: linear-gradient(135deg, #d2691e 0%, #8b4513 100%); }
+        .mothersday .timeline-icon { background: linear-gradient(135deg, #e91e63 0%, #9c27b0 100%); }
+        .shivratri .timeline-icon { background: linear-gradient(135deg, #ff9933 0%, #138808 100%); }
+        .diwali .timeline-icon { background: linear-gradient(135deg, #ff6b35 0%, #f7931e 100%); }
+
+        .timeline-content {
+            flex: 1;
+        }
+
+        .timeline-title {
+            font-weight: 700;
+            font-size: 13px;
+            color: #2d2d2d;
+            margin-bottom: 3px;
+        }
+
+        .timeline-desc {
+            font-size: 12px;
+            color: #666;
+            line-height: 1.5;
+        }
+
+        .tip-box {
+            background: linear-gradient(135deg, #fff9e6 0%, #ffeb99 100%);
+            border: 2px solid #ffd700;
+            border-radius: 12px;
+            padding: 16px;
+            display: flex;
+            gap: 14px;
+            align-items: start;
+        }
+
+        .tip-icon {
+            font-size: 28px;
+            flex-shrink: 0;
+        }
+
+        .tip-content {
+            flex: 1;
+        }
+
+        .tip-title {
+            font-weight: 700;
+            color: #996b00;
+            margin-bottom: 6px;
+            font-size: 15px;
+        }
+
+        .tip-text {
+            font-size: 13px;
+            color: #665500;
+            line-height: 1.6;
+        }
+
+        .quick-ideas {
+            display: flex;
+            gap: 10px;
+            overflow-x: auto;
+            padding: 4px 0 8px 0;
+            scrollbar-width: none;
+        }
+
+        .quick-ideas::-webkit-scrollbar {
+            display: none;
+        }
+
+        .idea-chip {
+            background: white;
+            border: 2px solid #e0e0e0;
+            padding: 10px 18px;
+            border-radius: 24px;
+            font-size: 14px;
+            white-space: nowrap;
+            color: #555;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-weight: 600;
+        }
+
+        .idea-chip:hover {
+            transform: scale(1.05);
+        }
+
+        .valentine .idea-chip:hover { border-color: #ff6b9d; color: #ff6b9d; background: #fff5f7; }
+        .christmas .idea-chip:hover { border-color: #c41e3a; color: #c41e3a; background: #fff5f5; }
+        .halloween .idea-chip:hover { border-color: #ff6600; color: #ff6600; background: #fff5f0; }
+        .thanksgiving .idea-chip:hover { border-color: #d2691e; color: #d2691e; background: #fff9f5; }
+        .mothersday .idea-chip:hover { border-color: #e91e63; color: #e91e63; background: #fce4ec; }
+        .shivratri .idea-chip:hover { border-color: #ff9933; color: #ff9933; background: #fff8f0; }
+        .diwali .idea-chip:hover { border-color: #ff6b35; color: #ff6b35; background: #fff5f0; }
+
+        .resources-section {
+            background: linear-gradient(135deg, #e7f5ff 0%, #d0ebff 100%);
+            border: 2px solid #74c0fc;
+            border-radius: 12px;
+            padding: 16px;
+        }
+
+        .resource-link {
+            background: white;
+            border: 1px solid #74c0fc;
+            border-radius: 10px;
+            padding: 12px 14px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            text-decoration: none;
+            color: #1971c2;
+            transition: all 0.2s;
+            margin-bottom: 10px;
+        }
+
+        .resource-link:last-child {
+            margin-bottom: 0;
+        }
+
+        .resource-link:hover {
+            background: #f8f9fa;
+            border-color: #4dabf7;
+            transform: translateX(4px);
+        }
+
+        .resource-icon {
+            font-size: 24px;
+            flex-shrink: 0;
+        }
+
+        .resource-content {
+            flex: 1;
+        }
+
+        .resource-title {
+            font-weight: 700;
+            font-size: 14px;
+            margin-bottom: 2px;
+        }
+
+        .resource-desc {
+            font-size: 12px;
+            color: #495057;
+        }
+
+        .external-arrow {
+            color: #74c0fc;
+            font-size: 18px;
+        }
+
+        .action-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .action-btn {
+            border: none;
+            padding: 15px;
+            border-radius: 14px;
+            font-size: 15px;
+            font-weight: 700;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            transition: all 0.3s;
+        }
+
+        .action-btn.primary {
+            color: white;
+        }
+
+        .valentine .action-btn.primary { background: linear-gradient(135deg, #ff6b9d 0%, #c94b7f 100%); box-shadow: 0 4px 12px rgba(255, 107, 157, 0.3); }
+        .christmas .action-btn.primary { background: linear-gradient(135deg, #c41e3a 0%, #165b33 100%); box-shadow: 0 4px 12px rgba(196, 30, 58, 0.3); }
+        .halloween .action-btn.primary { background: linear-gradient(135deg, #ff6600 0%, #1a1a1a 100%); box-shadow: 0 4px 12px rgba(255, 102, 0, 0.3); }
+        .thanksgiving .action-btn.primary { background: linear-gradient(135deg, #d2691e 0%, #8b4513 100%); box-shadow: 0 4px 12px rgba(210, 105, 30, 0.3); }
+        .mothersday .action-btn.primary { background: linear-gradient(135deg, #e91e63 0%, #9c27b0 100%); box-shadow: 0 4px 12px rgba(233, 30, 99, 0.3); }
+        .shivratri .action-btn.primary { background: linear-gradient(135deg, #ff9933 0%, #138808 100%); box-shadow: 0 4px 12px rgba(255, 153, 51, 0.3); }
+        .diwali .action-btn.primary { background: linear-gradient(135deg, #ff6b35 0%, #f7931e 100%); box-shadow: 0 4px 12px rgba(255, 107, 53, 0.3); }
+
+        .action-btn.primary:hover {
+            transform: translateY(-2px);
+        }
+
+        .action-btn.secondary {
+            background: white;
+            border: 2px solid currentColor;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        }
+
+        .valentine .action-btn.secondary { color: #ff6b9d; }
+        .christmas .action-btn.secondary { color: #c41e3a; }
+        .halloween .action-btn.secondary { color: #ff6600; }
+        .thanksgiving .action-btn.secondary { color: #d2691e; }
+        .mothersday .action-btn.secondary { color: #e91e63; }
+        .shivratri .action-btn.secondary { color: #ff9933; }
+        .diwali .action-btn.secondary { color: #ff6b35; }
+
+        .card-footer {
+            text-align: center;
+            padding: 14px;
+            background: #f8f9fa;
+            color: #adb5bd;
+            font-size: 12px;
+            border-top: 1px solid #e9ecef;
+        }
+
+        .responsive-note {
+            background: #fff3cd;
+            border: 2px solid #ffc107;
+            border-radius: 12px;
+            padding: 24px;
+            margin: 40px 0;
+            text-align: center;
+        }
+
+        .responsive-note h3 {
+            margin: 0 0 12px 0;
+            color: #856404;
+            font-size: 24px;
+        }
+
+        .responsive-note p {
+            margin: 0;
+            color: #856404;
+            font-size: 16px;
+            line-height: 1.6;
+        }
+
+        @media (max-width: 768px) {
+            .mockups-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .hero-section h1 {
+                font-size: 32px;
+            }
+
+            .hero-section p {
+                font-size: 16px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="hero-section">
+        <h1>📅 Reference Calendars</h1>
+        <p>Rich, engaging holiday experiences with facts, timelines, and resources. Each card adapts to its theme while maintaining a consistent, beautiful experience across mobile and desktop.</p>
+        <div class="feature-badges">
+            <div class="badge">📱 Mobile First</div>
+            <div class="badge">🎨 Dynamic Theming</div>
+            <div class="badge">🔗 External Resources</div>
+            <div class="badge">⚡ Interactive</div>
+            <div class="badge">♿ Accessible</div>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="section-header">
+            <h2>7 Holiday Examples - Template System in Action</h2>
+            <p>Same codebase, different content & theming. Includes US holidays and Indian festivals. Each card is fully scrollable on mobile.</p>
+        </div>
+
+        <div class="mockups-grid">
+            <!-- Valentine's Day -->
+            <div class="phone-frame">
+                <div class="phone-screen valentine">
+                    <div class="status-bar">
+                        <div>12:16</div>
+                        <div>📶 📡 🔋</div>
+                    </div>
+
+                    <div class="card-container">
+                        <div class="card-header">
+                            <button class="close-btn">✕</button>
+                            <div class="countdown">
+                                <div class="countdown-text">⏰ IN 7 DAYS</div>
+                            </div>
+                            <div class="title-section">
+                                <h1>Valentine's Day</h1>
+                                <p class="subtitle">Saturday, February 14, 2026</p>
+                            </div>
+                            <div class="tags">
+                                <span class="tag">romantic</span>
+                                <span class="tag important">85% Important</span>
+                            </div>
+                        </div>
+
+                        <div class="card-body">
+                            <div class="section">
+                                <div class="section-title">💡 Did You Know?</div>
+                                <div class="fun-fact">
+                                    <strong>$25.8 billion</strong> is spent on Valentine's Day in the US annually. The tradition dates back to 3rd century Rome, honoring Saint Valentine who performed secret marriages for soldiers.
+                                </div>
+                            </div>
+
+                            <div class="section">
+                                <div class="section-title">📊 By The Numbers</div>
+                                <div class="stats-grid">
+                                    <div class="stat-card">
+                                        <div class="stat-value">1B+</div>
+                                        <div class="stat-label">Cards sent worldwide</div>
+                                    </div>
+                                    <div class="stat-card">
+                                        <div class="stat-value">220M</div>
+                                        <div class="stat-label">Roses produced</div>
+                                    </div>
+                                    <div class="stat-card">
+                                        <div class="stat-value">27%</div>
+                                        <div class="stat-label">Buy gifts for pets</div>
+                                    </div>
+                                    <div class="stat-card">
+                                        <div class="stat-value">2-3wk</div>
+                                        <div class="stat-label">Book ahead</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="section">
+                                <div class="section-title">⏰ Timeline</div>
+                                <div class="timeline">
+                                    <div class="timeline-item">
+                                        <div class="timeline-icon">📅</div>
+                                        <div class="timeline-content">
+                                            <div class="timeline-title">Today - Book Restaurant</div>
+                                            <div class="timeline-desc">Popular spots filling fast</div>
+                                        </div>
+                                    </div>
+                                    <div class="timeline-item">
+                                        <div class="timeline-icon">🌹</div>
+                                        <div class="timeline-content">
+                                            <div class="timeline-title">3 Days Before - Order Flowers</div>
+                                            <div class="timeline-desc">Ensure freshness & availability</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="section">
+                                <div class="section-title">🎁 Quick Ideas</div>
+                                <div class="quick-ideas">
+                                    <div class="idea-chip">💐 Flowers</div>
+                                    <div class="idea-chip">🍫 Chocolates</div>
+                                    <div class="idea-chip">💎 Jewelry</div>
+                                    <div class="idea-chip">🎭 Experience</div>
+                                </div>
+                            </div>
+
+                            <div class="section">
+                                <div class="section-title">🔗 Learn More</div>
+                                <div class="resources-section">
+                                    <a href="#" class="resource-link">
+                                        <div class="resource-icon">📖</div>
+                                        <div class="resource-content">
+                                            <div class="resource-title">History of Valentine's Day</div>
+                                            <div class="resource-desc">Wikipedia • 5 min read</div>
+                                        </div>
+                                        <div class="external-arrow">→</div>
+                                    </a>
+                                    <a href="#" class="resource-link">
+                                        <div class="resource-icon">🎥</div>
+                                        <div class="resource-content">
+                                            <div class="resource-title">DIY Gift Ideas</div>
+                                            <div class="resource-desc">YouTube • 10 min</div>
+                                        </div>
+                                        <div class="external-arrow">→</div>
+                                    </a>
+                                </div>
+                            </div>
+
+                            <div class="section action-buttons">
+                                <button class="action-btn primary">📅 Set Reminder</button>
+                                <button class="action-btn secondary">💡 Gift Ideas</button>
+                            </div>
+                        </div>
+
+                        <div class="card-footer">📆 Reference Calendars</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Christmas -->
+            <div class="phone-frame">
+                <div class="phone-screen christmas">
+                    <div class="status-bar">
+                        <div>12:16</div>
+                        <div>📶 📡 🔋</div>
+                    </div>
+
+                    <div class="card-container">
+                        <div class="card-header">
+                            <button class="close-btn">✕</button>
+                            <div class="countdown">
+                                <div class="countdown-text">⏰ IN 42 DAYS</div>
+                            </div>
+                            <div class="title-section">
+                                <h1>Christmas</h1>
+                                <p class="subtitle">Wednesday, December 25, 2025</p>
+                            </div>
+                            <div class="tags">
+                                <span class="tag">celebration</span>
+                                <span class="tag important">95% Important</span>
+                            </div>
+                        </div>
+
+                        <div class="card-body">
+                            <div class="section">
+                                <div class="section-title">🎄 Tradition</div>
+                                <div class="fun-fact">
+                                    The modern Christmas tree tradition began in <strong>16th century Germany</strong>. Over $1 trillion is spent globally on Christmas celebrations, making it the world's largest holiday.
+                                </div>
+                            </div>
+
+                            <div class="section">
+                                <div class="section-title">📊 Holiday Stats</div>
+                                <div class="stats-grid">
+                                    <div class="stat-card">
+                                        <div class="stat-value">$1T+</div>
+                                        <div class="stat-label">Global spending</div>
+                                    </div>
+                                    <div class="stat-card">
+                                        <div class="stat-value">160M</div>
+                                        <div class="stat-label">Trees sold (US)</div>
+                                    </div>
+                                    <div class="stat-card">
+                                        <div class="stat-value">2B+</div>
+                                        <div class="stat-label">Cards sent</div>
+                                    </div>
+                                    <div class="stat-card">
+                                        <div class="stat-value">3B</div>
+                                        <div class="stat-label">Christmas lights</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="section">
+                                <div class="section-title">💡 Pro Tip</div>
+                                <div class="tip-box">
+                                    <div class="tip-icon">🎯</div>
+                                    <div class="tip-content">
+                                        <div class="tip-title">Start Early!</div>
+                                        <div class="tip-text">Create your gift list now. Popular items sell out fast, and early shopping means better prices and less stress.</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="section">
+                                <div class="section-title">🎁 Gift Categories</div>
+                                <div class="quick-ideas">
+                                    <div class="idea-chip">🎮 Electronics</div>
+                                    <div class="idea-chip">📚 Books</div>
+                                    <div class="idea-chip">👕 Clothing</div>
+                                    <div class="idea-chip">🧸 Toys</div>
+                                    <div class="idea-chip">🍪 Treats</div>
+                                </div>
+                            </div>
+
+                            <div class="section">
+                                <div class="section-title">🔗 Resources</div>
+                                <div class="resources-section">
+                                    <a href="#" class="resource-link">
+                                        <div class="resource-icon">🎬</div>
+                                        <div class="resource-content">
+                                            <div class="resource-title">Classic Christmas Movies</div>
+                                            <div class="resource-desc">IMDb • Top 25 list</div>
+                                        </div>
+                                        <div class="external-arrow">→</div>
+                                    </a>
+                                    <a href="#" class="resource-link">
+                                        <div class="resource-icon">🍽️</div>
+                                        <div class="resource-content">
+                                            <div class="resource-title">Christmas Dinner Recipes</div>
+                                            <div class="resource-desc">AllRecipes • Traditional meals</div>
+                                        </div>
+                                        <div class="external-arrow">→</div>
+                                    </a>
+                                </div>
+                            </div>
+
+                            <div class="section action-buttons">
+                                <button class="action-btn primary">📝 Shopping List</button>
+                                <button class="action-btn secondary">🎵 Playlist</button>
+                            </div>
+                        </div>
+
+                        <div class="card-footer">📆 Reference Calendars</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Halloween -->
+            <div class="phone-frame">
+                <div class="phone-screen halloween">
+                    <div class="status-bar">
+                        <div>12:16</div>
+                        <div>📶 📡 🔋</div>
+                    </div>
+
+                    <div class="card-container">
+                        <div class="card-header">
+                            <button class="close-btn">✕</button>
+                            <div class="countdown">
+                                <div class="countdown-text">⏰ IN 21 DAYS</div>
+                            </div>
+                            <div class="title-section">
+                                <h1>Halloween</h1>
+                                <p class="subtitle">Friday, October 31, 2025</p>
+                            </div>
+                            <div class="tags">
+                                <span class="tag">cultural</span>
+                                <span class="tag important">70% Important</span>
+                            </div>
+                        </div>
+
+                        <div class="card-body">
+                            <div class="section">
+                                <div class="section-title">👻 Origins</div>
+                                <div class="fun-fact">
+                                    Halloween evolved from the ancient Celtic festival <strong>Samhain</strong>. Americans spend <strong>$10.6 billion</strong> annually on costumes, candy, and decorations.
+                                </div>
+                            </div>
+
+                            <div class="section">
+                                <div class="section-title">📊 Spooky Stats</div>
+                                <div class="stats-grid">
+                                    <div class="stat-card">
+                                        <div class="stat-value">$10.6B</div>
+                                        <div class="stat-label">Total spending</div>
+                                    </div>
+                                    <div class="stat-card">
+                                        <div class="stat-value">148M</div>
+                                        <div class="stat-label">Celebrate (US)</div>
+                                    </div>
+                                    <div class="stat-card">
+                                        <div class="stat-value">600M</div>
+                                        <div class="stat-label">Pounds of candy</div>
+                                    </div>
+                                    <div class="stat-card">
+                                        <div class="stat-value">68%</div>
+                                        <div class="stat-label">Adults dress up</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="section">
+                                <div class="section-title">⏰ Prep Timeline</div>
+                                <div class="timeline">
+                                    <div class="timeline-item">
+                                        <div class="timeline-icon">🎭</div>
+                                        <div class="timeline-content">
+                                            <div class="timeline-title">2 Weeks - Choose Costume</div>
+                                            <div class="timeline-desc">Popular costumes sell out fast</div>
+                                        </div>
+                                    </div>
+                                    <div class="timeline-item">
+                                        <div class="timeline-icon">🍬</div>
+                                        <div class="timeline-content">
+                                            <div class="timeline-title">1 Week - Buy Candy</div>
+                                            <div class="timeline-desc">Stock up before the rush</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="section">
+                                <div class="section-title">🎃 Activities</div>
+                                <div class="quick-ideas">
+                                    <div class="idea-chip">🎃 Pumpkin Carving</div>
+                                    <div class="idea-chip">🏚️ Haunted House</div>
+                                    <div class="idea-chip">🎬 Horror Movies</div>
+                                    <div class="idea-chip">🍬 Trick-or-Treat</div>
+                                </div>
+                            </div>
+
+                            <div class="section">
+                                <div class="section-title">🔗 Get Inspired</div>
+                                <div class="resources-section">
+                                    <a href="#" class="resource-link">
+                                        <div class="resource-icon">🎨</div>
+                                        <div class="resource-content">
+                                            <div class="resource-title">Costume Ideas 2025</div>
+                                            <div class="resource-desc">Pinterest • Trending looks</div>
+                                        </div>
+                                        <div class="external-arrow">→</div>
+                                    </a>
+                                    <a href="#" class="resource-link">
+                                        <div class="resource-icon">🎃</div>
+                                        <div class="resource-content">
+                                            <div class="resource-title">Pumpkin Carving Guides</div>
+                                            <div class="resource-desc">YouTube • Step-by-step</div>
+                                        </div>
+                                        <div class="external-arrow">→</div>
+                                    </a>
+                                </div>
+                            </div>
+
+                            <div class="section action-buttons">
+                                <button class="action-btn primary">🎃 Costume Ideas</button>
+                                <button class="action-btn secondary">🍬 Candy Checklist</button>
+                            </div>
+                        </div>
+
+                        <div class="card-footer">📆 Reference Calendars</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Thanksgiving -->
+            <div class="phone-frame">
+                <div class="phone-screen thanksgiving">
+                    <div class="status-bar">
+                        <div>12:16</div>
+                        <div>📶 📡 🔋</div>
+                    </div>
+
+                    <div class="card-container">
+                        <div class="card-header">
+                            <button class="close-btn">✕</button>
+                            <div class="countdown">
+                                <div class="countdown-text">⏰ IN 14 DAYS</div>
+                            </div>
+                            <div class="title-section">
+                                <h1>Thanksgiving</h1>
+                                <p class="subtitle">Thursday, November 27, 2025</p>
+                            </div>
+                            <div class="tags">
+                                <span class="tag">cultural</span>
+                                <span class="tag important">88% Important</span>
+                            </div>
+                        </div>
+
+                        <div class="card-body">
+                            <div class="section">
+                                <div class="section-title">🦃 Tradition</div>
+                                <div class="fun-fact">
+                                    The first Thanksgiving was celebrated in <strong>1621</strong>. Today, <strong>46 million turkeys</strong> are consumed, and it's the busiest travel day in the US with 55 million travelers.
+                                </div>
+                            </div>
+
+                            <div class="section">
+                                <div class="section-title">📊 Turkey Day</div>
+                                <div class="stats-grid">
+                                    <div class="stat-card">
+                                        <div class="stat-value">46M</div>
+                                        <div class="stat-label">Turkeys eaten</div>
+                                    </div>
+                                    <div class="stat-card">
+                                        <div class="stat-value">4,500</div>
+                                        <div class="stat-label">Avg calories</div>
+                                    </div>
+                                    <div class="stat-card">
+                                        <div class="stat-value">55M</div>
+                                        <div class="stat-label">Travelers</div>
+                                    </div>
+                                    <div class="stat-card">
+                                        <div class="stat-value">88%</div>
+                                        <div class="stat-label">Eat turkey</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="section">
+                                <div class="section-title">⏰ Cooking Timeline</div>
+                                <div class="timeline">
+                                    <div class="timeline-item">
+                                        <div class="timeline-icon">🛒</div>
+                                        <div class="timeline-content">
+                                            <div class="timeline-title">1 Week - Grocery Shopping</div>
+                                            <div class="timeline-desc">Buy non-perishables early</div>
+                                        </div>
+                                    </div>
+                                    <div class="timeline-item">
+                                        <div class="timeline-icon">🦃</div>
+                                        <div class="timeline-content">
+                                            <div class="timeline-title">2 Days - Thaw Turkey</div>
+                                            <div class="timeline-desc">Allow 24hrs per 5lbs</div>
+                                        </div>
+                                    </div>
+                                    <div class="timeline-item">
+                                        <div class="timeline-icon">🥧</div>
+                                        <div class="timeline-content">
+                                            <div class="timeline-title">1 Day - Prep Sides</div>
+                                            <div class="timeline-desc">Make pies & casseroles ahead</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="section">
+                                <div class="section-title">🍽️ Menu Items</div>
+                                <div class="quick-ideas">
+                                    <div class="idea-chip">🦃 Turkey</div>
+                                    <div class="idea-chip">🥔 Mashed Potatoes</div>
+                                    <div class="idea-chip">🥧 Pumpkin Pie</div>
+                                    <div class="idea-chip">🌽 Stuffing</div>
+                                </div>
+                            </div>
+
+                            <div class="section">
+                                <div class="section-title">🔗 Recipes</div>
+                                <div class="resources-section">
+                                    <a href="#" class="resource-link">
+                                        <div class="resource-icon">👨‍🍳</div>
+                                        <div class="resource-content">
+                                            <div class="resource-title">Perfect Turkey Guide</div>
+                                            <div class="resource-desc">Food Network • Expert tips</div>
+                                        </div>
+                                        <div class="external-arrow">→</div>
+                                    </a>
+                                    <a href="#" class="resource-link">
+                                        <div class="resource-icon">📋</div>
+                                        <div class="resource-content">
+                                            <div class="resource-title">Complete Menu Planner</div>
+                                            <div class="resource-desc">AllRecipes • Full feast</div>
+                                        </div>
+                                        <div class="external-arrow">→</div>
+                                    </a>
+                                </div>
+                            </div>
+
+                            <div class="section action-buttons">
+                                <button class="action-btn primary">🍽️ Menu Planner</button>
+                                <button class="action-btn secondary">🛒 Shopping List</button>
+                            </div>
+                        </div>
+
+                        <div class="card-footer">📆 Reference Calendars</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Mother's Day -->
+            <div class="phone-frame">
+                <div class="phone-screen mothersday">
+                    <div class="status-bar">
+                        <div>12:16</div>
+                        <div>📶 📡 🔋</div>
+                    </div>
+
+                    <div class="card-container">
+                        <div class="card-header">
+                            <button class="close-btn">✕</button>
+                            <div class="countdown">
+                                <div class="countdown-text">⏰ IN 28 DAYS</div>
+                            </div>
+                            <div class="title-section">
+                                <h1>Mother's Day</h1>
+                                <p class="subtitle">Sunday, May 10, 2026</p>
+                            </div>
+                            <div class="tags">
+                                <span class="tag">appreciation</span>
+                                <span class="tag important">90% Important</span>
+                            </div>
+                        </div>
+
+                        <div class="card-body">
+                            <div class="section">
+                                <div class="section-title">💐 Celebration</div>
+                                <div class="fun-fact">
+                                    Mother's Day was officially established in <strong>1914</strong> by President Woodrow Wilson. It's the <strong>third-largest</strong> card-sending holiday in the US, with over 150 million cards exchanged.
+                                </div>
+                            </div>
+
+                            <div class="section">
+                                <div class="section-title">📊 Celebration Stats</div>
+                                <div class="stats-grid">
+                                    <div class="stat-card">
+                                        <div class="stat-value">$31.7B</div>
+                                        <div class="stat-label">Total spending</div>
+                                    </div>
+                                    <div class="stat-card">
+                                        <div class="stat-value">84%</div>
+                                        <div class="stat-label">Celebrate</div>
+                                    </div>
+                                    <div class="stat-card">
+                                        <div class="stat-value">$220</div>
+                                        <div class="stat-label">Avg spent</div>
+                                    </div>
+                                    <div class="stat-card">
+                                        <div class="stat-value">122M</div>
+                                        <div class="stat-label">Phone calls</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="section">
+                                <div class="section-title">💡 Pro Tip</div>
+                                <div class="tip-box">
+                                    <div class="tip-icon">💝</div>
+                                    <div class="tip-content">
+                                        <div class="tip-title">Make It Personal</div>
+                                        <div class="tip-text">The most meaningful gifts are personalized. Consider a photo album, custom jewelry, or a heartfelt handwritten letter.</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="section">
+                                <div class="section-title">🎁 Gift Ideas</div>
+                                <div class="quick-ideas">
+                                    <div class="idea-chip">💐 Flowers</div>
+                                    <div class="idea-chip">💎 Jewelry</div>
+                                    <div class="idea-chip">🧖‍♀️ Spa Day</div>
+                                    <div class="idea-chip">📸 Photo Album</div>
+                                    <div class="idea-chip">🍰 Brunch</div>
+                                </div>
+                            </div>
+
+                            <div class="section">
+                                <div class="section-title">🔗 Inspiration</div>
+                                <div class="resources-section">
+                                    <a href="#" class="resource-link">
+                                        <div class="resource-icon">✍️</div>
+                                        <div class="resource-content">
+                                            <div class="resource-title">Heartfelt Card Messages</div>
+                                            <div class="resource-desc">Hallmark • What to write</div>
+                                        </div>
+                                        <div class="external-arrow">→</div>
+                                    </a>
+                                    <a href="#" class="resource-link">
+                                        <div class="resource-icon">🎨</div>
+                                        <div class="resource-content">
+                                            <div class="resource-title">DIY Gift Tutorials</div>
+                                            <div class="resource-desc">YouTube • Handmade ideas</div>
+                                        </div>
+                                        <div class="external-arrow">→</div>
+                                    </a>
+                                </div>
+                            </div>
+
+                            <div class="section action-buttons">
+                                <button class="action-btn primary">💐 Send Flowers</button>
+                                <button class="action-btn secondary">📅 Plan Brunch</button>
+                            </div>
+                        </div>
+
+                        <div class="card-footer">📆 Reference Calendars</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Maha Shivratri -->
+            <div class="phone-frame">
+                <div class="phone-screen shivratri">
+                    <div class="status-bar">
+                        <div>12:16</div>
+                        <div>📶 📡 🔋</div>
+                    </div>
+
+                    <div class="card-container">
+                        <div class="card-header">
+                            <button class="close-btn">✕</button>
+                            <div class="countdown">
+                                <div class="countdown-text">⏰ IN 18 DAYS</div>
+                            </div>
+                            <div class="title-section">
+                                <h1>Maha Shivratri</h1>
+                                <p class="subtitle">Saturday, February 26, 2026</p>
+                            </div>
+                            <div class="tags">
+                                <span class="tag">spiritual</span>
+                                <span class="tag important">95% Important</span>
+                            </div>
+                        </div>
+
+                        <div class="card-body">
+                            <div class="section">
+                                <div class="section-title">🕉️ Sacred Night</div>
+                                <div class="fun-fact">
+                                    Maha Shivratri means <strong>"The Great Night of Shiva"</strong>. It celebrates the cosmic dance of Lord Shiva and marks the convergence of Shiva and Shakti. Over <strong>50 million devotees</strong> observe fasting and night-long vigils.
+                                </div>
+                            </div>
+
+                            <div class="section">
+                                <div class="section-title">📊 Celebration Facts</div>
+                                <div class="stats-grid">
+                                    <div class="stat-card">
+                                        <div class="stat-value">50M+</div>
+                                        <div class="stat-label">Devotees fasting</div>
+                                    </div>
+                                    <div class="stat-card">
+                                        <div class="stat-value">12K+</div>
+                                        <div class="stat-label">Shiva temples</div>
+                                    </div>
+                                    <div class="stat-card">
+                                        <div class="stat-value">24hrs</div>
+                                        <div class="stat-label">Night vigil</div>
+                                    </div>
+                                    <div class="stat-card">
+                                        <div class="stat-value">4x</div>
+                                        <div class="stat-label">Puja sessions</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="section">
+                                <div class="section-title">⏰ Puja Timeline</div>
+                                <div class="timeline">
+                                    <div class="timeline-item">
+                                        <div class="timeline-icon">🌅</div>
+                                        <div class="timeline-content">
+                                            <div class="timeline-title">Morning - Begin Fast</div>
+                                            <div class="timeline-desc">Start the day with cleansing bath</div>
+                                        </div>
+                                    </div>
+                                    <div class="timeline-item">
+                                        <div class="timeline-icon">🔔</div>
+                                        <div class="timeline-content">
+                                            <div class="timeline-title">Evening - First Puja</div>
+                                            <div class="timeline-desc">Offer bilva leaves & milk</div>
+                                        </div>
+                                    </div>
+                                    <div class="timeline-item">
+                                        <div class="timeline-icon">🌙</div>
+                                        <div class="timeline-content">
+                                            <div class="timeline-title">Midnight - Maha Puja</div>
+                                            <div class="timeline-desc">Peak worship hour</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="section">
+                                <div class="section-title">💡 Pro Tip</div>
+                                <div class="tip-box">
+                                    <div class="tip-icon">🙏</div>
+                                    <div class="tip-content">
+                                        <div class="tip-title">Stay Hydrated</div>
+                                        <div class="tip-text">If fasting, drink plenty of water before sunrise and after sunset. Those with health conditions should consult elders about modified fasting.</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="section">
+                                <div class="section-title">🪷 Offerings</div>
+                                <div class="quick-ideas">
+                                    <div class="idea-chip">🍃 Bilva Leaves</div>
+                                    <div class="idea-chip">🥛 Milk</div>
+                                    <div class="idea-chip">🍯 Honey</div>
+                                    <div class="idea-chip">🌸 Flowers</div>
+                                    <div class="idea-chip">🪔 Diya</div>
+                                </div>
+                            </div>
+
+                            <div class="section">
+                                <div class="section-title">🔗 Learn More</div>
+                                <div class="resources-section">
+                                    <a href="#" class="resource-link">
+                                        <div class="resource-icon">📖</div>
+                                        <div class="resource-content">
+                                            <div class="resource-title">Significance of Maha Shivratri</div>
+                                            <div class="resource-desc">Wikipedia • History & customs</div>
+                                        </div>
+                                        <div class="external-arrow">→</div>
+                                    </a>
+                                    <a href="#" class="resource-link">
+                                        <div class="resource-icon">🎥</div>
+                                        <div class="resource-content">
+                                            <div class="resource-title">Shivratri Puja Vidhi</div>
+                                            <div class="resource-desc">YouTube • Step-by-step guide</div>
+                                        </div>
+                                        <div class="external-arrow">→</div>
+                                    </a>
+                                    <a href="#" class="resource-link">
+                                        <div class="resource-icon">📿</div>
+                                        <div class="resource-content">
+                                            <div class="resource-title">Om Namah Shivaya Mantra</div>
+                                            <div class="resource-desc">YouTube • Chanting meditation</div>
+                                        </div>
+                                        <div class="external-arrow">→</div>
+                                    </a>
+                                </div>
+                            </div>
+
+                            <div class="section action-buttons">
+                                <button class="action-btn primary">🔔 Puja Reminder</button>
+                                <button class="action-btn secondary">🕉️ Find Temples</button>
+                            </div>
+                        </div>
+
+                        <div class="card-footer">📆 Reference Calendars</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Diwali -->
+            <div class="phone-frame">
+                <div class="phone-screen diwali">
+                    <div class="status-bar">
+                        <div>12:16</div>
+                        <div>📶 📡 🔋</div>
+                    </div>
+
+                    <div class="card-container">
+                        <div class="card-header">
+                            <button class="close-btn">✕</button>
+                            <div class="countdown">
+                                <div class="countdown-text">⏰ IN 35 DAYS</div>
+                            </div>
+                            <div class="title-section">
+                                <h1>Diwali</h1>
+                                <p class="subtitle">Friday, October 24, 2025</p>
+                            </div>
+                            <div class="tags">
+                                <span class="tag">celebration</span>
+                                <span class="tag important">98% Important</span>
+                            </div>
+                        </div>
+
+                        <div class="card-body">
+                            <div class="section">
+                                <div class="section-title">🪔 Festival of Lights</div>
+                                <div class="fun-fact">
+                                    Diwali celebrates the victory of light over darkness and good over evil. Over <strong>1 billion people</strong> celebrate globally, making it one of the world's largest festivals. Indians spend <strong>₹1.25 lakh crores</strong> during the season.
+                                </div>
+                            </div>
+
+                            <div class="section">
+                                <div class="section-title">📊 Festival Stats</div>
+                                <div class="stats-grid">
+                                    <div class="stat-card">
+                                        <div class="stat-value">1B+</div>
+                                        <div class="stat-label">People celebrate</div>
+                                    </div>
+                                    <div class="stat-card">
+                                        <div class="stat-value">₹1.25T</div>
+                                        <div class="stat-label">Festival spending</div>
+                                    </div>
+                                    <div class="stat-card">
+                                        <div class="stat-value">5 Days</div>
+                                        <div class="stat-label">Celebration period</div>
+                                    </div>
+                                    <div class="stat-card">
+                                        <div class="stat-value">90%</div>
+                                        <div class="stat-label">Light diyas</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="section">
+                                <div class="section-title">⏰ 5-Day Timeline</div>
+                                <div class="timeline">
+                                    <div class="timeline-item">
+                                        <div class="timeline-icon">🧹</div>
+                                        <div class="timeline-content">
+                                            <div class="timeline-title">Day 1 - Dhanteras</div>
+                                            <div class="timeline-desc">Clean home, buy gold/utensils</div>
+                                        </div>
+                                    </div>
+                                    <div class="timeline-item">
+                                        <div class="timeline-icon">🎨</div>
+                                        <div class="timeline-content">
+                                            <div class="timeline-title">Day 2 - Choti Diwali</div>
+                                            <div class="timeline-desc">Create rangoli, decorate</div>
+                                        </div>
+                                    </div>
+                                    <div class="timeline-item">
+                                        <div class="timeline-icon">🪔</div>
+                                        <div class="timeline-content">
+                                            <div class="timeline-title">Day 3 - Main Diwali</div>
+                                            <div class="timeline-desc">Lakshmi puja, light diyas</div>
+                                        </div>
+                                    </div>
+                                    <div class="timeline-item">
+                                        <div class="timeline-icon">🎊</div>
+                                        <div class="timeline-content">
+                                            <div class="timeline-title">Day 4 - Govardhan Puja</div>
+                                            <div class="timeline-desc">Celebrate with family</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="section">
+                                <div class="section-title">💡 Safety Tip</div>
+                                <div class="tip-box">
+                                    <div class="tip-icon">⚠️</div>
+                                    <div class="tip-content">
+                                        <div class="tip-title">Eco-Friendly Celebration</div>
+                                        <div class="tip-text">Choose eco-friendly diyas and minimize firecrackers to reduce pollution. Consider LED lights and biodegradable decorations for a sustainable Diwali.</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="section">
+                                <div class="section-title">🎁 Festival Essentials</div>
+                                <div class="quick-ideas">
+                                    <div class="idea-chip">🪔 Diyas</div>
+                                    <div class="idea-chip">🍬 Sweets</div>
+                                    <div class="idea-chip">🎨 Rangoli</div>
+                                    <div class="idea-chip">🎆 Fireworks</div>
+                                    <div class="idea-chip">👔 New Clothes</div>
+                                    <div class="idea-chip">💰 Gifts</div>
+                                </div>
+                            </div>
+
+                            <div class="section">
+                                <div class="section-title">🔗 Celebration Guide</div>
+                                <div class="resources-section">
+                                    <a href="#" class="resource-link">
+                                        <div class="resource-icon">📖</div>
+                                        <div class="resource-content">
+                                            <div class="resource-title">Diwali History & Traditions</div>
+                                            <div class="resource-desc">Wikipedia • Complete guide</div>
+                                        </div>
+                                        <div class="external-arrow">→</div>
+                                    </a>
+                                    <a href="#" class="resource-link">
+                                        <div class="resource-icon">🎨</div>
+                                        <div class="resource-content">
+                                            <div class="resource-title">Beautiful Rangoli Designs</div>
+                                            <div class="resource-desc">Pinterest • DIY patterns</div>
+                                        </div>
+                                        <div class="external-arrow">→</div>
+                                    </a>
+                                    <a href="#" class="resource-link">
+                                        <div class="resource-icon">🍯</div>
+                                        <div class="resource-content">
+                                            <div class="resource-title">Traditional Sweet Recipes</div>
+                                            <div class="resource-desc">YouTube • Step-by-step</div>
+                                        </div>
+                                        <div class="external-arrow">→</div>
+                                    </a>
+                                </div>
+                            </div>
+
+                            <div class="section action-buttons">
+                                <button class="action-btn primary">🛒 Shopping List</button>
+                                <button class="action-btn secondary">🪔 Decoration Ideas</button>
+                            </div>
+                        </div>
+
+                        <div class="card-footer">📆 Reference Calendars</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="responsive-note">
+            <h3>📱 + 💻 Fully Responsive & Globally Inclusive</h3>
+            <p>These cards work seamlessly on mobile phones, tablets, and desktop. The template system ensures consistency while allowing each holiday to have its own personality through dynamic theming. Includes both US holidays and Indian festivals, demonstrating the system's cultural adaptability. Try resizing your browser to see the responsive behavior!</p>
+        </div>
+    </div>
+</body>
+</html>
