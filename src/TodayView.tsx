@@ -199,26 +199,7 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
     }
   }, [isObservancesExpanded, observancesLoaded, selectedDate]);
 
-  // Check for enriched data when observance is selected
-  useEffect(() => {
-    if (selectedObservance) {
-      // Use date-based lookup to handle holidays with duplicate names
-      findEnrichmentByNameAndDate(
-        selectedObservance.eventName,
-        selectedObservance.date
-      ).then(identifier => {
-        if (identifier) {
-          setHasEnrichedObservanceData(true);
-          // Store the identifier for use in the modal
-          (selectedObservance as any)._enrichmentIdentifier = identifier;
-        } else {
-          setHasEnrichedObservanceData(false);
-        }
-      });
-    } else {
-      setHasEnrichedObservanceData(false);
-    }
-  }, [selectedObservance]);
+  // Note: Enriched data check moved to onClick handler to prevent flash
 
   /**
    * Helper function to check if a date matches an interval-based task schedule
@@ -2480,7 +2461,17 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
                   return (
                     <div
                       key={day.id}
-                      onClick={() => setSelectedObservance(day)}
+                      onClick={async () => {
+                        // Check for enriched data BEFORE opening modal
+                        const identifier = await findEnrichmentByNameAndDate(day.eventName, day.date);
+                        if (identifier) {
+                          (day as any)._enrichmentIdentifier = identifier;
+                          setHasEnrichedObservanceData(true);
+                        } else {
+                          setHasEnrichedObservanceData(false);
+                        }
+                        setSelectedObservance(day);
+                      }}
                       style={{
                         padding: '1rem',
                         borderRadius: '0.75rem',
