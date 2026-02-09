@@ -23,6 +23,19 @@ export default defineConfig({
       overlay: true, // Show errors in browser overlay
     },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'encryption': [
+            './src/utils/asymmetricEncryption',
+            './src/utils/groupEncryption',
+            './src/storage'
+          ]
+        }
+      }
+    }
+  },
   define: {
     'import.meta.env.APP_VERSION': JSON.stringify(appVersion),
     'import.meta.env.BUILD_DATE': JSON.stringify(buildDate),

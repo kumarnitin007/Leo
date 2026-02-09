@@ -195,3 +195,57 @@ export async function hasEnrichedData(dayIdentifier: string): Promise<boolean> {
     return false;
   }
 }
+
+/**
+ * Find enriched calendar data by event name and date
+ * Handles cases where multiple holidays have the same name (e.g., "Independence Day")
+ * @param eventName - Name of the event from myday_reference_days
+ * @param eventDate - Date of the event (YYYY-MM-DD format)
+ * @returns day_identifier if found, null otherwise
+ */
+export async function findEnrichmentByNameAndDate(
+  eventName: string,
+  eventDate: string
+): Promise<string | null> {
+  try {
+    const supabase = getSupabaseClient();
+    
+    // Date-based mapping for holidays with duplicate names
+    const dateMapping: Record<string, string> = {
+      '2026-02-15': 'maha-shivratri',
+      '2026-05-03': 'constitution-day-japan',
+      '2026-05-05': 'childrens-day-japan',
+      '2026-07-04': 'independence-day-usa',
+      '2026-08-15': 'independence-day-india',
+      '2026-07-18': 'nelson-mandela-birthday',
+      '2026-09-11': 'september-11-remembrance',
+      '2026-10-12': 'dussehra',
+      '2026-10-26': 'muhammad-yunus-birthday',
+      '2026-11-02': 'aung-san-suu-kyi-birthday',
+      '2026-04-01': 'odisha-day-utkala-dibasa',
+    };
+    
+    // Check if we have a date-specific mapping
+    if (dateMapping[eventDate]) {
+      return dateMapping[eventDate];
+    }
+    
+    // Otherwise, try to generate identifier from name
+    const dayIdentifier = eventName
+      .toLowerCase()
+      .replace(/['']/g, '')
+      .replace(/\s+/g, '-')
+      .replace(/[^a-z0-9-]/g, '');
+    
+    // Verify it exists
+    const { data, error } = await supabase
+      .from('myday_calendar_enrichments')
+      .select('day_identifier')
+      .eq('day_identifier', dayIdentifier)
+      .single();
+    
+    return !error && data ? data.day_identifier : null;
+  } catch {
+    return null;
+  }
+}

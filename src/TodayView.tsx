@@ -29,7 +29,7 @@ import ResolutionProgressWidget from './components/ResolutionProgressWidget';
 import { getDashboardTodos, getTodoGroups, toggleTodoItem } from './services/todoService';
 import { getDashboardComments, dismissCommentFromDashboard } from './services/commentService';
 import { EnrichedCalendarCard } from './components/EnrichedCalendarCard';
-import { hasEnrichedData } from './services/referenceCalendarService';
+import { findEnrichmentByNameAndDate } from './services/referenceCalendarService';
 import { TodoItem, TodoGroup } from './types';
 
 type DashboardItem = {
@@ -104,7 +104,7 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
     setIsLoadingObservances(true);
     try {
       const endDateForRef = new Date(selectedDate);
-      endDateForRef.setDate(endDateForRef.getDate() + 7);
+      endDateForRef.setDate(endDateForRef.getDate() + 365);
       const refDays = await getUserVisibleDaysByRange(selectedDate, endDateForRef.toISOString().split('T')[0]);
       setReferenceCalendarDays(refDays);
       setObservancesLoaded(true);
@@ -202,15 +202,19 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
   // Check for enriched data when observance is selected
   useEffect(() => {
     if (selectedObservance) {
-      // Try to create a day identifier from the event name
-      // Common format: "valentine-day", "christmas", "new-year"
-      const dayIdentifier = selectedObservance.eventName
-        .toLowerCase()
-        .replace(/['']/g, '')
-        .replace(/\s+/g, '-')
-        .replace(/[^a-z0-9-]/g, '');
-      
-      hasEnrichedData(dayIdentifier).then(setHasEnrichedObservanceData);
+      // Use date-based lookup to handle holidays with duplicate names
+      findEnrichmentByNameAndDate(
+        selectedObservance.eventName,
+        selectedObservance.date
+      ).then(identifier => {
+        if (identifier) {
+          setHasEnrichedObservanceData(true);
+          // Store the identifier for use in the modal
+          (selectedObservance as any)._enrichmentIdentifier = identifier;
+        } else {
+          setHasEnrichedObservanceData(false);
+        }
+      });
     } else {
       setHasEnrichedObservanceData(false);
     }
@@ -2414,8 +2418,8 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
                 {isObservancesExpanded 
                   ? (observancesLoaded 
                       ? (referenceCalendarDays.length > 0 
-                          ? `${referenceCalendarDays.length} in next 7 days` 
-                          : 'None in next 7 days')
+                          ? `${referenceCalendarDays.length} in next year` 
+                          : 'None in next year')
                       : 'Loading...')
                   : 'Tap to view holidays & special days'}
               </div>
@@ -2682,7 +2686,7 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
           {hasEnrichedObservanceData ? (
             <div onClick={(e) => e.stopPropagation()}>
               <EnrichedCalendarCard
-                dayIdentifier={selectedObservance.eventName
+                dayIdentifier={(selectedObservance as any)._enrichmentIdentifier || selectedObservance.eventName
                   .toLowerCase()
                   .replace(/['']/g, '')
                   .replace(/\s+/g, '-')
