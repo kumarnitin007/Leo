@@ -88,14 +88,24 @@ const ImageScanModal: React.FC<ImageScanModalProps> = ({
   const startCamera = async () => {
     try {
       const mediaStream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'environment' }
+        video: { 
+          facingMode: 'environment',
+          width: { ideal: 1920 },
+          height: { ideal: 1080 }
+        }
       });
       setStream(mediaStream);
       setUseCamera(true);
       
-      if (videoRef.current) {
-        videoRef.current.srcObject = mediaStream;
-      }
+      // Wait for next tick to ensure video element is rendered
+      setTimeout(() => {
+        if (videoRef.current) {
+          videoRef.current.srcObject = mediaStream;
+          videoRef.current.play().catch(err => {
+            console.error('Error playing video:', err);
+          });
+        }
+      }, 100);
     } catch (error) {
       console.error('Camera access denied:', error);
       alert('Camera access denied. Please allow camera permissions.');
@@ -299,11 +309,19 @@ const ImageScanModal: React.FC<ImageScanModalProps> = ({
                   ref={videoRef}
                   autoPlay
                   playsInline
+                  muted
                   style={{
                     width: '100%',
                     borderRadius: '0.75rem',
                     marginBottom: '1rem',
-                    background: '#000'
+                    background: '#000',
+                    minHeight: '300px',
+                    objectFit: 'cover'
+                  }}
+                  onLoadedMetadata={(e) => {
+                    // Ensure video plays when metadata is loaded
+                    const video = e.currentTarget;
+                    video.play().catch(err => console.error('Play error:', err));
                   }}
                 />
                 <div style={{ display: 'flex', gap: '1rem' }}>

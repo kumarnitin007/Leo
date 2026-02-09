@@ -107,13 +107,29 @@ export const ReferenceCalendarBrowser: React.FC<ReferenceCalendarBrowserProps> =
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
       {/* Header */}
-      <div>
-        <h2 style={{ fontSize: '1.5rem', fontWeight: 700, color: '#1f2937', marginBottom: '0.5rem' }}>
+      <div style={{
+        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+        padding: '1.5rem',
+        borderRadius: '12px',
+        color: 'white',
+        marginBottom: '0.5rem'
+      }}>
+        <h2 style={{ fontSize: '1.5rem', fontWeight: 700, margin: '0 0 0.5rem 0' }}>
           📅 Select Reference Calendars
         </h2>
-        <p style={{ fontSize: '0.875rem', color: '#6b7280', marginBottom: '1rem' }}>
-          Enable calendars to see their special days on your dashboard
+        <p style={{ fontSize: '0.95rem', margin: 0, opacity: 0.95 }}>
+          Enable calendars to see enriched holiday cards with facts, tips, and timelines on your dashboard
         </p>
+        <div style={{
+          marginTop: '1rem',
+          padding: '0.75rem 1rem',
+          background: 'rgba(255,255,255,0.15)',
+          borderRadius: '8px',
+          fontSize: '0.875rem',
+          fontWeight: 500
+        }}>
+          ✨ <span style={{ fontWeight: 700 }}>{enabledCount}</span> calendar{enabledCount !== 1 ? 's' : ''} enabled • {allCalendars.length} available
+        </div>
       </div>
 
       {/* Error Message */}
@@ -240,23 +256,34 @@ export const ReferenceCalendarBrowser: React.FC<ReferenceCalendarBrowserProps> =
                 key={calendar.id}
                 onClick={() => handleToggleCalendar(calendar.id)}
                 style={{
-                  padding: '1rem',
-                  background: 'white',
-                  border: '2px solid #e5e7eb',
-                  borderRadius: '8px',
+                  padding: '1.25rem',
+                  background: isEnabled 
+                    ? 'linear-gradient(135deg, #f0fdfa 0%, #ccfbf1 100%)' 
+                    : 'white',
+                  border: isEnabled 
+                    ? '2px solid #14b8a6' 
+                    : '2px solid #e5e7eb',
+                  borderRadius: '12px',
                   cursor: 'pointer',
                   transition: 'all 0.2s',
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '1rem'
+                  gap: '1rem',
+                  boxShadow: isEnabled 
+                    ? '0 4px 12px rgba(20, 184, 166, 0.15)' 
+                    : '0 2px 4px rgba(0,0,0,0.05)'
                 }}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.borderColor = '#14b8a6';
-                  e.currentTarget.style.background = '#f3f4f6';
+                  e.currentTarget.style.transform = 'translateY(-2px)';
+                  e.currentTarget.style.boxShadow = isEnabled
+                    ? '0 8px 20px rgba(20, 184, 166, 0.25)'
+                    : '0 4px 12px rgba(0,0,0,0.1)';
                 }}
                 onMouseLeave={(e) => {
-                  e.currentTarget.style.borderColor = '#e5e7eb';
-                  e.currentTarget.style.background = 'white';
+                  e.currentTarget.style.transform = 'translateY(0)';
+                  e.currentTarget.style.boxShadow = isEnabled
+                    ? '0 4px 12px rgba(20, 184, 166, 0.15)'
+                    : '0 2px 4px rgba(0,0,0,0.05)';
                 }}
               >
                 {/* Checkbox */}
@@ -275,9 +302,20 @@ export const ReferenceCalendarBrowser: React.FC<ReferenceCalendarBrowserProps> =
                   />
                 </div>
 
-                {/* Icon */}
-                <div style={{ fontSize: '2rem', flexShrink: 0 }}>
-                  {DOMAIN_ICONS[calendar.domain] || '📅'}
+                {/* Icon with Geography */}
+                <div style={{ 
+                  display: 'flex', 
+                  flexDirection: 'column', 
+                  alignItems: 'center', 
+                  gap: '0.25rem',
+                  flexShrink: 0 
+                }}>
+                  <div style={{ fontSize: '2.5rem' }}>
+                    {DOMAIN_ICONS[calendar.domain] || '📅'}
+                  </div>
+                  <div style={{ fontSize: '1rem' }}>
+                    {GEO_ICONS[calendar.geography] || '📍'}
+                  </div>
                 </div>
 
                 {/* Content */}
@@ -306,33 +344,33 @@ export const ReferenceCalendarBrowser: React.FC<ReferenceCalendarBrowserProps> =
                     <span style={{
                       fontSize: '0.75rem',
                       fontWeight: 600,
-                      padding: '0.25rem 0.5rem',
-                      borderRadius: '4px',
-                      background: '#f3f4f6',
-                      color: '#374151'
+                      padding: '0.25rem 0.75rem',
+                      borderRadius: '6px',
+                      background: isEnabled ? '#14b8a6' : '#f3f4f6',
+                      color: isEnabled ? 'white' : '#374151'
                     }}>
-                      {DOMAIN_ICONS[calendar.domain]} {calendar.domain}
+                      {calendar.domain}
                     </span>
                     <span style={{
                       fontSize: '0.75rem',
                       fontWeight: 600,
-                      padding: '0.25rem 0.5rem',
-                      borderRadius: '4px',
-                      background: '#f3f4f6',
-                      color: '#374151'
+                      padding: '0.25rem 0.75rem',
+                      borderRadius: '6px',
+                      background: isEnabled ? '#0891b2' : '#f3f4f6',
+                      color: isEnabled ? 'white' : '#374151'
                     }}>
-                      {GEO_ICONS[calendar.geography] || '📍'} {calendar.geography}
+                      {calendar.geography}
                     </span>
                     {calendar.isPreloaded && (
                       <span style={{
                         fontSize: '0.75rem',
                         fontWeight: 600,
-                        padding: '0.25rem 0.5rem',
-                        borderRadius: '4px',
+                        padding: '0.25rem 0.75rem',
+                        borderRadius: '6px',
                         background: '#fef3c7',
                         color: '#92400e'
                       }}>
-                        ⭐ Preloaded
+                        ⭐ Popular
                       </span>
                     )}
                   </div>
@@ -341,15 +379,11 @@ export const ReferenceCalendarBrowser: React.FC<ReferenceCalendarBrowserProps> =
                 {/* Status Indicator */}
                 <div style={{ flexShrink: 0, textAlign: 'right' }}>
                   <div style={{
-                    fontSize: '0.75rem',
+                    fontSize: '1.5rem',
                     fontWeight: 700,
-                    padding: '0.375rem 0.75rem',
-                    borderRadius: '6px',
-                    background: isEnabled ? '#14b8a6' : '#f3f4f6',
-                    color: isEnabled ? 'white' : '#4b5563',
-                    whiteSpace: 'nowrap'
+                    color: isEnabled ? '#14b8a6' : '#d1d5db'
                   }}>
-                    {isEnabled ? '✓ ON' : 'OFF'}
+                    {isEnabled ? '✓' : '○'}
                   </div>
                 </div>
               </div>
@@ -364,15 +398,22 @@ export const ReferenceCalendarBrowser: React.FC<ReferenceCalendarBrowserProps> =
       </div>
 
       {/* Summary Info */}
-      {filteredCalendars.length > 0 && (
+      {filteredCalendars.length > 0 && enabledCount > 0 && (
         <div style={{
-          padding: '1rem',
-          background: 'linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%)',
-          borderRadius: '8px',
-          border: '2px solid #d1d5db'
+          padding: '1.25rem',
+          background: 'linear-gradient(135deg, #f0fdfa 0%, #ccfbf1 100%)',
+          borderRadius: '12px',
+          border: '2px solid #14b8a6',
+          boxShadow: '0 4px 12px rgba(20, 184, 166, 0.15)'
         }}>
-          <p style={{ fontSize: '0.875rem', fontWeight: 500, color: '#1f2937', margin: 0 }}>
-            ✨ <span style={{ fontWeight: 700, color: '#14b8a6' }}>{enabledCount}</span> calendar{enabledCount !== 1 ? 's' : ''} enabled. Their special days will appear on your dashboard.
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.5rem' }}>
+            <span style={{ fontSize: '1.5rem' }}>✨</span>
+            <p style={{ fontSize: '1rem', fontWeight: 700, color: '#0f766e', margin: 0 }}>
+              {enabledCount} Calendar{enabledCount !== 1 ? 's' : ''} Enabled
+            </p>
+          </div>
+          <p style={{ fontSize: '0.875rem', color: '#115e59', margin: 0, lineHeight: '1.5' }}>
+            You'll see enriched holiday cards with facts, statistics, preparation tips, timelines, and activity ideas for these celebrations on your dashboard.
           </p>
         </div>
       )}
