@@ -36,9 +36,16 @@ export const ReferenceCalendarBrowser: React.FC<ReferenceCalendarBrowserProps> =
   const [filterDomain, setFilterDomain] = useState<string>('');
   const [filterGeography, setFilterGeography] = useState<string>('');
   const [searchText, setSearchText] = useState('');
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
 
   useEffect(() => {
     loadCalendars();
+  }, []);
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth <= 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
   }, []);
 
   const loadCalendars = async () => {
@@ -286,37 +293,41 @@ export const ReferenceCalendarBrowser: React.FC<ReferenceCalendarBrowserProps> =
                     : '0 2px 4px rgba(0,0,0,0.05)';
                 }}
               >
-                {/* Checkbox */}
-                <div style={{ flexShrink: 0 }}>
-                  <input
-                    type="checkbox"
-                    checked={isEnabled}
-                    onChange={() => handleToggleCalendar(calendar.id)}
-                    onClick={(e) => e.stopPropagation()}
-                    style={{
-                      width: '20px',
-                      height: '20px',
-                      cursor: 'pointer',
-                      accentColor: '#14b8a6'
-                    }}
-                  />
-                </div>
+                {/* Checkbox - Desktop Only */}
+                {!isMobile && (
+                  <div style={{ flexShrink: 0 }}>
+                    <input
+                      type="checkbox"
+                      checked={isEnabled}
+                      onChange={() => handleToggleCalendar(calendar.id)}
+                      onClick={(e) => e.stopPropagation()}
+                      style={{
+                        width: '20px',
+                        height: '20px',
+                        cursor: 'pointer',
+                        accentColor: '#14b8a6'
+                      }}
+                    />
+                  </div>
+                )}
 
-                {/* Icon with Geography */}
-                <div style={{ 
-                  display: 'flex', 
-                  flexDirection: 'column', 
-                  alignItems: 'center', 
-                  gap: '0.25rem',
-                  flexShrink: 0 
-                }}>
-                  <div style={{ fontSize: '2.5rem' }}>
-                    {DOMAIN_ICONS[calendar.domain] || '📅'}
+                {/* Icon with Geography - Desktop Only */}
+                {!isMobile && (
+                  <div style={{ 
+                    display: 'flex', 
+                    flexDirection: 'column', 
+                    alignItems: 'center', 
+                    gap: '0.25rem',
+                    flexShrink: 0 
+                  }}>
+                    <div style={{ fontSize: '2.5rem' }}>
+                      {DOMAIN_ICONS[calendar.domain] || '📅'}
+                    </div>
+                    <div style={{ fontSize: '1rem' }}>
+                      {GEO_ICONS[calendar.geography] || '📍'}
+                    </div>
                   </div>
-                  <div style={{ fontSize: '1rem' }}>
-                    {GEO_ICONS[calendar.geography] || '📍'}
-                  </div>
-                </div>
+                )}
 
                 {/* Content */}
                 <div style={{ flex: 1, minWidth: 0 }}>
@@ -376,16 +387,18 @@ export const ReferenceCalendarBrowser: React.FC<ReferenceCalendarBrowserProps> =
                   </div>
                 </div>
 
-                {/* Status Indicator */}
-                <div style={{ flexShrink: 0, textAlign: 'right' }}>
-                  <div style={{
-                    fontSize: '1.5rem',
-                    fontWeight: 700,
-                    color: isEnabled ? '#14b8a6' : '#d1d5db'
-                  }}>
-                    {isEnabled ? '✓' : '○'}
+                {/* Status Indicator - Desktop Only */}
+                {!isMobile && (
+                  <div style={{ flexShrink: 0, textAlign: 'right' }}>
+                    <div style={{
+                      fontSize: '1.5rem',
+                      fontWeight: 700,
+                      color: isEnabled ? '#14b8a6' : '#d1d5db'
+                    }}>
+                      {isEnabled ? '✓' : '○'}
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
             );
           })

@@ -89,16 +89,20 @@ const SmartView: React.FC<SmartViewProps> = ({ onNavigate }) => {
   };
 
   const handleCreateItem = async (item: ExtractedItem) => {
+    console.log('[SmartView] Creating item:', item);
     try {
       switch (item.suggestedDestination) {
         case 'event':
           await createEvent(item);
+          alert(`✅ Event "${item.title}" added successfully!`);
           break;
         case 'task':
           await createTask(item);
+          alert(`✅ Task "${item.title}" added successfully!`);
           break;
         case 'todo':
           await createTodo(item);
+          alert(`✅ Todo items added successfully!`);
           break;
         case 'journal':
           // Navigate to journal with prefill
@@ -117,15 +121,18 @@ const SmartView: React.FC<SmartViewProps> = ({ onNavigate }) => {
           onNavigate('resolutions');
           break;
       }
+      console.log('[SmartView] Item created successfully');
     } catch (error) {
-      console.error('Failed to create item:', error);
+      console.error('[SmartView] Failed to create item:', error);
       throw error;
     }
   };
 
   const createEvent = async (item: ExtractedItem) => {
     const data = item.data;
-    await addEvent({
+    console.log('[SmartView] Creating event with data:', { item, data });
+    
+    const eventData = {
       id: crypto.randomUUID(),
       name: item.title,
       date: data.date || new Date().toISOString().split('T')[0],
@@ -134,7 +141,11 @@ const SmartView: React.FC<SmartViewProps> = ({ onNavigate }) => {
       frequency: data.recurring ? 'yearly' : 'one-time',
       year: data.recurring ? undefined : new Date().getFullYear(),
       createdAt: new Date().toISOString()
-    });
+    };
+    
+    console.log('[SmartView] Event data to save:', eventData);
+    await addEvent(eventData);
+    console.log('[SmartView] Event saved successfully');
   };
 
   const createTask = async (item: ExtractedItem) => {

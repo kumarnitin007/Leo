@@ -39,7 +39,7 @@ export function parseExtractedText(text: string, mode: ScanMode): ExtractedItem[
 
 function detectBirthday(text: string, lines: string[]): ExtractedItem | null {
   const birthdayKeywords = /birthday|bday|b-day|born|anniversary/i;
-  const datePattern = /(\d{1,2}[-\/]\d{1,2}[-\/]\d{2,4})|(\w+ \d{1,2},? \d{4})|(\d{1,2} \w+ \d{4})/i;
+  const datePattern = /(\d{1,2}(?:st|nd|rd|th)?\s+\w+(?:\s+\d{2,4})?)|(\d{1,2}[-\/]\d{1,2}[-\/]\d{2,4})|(\w+ \d{1,2}(?:st|nd|rd|th)?,? \d{4})|(\d{1,2} \w+ \d{4})/i;
   
   if (!birthdayKeywords.test(text)) return null;
   
@@ -67,8 +67,8 @@ function detectBirthday(text: string, lines: string[]): ExtractedItem | null {
 }
 
 function detectInvitation(text: string, lines: string[]): ExtractedItem | null {
-  const inviteKeywords = /invited?|invitation|please join|you'?re invited|rsvp|event/i;
-  const datePattern = /(\d{1,2}[-\/]\d{1,2}[-\/]\d{2,4})|(\w+ \d{1,2},? \d{4})|(\d{1,2} \w+ \d{4})/i;
+  const inviteKeywords = /invited?|invitation|please (?:come|join)|you'?re invited|rsvp|party|celebration/i;
+  const datePattern = /(\d{1,2}(?:st|nd|rd|th)?\s+\w+(?:\s+\d{2,4})?)|(\d{1,2}[-\/]\d{1,2}[-\/]\d{2,4})|(\w+ \d{1,2}(?:st|nd|rd|th)?,? \d{4})|(\d{1,2} \w+ \d{4})/i;
   const timePattern = /(\d{1,2}:\d{2}\s*(?:am|pm)?)|(\d{1,2}\s*(?:am|pm))/i;
   
   if (!inviteKeywords.test(text)) return null;
@@ -76,9 +76,12 @@ function detectInvitation(text: string, lines: string[]): ExtractedItem | null {
   const dateMatch = text.match(datePattern);
   const timeMatch = text.match(timePattern);
   
-  // Extract event name (first significant line or after "to")
-  const eventNameMatch = text.match(/(?:to|for)\s+([A-Z][^.!?\n]{5,50})/i);
-  const eventName = eventNameMatch ? eventNameMatch[1].trim() : lines[0] || 'Event';
+  // Extract event name (look for "my party", "birthday party", or first line)
+  let eventName = 'Party Invitation';
+  const partyMatch = text.match(/(?:my|the|a)\s+(birthday\s+)?party/i);
+  if (partyMatch) {
+    eventName = partyMatch[1] ? 'Birthday Party' : 'Party';
+  }
   
   // Extract location
   const locationMatch = text.match(/(?:at|location|venue|address)[\s:]+([^\n]{10,100})/i);
@@ -227,12 +230,37 @@ function detectGiftCard(text: string, lines: string[]): ExtractedItem | null {
  */
 function parseDate(dateStr: string): string {
   try {
-    // Try to parse various date formats
-    const date = new Date(dateStr);
-    if (isNaN(date.getTime())) {
-      return new Date().toISOString().split('T')[0];
+    // Remove ordinal suffixes (1st, 2nd, 3rd, 4th)
+    const cleanedDate = dateStr.replace(/(\d+)(st|nd|rd|th)/gi, '$1');
+    
+    // Extract month and day
+    const monthMatch = cleanedDate.match(/(january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)/i);
+    const dayMatch = cleanedDate.match(/\d+/);
+    const yearMatch = cleanedDate.match(/\b(19|20)\d{2}\b/);
+    
+    if (monthMatch && dayMatch) {
+      const currentYear = yearMatch ? yearMatch[0] : new Date().getFullYear();
+      const monthStr = monthMatch[0];
+      const day = dayMatch[0];
+      const parsedDate = new Date(`${monthStr} ${day}, ${currentYear}`);
+      
+      if (!isNaN(parsedDate.getTime())) {
+        return parsedDate.toISOString().split('T')[0];
+      }
     }
-    return date.toISOString().split('T')[0];
+    
+    // Fallback: try direct parsing
+    const date = new Date(cleanedDate);
+    if (!isNaN(date.getTime())) {
+      // If year is 2001 or earlier, it's likely a parsing error - use current year
+      if (date.getFullYear() <= 2001) {
+        const currentYear = new Date().getFullYear();
+        date.setFullYear(currentYear);
+      }
+      return date.toISOString().split('T')[0];
+    }
+    
+    return new Date().toISOString().split('T')[0];
   } catch {
     return new Date().toISOString().split('T')[0];
   }
