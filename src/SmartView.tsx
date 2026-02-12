@@ -197,7 +197,7 @@ const SmartView: React.FC<SmartViewProps> = ({ onNavigate }) => {
       date: data.date || new Date().toISOString().split('T')[0],
       description: item.description || '',
       category: data.recurring ? 'Birthday' : 'Personal',
-      frequency: data.recurring ? 'yearly' : 'one-time',
+      frequency: (data.recurring ? 'yearly' : 'one-time') as 'yearly' | 'one-time',
       year: data.recurring ? undefined : new Date().getFullYear(),
       createdAt: new Date().toISOString()
     };
