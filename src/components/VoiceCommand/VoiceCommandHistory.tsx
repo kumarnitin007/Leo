@@ -37,6 +37,8 @@ const INTENT_CONFIG: Record<string, { icon: string; label: string; color: string
   'DELETE_EVENT': { icon: '🗑️', label: 'Delete Event', color: '#ef4444' },
   'QUERY_TASK': { icon: '🔍', label: 'Query Task', color: '#9ca3af' },
   'QUERY_EVENT': { icon: '🔍', label: 'Query Event', color: '#9ca3af' },
+  'SCAN_IMAGE_QUICK': { icon: '🆓', label: 'Quick Scan', color: '#10b981' },
+  'SCAN_IMAGE_SMART': { icon: '✨', label: 'Smart Scan', color: '#8b5cf6' },
   'UNKNOWN': { icon: '❓', label: 'Unknown', color: '#6b7280' },
   'MULTIPLE': { icon: '📋', label: 'Multiple', color: '#374151' },
 };
@@ -137,10 +139,10 @@ const VoiceCommandHistory: React.FC<VoiceCommandHistoryProps> = ({
         {/* Header */}
         <div className="voice-history-header">
           <div className="voice-history-title">
-            <span className="voice-history-icon">🎤</span>
+            <span className="voice-history-icon">📋</span>
             <div>
-              <h2>Voice History</h2>
-              <p>{commands.length} command{commands.length !== 1 ? 's' : ''}</p>
+              <h2>Smart Features History</h2>
+              <p>{commands.length} voice command{commands.length !== 1 ? 's' : ''} & image scan{commands.length !== 1 ? 's' : ''}</p>
             </div>
           </div>
           <button className="voice-history-close" onClick={onClose}>✕</button>

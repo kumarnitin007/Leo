@@ -26,6 +26,8 @@ export type IntentType =
   | 'UPDATE'
   | 'DELETE'
   | 'QUERY'
+  | 'SCAN_IMAGE_QUICK'
+  | 'SCAN_IMAGE_SMART'
   | 'UNKNOWN'
   | 'MULTIPLE';
 

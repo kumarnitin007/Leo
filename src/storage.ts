@@ -10,6 +10,7 @@ import { getSupabaseClient } from './lib/supabase';
 import { AppData, Task, TaskCompletion, Event, JournalEntry, Routine, Tag, TagSection, UserSettings, DashboardLayout, Item, SafeEntry, SafeMasterKey, Resolution, ResolutionMilestone, DocumentVault, DocumentVaultEncryptedData } from './types';
 import { getTodayString } from './utils';
 import { hashMasterPassword, generateSalt, verifyMasterPassword as verifyMasterPasswordUtil, deriveKeyFromPassword, encryptData, decryptData } from './utils/encryption';
+import { PerformanceConfig } from './config/performanceConfig';
 
 // ===== HELPER FUNCTIONS =====
 
@@ -20,6 +21,52 @@ const generateUUID = (): string => {
     const v = c === 'x' ? r : (r & 0x3 | 0x8);
     return v.toString(16);
   });
+};
+
+// ===== QUERY CACHE =====
+
+interface CacheEntry {
+  data: AppData;
+  timestamp: number;
+  key: string;
+}
+
+let dashboardCache: CacheEntry | null = null;
+
+// Request deduplication - prevent multiple simultaneous queries for same data
+const pendingRequests = new Map<string, Promise<AppData>>();
+
+const getCacheKey = (selectedDate: string, daysToLoad: number): string => {
+  return `${selectedDate}-${daysToLoad}`;
+};
+
+const isCacheValid = (cacheEntry: CacheEntry | null, key: string): boolean => {
+  if (!PerformanceConfig.ENABLE_QUERY_CACHE) return false;
+  if (!cacheEntry) return false;
+  if (cacheEntry.key !== key) return false;
+  
+  const now = Date.now();
+  const age = now - cacheEntry.timestamp;
+  return age < PerformanceConfig.QUERY_CACHE_TTL_MS;
+};
+
+const setCache = (key: string, data: AppData): void => {
+  if (!PerformanceConfig.ENABLE_QUERY_CACHE) return;
+  
+  dashboardCache = {
+    data,
+    timestamp: Date.now(),
+    key
+  };
+};
+
+const getCache = (key: string): AppData | null => {
+  if (!isCacheValid(dashboardCache, key)) return null;
+  return dashboardCache!.data;
+};
+
+export const clearDashboardCache = (): void => {
+  dashboardCache = null;
 };
 
 const requireAuth = async () => {
@@ -132,6 +179,9 @@ export const addTask = async (task: Task): Promise<void> => {
     .insert([taskData]);
 
   if (error) throw error;
+  
+  // Clear cache when data changes
+  clearDashboardCache();
 };
 
 export const updateTask = async (taskId: string, updates: Partial<Task>): Promise<void> => {
@@ -174,6 +224,9 @@ export const updateTask = async (taskId: string, updates: Partial<Task>): Promis
     .eq('id', taskId);
 
   if (error) throw error;
+  
+  // Clear cache when data changes
+  clearDashboardCache();
 };
 
 export const deleteTask = async (taskId: string): Promise<void> => {
@@ -185,6 +238,9 @@ export const deleteTask = async (taskId: string): Promise<void> => {
     .eq('id', taskId);
 
   if (error) throw error;
+  
+  // Clear cache when data changes
+  clearDashboardCache();
 };
 
 // ===== TASK COMPLETIONS =====
@@ -214,6 +270,9 @@ export const completeTask = async (taskId: string, date: string, durationMinutes
     });
 
   if (error) throw error;
+  
+  // Clear cache when data changes
+  clearDashboardCache();
 
   // Update linked resolutions' progress
   try {
@@ -1209,7 +1268,6 @@ const USER_SETTINGS_KEY = 'routine-ruby-user-settings';
 export const loadUserSettings = async (): Promise<UserSettings> => {
   try {
     const { client, userId } = await requireAuth();
-    console.log('🔍 Loading settings for user:', userId);
     const { data, error } = await client
       .from('myday_user_settings')
       .select('theme, dashboard_layout, notifications_enabled, location')
@@ -1221,9 +1279,7 @@ export const loadUserSettings = async (): Promise<UserSettings> => {
     }
     
     if (data) {
-      console.log('📦 Raw location from DB:', data.location);
       const parsedLocation = data.location ? JSON.parse(data.location) : undefined;
-      console.log('📍 Parsed location:', parsedLocation);
       return {
         theme: data.theme || 'purple',
         dashboardLayout: data.dashboard_layout || 'uniform',
@@ -1363,6 +1419,102 @@ export const loadData = async (): Promise<AppData> => {
     safeEntries: [], // Safe entries loaded separately
     safeTags: [] // Safe tags loaded separately
   };
+};
+
+// ===== OPTIMIZED DASHBOARD LOADING =====
+
+/**
+ * Load only the data needed for dashboard view (much faster than loadData)
+ * This loads all tasks but only recent completions for performance
+ * Includes caching and request deduplication to prevent redundant queries
+ */
+export const loadDashboardData = async (selectedDate: string, daysToLoad: number = 30): Promise<AppData> => {
+  const cacheKey = getCacheKey(selectedDate, daysToLoad);
+  
+  // Check cache first
+  const cachedData = getCache(cacheKey);
+  if (cachedData) {
+    return cachedData;
+  }
+  
+  // Check if there's already a pending request for this data
+  const pendingRequest = pendingRequests.get(cacheKey);
+  if (pendingRequest) {
+    return pendingRequest;
+  }
+  
+  // Create the request promise and store it
+  const requestPromise = (async () => {
+    try {
+      // Calculate date range for completions
+      const endDate = new Date(selectedDate + 'T00:00:00');
+      const startDate = new Date(endDate);
+      startDate.setDate(startDate.getDate() - daysToLoad);
+      const startDateStr = startDate.toISOString().split('T')[0];
+      
+      const [tasks, completions, events, tags] = await Promise.all([
+        getTasks(), // Load all tasks (needed for filtering logic)
+        getCompletionsForDateRange(startDateStr, selectedDate), // Only recent completions
+        getEvents(), // Load all events (usually small dataset)
+        getTags() // Load all tags (small dataset)
+      ]);
+
+      const data: AppData = {
+        tasks,
+        completions,
+        spillovers: [], // Not implemented yet
+        events,
+        eventAcknowledgments: [], // Not implemented yet
+        journalEntries: [], // Not needed for dashboard
+        routines: [], // Not needed for dashboard
+        tags,
+        items: [], // Not needed for dashboard
+        safeEntries: [], // Safe entries loaded separately
+        safeTags: [] // Safe tags loaded separately
+      };
+      
+      // Save to cache
+      setCache(cacheKey, data);
+      
+      return data;
+    } finally {
+      // Remove from pending requests when done
+      pendingRequests.delete(cacheKey);
+    }
+  })();
+  
+  // Store the pending request
+  pendingRequests.set(cacheKey, requestPromise);
+  
+  return requestPromise;
+};
+
+/**
+ * Get completions for a specific date range (optimized query)
+ * Uses composite index (user_id, completion_date) for fast lookups
+ */
+export const getCompletionsForDateRange = async (startDate: string, endDate: string): Promise<TaskCompletion[]> => {
+  const { client, userId } = await requireAuth();
+
+  const { data, error } = await client
+    .from('myday_task_completions')
+    .select('*')
+    .eq('user_id', userId)  // Add explicit user_id filter to use composite index
+    .gte('completion_date', startDate)
+    .lte('completion_date', endDate);
+
+  if (error) {
+    console.error('Error fetching completions for date range:', error);
+    return [];
+  }
+
+  return (data || []).map(c => ({
+    taskId: c.task_id,
+    date: c.completion_date,
+    completedAt: c.completed_at,
+    durationMinutes: c.duration_minutes,
+    startedAt: c.started_at
+  }));
 };
 
 // ===== HELPER FUNCTIONS FOR VIEWS =====

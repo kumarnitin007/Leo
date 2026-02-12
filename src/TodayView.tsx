@@ -12,7 +12,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Task, Event, AppData, UserVisibleDay } from './types';
 import { getTodayString, getTasksForToday, formatDate, getWeekBounds, getMonthBounds, shouldTaskShowToday } from './utils';
-import { loadData, completeTask, isTaskCompletedToday, getTaskSpilloversForDate, moveTaskToNextDay, getCompletionCountForPeriod, saveTaskOrder, loadTaskOrder, getUpcomingEvents, acknowledgeEvent, isEventAcknowledged } from './storage';
+import { loadData, loadDashboardData, completeTask, isTaskCompletedToday, getTaskSpilloversForDate, moveTaskToNextDay, getCompletionCountForPeriod, saveTaskOrder, loadTaskOrder, getUpcomingEvents, acknowledgeEvent, isEventAcknowledged } from './storage';
 import { getUserVisibleDaysByRange } from './services/referenceCalendarStorage';
 import TaskActionModal from './TaskActionModal';
 import CountdownTimer from './components/CountdownTimer';
@@ -31,6 +31,7 @@ import { getDashboardComments, dismissCommentFromDashboard } from './services/co
 import { EnrichedCalendarCard } from './components/EnrichedCalendarCard';
 import { findEnrichmentByNameAndDate } from './services/referenceCalendarService';
 import { TodoItem, TodoGroup } from './types';
+import { PerformanceConfig } from './config/performanceConfig';
 
 type DashboardItem = {
   type: 'task' | 'event';
@@ -265,7 +266,7 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
       if (!authLoading && user) {
         await loadItems();
         await calculateStreak();
-        await loadAIInsights();
+        // AI insights now lazy-loaded when user clicks AI button
         hasLoadedRef.current = true;
       } else if (!authLoading && !user) {
         // User is not authenticated, set loading to false
@@ -326,7 +327,12 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
   const loadItems = async () => {
     try {
       setIsLoading(true);
-      const data = await loadData();
+      
+      // Use optimized loading for dashboard (or fallback to old method)
+      const data = PerformanceConfig.USE_OPTIMIZED_DASHBOARD_LOADING 
+        ? await loadDashboardData(selectedDate, PerformanceConfig.DASHBOARD_DATA_RANGE_DAYS)
+        : await loadData();
+      
       setAppData(data); // Store data in state
       
       // Get tasks for selected date (not just today)
@@ -466,7 +472,7 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
     } catch (error: any) {
       // Silently ignore authentication errors (user not signed in yet)
       if (!error?.message?.includes('User must be signed in')) {
-        console.error('Error loading data:', error);
+        console.error('Error loading dashboard data:', error);
         alert('Error loading data. Please make sure you are signed in and have internet connection.');
       }
     } finally {
@@ -699,7 +705,11 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
 
   const calculateStreak = async () => {
     try {
-      const data = await loadData();
+      // Use optimized loading for streak calculation (or fallback to old method)
+      const data = PerformanceConfig.USE_OPTIMIZED_DASHBOARD_LOADING 
+        ? await loadDashboardData(selectedDate, PerformanceConfig.DASHBOARD_DATA_RANGE_DAYS)
+        : await loadData();
+      
       const allTasks = data.tasks;
       const allCompletions = data.completions;
     
@@ -1347,14 +1357,16 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
             <div style={{ position: 'relative', display: 'inline-flex' }}>
               <button
                 onClick={async () => {
+                  // Load AI insights on-demand
+                  await loadAIInsights();
                   const prompt = await buildOpenAIPrompt();
                   setOpenAIPromptText(prompt);
                   setShowOpenAIPrompt(true);
                 }}
                 className="btn-secondary"
                 style={{ 
-                  display: 'flex', 
-                  alignItems: 'center', 
+                  display: 'flex',
+                  alignItems: 'center',
                   gap: '0.5rem',
                   background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
                   color: 'white',
@@ -2597,6 +2609,8 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
         </button>
         <button
           onClick={async () => {
+            // Load AI insights on-demand
+            await loadAIInsights();
             const prompt = await buildOpenAIPrompt();
             setOpenAIPromptText(prompt);
             setShowOpenAIPrompt(true);

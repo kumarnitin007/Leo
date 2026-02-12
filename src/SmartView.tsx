@@ -8,6 +8,7 @@
 
 import React, { useState } from 'react';
 import VoiceCommandButton from './components/VoiceCommand/VoiceCommandButton';
+import VoiceCommandHistory from './components/VoiceCommand/VoiceCommandHistory';
 import ImageScanModal from './components/ImageScanModal';
 import SmartSuggestionsModal from './components/SmartSuggestionsModal';
 import { scanImageWithTesseract } from './services/imageScanning/tesseractService';
@@ -16,6 +17,8 @@ import { ScanMode, ScanResult, ExtractedItem } from './services/imageScanning/ty
 import { addTask, addEvent } from './storage';
 import { createTodoItem } from './services/todoService';
 import { getUserSettings, saveUserSettings } from './storage';
+import dbService from './services/voice/VoiceCommandDatabaseService';
+import { IntentType } from './types/voice-command-db.types';
 
 interface SmartViewProps {
   onNavigate: (view: string) => void;
@@ -24,11 +27,13 @@ interface SmartViewProps {
 const SmartView: React.FC<SmartViewProps> = ({ onNavigate }) => {
   const [showImageScanModal, setShowImageScanModal] = useState(false);
   const [showSuggestionsModal, setShowSuggestionsModal] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
   const [scanMode, setScanMode] = useState<ScanMode>('quick');
   const [scanResult, setScanResult] = useState<ScanResult | null>(null);
   const [isScanning, setIsScanning] = useState(false);
   const [aiScanEnabled, setAiScanEnabled] = useState(false);
   const [showWarning, setShowWarning] = useState(false);
+  const [currentScanId, setCurrentScanId] = useState<string | null>(null);
 
   React.useEffect(() => {
     loadSettings();
@@ -78,6 +83,30 @@ const SmartView: React.FC<SmartViewProps> = ({ onNavigate }) => {
         result = await scanImageWithOpenAI(file);
       }
 
+      // Log scan to database
+      try {
+        const intentType: IntentType = mode === 'quick' ? 'SCAN_IMAGE_QUICK' : 'SCAN_IMAGE_SMART';
+        const scanId = await dbService.saveCommand({
+          rawTranscript: result.rawText || `Image scan - ${result.items.length} items found`,
+          intentType,
+          entityType: 'TASK', // Default, will be updated when item is created
+          extractedTitle: result.items.length > 0 ? result.items[0].title : undefined,
+          overallConfidence: result.items.length > 0 ? result.items[0].confidence : 0.5,
+          outcome: result.success ? 'PENDING' : 'FAILED',
+          entities: result.items.map(item => ({
+            type: 'TASK',
+            value: item.title,
+            normalizedValue: item.title,
+            confidence: item.confidence,
+            meta: item.data
+          }))
+        });
+        setCurrentScanId(scanId);
+        console.log('[SmartView] Scan logged with ID:', scanId);
+      } catch (dbError) {
+        console.warn('[SmartView] Failed to log scan to database:', dbError);
+      }
+
       setScanResult(result);
       setShowSuggestionsModal(true);
     } catch (error) {
@@ -90,14 +119,16 @@ const SmartView: React.FC<SmartViewProps> = ({ onNavigate }) => {
 
   const handleCreateItem = async (item: ExtractedItem) => {
     console.log('[SmartView] Creating item:', item);
+    let createdId: string | null = null;
+    
     try {
       switch (item.suggestedDestination) {
         case 'event':
-          await createEvent(item);
+          createdId = await createEvent(item);
           alert(`✅ Event "${item.title}" added successfully!`);
           break;
         case 'task':
-          await createTask(item);
+          createdId = await createTask(item);
           alert(`✅ Task "${item.title}" added successfully!`);
           break;
         case 'todo':
@@ -121,19 +152,47 @@ const SmartView: React.FC<SmartViewProps> = ({ onNavigate }) => {
           onNavigate('resolutions');
           break;
       }
+      
+      // Update scan log with success
+      if (currentScanId && createdId) {
+        try {
+          await dbService.updateCommand(currentScanId, {
+            outcome: 'SUCCESS',
+            createdItemType: item.suggestedDestination,
+            createdItemId: createdId
+          });
+          console.log('[SmartView] Scan log updated with created item');
+        } catch (dbError) {
+          console.warn('[SmartView] Failed to update scan log:', dbError);
+        }
+      }
+      
       console.log('[SmartView] Item created successfully');
     } catch (error) {
       console.error('[SmartView] Failed to create item:', error);
+      
+      // Update scan log with failure
+      if (currentScanId) {
+        try {
+          await dbService.updateCommand(currentScanId, {
+            outcome: 'FAILED'
+          });
+        } catch (dbError) {
+          console.warn('[SmartView] Failed to update scan log:', dbError);
+        }
+      }
+      
       throw error;
     }
   };
 
-  const createEvent = async (item: ExtractedItem) => {
+  const createEvent = async (item: ExtractedItem): Promise<string> => {
     const data = item.data;
     console.log('[SmartView] Creating event with data:', { item, data });
     
+    const eventId = crypto.randomUUID();
     const eventData = {
-      id: crypto.randomUUID(),
+      id: eventId,
       name: item.title,
       date: data.date || new Date().toISOString().split('T')[0],
       description: item.description || '',
@@ -146,11 +205,13 @@ const SmartView: React.FC<SmartViewProps> = ({ onNavigate }) => {
     console.log('[SmartView] Event data to save:', eventData);
     await addEvent(eventData);
     console.log('[SmartView] Event saved successfully');
+    return eventId;
   };
 
-  const createTask = async (item: ExtractedItem) => {
+  const createTask = async (item: ExtractedItem): Promise<string> => {
+    const taskId = crypto.randomUUID();
     await addTask({
-      id: crypto.randomUUID(),
+      id: taskId,
       name: item.title,
       description: item.description || '',
       category: 'General',
@@ -159,6 +220,7 @@ const SmartView: React.FC<SmartViewProps> = ({ onNavigate }) => {
       specificDate: item.data.dueDate,
       createdAt: new Date().toISOString()
     });
+    return taskId;
   };
 
   const createTodo = async (item: ExtractedItem) => {
@@ -205,6 +267,39 @@ const SmartView: React.FC<SmartViewProps> = ({ onNavigate }) => {
             Speak to create tasks, events, journal entries, and more. Just press the button and start talking!
           </p>
           <VoiceCommandButton />
+        </div>
+
+        {/* History / Audit Log */}
+        <div
+          style={{
+            background: 'linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)',
+            borderRadius: '1rem',
+            padding: '2rem',
+            border: '2px solid #f59e0b',
+            boxShadow: '0 4px 12px rgba(245, 158, 11, 0.2)'
+          }}
+        >
+          <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>📋</div>
+          <h2 style={{ fontSize: '1.5rem', fontWeight: 700, margin: '0 0 0.5rem' }}>History & Audit</h2>
+          <p style={{ fontSize: '0.95rem', color: '#92400e', marginBottom: '1.5rem' }}>
+            View all your voice commands and image scans. Track what was created and when.
+          </p>
+          <button
+            onClick={() => setShowHistory(true)}
+            style={{
+              width: '100%',
+              padding: '1rem',
+              background: '#f59e0b',
+              color: 'white',
+              border: 'none',
+              borderRadius: '0.5rem',
+              fontWeight: 600,
+              cursor: 'pointer',
+              fontSize: '1rem'
+            }}
+          >
+            📜 View History
+          </button>
         </div>
 
         {/* Quick Scan */}
@@ -384,6 +479,12 @@ const SmartView: React.FC<SmartViewProps> = ({ onNavigate }) => {
           </div>
         </div>
       )}
+
+      {/* History Modal */}
+      <VoiceCommandHistory
+        isOpen={showHistory}
+        onClose={() => setShowHistory(false)}
+      />
     </div>
   );
 };

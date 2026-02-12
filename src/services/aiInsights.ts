@@ -6,8 +6,9 @@
  */
 
 import { Task, TaskCompletion } from '../types';
-import { loadData } from '../storage';
-import { formatDate } from '../utils';
+import { loadData, loadDashboardData } from '../storage';
+import { formatDate, getTodayString } from '../utils';
+import { PerformanceConfig } from '../config/performanceConfig';
 
 export interface TaskInsight {
   taskId: string;
@@ -37,7 +38,10 @@ export interface Recommendation {
  */
 export const getUnderperformingTasks = async (): Promise<TaskInsight[]> => {
   try {
-    const data = await loadData();
+    // Use optimized loading (only needs recent data for analysis)
+    const data = PerformanceConfig.USE_OPTIMIZED_DASHBOARD_LOADING
+      ? await loadDashboardData(getTodayString(), PerformanceConfig.DASHBOARD_DATA_RANGE_DAYS)
+      : await loadData();
     const insights: TaskInsight[] = [];
     
     // Analyze each task
