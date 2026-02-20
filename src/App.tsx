@@ -80,7 +80,7 @@ const AppContent: React.FC = () => {
   const { theme } = useTheme();
   const { avatar, username } = useUser();
   const { features, loading: levelLoading } = useUserLevel();
-  const { user, loading: authLoading, isAuthenticated } = useAuth();
+  const { user, loading: authLoading, isAuthenticated, error: authError } = useAuth();
 
   // Clear localStorage and test Supabase connection on mount
   useEffect(() => {
@@ -88,6 +88,12 @@ const AppContent: React.FC = () => {
       // Clear old localStorage data (user must use Supabase now)
       const { clearLocalStorage } = await import('./storage');
       clearLocalStorage();
+      
+      // Keep-alive ping to prevent Supabase from pausing (free tier)
+      if (isAuthenticated) {
+        const { checkAndPingKeepAlive } = await import('./services/keepAliveService');
+        checkAndPingKeepAlive().catch(err => console.warn('Keep-alive ping failed:', err));
+      }
       
       // Initialize notifications
       if (isAuthenticated) {
@@ -306,6 +312,57 @@ const AppContent: React.FC = () => {
         return <TodayView key={`today-${key}`} onNavigate={handleNavigate} />;
     }
   };
+
+  // Show error message if auth failed
+  if (authError && !authLoading) {
+    return (
+      <div 
+        className="app" 
+        style={{ 
+          background: `linear-gradient(135deg, ${theme.gradient.from} 0%, ${theme.gradient.via} 50%, ${theme.gradient.to} 100%)`,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          minHeight: '100vh'
+        }}
+      >
+        <div style={{
+          background: 'white',
+          borderRadius: '1rem',
+          padding: '2rem',
+          maxWidth: '500px',
+          margin: '1rem',
+          boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+          textAlign: 'center'
+        }}>
+          <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>⚠️</div>
+          <h2 style={{ color: '#dc2626', marginBottom: '1rem' }}>Connection Error</h2>
+          <p style={{ color: '#6b7280', marginBottom: '1.5rem', lineHeight: '1.6' }}>
+            {authError}
+          </p>
+          <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
+            <button
+              onClick={() => window.location.reload()}
+              style={{
+                padding: '0.75rem 1.5rem',
+                background: theme.colors.primary,
+                color: 'white',
+                border: 'none',
+                borderRadius: '0.5rem',
+                cursor: 'pointer',
+                fontWeight: 600
+              }}
+            >
+              Try Again
+            </button>
+          </div>
+          <p style={{ fontSize: '0.875rem', color: '#9ca3af', marginTop: '1.5rem' }}>
+            If this problem persists, please contact support.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div 

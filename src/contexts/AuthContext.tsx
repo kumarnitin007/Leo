@@ -14,6 +14,7 @@ interface AuthContextType {
   user: User | null;
   loading: boolean;
   isAuthenticated: boolean;
+  error: string | null;
   signOut: () => Promise<void>;
   refreshUser: () => Promise<void>;
 }
@@ -23,11 +24,13 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   // Load current user on mount
   useEffect(() => {
     const loadUser = async () => {
       try {
+        setError(null);
         // If demo mode is enabled locally, synthesize a demo user and skip Supabase calls
         const demoFlag = localStorage.getItem('myday-demo');
         if (demoFlag === 'true') {
@@ -49,9 +52,20 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         const currentUser = await getCurrentUser();
         console.debug('AuthProvider: getCurrentUser returned', !!currentUser);
         setUser(currentUser);
-      } catch (error) {
+      } catch (error: any) {
         console.error('Error loading user:', error);
         setUser(null);
+        
+        // Set user-friendly error message
+        if (error?.message?.includes('Failed to fetch') || error?.message?.includes('NetworkError')) {
+          setError('Unable to connect to server. Please check your internet connection and try again.');
+        } else if (error?.message?.includes('paused') || error?.message?.includes('inactive')) {
+          setError('Service is temporarily unavailable. Please try again in a few moments.');
+        } else if (error?.message?.includes('timeout')) {
+          setError('Connection timeout. Please check your internet and try again.');
+        } else {
+          setError('Unable to sign in. Please try again later.');
+        }
       } finally {
         setLoading(false);
       }
@@ -101,6 +115,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     user,
     loading,
     isAuthenticated: !!user,
+    error,
     signOut: handleSignOut,
     refreshUser
   };
