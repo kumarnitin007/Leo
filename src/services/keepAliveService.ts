@@ -8,7 +8,7 @@
 import { getSupabaseClient } from '../lib/supabase';
 
 const KEEP_ALIVE_KEY = 'last-keep-alive-ping';
-const PING_INTERVAL_DAYS = 6;
+const PING_INTERVAL_DAYS = 3;
 const PING_INTERVAL_MS = PING_INTERVAL_DAYS * 24 * 60 * 60 * 1000;
 
 /**

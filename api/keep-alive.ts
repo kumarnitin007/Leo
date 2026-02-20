@@ -1,7 +1,7 @@
 /**
  * Vercel Serverless Function - Keep Supabase Active
  * 
- * This endpoint is called by Vercel Cron every 6 days to prevent
+ * This endpoint is called by Vercel Cron every 3 days to prevent
  * Supabase free tier from pausing due to inactivity.
  */
 
