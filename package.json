@@ -15,6 +15,7 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.89.0",
+    "@vercel/node": "^5.6.6",
     "date-fns": "^4.1.0",
     "lucide-react": "^0.294.0",
     "qrcode.react": "^4.2.0",

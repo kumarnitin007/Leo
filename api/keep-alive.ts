@@ -5,12 +5,7 @@
  * Supabase free tier from pausing due to inactivity.
  */
 
-import type { VercelRequest, VercelResponse } from '@vercel/node';
-
-export default async function handler(
-  req: VercelRequest,
-  res: VercelResponse
-) {
+export default async function handler(req: any, res: any) {
   // Verify this is called by Vercel Cron (optional security)
   const authHeader = req.headers.authorization;
   if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
