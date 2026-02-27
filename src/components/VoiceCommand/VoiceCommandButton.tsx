@@ -12,7 +12,6 @@
 
 import React, { useState, useEffect } from 'react';
 import VoiceCommandModal from './VoiceCommandModal';
-import VoiceCommandHistory from './VoiceCommandHistory';
 import { ParsedCommand } from '../../services/voice/types';
 import { VoiceCommandLog } from '../../types/voice-command-db.types';
 
@@ -23,6 +22,7 @@ interface VoiceCommandButtonProps {
   onPrefillAndNavigate?: (parsed: ParsedCommand) => void; // Navigate to form with data
   onCreateFromHistory?: (command: VoiceCommandLog) => void; // Create from history
   userId?: string; // For fetching history
+  onNavigateToHistory?: () => void; // Navigate to history screen
 }
 
 const VoiceCommandButton: React.FC<VoiceCommandButtonProps> = ({ 
@@ -32,9 +32,9 @@ const VoiceCommandButton: React.FC<VoiceCommandButtonProps> = ({
   onPrefillAndNavigate,
   onCreateFromHistory,
   userId,
+  onNavigateToHistory,
 }) => {
   const [showModal, setShowModal] = useState(isModalMode);
-  const [showHistory, setShowHistory] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
 
   // Keyboard shortcut: Ctrl/Cmd + Shift + V
@@ -47,13 +47,13 @@ const VoiceCommandButton: React.FC<VoiceCommandButtonProps> = ({
       // Ctrl/Cmd + Shift + H for history
       if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 'h') {
         e.preventDefault();
-        setShowHistory(true);
+        onNavigateToHistory?.();
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  }, [onNavigateToHistory]);
 
   const handleSuccess = (message: string) => {
     onSuccess?.(message);
@@ -66,33 +66,20 @@ const VoiceCommandButton: React.FC<VoiceCommandButtonProps> = ({
 
   const handleHistoryClick = () => {
     setShowModal(false);
-    setShowHistory(true);
-  };
-
-  const handleCreateFromHistory = (command: VoiceCommandLog) => {
-    onCreateFromHistory?.(command);
-    setShowHistory(false);
+    onNavigateToHistory?.();
   };
 
   // In modal mode, only render the modal
   if (isModalMode) {
     return (
-      <>
-        <VoiceCommandModal
-          isOpen={showModal}
-          onClose={handleClose}
-          onSuccess={handleSuccess}
-          onPrefillAndNavigate={onPrefillAndNavigate}
-          showHistoryButton={!!userId}
-          onHistoryClick={handleHistoryClick}
-        />
-        <VoiceCommandHistory
-          isOpen={showHistory}
-          onClose={() => setShowHistory(false)}
-          onCreateFromCommand={handleCreateFromHistory}
-          userId={userId}
-        />
-      </>
+      <VoiceCommandModal
+        isOpen={showModal}
+        onClose={handleClose}
+        onSuccess={handleSuccess}
+        onPrefillAndNavigate={onPrefillAndNavigate}
+        showHistoryButton={!!userId}
+        onHistoryClick={handleHistoryClick}
+      />
     );
   }
 
@@ -167,14 +154,6 @@ const VoiceCommandButton: React.FC<VoiceCommandButtonProps> = ({
         onPrefillAndNavigate={onPrefillAndNavigate}
         showHistoryButton={!!userId}
         onHistoryClick={handleHistoryClick}
-      />
-
-      {/* Voice History Modal */}
-      <VoiceCommandHistory
-        isOpen={showHistory}
-        onClose={() => setShowHistory(false)}
-        onCreateFromCommand={handleCreateFromHistory}
-        userId={userId}
       />
 
       <style>{`

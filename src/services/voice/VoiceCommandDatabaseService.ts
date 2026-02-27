@@ -178,7 +178,7 @@ const mapRowToVoiceCommandLog = (row: any): VoiceCommandLog => {
     memoDateExpression: row.memo_date_expression,
     memoTime: row.memo_time,
     memoTimeExpression: row.memo_time_expression,
-    allDayEvent: !!row.all_day_event,
+    allDayEvent: !!(row as any).all_day_event, // Column may not exist in schema
     extractedTitle: row.extracted_title,
     extractedPriority: row.extracted_priority,
     extractedTags: row.extracted_tags || [],
@@ -197,9 +197,9 @@ const mapRowToVoiceCommandLog = (row: any): VoiceCommandLog => {
     userCorrections: row.user_corrections || [],
     confirmationShown: !!row.confirmation_shown,
     userConfirmed: !!row.user_confirmed,
-    userEdited: !!row.user_edited,
+    userEdited: !!(row as any).user_edited, // Column may not exist in schema
     outcome: row.outcome,
-    failureReason: row.failure_reason,
+    failureReason: (row as any).failure_reason, // Column may not exist in schema
     retryCount: row.retry_count,
     createdItemType: row.created_item_type,
     createdItemId: row.created_item_id ? String(row.created_item_id) : null,
@@ -256,7 +256,7 @@ export class VoiceCommandDatabaseService {
         memo_date_expression: (commandData as any).memoDateExpression,
         memo_time: (commandData as any).memoTime,
         memo_time_expression: (commandData as any).memoTimeExpression,
-        all_day_event: (commandData as any).allDayEvent || false,
+        // all_day_event: (commandData as any).allDayEvent || false, // Column doesn't exist in schema
         extracted_title: (commandData as any).extractedTitle,
         extracted_priority: (commandData as any).extractedPriority,
         extracted_tags: (commandData as any).extractedTags || [],
@@ -368,7 +368,7 @@ export class VoiceCommandDatabaseService {
         memoDateExpression: 'memo_date_expression',
         memoTime: 'memo_time',
         memoTimeExpression: 'memo_time_expression',
-        allDayEvent: 'all_day_event',
+        // allDayEvent: 'all_day_event', // Column doesn't exist in schema
         extractedTitle: 'extracted_title',
         extractedPriority: 'extracted_priority',
         extractedTags: 'extracted_tags',
@@ -386,9 +386,9 @@ export class VoiceCommandDatabaseService {
         userCorrections: 'user_corrections',
         confirmationShown: 'confirmation_shown',
         userConfirmed: 'user_confirmed',
-        userEdited: 'user_edited',
+        // userEdited: 'user_edited', // Column doesn't exist in schema
         outcome: 'outcome',
-        failureReason: 'failure_reason',
+        // failureReason: 'failure_reason', // Column doesn't exist in schema
         retryCount: 'retry_count',
         createdItemType: 'created_item_type',
         createdItemId: 'created_item_id',
@@ -477,7 +477,7 @@ export class VoiceCommandDatabaseService {
       }
 
       // Update the command outcome
-      await this.updateCommand(commandId, { outcome: 'UNDONE' as any, userEdited: true });
+      await this.updateCommand(commandId, { outcome: 'UNDONE' as any });
 
       // Record audit
       const auditRow = {
@@ -684,7 +684,7 @@ export class VoiceCommandDatabaseService {
           success_rate: commandLog.outcome === 'SUCCESS' ? 1 : 0,
           average_confidence: commandLog.overallConfidence || null,
           average_processing_time_ms: commandLog.processingDurationMs || null,
-          common_errors: commandLog.outcome === 'FAILED' ? [{ reason: commandLog.failureReason }] : null,
+          common_errors: commandLog.outcome === 'FAILED' && commandLog.failureReason ? [{ reason: commandLog.failureReason }] : null,
           date,
           hour_of_day: hour,
           total_commands: 1,

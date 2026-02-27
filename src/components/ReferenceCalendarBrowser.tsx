@@ -89,6 +89,63 @@ export const ReferenceCalendarBrowser: React.FC<ReferenceCalendarBrowserProps> =
     }
   };
 
+  const handleDeleteCalendar = async (calendarId: string, calendarName: string) => {
+    const confirmed = confirm(
+      `⚠️ Delete "${calendarName}"?\n\nThis will permanently delete:\n- The calendar\n- All its events/days\n- All enrichment data (tips, facts, etc.)\n- Calendar-day links\n\nThis cannot be undone. Continue?`
+    );
+
+    if (!confirmed) return;
+
+    try {
+      const { getSupabaseClient } = await import('../lib/supabase');
+      const client = getSupabaseClient();
+
+      // First, get all day identifiers for this calendar (BEFORE deleting)
+      const { data: days } = await client
+        .from('myday_reference_days')
+        .select('event_name')
+        .eq('anchor_key', calendarId)
+        .eq('anchor_type', 'calendar');
+      
+      const identifiers = days?.map(d => 
+        d.event_name.toLowerCase().replace(/['']/g, '').replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
+      ) || [];
+
+      // Delete enrichment data for all events in this calendar
+      if (identifiers.length > 0) {
+        await Promise.all([
+          client.from('myday_calendar_facts').delete().in('day_identifier', identifiers),
+          client.from('myday_calendar_statistics').delete().in('day_identifier', identifiers),
+          client.from('myday_calendar_tips').delete().in('day_identifier', identifiers),
+          client.from('myday_calendar_timeline_items').delete().in('day_identifier', identifiers),
+          client.from('myday_calendar_quick_ideas').delete().in('day_identifier', identifiers),
+          client.from('myday_calendar_external_resources').delete().in('day_identifier', identifiers),
+          client.from('myday_calendar_action_items').delete().in('day_identifier', identifiers),
+          client.from('myday_calendar_enrichments').delete().in('day_identifier', identifiers),
+        ]);
+      }
+
+      // Delete calendar-day links
+      await client.from('myday_calendar_days').delete().eq('calendar_id', calendarId);
+
+      // Delete reference days
+      await client.from('myday_reference_days').delete().eq('anchor_key', calendarId).eq('anchor_type', 'calendar');
+
+      // Delete user assignments
+      await client.from('myday_user_reference_calendars').delete().eq('calendar_id', calendarId);
+
+      // Finally delete the calendar itself
+      await client.from('myday_reference_calendars').delete().eq('id', calendarId);
+
+      alert(`✅ Calendar "${calendarName}" deleted successfully!`);
+      await loadCalendars();
+      onDaysChange?.();
+    } catch (err) {
+      console.error('Error deleting calendar:', err);
+      alert(`❌ Error deleting calendar: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    }
+  };
+
   const filteredCalendars = allCalendars.filter(cal => {
     const matchesDomain = !filterDomain || cal.domain === filterDomain;
     const matchesGeography = !filterGeography || cal.geography === filterGeography;
@@ -261,7 +318,10 @@ export const ReferenceCalendarBrowser: React.FC<ReferenceCalendarBrowserProps> =
             return (
               <div
                 key={calendar.id}
-                onClick={() => handleToggleCalendar(calendar.id)}
+                onClick={(e) => {
+                  if ((e.target as HTMLElement).closest('button')) return;
+                  handleToggleCalendar(calendar.id);
+                }}
                 style={{
                   padding: '1.25rem',
                   background: isEnabled 
@@ -387,9 +447,36 @@ export const ReferenceCalendarBrowser: React.FC<ReferenceCalendarBrowserProps> =
                   </div>
                 </div>
 
-                {/* Status Indicator - Desktop Only */}
-                {!isMobile && (
-                  <div style={{ flexShrink: 0, textAlign: 'right' }}>
+                {/* Actions */}
+                <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDeleteCalendar(calendar.id, calendar.name);
+                    }}
+                    style={{
+                      padding: isMobile ? '0.5rem' : '0.5rem 0.75rem',
+                      background: 'transparent',
+                      border: '1px solid #ef4444',
+                      borderRadius: '6px',
+                      cursor: 'pointer',
+                      fontSize: isMobile ? '1rem' : '0.75rem',
+                      color: '#ef4444',
+                      fontWeight: 500,
+                      transition: 'all 0.2s'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = '#ef4444';
+                      e.currentTarget.style.color = 'white';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = 'transparent';
+                      e.currentTarget.style.color = '#ef4444';
+                    }}
+                  >
+                    🗑️{!isMobile && ' Delete'}
+                  </button>
+                  {!isMobile && (
                     <div style={{
                       fontSize: '1.5rem',
                       fontWeight: 700,
@@ -397,8 +484,8 @@ export const ReferenceCalendarBrowser: React.FC<ReferenceCalendarBrowserProps> =
                     }}>
                       {isEnabled ? '✓' : '○'}
                     </div>
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
             );
           })

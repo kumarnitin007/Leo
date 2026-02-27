@@ -14,10 +14,11 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useTheme } from '../../contexts/ThemeContext';
 import dbService from '../../services/voice/VoiceCommandDatabaseService';
 import { VoiceCommandLog, IntentType, Outcome } from '../../types/voice-command-db.types';
+import VoiceCommandSuggestions from './VoiceCommandSuggestions';
+import VoiceCommandAnalytics from './VoiceCommandAnalytics';
 
 interface VoiceCommandHistoryProps {
-  isOpen: boolean;
-  onClose: () => void;
+  onBack: () => void;
   onCreateFromCommand?: (command: VoiceCommandLog) => void;
   userId?: string;
 }
@@ -52,8 +53,7 @@ const OUTCOME_CONFIG: Record<Outcome, { icon: string; label: string; color: stri
 };
 
 const VoiceCommandHistory: React.FC<VoiceCommandHistoryProps> = ({
-  isOpen,
-  onClose,
+  onBack,
   onCreateFromCommand,
   userId,
 }) => {
@@ -64,6 +64,9 @@ const VoiceCommandHistory: React.FC<VoiceCommandHistoryProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [filterIntent, setFilterIntent] = useState<IntentType | 'ALL'>('ALL');
   const [selectedCommand, setSelectedCommand] = useState<VoiceCommandLog | null>(null);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [suggestionsCommand, setSuggestionsCommand] = useState<VoiceCommandLog | null>(null);
+  const [showAnalytics, setShowAnalytics] = useState(false);
 
   const loadCommands = useCallback(async () => {
     if (!userId) {
@@ -85,10 +88,8 @@ const VoiceCommandHistory: React.FC<VoiceCommandHistoryProps> = ({
   }, [userId]);
 
   useEffect(() => {
-    if (isOpen) {
-      loadCommands();
-    }
-  }, [isOpen, loadCommands]);
+    loadCommands();
+  }, [loadCommands]);
 
   const filteredCommands = commands.filter(cmd => {
     const matchesSearch = searchQuery === '' || 
@@ -96,6 +97,12 @@ const VoiceCommandHistory: React.FC<VoiceCommandHistoryProps> = ({
       cmd.extractedTitle?.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesFilter = filterIntent === 'ALL' || cmd.intentType === filterIntent;
     return matchesSearch && matchesFilter;
+  }).sort((a, b) => {
+    // Sort PENDING commands to the top
+    if (a.outcome === 'PENDING' && b.outcome !== 'PENDING') return -1;
+    if (a.outcome !== 'PENDING' && b.outcome === 'PENDING') return 1;
+    // Then by date (newest first)
+    return new Date(b.createdAt || '').getTime() - new Date(a.createdAt || '').getTime();
   });
 
   const groupedByDate = filteredCommands.reduce((groups, cmd) => {
@@ -128,14 +135,62 @@ const VoiceCommandHistory: React.FC<VoiceCommandHistoryProps> = ({
 
   const handleCreateFromCommand = (cmd: VoiceCommandLog) => {
     onCreateFromCommand?.(cmd);
-    onClose();
+    onBack();
   };
 
-  if (!isOpen) return null;
+  const handleReviewAndCreate = async (cmd: VoiceCommandLog) => {
+    // Show suggestions modal for smart options
+    setSuggestionsCommand(cmd);
+    setShowSuggestions(true);
+  };
+
+  const handleSuggestionSelect = async (suggestion: any) => {
+    if (!suggestionsCommand) return;
+    
+    try {
+      const VoiceCommandService = (await import('../../services/voice/VoiceCommandService')).default;
+      const service = new VoiceCommandService();
+      
+      // Apply suggestion edits
+      const userEdits = {
+        title: suggestion.title,
+        recurrence: suggestion.recurrence,
+        time: suggestion.time,
+        intentType: suggestion.type === 'event' ? 'CREATE_EVENT' : 
+                    suggestion.type === 'task' ? 'CREATE_TASK' :
+                    suggestion.type === 'routine' ? 'CREATE_ROUTINE' : 'CREATE_TODO',
+      };
+      
+      const result = await service.createFromPending(suggestionsCommand.id, userId, userEdits);
+      
+      if (result.success) {
+        alert(`✅ ${suggestion.title} created successfully!`);
+        setShowSuggestions(false);
+        setSuggestionsCommand(null);
+        await loadCommands(); // Refresh list
+      } else {
+        alert(`❌ Failed to create: ${result.error?.message || 'Unknown error'}`);
+      }
+    } catch (err) {
+      console.error('Error creating from pending:', err);
+      alert(`❌ Error: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    }
+  };
+
+  const handleSuggestionEdit = () => {
+    // TODO: Open form with prefilled data
+    setShowSuggestions(false);
+    alert('Edit functionality coming soon!');
+  };
+
+  const handleSuggestionDismiss = () => {
+    setShowSuggestions(false);
+    setSuggestionsCommand(null);
+  };
 
   return (
-    <div className="voice-history-overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="voice-history-modal">
+    <div className="voice-history-page">
+      <div className="voice-history-container">
         {/* Header */}
         <div className="voice-history-header">
           <div className="voice-history-title">
@@ -145,7 +200,16 @@ const VoiceCommandHistory: React.FC<VoiceCommandHistoryProps> = ({
               <p>{commands.length} voice command{commands.length !== 1 ? 's' : ''} & image scan{commands.length !== 1 ? 's' : ''}</p>
             </div>
           </div>
-          <button className="voice-history-close" onClick={onClose}>✕</button>
+          <div style={{ display: 'flex', gap: '0.5rem' }}>
+            <button 
+              className="voice-history-analytics-btn"
+              onClick={() => setShowAnalytics(true)}
+              title="View Analytics"
+            >
+              📊
+            </button>
+            <button className="voice-history-close" onClick={onBack}>← Back</button>
+          </div>
         </div>
 
         {/* Search & Filter */}
@@ -218,7 +282,7 @@ const VoiceCommandHistory: React.FC<VoiceCommandHistoryProps> = ({
                     return (
                       <div
                         key={cmd.id}
-                        className={`voice-command-card ${isSelected ? 'expanded' : ''}`}
+                        className={`voice-command-card ${isSelected ? 'expanded' : ''} ${cmd.outcome === 'PENDING' ? 'pending' : ''}`}
                         onClick={() => setSelectedCommand(isSelected ? null : cmd)}
                       >
                         <div className="command-main">
@@ -301,7 +365,18 @@ const VoiceCommandHistory: React.FC<VoiceCommandHistoryProps> = ({
 
                             {/* Actions */}
                             <div className="command-actions">
-                              {cmd.outcome !== 'SUCCESS' && onCreateFromCommand && (
+                              {cmd.outcome === 'PENDING' && (
+                                <button 
+                                  className="action-btn primary"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleReviewAndCreate(cmd);
+                                  }}
+                                >
+                                  ✨ Review & Create
+                                </button>
+                              )}
+                              {cmd.outcome !== 'SUCCESS' && cmd.outcome !== 'PENDING' && onCreateFromCommand && (
                                 <button 
                                   className="action-btn primary"
                                   onClick={(e) => {
@@ -309,7 +384,7 @@ const VoiceCommandHistory: React.FC<VoiceCommandHistoryProps> = ({
                                     handleCreateFromCommand(cmd);
                                   }}
                                 >
-                                  ✨ Create Now
+                                  🔄 Retry
                                 </button>
                               )}
                               {cmd.createdItemId && (
@@ -318,7 +393,7 @@ const VoiceCommandHistory: React.FC<VoiceCommandHistoryProps> = ({
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     // Navigate to the created item
-                                    onClose();
+                                    onBack();
                                   }}
                                 >
                                   👁️ View Item
@@ -337,38 +412,42 @@ const VoiceCommandHistory: React.FC<VoiceCommandHistoryProps> = ({
         </div>
       </div>
 
+      {/* Suggestions Modal */}
+      {showSuggestions && suggestionsCommand && (
+        <VoiceCommandSuggestions
+          command={suggestionsCommand}
+          onSelect={handleSuggestionSelect}
+          onEdit={handleSuggestionEdit}
+          onDismiss={handleSuggestionDismiss}
+        />
+      )}
+
+      {/* Analytics Modal */}
+      <VoiceCommandAnalytics
+        isOpen={showAnalytics}
+        onClose={() => setShowAnalytics(false)}
+        userId={userId}
+      />
+
       <style>{`
-        .voice-history-overlay {
-          position: fixed;
-          inset: 0;
-          background: rgba(0, 0, 0, 0.6);
-          backdrop-filter: blur(8px);
-          display: flex;
-          align-items: flex-end;
-          justify-content: center;
-          z-index: 10000;
-          animation: fadeIn 0.2s ease-out;
+        .voice-history-page {
+          min-height: 100vh;
+          background: #f9fafb;
         }
 
-        .voice-history-modal {
+        .voice-history-container {
+          max-width: 800px;
+          margin: 0 auto;
           background: white;
-          border-radius: 1.5rem 1.5rem 0 0;
-          width: 100%;
-          max-width: 500px;
-          max-height: 90vh;
+          min-height: 100vh;
           display: flex;
           flex-direction: column;
-          animation: slideUp 0.3s ease-out;
         }
 
         @media (min-width: 640px) {
-          .voice-history-overlay {
-            align-items: center;
-            padding: 1rem;
-          }
-          .voice-history-modal {
-            border-radius: 1.5rem;
-            max-height: 80vh;
+          .voice-history-container {
+            border-left: 1px solid #e5e7eb;
+            border-right: 1px solid #e5e7eb;
           }
         }
 
@@ -379,13 +458,6 @@ const VoiceCommandHistory: React.FC<VoiceCommandHistoryProps> = ({
           display: flex;
           justify-content: space-between;
           align-items: center;
-          border-radius: 1.5rem 1.5rem 0 0;
-        }
-
-        @media (min-width: 640px) {
-          .voice-history-header {
-            border-radius: 1.5rem 1.5rem 0 0;
-          }
         }
 
         .voice-history-title {
@@ -410,7 +482,7 @@ const VoiceCommandHistory: React.FC<VoiceCommandHistoryProps> = ({
           opacity: 0.85;
         }
 
-        .voice-history-close {
+        .voice-history-analytics-btn {
           background: rgba(255,255,255,0.2);
           border: none;
           width: 36px;
@@ -422,6 +494,31 @@ const VoiceCommandHistory: React.FC<VoiceCommandHistoryProps> = ({
           display: flex;
           align-items: center;
           justify-content: center;
+          transition: all 0.2s;
+        }
+
+        .voice-history-analytics-btn:hover {
+          background: rgba(255,255,255,0.3);
+          transform: scale(1.05);
+        }
+
+        .voice-history-close {
+          background: rgba(255,255,255,0.2);
+          border: none;
+          padding: 0.5rem 1rem;
+          border-radius: 0.5rem;
+          color: white;
+          font-size: 0.95rem;
+          font-weight: 600;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transition: all 0.2s;
+        }
+
+        .voice-history-close:hover {
+          background: rgba(255,255,255,0.3);
         }
 
         .voice-history-filters {
@@ -551,6 +648,17 @@ const VoiceCommandHistory: React.FC<VoiceCommandHistoryProps> = ({
         .voice-command-card.expanded {
           border-color: #667eea;
           box-shadow: 0 4px 12px rgba(102, 126, 234, 0.15);
+        }
+
+        .voice-command-card.pending {
+          border-color: #f59e0b;
+          background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+          box-shadow: 0 2px 8px rgba(245, 158, 11, 0.2);
+        }
+
+        .voice-command-card.pending:hover {
+          border-color: #f59e0b;
+          box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
         }
 
         .command-main {

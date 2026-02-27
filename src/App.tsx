@@ -51,8 +51,9 @@ import SmartView from './SmartView';
 import { ParsedCommand } from './services/voice/types';
 import DemoBanner from './components/DemoBanner';
 import { VoiceCommandLog } from './types/voice-command-db.types';
+import VoiceCommandHistory from './components/VoiceCommand/VoiceCommandHistory';
 
-type View = 'today' | 'tasks-events' | 'items' | 'journal' | 'resolutions' | 'analytics' | 'settings' | 'safe' | 'todo' | 'groups' | 'smart';
+type View = 'today' | 'tasks-events' | 'items' | 'journal' | 'resolutions' | 'analytics' | 'settings' | 'safe' | 'todo' | 'groups' | 'smart' | 'history';
 
 /**
  * Main App Content Component
@@ -308,6 +309,15 @@ const AppContent: React.FC = () => {
         return <GroupsManager key={`groups-${key}`} onClose={() => handleNavigate('today')} />;
       case 'smart':
         return <SmartView key={`smart-${key}`} onNavigate={handleNavigate} />;
+      case 'history':
+        return (
+          <VoiceCommandHistory 
+            key={`history-${key}`} 
+            onBack={() => handleNavigate('smart')} 
+            onCreateFromCommand={handleCreateFromVoiceHistory}
+            userId={user?.id}
+          />
+        );
       default:
         return <TodayView key={`today-${key}`} onNavigate={handleNavigate} />;
     }
@@ -566,6 +576,7 @@ const AppContent: React.FC = () => {
             onPrefillAndNavigate={handleVoicePrefillAndNavigate}
             onCreateFromHistory={handleCreateFromVoiceHistory}
             userId={user?.id}
+            onNavigateToHistory={() => handleNavigate('history')}
           />
         </div>
       </header>
@@ -669,6 +680,10 @@ const AppContent: React.FC = () => {
             handleCreateFromVoiceHistory(cmd);
           }}
           userId={user?.id}
+          onNavigateToHistory={() => {
+            setShowVoiceAddModal(false);
+            handleNavigate('history');
+          }}
         />
       )}
 

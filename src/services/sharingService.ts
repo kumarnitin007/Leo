@@ -1229,7 +1229,6 @@ export async function getTodoGroupsSharedWithMe(): Promise<SharedTodoGroup[]> {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('Not authenticated');
 
-  console.log('[getTodoGroupsSharedWithMe] User:', user.id);
 
   const { data: memberData } = await supabase
     .from('myday_group_members')
@@ -1237,10 +1236,8 @@ export async function getTodoGroupsSharedWithMe(): Promise<SharedTodoGroup[]> {
     .eq('user_id', user.id);
 
   const groupIds = (memberData || []).map(m => m.group_id);
-  console.log('[getTodoGroupsSharedWithMe] User is member of groups:', groupIds);
   
   if (groupIds.length === 0) {
-    console.log('[getTodoGroupsSharedWithMe] No group memberships, returning empty');
     return [];
   }
 
@@ -1257,7 +1254,6 @@ export async function getTodoGroupsSharedWithMe(): Promise<SharedTodoGroup[]> {
     throw error;
   }
 
-  console.log('[getTodoGroupsSharedWithMe] Found', data?.length || 0, 'shared TODO groups');
 
   return (data || []).map(row => ({
     id: row.id,

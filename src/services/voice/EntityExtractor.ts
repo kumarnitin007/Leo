@@ -54,7 +54,21 @@ export class EntityExtractor {
     const dateEntity = this.extractDate(text, refDate);
     const timeEntity = this.extractTime(text, refDate);
     const priorityEntity = this.extractPriority(text, dateEntity);
-    const recurrenceEntity = this.extractRecurrence(text);
+    let recurrenceEntity = this.extractRecurrence(text);
+    
+    // Auto-detect yearly recurrence for birthdays/anniversaries
+    if (!recurrenceEntity && (intentType === 'CREATE_EVENT' || !intentType)) {
+      const lower = text.toLowerCase();
+      if (/\bbirthday\b/.test(lower) || /\banniversary\b/.test(lower)) {
+        recurrenceEntity = {
+          type: 'RECURRENCE',
+          value: 'every year',
+          normalizedValue: 'FREQ=YEARLY',
+          confidence: 0.9,
+        };
+      }
+    }
+    
     const durationEntity = this.extractDuration(text, intentType);
     const locationEntity = this.extractLocation(text);
     const attendeesEntities = this.extractAttendees(text);
@@ -113,8 +127,14 @@ export class EntityExtractor {
       normalized = normalized.replace(new RegExp(`\\b${informal}\\b`, 'gi'), formal);
     }
 
-    // Remove filler words
-    const fillerWords = ['um', 'uh', 'like', 'you know', 'basically', 'actually', 'literally', 'maybe'];
+    // Remove filler words and speech artifacts
+    const fillerWords = [
+      'um', 'uh', 'uhm', 'umm', 'er', 'ah', 'ahh',
+      'like', 'you know', 'i mean', 'sort of', 'kind of',
+      'basically', 'actually', 'literally', 'honestly',
+      'maybe', 'probably', 'i think', 'i guess',
+      'well', 'so', 'anyway', 'anyways'
+    ];
     for (const filler of fillerWords) {
       normalized = normalized.replace(new RegExp(`\\b${filler}\\b,?\\s*`, 'gi'), ' ');
     }
@@ -233,12 +253,29 @@ export class EntityExtractor {
       };
     }
 
-    // NEXT [DAY OF WEEK]
+    // THIS [DAY OF WEEK] - current week
     const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
     const nextDayFunctions = [nextSunday, nextMonday, nextTuesday, nextWednesday, nextThursday, nextFriday, nextSaturday];
     
     for (let i = 0; i < dayNames.length; i++) {
       const dayName = dayNames[i];
+      
+      // Match "this monday" - same week
+      const thisRegex = new RegExp(`\\bthis\\s+${dayName}\\b`, 'i');
+      if (thisRegex.test(lower)) {
+        const currentDay = getDay(refDate);
+        const targetDay = i;
+        let daysToAdd = targetDay - currentDay;
+        if (daysToAdd < 0) daysToAdd += 7; // Next week if already passed
+        const targetDate = addDays(refDate, daysToAdd);
+        return {
+          type: 'DATE',
+          value: `this ${dayName}`,
+          normalizedValue: format(targetDate, 'yyyy-MM-dd'),
+          confidence: 0.95,
+        };
+      }
+      
       // Match "next monday", "on monday", "by monday", just "monday" at word boundary
       const dayRegex = new RegExp(`\\b(next\\s+)?${dayName}\\b`, 'i');
       if (dayRegex.test(lower)) {
@@ -247,6 +284,22 @@ export class EntityExtractor {
           type: 'DATE',
           value: `next ${dayName}`,
           normalizedValue: format(nextDayDate, 'yyyy-MM-dd'),
+          confidence: 0.9,
+        };
+      }
+    }
+    
+    // [DAY] AFTER NEXT
+    for (let i = 0; i < dayNames.length; i++) {
+      const dayName = dayNames[i];
+      const afterNextRegex = new RegExp(`\\b${dayName}\\s+after\\s+next\\b`, 'i');
+      if (afterNextRegex.test(lower)) {
+        const nextDayDate = nextDayFunctions[i](refDate);
+        const afterNextDate = addDays(nextDayDate, 7); // Add one more week
+        return {
+          type: 'DATE',
+          value: `${dayName} after next`,
+          normalizedValue: format(afterNextDate, 'yyyy-MM-dd'),
           confidence: 0.9,
         };
       }
@@ -277,6 +330,66 @@ export class EntityExtractor {
         value: `in ${days} days`,
         normalizedValue: format(futureDate, 'yyyy-MM-dd'),
         confidence: 0.9,
+      };
+    }
+
+    // X WEEKS FROM TODAY/NOW
+    const weeksFromMatch = lower.match(/\b(\d+)\s+weeks?\s+from\s+(today|now)\b/);
+    if (weeksFromMatch) {
+      const weeks = parseInt(weeksFromMatch[1]);
+      const futureDate = addDays(refDate, weeks * 7);
+      return {
+        type: 'DATE',
+        value: `${weeks} weeks from today`,
+        normalizedValue: format(futureDate, 'yyyy-MM-dd'),
+        confidence: 0.9,
+      };
+    }
+
+    // X MONTHS FROM TODAY/NOW
+    const monthsFromMatch = lower.match(/\b(\d+)\s+months?\s+from\s+(today|now)\b/);
+    if (monthsFromMatch) {
+      const months = parseInt(monthsFromMatch[1]);
+      const futureDate = addMonths(refDate, months);
+      return {
+        type: 'DATE',
+        value: `${months} months from today`,
+        normalizedValue: format(futureDate, 'yyyy-MM-dd'),
+        confidence: 0.9,
+      };
+    }
+
+    // END OF MONTH
+    if (/\bend\s+of\s+(this\s+)?month\b/.test(lower)) {
+      const lastDay = endOfMonth(refDate);
+      return {
+        type: 'DATE',
+        value: 'end of month',
+        normalizedValue: format(lastDay, 'yyyy-MM-dd'),
+        confidence: 0.95,
+      };
+    }
+
+    // END OF WEEK
+    if (/\bend\s+of\s+(this\s+)?week\b/.test(lower)) {
+      const lastDay = endOfWeek(refDate, { weekStartsOn: 0 }); // Sunday
+      return {
+        type: 'DATE',
+        value: 'end of week',
+        normalizedValue: format(lastDay, 'yyyy-MM-dd'),
+        confidence: 0.95,
+      };
+    }
+
+    // START OF NEXT MONTH
+    if (/\bstart\s+of\s+next\s+month\b/.test(lower)) {
+      const nextMonth = addMonths(refDate, 1);
+      const firstDay = startOfMonth(nextMonth);
+      return {
+        type: 'DATE',
+        value: 'start of next month',
+        normalizedValue: format(firstDay, 'yyyy-MM-dd'),
+        confidence: 0.95,
       };
     }
 
@@ -564,6 +677,16 @@ export class EntityExtractor {
       };
     }
 
+    // Every year / yearly / annual / annually
+    if (/\bevery year\b/.test(lower) || /\byearly\b/.test(lower) || /\bannual\b/.test(lower) || /\bannually\b/.test(lower)) {
+      return {
+        type: 'RECURRENCE',
+        value: 'every year',
+        normalizedValue: 'FREQ=YEARLY',
+        confidence: 0.95,
+      };
+    }
+
     // Recurring / repeat
     if (/\brecurring\b/.test(lower) || /\brepeat\b/.test(lower)) {
       return {
@@ -632,6 +755,28 @@ export class EntityExtractor {
    */
   private extractLocation(text: string): Entity | null {
     const lower = text.toLowerCase();
+
+    // "at my place" or "at home"
+    if (/\bat\s+(my\s+)?(place|home)\b/.test(lower)) {
+      return {
+        type: 'LOCATION' as EntityType,
+        value: 'at my place',
+        normalizedValue: 'Home',
+        confidence: 0.95,
+      };
+    }
+
+    // "at [someone]'s place"
+    const someonePlace = lower.match(/\bat\s+([a-z]+)'?s\s+place\b/);
+    if (someonePlace) {
+      const name = someonePlace[1].charAt(0).toUpperCase() + someonePlace[1].slice(1);
+      return {
+        type: 'LOCATION' as EntityType,
+        value: `at ${name}'s place`,
+        normalizedValue: `${name}'s place`,
+        confidence: 0.9,
+      };
+    }
 
     // "at [location]" pattern - but not "at [time]"
     const atMatch = text.match(/\bat\s+([A-Z][a-zA-Z\s]+(?:restaurant|office|cafe|coffee|gym|park|library|hospital|clinic|school|university|college|store|mall|hotel|airport|station))/i);

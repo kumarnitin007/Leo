@@ -74,7 +74,6 @@ export async function getTodoGroupById(groupId: string): Promise<TodoGroup | nul
 export async function getTodoItemsByGroup(groupId: string): Promise<TodoItem[]> {
   const supabase = getClient();
   
-  console.log('[getTodoItemsByGroup] Fetching items for group:', groupId);
   
   const { data, error } = await supabase
     .from('myday_todo_items')
@@ -87,7 +86,6 @@ export async function getTodoItemsByGroup(groupId: string): Promise<TodoItem[]> 
     throw error;
   }
 
-  console.log('[getTodoItemsByGroup] Found', data?.length || 0, 'items');
 
   return (data || []).map(row => ({
     id: row.id,

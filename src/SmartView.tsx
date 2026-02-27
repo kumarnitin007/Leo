@@ -8,7 +8,6 @@
 
 import React, { useState } from 'react';
 import VoiceCommandButton from './components/VoiceCommand/VoiceCommandButton';
-import VoiceCommandHistory from './components/VoiceCommand/VoiceCommandHistory';
 import ImageScanModal from './components/ImageScanModal';
 import SmartSuggestionsModal from './components/SmartSuggestionsModal';
 import { scanImageWithTesseract } from './services/imageScanning/tesseractService';
@@ -27,7 +26,6 @@ interface SmartViewProps {
 const SmartView: React.FC<SmartViewProps> = ({ onNavigate }) => {
   const [showImageScanModal, setShowImageScanModal] = useState(false);
   const [showSuggestionsModal, setShowSuggestionsModal] = useState(false);
-  const [showHistory, setShowHistory] = useState(false);
   const [scanMode, setScanMode] = useState<ScanMode>('quick');
   const [scanResult, setScanResult] = useState<ScanResult | null>(null);
   const [isScanning, setIsScanning] = useState(false);
@@ -285,7 +283,7 @@ const SmartView: React.FC<SmartViewProps> = ({ onNavigate }) => {
             View all your voice commands and image scans. Track what was created and when.
           </p>
           <button
-            onClick={() => setShowHistory(true)}
+            onClick={() => onNavigate('history')}
             style={{
               width: '100%',
               padding: '1rem',
@@ -480,11 +478,6 @@ const SmartView: React.FC<SmartViewProps> = ({ onNavigate }) => {
         </div>
       )}
 
-      {/* History Modal */}
-      <VoiceCommandHistory
-        isOpen={showHistory}
-        onClose={() => setShowHistory(false)}
-      />
     </div>
   );
 };

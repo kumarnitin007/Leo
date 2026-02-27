@@ -130,20 +130,20 @@ const VoiceCommandModal: React.FC<VoiceCommandModalProps> = ({
 
     setState('EXECUTING');
     try {
-      const res = await service.execute(parsed);
-      setExecutionResult(res);
-      if (res.success) {
-        setState('SUCCESS');
-        setTimeout(() => {
-          onSuccess?.('Created from voice command!', res);
-          onClose();
-        }, 1500);
-      } else {
-        setError(res.error?.message || 'Failed to execute command');
-        setState('ERROR');
-      }
+      // NEW WORKFLOW: Save as PENDING for user review
+      const commandId = await service.saveCommandAsPending(parsed);
+      
+      setState('SUCCESS');
+      setTimeout(() => {
+        onSuccess?.('Voice command saved! Check history to review and create.', { 
+          success: true, 
+          createdId: commandId,
+          needsReview: true 
+        } as any);
+        onClose();
+      }, 1500);
     } catch (err: any) {
-      setError(err?.message || 'Execution failed');
+      setError(err?.message || 'Failed to save command');
       setState('ERROR');
     }
   };
@@ -385,6 +385,49 @@ const VoiceCommandModal: React.FC<VoiceCommandModalProps> = ({
             {/* CONFIRM State */}
             {state === 'CONFIRM' && parsed && (
               <div>
+                {/* Low Confidence Warning */}
+                {parsed.overallConfidence < 0.5 && (
+                  <div style={{
+                    background: '#fef3c7',
+                    border: '2px solid #f59e0b',
+                    borderRadius: '0.75rem',
+                    padding: '1rem',
+                    marginBottom: '1rem',
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                    gap: '0.75rem'
+                  }}>
+                    <span style={{ fontSize: '1.5rem' }}>⚠️</span>
+                    <div>
+                      <p style={{ margin: '0 0 0.25rem', fontWeight: 600, color: '#92400e', fontSize: '0.9rem' }}>
+                        Low Confidence Detection
+                      </p>
+                      <p style={{ margin: 0, fontSize: '0.8rem', color: '#92400e' }}>
+                        I'm not very confident about this command ({Math.round(parsed.overallConfidence * 100)}%). Please review carefully.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* High Confidence Badge */}
+                {parsed.overallConfidence >= 0.9 && (
+                  <div style={{
+                    background: '#dcfce7',
+                    border: '2px solid #10b981',
+                    borderRadius: '0.75rem',
+                    padding: '0.75rem 1rem',
+                    marginBottom: '1rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem'
+                  }}>
+                    <span style={{ fontSize: '1.25rem' }}>✨</span>
+                    <p style={{ margin: 0, fontWeight: 600, color: '#166534', fontSize: '0.85rem' }}>
+                      High confidence ({Math.round(parsed.overallConfidence * 100)}%) - I understood this clearly!
+                    </p>
+                  </div>
+                )}
+
                 {/* Transcript */}
                 <div
                   style={{
@@ -511,7 +554,7 @@ const VoiceCommandModal: React.FC<VoiceCommandModalProps> = ({
                         gap: '0.375rem'
                       }}
                     >
-                      ✓ Create Now
+                      💾 Save for Review
                     </button>
                   </div>
                   
@@ -566,10 +609,10 @@ const VoiceCommandModal: React.FC<VoiceCommandModalProps> = ({
                   <span style={{ fontSize: '2.5rem' }}>⚡</span>
                 </div>
                 <h3 style={{ margin: '0 0 0.5rem', fontSize: '1.25rem', fontWeight: 600, color: '#1f2937' }}>
-                  Creating...
+                  Saving...
                 </h3>
                 <p style={{ margin: 0, color: '#6b7280', fontSize: '0.9rem' }}>
-                  Executing your command
+                  Saving your command for review
                 </p>
               </div>
             )}
@@ -593,10 +636,10 @@ const VoiceCommandModal: React.FC<VoiceCommandModalProps> = ({
                   <span style={{ fontSize: '2.5rem' }}>✓</span>
                 </div>
                 <h3 style={{ margin: '0 0 0.5rem', fontSize: '1.25rem', fontWeight: 600, color: '#10b981' }}>
-                  {executionResult?.entityType || 'Item'} Created!
+                  Command Saved!
                 </h3>
                 <p style={{ margin: '0 0 1rem', color: '#6b7280', fontSize: '0.9rem' }}>
-                  Your command has been executed
+                  Check history to review and create
                 </p>
                 
                 {/* Show extracted fields summary */}

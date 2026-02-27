@@ -16,7 +16,7 @@
  * - Expiration reminders
  */
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Item, ItemCategory, Tag } from './types';
 import { 
   getItems, 
@@ -27,6 +27,7 @@ import {
   getTagsForSection,
   importSampleItems
 } from './storage';
+import GenericFilterSidebar, { GenericFilter, FilterSection } from './components/GenericFilterSidebar';
 
 interface ItemsViewProps {
   onNavigate?: (view: string) => void;
@@ -43,6 +44,11 @@ const ItemsView: React.FC<ItemsViewProps> = () => {
   const [sortBy, setSortBy] = useState<string>('name-asc');
   const [tags, setTags] = useState<Tag[]>([]);
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
+  
+  // Filter sidebar state
+  const [activeFilter, setActiveFilter] = useState<GenericFilter>({ type: 'all' });
+  const [showMobileFilters, setShowMobileFilters] = useState(true);
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -64,6 +70,13 @@ const ItemsView: React.FC<ItemsViewProps> = () => {
     loadItems();
     loadTags();
     loadExpiringItems();
+  }, []);
+  
+  // Track window resize for mobile detection
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
   }, []);
 
   const loadTags = async () => {
@@ -218,14 +231,101 @@ const ItemsView: React.FC<ItemsViewProps> = () => {
     }).format(value);
   };
 
-  // Filter and sort items
-  const filteredItems = items.filter(item => {
-    const matchesCategory = filterCategory === 'all' || item.category === filterCategory;
+  // Calculate filter counts for sidebar
+  const filterCounts = useMemo(() => {
+    const counts = {
+      all: items.length,
+      expiring: expiringItems.length,
+      closed: items.filter(i => i.isClosed).length,
+      byCategory: {} as Record<string, number>,
+      byTag: {} as Record<string, number>,
+    };
+    
+    // Count by category
+    items.forEach(item => {
+      counts.byCategory[item.category] = (counts.byCategory[item.category] || 0) + 1;
+    });
+    
+    // Count by tag
+    items.forEach(item => {
+      item.tags?.forEach(tagId => {
+        counts.byTag[tagId] = (counts.byTag[tagId] || 0) + 1;
+      });
+    });
+    
+    return counts;
+  }, [items, expiringItems]);
+  
+  // Build filter sections for sidebar
+  const filterSections: FilterSection[] = useMemo(() => {
+    const sections: FilterSection[] = [
+      {
+        id: 'quick',
+        title: 'Quick Filters',
+        defaultExpanded: true,
+        items: [
+          { filter: { type: 'all' }, icon: '📦', label: 'All Items', count: filterCounts.all },
+          { filter: { type: 'expiring' }, icon: '⏰', label: 'Expiring Soon', count: filterCounts.expiring, color: '#f59e0b' },
+          { filter: { type: 'closed' }, icon: '✓', label: 'Closed/Used', count: filterCounts.closed, color: '#6b7280' },
+        ]
+      },
+      {
+        id: 'categories',
+        title: 'Categories',
+        defaultExpanded: true,
+        items: [
+          { filter: { type: 'category', value: 'Gift Card' }, icon: '🎁', label: 'Gift Cards', count: filterCounts.byCategory['Gift Card'] || 0 },
+          { filter: { type: 'category', value: 'Subscription' }, icon: '📱', label: 'Subscriptions', count: filterCounts.byCategory['Subscription'] || 0 },
+          { filter: { type: 'category', value: 'Warranty' }, icon: '🛡️', label: 'Warranties', count: filterCounts.byCategory['Warranty'] || 0 },
+          { filter: { type: 'category', value: 'Note' }, icon: '📝', label: 'Notes', count: filterCounts.byCategory['Note'] || 0 },
+        ]
+      }
+    ];
+    
+    // Add tags section if tags exist
+    if (tags.length > 0) {
+      sections.push({
+        id: 'tags',
+        title: 'Tags',
+        defaultExpanded: false,
+        items: tags.map(tag => ({
+          filter: { type: 'tag', value: tag.id },
+          icon: '🏷️',
+          label: tag.name,
+          count: filterCounts.byTag[tag.id] || 0,
+          color: tag.color,
+        }))
+      });
+    }
+    
+    return sections;
+  }, [items, expiringItems, tags, filterCounts]);
+  
+  // Apply sidebar filter
+  const sidebarFilteredItems = useMemo(() => {
+    switch (activeFilter.type) {
+      case 'all':
+        return items;
+      case 'expiring':
+        return expiringItems;
+      case 'closed':
+        return items.filter(i => i.isClosed);
+      case 'category':
+        return items.filter(i => i.category === activeFilter.value);
+      case 'tag':
+        return items.filter(i => i.tags?.includes(activeFilter.value || ''));
+      default:
+        return items;
+    }
+  }, [items, expiringItems, activeFilter]);
+  
+  // Filter and sort items (apply search on top of sidebar filter)
+  const filteredItems = sidebarFilteredItems.filter(item => {
     const matchesSearch = searchText === '' || 
       item.name.toLowerCase().includes(searchText.toLowerCase()) ||
       item.description?.toLowerCase().includes(searchText.toLowerCase()) ||
       item.merchant?.toLowerCase().includes(searchText.toLowerCase());
-    return matchesCategory && matchesSearch;
+    return matchesSearch;
   });
 
   const sortedItems = [...filteredItems].sort((a, b) => {
@@ -341,111 +441,136 @@ const ItemsView: React.FC<ItemsViewProps> = () => {
           </button>
         )}
       </div>
+      
+      {/* Main content with sidebar */}
+      <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start' }}>
+        {/* Mobile: Show filters first */}
+        {isMobile && showMobileFilters && !isEditing && items.length > 0 ? (
+          <GenericFilterSidebar
+            title="📦 Browse Items"
+            sections={filterSections}
+            activeFilter={activeFilter}
+            onFilterChange={setActiveFilter}
+            isMobile={true}
+            onFilterSelected={() => setShowMobileFilters(false)}
+          />
+        ) : (
+          <>
+            {/* Desktop: Filter Sidebar */}
+            {!isMobile && !isEditing && items.length > 0 && (
+              <GenericFilterSidebar
+                sections={filterSections}
+                activeFilter={activeFilter}
+                onFilterChange={setActiveFilter}
+              />
+            )}
+            
+            {/* Main Content */}
+            <div style={{ flex: 1, minWidth: 0 }}>
+              {/* Mobile: Back to filters button */}
+              {isMobile && !isEditing && items.length > 0 && (
+                <button
+                  onClick={() => setShowMobileFilters(true)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                    padding: '0.75rem 1rem',
+                    background: 'rgba(59, 130, 246, 0.1)',
+                    border: 'none',
+                    borderRadius: '0.5rem',
+                    cursor: 'pointer',
+                    fontSize: '0.9rem',
+                    color: '#3b82f6',
+                    marginBottom: '1rem',
+                    width: '100%',
+                  }}
+                >
+                  <span>◀</span>
+                  <span>Back to Filters</span>
+                </button>
+              )}
 
-      {/* Filter Section */}
-      {items.length > 0 && (
-        <div className="events-filters" style={{
-          background: 'rgba(255, 255, 255, 0.9)',
-          backdropFilter: 'blur(10px)',
-          borderRadius: '12px',
-          padding: '1rem',
-          marginBottom: '1.5rem',
-          display: 'flex',
-          gap: '1rem',
-          flexWrap: 'wrap',
-          alignItems: 'center'
-        }}>
-          <div style={{ flex: '1 1 200px', minWidth: '150px' }}>
-            <label style={{ fontSize: '0.875rem', color: '#6b7280', display: 'block', marginBottom: '0.25rem' }}>
-              Search
-            </label>
-            <input
-              type="text"
-              placeholder="Search items..."
-              value={searchText}
-              onChange={(e) => setSearchText(e.target.value)}
-              style={{
-                width: '100%',
-                padding: '0.5rem',
-                borderRadius: '8px',
-                border: '1px solid #d1d5db',
-                fontSize: '0.875rem'
-              }}
-            />
-          </div>
-          
-          <div style={{ flex: '0 1 150px', minWidth: '120px' }}>
-            <label style={{ fontSize: '0.875rem', color: '#6b7280', display: 'block', marginBottom: '0.25rem' }}>
-              Category
-            </label>
-            <select
-              value={filterCategory}
-              onChange={(e) => setFilterCategory(e.target.value)}
-              style={{
-                width: '100%',
-                padding: '0.5rem',
-                borderRadius: '8px',
-                border: '1px solid #d1d5db',
-                fontSize: '0.875rem'
-              }}
-            >
-              <option value="all">All Categories</option>
-              <option value="Gift Card">🎁 Gift Card</option>
-              <option value="Subscription">📱 Subscription</option>
-              <option value="Warranty">🛡️ Warranty</option>
-              <option value="Note">📝 Note</option>
-            </select>
-          </div>
-          
-          <div style={{ flex: '0 1 150px', minWidth: '120px' }}>
-            <label style={{ fontSize: '0.875rem', color: '#6b7280', display: 'block', marginBottom: '0.25rem' }}>
-              Sort By
-            </label>
-            <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value)}
-              style={{
-                width: '100%',
-                padding: '0.5rem',
-                borderRadius: '8px',
-                border: '1px solid #d1d5db',
-                fontSize: '0.875rem'
-              }}
-            >
-              <option value="name-asc">Name (A-Z)</option>
-              <option value="name-desc">Name (Z-A)</option>
-              <option value="expiration-asc">Expiration (Earliest)</option>
-              <option value="expiration-desc">Expiration (Latest)</option>
-              <option value="value-desc">Value (High to Low)</option>
-              <option value="value-asc">Value (Low to High)</option>
-              <option value="priority-desc">Priority (High to Low)</option>
-              <option value="priority-asc">Priority (Low to High)</option>
-            </select>
-          </div>
-          
-          {(searchText || filterCategory !== 'all' || sortBy !== 'name-asc') && (
-            <button
-              onClick={() => {
-                setSearchText('');
-                setFilterCategory('all');
-                setSortBy('name-asc');
-              }}
-              style={{
-                padding: '0.5rem 1rem',
-                background: 'transparent',
-                border: '1px solid #d1d5db',
-                borderRadius: '8px',
-                cursor: 'pointer',
-                fontSize: '0.875rem',
-                color: '#6b7280',
-                whiteSpace: 'nowrap'
-              }}
-            >
-              Clear Filters
-            </button>
-          )}
-        </div>
-      )}
+              {/* Search and Sort Bar */}
+              {items.length > 0 && (
+                <div className="events-filters" style={{
+                  background: 'rgba(255, 255, 255, 0.9)',
+                  backdropFilter: 'blur(10px)',
+                  borderRadius: '12px',
+                  padding: '1rem',
+                  marginBottom: '1.5rem',
+                  display: 'flex',
+                  gap: '1rem',
+                  flexWrap: 'wrap',
+                  alignItems: 'center'
+                }}>
+                  <div style={{ flex: '1 1 200px', minWidth: '150px' }}>
+                    <label style={{ fontSize: '0.875rem', color: '#6b7280', display: 'block', marginBottom: '0.25rem' }}>
+                      Search
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="Search items..."
+                      value={searchText}
+                      onChange={(e) => setSearchText(e.target.value)}
+                      style={{
+                        width: '100%',
+                        padding: '0.5rem',
+                        borderRadius: '8px',
+                        border: '1px solid #d1d5db',
+                        fontSize: '0.875rem'
+                      }}
+                    />
+                  </div>
+                  
+                  <div style={{ flex: '0 1 150px', minWidth: '120px' }}>
+                    <label style={{ fontSize: '0.875rem', color: '#6b7280', display: 'block', marginBottom: '0.25rem' }}>
+                      Sort By
+                    </label>
+                    <select
+                      value={sortBy}
+                      onChange={(e) => setSortBy(e.target.value)}
+                      style={{
+                        width: '100%',
+                        padding: '0.5rem',
+                        borderRadius: '8px',
+                        border: '1px solid #d1d5db',
+                        fontSize: '0.875rem'
+                      }}
+                    >
+                      <option value="name-asc">Name (A-Z)</option>
+                      <option value="name-desc">Name (Z-A)</option>
+                      <option value="expiration-asc">Expiration (Earliest)</option>
+                      <option value="expiration-desc">Expiration (Latest)</option>
+                      <option value="value-desc">Value (High to Low)</option>
+                      <option value="value-asc">Value (Low to High)</option>
+                      <option value="priority-desc">Priority (High to Low)</option>
+                      <option value="priority-asc">Priority (Low to High)</option>
+                    </select>
+                  </div>
+                  
+                  {(searchText || sortBy !== 'name-asc') && (
+                    <button
+                      onClick={() => {
+                        setSearchText('');
+                        setSortBy('name-asc');
+                      }}
+                      style={{
+                        padding: '0.5rem 1rem',
+                        background: 'transparent',
+                        border: '1px solid #d1d5db',
+                        borderRadius: '8px',
+                        cursor: 'pointer',
+                        fontSize: '0.875rem',
+                        color: '#6b7280',
+                        whiteSpace: 'nowrap'
+                      }}
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+              )}
 
       {/* Add/Edit Form */}
       {isEditing && (
@@ -824,6 +949,10 @@ const ItemsView: React.FC<ItemsViewProps> = () => {
             </>
           );
         })()}
+              </div>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

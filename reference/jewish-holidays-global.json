@@ -1,0 +1,241 @@
+{
+  "calendar": {
+    "id": "jewish-holidays-global",
+    "name": "Jewish Holidays (Global)",
+    "geography": "GLOBAL",
+    "calendarType": "religious",
+    "religion": "Judaism",
+    "isPreloaded": true,
+    "deduplicationStrategy": "day.id",
+    "description": "Major Jewish holidays and observances based on the Hebrew calendar.",
+    "source": "Hebrew Calendar",
+    "version": "1.0"
+  },
+
+  "events": [
+    {
+      "day": {
+        "id": "JEWISH-ROSH-HASHANAH",
+        "recurrence": "YEARLY",
+        "rule": "1st-2nd of Tishrei (Hebrew calendar)",
+        "note": "2026: Sep 14-15, 2027: Oct 2-3, 2028: Sep 21-22"
+      },
+      "event": {
+        "name": "Rosh Hashanah (ראש השנה)",
+        "category": "high-holy-day",
+        "importanceLevel": 100,
+        "significance": "Jewish New Year, beginning of the High Holy Days and a time of introspection and repentance.",
+        "localCustoms": [
+          "Sounding the shofar (ram's horn)",
+          "Eating apples dipped in honey",
+          "Round challah bread",
+          "Tashlich ceremony (casting sins into water)",
+          "Special prayers and services"
+        ],
+        "media": {
+          "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/9/9c/Shofar.jpg",
+          "infoUrl": "https://en.wikipedia.org/wiki/Rosh_Hashanah"
+        },
+        "visualTheme": {
+          "primaryColor": "#1976D2",
+          "mood": "reflective",
+          "icon": "horn"
+        },
+        "crossAssociationTags": ["new-year", "reflection", "tradition"]
+      }
+    },
+
+    {
+      "day": {
+        "id": "JEWISH-YOM-KIPPUR",
+        "recurrence": "YEARLY",
+        "rule": "10th of Tishrei (Hebrew calendar)",
+        "note": "2026: Sep 23, 2027: Oct 11, 2028: Sep 30"
+      },
+      "event": {
+        "name": "Yom Kippur (יום כיפור)",
+        "category": "high-holy-day",
+        "importanceLevel": 100,
+        "significance": "Day of Atonement, the holiest day in Judaism. A day of fasting, prayer, and repentance.",
+        "localCustoms": [
+          "25-hour fast (no food or drink)",
+          "Wearing white clothing",
+          "Kol Nidre service",
+          "Ne'ilah closing service",
+          "Asking forgiveness from others"
+        ],
+        "media": {
+          "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/5/5a/Yom_Kippur_Prayer.jpg",
+          "infoUrl": "https://en.wikipedia.org/wiki/Yom_Kippur"
+        },
+        "visualTheme": {
+          "primaryColor": "#FFFFFF",
+          "mood": "solemn",
+          "icon": "prayer"
+        },
+        "crossAssociationTags": ["fasting", "atonement", "holiest-day"]
+      }
+    },
+
+    {
+      "day": {
+        "id": "JEWISH-SUKKOT",
+        "recurrence": "YEARLY",
+        "rule": "15th-21st of Tishrei (Hebrew calendar)",
+        "note": "2026: Sep 28 - Oct 4, 2027: Oct 16-22, 2028: Oct 5-11"
+      },
+      "event": {
+        "name": "Sukkot (סוכות)",
+        "category": "pilgrimage-festival",
+        "importanceLevel": 90,
+        "significance": "Festival of Booths, commemorating the Israelites' 40 years in the desert and celebrating the harvest.",
+        "localCustoms": [
+          "Building and dwelling in a sukkah (temporary hut)",
+          "Waving the Four Species (lulav and etrog)",
+          "Festive meals in the sukkah",
+          "Ushpizin (welcoming ancestral guests)"
+        ],
+        "media": {
+          "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/3/3e/Sukkah.jpg",
+          "infoUrl": "https://en.wikipedia.org/wiki/Sukkot"
+        },
+        "visualTheme": {
+          "primaryColor": "#8BC34A",
+          "mood": "joyful",
+          "icon": "hut"
+        },
+        "crossAssociationTags": ["harvest", "pilgrimage", "outdoors"]
+      }
+    },
+
+    {
+      "day": {
+        "id": "JEWISH-HANUKKAH",
+        "recurrence": "YEARLY",
+        "rule": "25th of Kislev - 2nd of Tevet (8 days)",
+        "note": "2026: Dec 8-15, 2027: Nov 28 - Dec 5, 2028: Dec 16-23"
+      },
+      "event": {
+        "name": "Hanukkah (חנוכה)",
+        "category": "festival",
+        "importanceLevel": 85,
+        "significance": "Festival of Lights, commemorating the rededication of the Second Temple and the miracle of the oil.",
+        "localCustoms": [
+          "Lighting the menorah (9-branched candelabrum)",
+          "Playing dreidel game",
+          "Eating fried foods (latkes, sufganiyot)",
+          "Giving gelt (chocolate coins or money)",
+          "Singing Hanukkah songs"
+        ],
+        "media": {
+          "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/1/1e/Hanukkah_Menorah.jpg",
+          "infoUrl": "https://en.wikipedia.org/wiki/Hanukkah"
+        },
+        "visualTheme": {
+          "primaryColor": "#2196F3",
+          "mood": "celebratory",
+          "icon": "candles"
+        },
+        "crossAssociationTags": ["miracle", "lights", "winter"]
+      }
+    },
+
+    {
+      "day": {
+        "id": "JEWISH-PURIM",
+        "recurrence": "YEARLY",
+        "rule": "14th of Adar (Hebrew calendar)",
+        "note": "2026: Mar 3, 2027: Mar 23, 2028: Mar 12"
+      },
+      "event": {
+        "name": "Purim (פורים)",
+        "category": "festival",
+        "importanceLevel": 85,
+        "significance": "Celebrates the salvation of the Jewish people from Haman's plot to destroy them, as told in the Book of Esther.",
+        "localCustoms": [
+          "Reading the Megillah (Book of Esther)",
+          "Wearing costumes",
+          "Giving gifts of food (mishloach manot)",
+          "Charity to the poor",
+          "Festive meal",
+          "Eating hamantaschen cookies"
+        ],
+        "media": {
+          "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/2/2b/Purim_Celebration.jpg",
+          "infoUrl": "https://en.wikipedia.org/wiki/Purim"
+        },
+        "visualTheme": {
+          "primaryColor": "#9C27B0",
+          "mood": "joyful",
+          "icon": "mask"
+        },
+        "crossAssociationTags": ["celebration", "costume", "salvation"]
+      }
+    },
+
+    {
+      "day": {
+        "id": "JEWISH-PASSOVER",
+        "recurrence": "YEARLY",
+        "rule": "15th-22nd of Nisan (8 days)",
+        "note": "2026: Apr 2-9, 2027: Apr 22-29, 2028: Apr 11-18"
+      },
+      "event": {
+        "name": "Passover / Pesach (פסח)",
+        "category": "pilgrimage-festival",
+        "importanceLevel": 100,
+        "significance": "Commemorates the Exodus from Egypt and the liberation of the Israelites from slavery.",
+        "localCustoms": [
+          "Seder meal with symbolic foods",
+          "Reading the Haggadah",
+          "Eating matzah (unleavened bread)",
+          "Removing all chametz (leavened products)",
+          "Four cups of wine",
+          "Asking the Four Questions"
+        ],
+        "media": {
+          "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/4/4b/Passover_Seder_Plate.jpg",
+          "infoUrl": "https://en.wikipedia.org/wiki/Passover"
+        },
+        "visualTheme": {
+          "primaryColor": "#795548",
+          "mood": "reflective",
+          "icon": "bread"
+        },
+        "crossAssociationTags": ["freedom", "exodus", "spring"]
+      }
+    },
+
+    {
+      "day": {
+        "id": "JEWISH-SHAVUOT",
+        "recurrence": "YEARLY",
+        "rule": "6th of Sivan (Hebrew calendar)",
+        "note": "2026: May 22, 2027: Jun 11, 2028: May 30"
+      },
+      "event": {
+        "name": "Shavuot (שבועות)",
+        "category": "pilgrimage-festival",
+        "importanceLevel": 90,
+        "significance": "Festival of Weeks, commemorating the giving of the Torah at Mount Sinai and celebrating the wheat harvest.",
+        "localCustoms": [
+          "All-night Torah study",
+          "Eating dairy foods",
+          "Reading the Book of Ruth",
+          "Decorating with flowers and greenery",
+          "Confirmation ceremonies"
+        ],
+        "media": {
+          "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/8/8c/Shavuot_Torah.jpg",
+          "infoUrl": "https://en.wikipedia.org/wiki/Shavuot"
+        },
+        "visualTheme": {
+          "primaryColor": "#4CAF50",
+          "mood": "studious",
+          "icon": "scroll"
+        },
+        "crossAssociationTags": ["torah", "harvest", "revelation"]
+      }
+    }
+  ]
+}

@@ -81,7 +81,6 @@ const TodoView: React.FC<TodoViewProps> = () => {
     setLoading(true);
     setError(null);
     try {
-      console.log('[TodoView] Loading data...');
       const [groupsData, itemsData, sharedGroupsData, sharedByMeData] = await Promise.all([
         todoService.getTodoGroups(),
         todoService.getTodoItems('all'),
@@ -89,11 +88,6 @@ const TodoView: React.FC<TodoViewProps> = () => {
         sharingService.getMyGroups(), // Get groups I'm a member of to check for shares
       ]);
       
-      console.log('[TodoView] Loaded:', {
-        ownGroups: groupsData.length,
-        ownItems: itemsData.length,
-        sharedGroupsData: sharedGroupsData.length
-      });
       
       // Load shared TODO groups and their items (received by me)
       const sharedGroups: TodoGroup[] = [];
@@ -117,9 +111,7 @@ const TodoView: React.FC<TodoViewProps> = () => {
           }
           
           // Get items in this shared group
-          console.log('[TodoView] Fetching items for shared group:', share.todoGroupId);
           const groupItems = await todoService.getTodoItemsByGroup(share.todoGroupId);
-          console.log('[TodoView] Got', groupItems.length, 'items from shared group');
           sharedItems.push(...groupItems.map(item => ({
             ...item,
             isShared: true,
@@ -133,9 +125,7 @@ const TodoView: React.FC<TodoViewProps> = () => {
       // Also load items from MY OWN groups (to see items added by others)
       for (const group of groupsData) {
         try {
-          console.log('[TodoView] Fetching ALL items for own group:', group.id);
           const allGroupItems = await todoService.getTodoItemsByGroup(group.id);
-          console.log('[TodoView] Got', allGroupItems.length, 'total items in own group');
           
           // Add items that aren't already in itemsData (items created by others)
           const newItems = allGroupItems.filter(
@@ -143,7 +133,6 @@ const TodoView: React.FC<TodoViewProps> = () => {
           );
           
           if (newItems.length > 0) {
-            console.log('[TodoView] Found', newItems.length, 'items created by others in my group');
             sharedItems.push(...newItems);
           }
         } catch (err) {

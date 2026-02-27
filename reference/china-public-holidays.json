@@ -1,0 +1,223 @@
+{
+  "calendar": {
+    "id": "china-public-holidays",
+    "name": "China Public Holidays",
+    "country": "CN",
+    "calendarType": "national",
+    "isPreloaded": true,
+    "deduplicationStrategy": "day.id",
+    "description": "Official public holidays in the People's Republic of China, including lunar calendar festivals.",
+    "source": "State Council of China",
+    "version": "1.0"
+  },
+
+  "events": [
+    {
+      "day": {
+        "id": "CN-01-01",
+        "monthDay": "01-01",
+        "recurrence": "YEARLY"
+      },
+      "event": {
+        "name": "New Year's Day (元旦)",
+        "category": "national",
+        "importanceLevel": 85,
+        "significance": "Celebration of the Gregorian New Year.",
+        "localCustoms": ["Family gatherings", "Gift exchanges"],
+        "media": {
+          "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/e/e5/Shanghai_New_Year_2013.jpg",
+          "infoUrl": "https://en.wikipedia.org/wiki/Public_holidays_in_China"
+        },
+        "visualTheme": {
+          "primaryColor": "#FF0000",
+          "mood": "celebratory",
+          "icon": "fireworks"
+        },
+        "crossAssociationTags": ["new-year", "global"]
+      }
+    },
+
+    {
+      "day": {
+        "id": "CN-SPRING-FESTIVAL",
+        "recurrence": "YEARLY",
+        "rule": "Lunar New Year - 1st day of 1st lunar month",
+        "note": "2026: Jan 29, 2027: Feb 17, 2028: Feb 6"
+      },
+      "event": {
+        "name": "Spring Festival / Chinese New Year (春节)",
+        "category": "festival",
+        "importanceLevel": 100,
+        "significance": "Most important traditional festival in China, marking the beginning of the lunar new year.",
+        "localCustoms": [
+          "Family reunion dinner",
+          "Red envelopes (hongbao)",
+          "Lion and dragon dances",
+          "Fireworks and firecrackers",
+          "Temple fairs",
+          "Cleaning homes before New Year"
+        ],
+        "media": {
+          "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/9/92/Chinese_New_Year_Celebration.jpg",
+          "infoUrl": "https://en.wikipedia.org/wiki/Chinese_New_Year"
+        },
+        "visualTheme": {
+          "primaryColor": "#D32F2F",
+          "mood": "celebratory",
+          "icon": "dragon"
+        },
+        "crossAssociationTags": ["lunar-calendar", "family", "tradition"]
+      }
+    },
+
+    {
+      "day": {
+        "id": "CN-QINGMING",
+        "recurrence": "YEARLY",
+        "rule": "Around April 4-6 (solar term)",
+        "note": "2026: Apr 5, 2027: Apr 5, 2028: Apr 4"
+      },
+      "event": {
+        "name": "Qingming Festival / Tomb Sweeping Day (清明节)",
+        "category": "traditional",
+        "importanceLevel": 90,
+        "significance": "Traditional festival to honor ancestors by visiting and cleaning their graves.",
+        "localCustoms": [
+          "Tomb sweeping",
+          "Offering food and incense",
+          "Flying kites",
+          "Spring outings"
+        ],
+        "media": {
+          "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/a/a1/Qingming_Festival.jpg",
+          "infoUrl": "https://en.wikipedia.org/wiki/Qingming_Festival"
+        },
+        "visualTheme": {
+          "primaryColor": "#4CAF50",
+          "mood": "reflective",
+          "icon": "leaf"
+        },
+        "crossAssociationTags": ["ancestors", "spring", "tradition"]
+      }
+    },
+
+    {
+      "day": {
+        "id": "CN-05-01",
+        "monthDay": "05-01",
+        "recurrence": "YEARLY"
+      },
+      "event": {
+        "name": "Labour Day (劳动节)",
+        "category": "national",
+        "importanceLevel": 85,
+        "significance": "International Workers' Day, honoring workers and labor movements.",
+        "localCustoms": ["Travel", "Shopping", "Family activities"],
+        "media": {
+          "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/5/5c/International_Workers_Day.jpg",
+          "infoUrl": "https://en.wikipedia.org/wiki/International_Workers%27_Day"
+        },
+        "visualTheme": {
+          "primaryColor": "#FF5722",
+          "mood": "energetic",
+          "icon": "tools"
+        },
+        "crossAssociationTags": ["workers", "global", "holiday"]
+      }
+    },
+
+    {
+      "day": {
+        "id": "CN-DRAGON-BOAT",
+        "recurrence": "YEARLY",
+        "rule": "5th day of 5th lunar month",
+        "note": "2026: May 26, 2027: Jun 14, 2028: Jun 2"
+      },
+      "event": {
+        "name": "Dragon Boat Festival (端午节)",
+        "category": "festival",
+        "importanceLevel": 92,
+        "significance": "Traditional festival commemorating poet Qu Yuan, featuring dragon boat races.",
+        "localCustoms": [
+          "Dragon boat races",
+          "Eating zongzi (sticky rice dumplings)",
+          "Hanging mugwort and calamus",
+          "Drinking realgar wine",
+          "Wearing perfume pouches"
+        ],
+        "media": {
+          "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/f/f4/Dragon_Boat_Festival.jpg",
+          "infoUrl": "https://en.wikipedia.org/wiki/Dragon_Boat_Festival"
+        },
+        "visualTheme": {
+          "primaryColor": "#00BCD4",
+          "mood": "energetic",
+          "icon": "boat"
+        },
+        "crossAssociationTags": ["lunar-calendar", "sports", "tradition"]
+      }
+    },
+
+    {
+      "day": {
+        "id": "CN-MID-AUTUMN",
+        "recurrence": "YEARLY",
+        "rule": "15th day of 8th lunar month",
+        "note": "2026: Sep 15, 2027: Oct 4, 2028: Sep 22"
+      },
+      "event": {
+        "name": "Mid-Autumn Festival / Moon Festival (中秋节)",
+        "category": "festival",
+        "importanceLevel": 95,
+        "significance": "Traditional festival celebrating the harvest and full moon, symbolizing family reunion.",
+        "localCustoms": [
+          "Eating mooncakes",
+          "Moon gazing",
+          "Family reunions",
+          "Lantern displays",
+          "Pomelo fruit"
+        ],
+        "media": {
+          "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/3/3e/Mid-Autumn_Festival_Mooncake.jpg",
+          "infoUrl": "https://en.wikipedia.org/wiki/Mid-Autumn_Festival"
+        },
+        "visualTheme": {
+          "primaryColor": "#FFC107",
+          "mood": "peaceful",
+          "icon": "moon"
+        },
+        "crossAssociationTags": ["lunar-calendar", "family", "harvest"]
+      }
+    },
+
+    {
+      "day": {
+        "id": "CN-10-01",
+        "monthDay": "10-01",
+        "recurrence": "YEARLY"
+      },
+      "event": {
+        "name": "National Day (国庆节)",
+        "category": "national",
+        "importanceLevel": 100,
+        "significance": "Anniversary of the founding of the People's Republic of China in 1949.",
+        "localCustoms": [
+          "Flag-raising ceremony",
+          "Military parade (major anniversaries)",
+          "Fireworks displays",
+          "Golden Week travel"
+        ],
+        "media": {
+          "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/0/0f/National_Day_of_China.jpg",
+          "infoUrl": "https://en.wikipedia.org/wiki/National_Day_of_the_People%27s_Republic_of_China"
+        },
+        "visualTheme": {
+          "primaryColor": "#D32F2F",
+          "mood": "patriotic",
+          "icon": "flag"
+        },
+        "crossAssociationTags": ["patriotism", "independence", "celebration"]
+      }
+    }
+  ]
+}

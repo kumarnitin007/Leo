@@ -26,6 +26,7 @@ import { Tag } from './types';
 import { ReferenceCalendarModal } from './components/ReferenceCalendarModal';
 import { ReferenceCalendarTemplateModal } from './components/ReferenceCalendarTemplateModal';
 import EventFilterSidebar, { EventFilter } from './components/EventFilterSidebar';
+import GenericFilterSidebar, { GenericFilter, FilterSection } from './components/GenericFilterSidebar';
 import packageJson from '../package.json';
 
 interface EventsViewProps {

@@ -1,0 +1,413 @@
+{
+  "calendar": {
+    "id": "environmental-observances",
+    "name": "Environmental Awareness Days",
+    "geography": "GLOBAL",
+    "domain": "environment",
+    "calendarType": "observance",
+    "isPreloaded": true,
+    "deduplicationStrategy": "day.id",
+    "description": "Global environmental awareness days promoting sustainability, conservation, and climate action.",
+    "source": "UN Environment Programme, International Organizations",
+    "version": "1.0"
+  },
+
+  "events": [
+    {
+      "day": {
+        "id": "ENV-02-02",
+        "monthDay": "02-02",
+        "recurrence": "YEARLY"
+      },
+      "event": {
+        "name": "World Wetlands Day",
+        "category": "awareness",
+        "importanceLevel": 80,
+        "significance": "Raises awareness about the vital role of wetlands for people and planet.",
+        "localCustoms": [
+          "Wetland clean-up events",
+          "Educational programs",
+          "Bird watching",
+          "Conservation pledges"
+        ],
+        "media": {
+          "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/8/8c/Wetlands_ecosystem.jpg",
+          "infoUrl": "https://www.worldwetlandsday.org/"
+        },
+        "visualTheme": {
+          "primaryColor": "#00BCD4",
+          "mood": "peaceful",
+          "icon": "water"
+        },
+        "crossAssociationTags": ["wetlands", "conservation", "biodiversity"]
+      }
+    },
+
+    {
+      "day": {
+        "id": "ENV-03-03",
+        "monthDay": "03-03",
+        "recurrence": "YEARLY"
+      },
+      "event": {
+        "name": "World Wildlife Day",
+        "category": "awareness",
+        "importanceLevel": 90,
+        "significance": "UN day celebrating wild animals and plants and raising awareness of conservation.",
+        "localCustoms": [
+          "Wildlife documentaries",
+          "Zoo and sanctuary visits",
+          "Conservation fundraising",
+          "Social media campaigns"
+        ],
+        "media": {
+          "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/5/5a/World_Wildlife_Day.jpg",
+          "infoUrl": "https://www.worldwildlifeday.org/"
+        },
+        "visualTheme": {
+          "primaryColor": "#4CAF50",
+          "mood": "protective",
+          "icon": "paw"
+        },
+        "crossAssociationTags": ["wildlife", "conservation", "UN", "biodiversity"]
+      }
+    },
+
+    {
+      "day": {
+        "id": "ENV-03-21",
+        "monthDay": "03-21",
+        "recurrence": "YEARLY"
+      },
+      "event": {
+        "name": "International Day of Forests",
+        "category": "awareness",
+        "importanceLevel": 85,
+        "significance": "Celebrates and raises awareness of the importance of all types of forests.",
+        "localCustoms": [
+          "Tree planting",
+          "Forest walks",
+          "Educational events",
+          "Reforestation pledges"
+        ],
+        "media": {
+          "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/9/9c/Forest_landscape.jpg",
+          "infoUrl": "https://www.un.org/en/observances/forests-and-trees-day"
+        },
+        "visualTheme": {
+          "primaryColor": "#2E7D32",
+          "mood": "nurturing",
+          "icon": "tree"
+        },
+        "crossAssociationTags": ["forests", "trees", "conservation", "UN"]
+      }
+    },
+
+    {
+      "day": {
+        "id": "ENV-03-22",
+        "monthDay": "03-22",
+        "recurrence": "YEARLY"
+      },
+      "event": {
+        "name": "World Water Day",
+        "category": "awareness",
+        "importanceLevel": 95,
+        "significance": "UN day focusing on the importance of freshwater and advocating for sustainable water management.",
+        "localCustoms": [
+          "Water conservation pledges",
+          "Clean water initiatives",
+          "Educational campaigns",
+          "Beach/river clean-ups"
+        ],
+        "media": {
+          "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/a/a5/World_Water_Day.jpg",
+          "infoUrl": "https://www.worldwaterday.org/"
+        },
+        "visualTheme": {
+          "primaryColor": "#2196F3",
+          "mood": "vital",
+          "icon": "droplet"
+        },
+        "crossAssociationTags": ["water", "conservation", "UN", "sustainability"]
+      }
+    },
+
+    {
+      "day": {
+        "id": "ENV-04-22",
+        "monthDay": "04-22",
+        "recurrence": "YEARLY"
+      },
+      "event": {
+        "name": "Earth Day",
+        "category": "awareness",
+        "importanceLevel": 100,
+        "significance": "Annual event demonstrating support for environmental protection, celebrated worldwide.",
+        "localCustoms": [
+          "Community clean-ups",
+          "Tree planting",
+          "Recycling drives",
+          "Environmental education",
+          "Reduce plastic use",
+          "Climate action pledges"
+        ],
+        "media": {
+          "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/3/3e/Earth_Day_Flag.png",
+          "infoUrl": "https://www.earthday.org/"
+        },
+        "visualTheme": {
+          "primaryColor": "#4CAF50",
+          "mood": "hopeful",
+          "icon": "earth"
+        },
+        "crossAssociationTags": ["climate", "sustainability", "environment", "global"]
+      }
+    },
+
+    {
+      "day": {
+        "id": "ENV-05-22",
+        "monthDay": "05-22",
+        "recurrence": "YEARLY"
+      },
+      "event": {
+        "name": "International Day for Biological Diversity",
+        "category": "awareness",
+        "importanceLevel": 85,
+        "significance": "UN day to increase understanding and awareness of biodiversity issues.",
+        "localCustoms": [
+          "Nature walks",
+          "Biodiversity surveys",
+          "Educational programs",
+          "Conservation pledges"
+        ],
+        "media": {
+          "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/7/7c/Biodiversity.jpg",
+          "infoUrl": "https://www.cbd.int/ibd/"
+        },
+        "visualTheme": {
+          "primaryColor": "#8BC34A",
+          "mood": "diverse",
+          "icon": "leaf"
+        },
+        "crossAssociationTags": ["biodiversity", "conservation", "UN", "species"]
+      }
+    },
+
+    {
+      "day": {
+        "id": "ENV-06-05",
+        "monthDay": "06-05",
+        "recurrence": "YEARLY"
+      },
+      "event": {
+        "name": "World Environment Day",
+        "category": "awareness",
+        "importanceLevel": 100,
+        "significance": "UN's flagship day for promoting worldwide awareness and action for the environment.",
+        "localCustoms": [
+          "Community clean-ups",
+          "Environmental campaigns",
+          "Tree planting",
+          "Plastic-free initiatives",
+          "Educational events"
+        ],
+        "media": {
+          "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/5/5e/World_Environment_Day.jpg",
+          "infoUrl": "https://www.worldenvironmentday.global/"
+        },
+        "visualTheme": {
+          "primaryColor": "#00C853",
+          "mood": "active",
+          "icon": "globe"
+        },
+        "crossAssociationTags": ["environment", "UN", "sustainability", "climate"]
+      }
+    },
+
+    {
+      "day": {
+        "id": "ENV-06-08",
+        "monthDay": "06-08",
+        "recurrence": "YEARLY"
+      },
+      "event": {
+        "name": "World Oceans Day",
+        "category": "awareness",
+        "importanceLevel": 95,
+        "significance": "UN day to honor, protect, and conserve the world's oceans.",
+        "localCustoms": [
+          "Beach clean-ups",
+          "Ocean conservation pledges",
+          "Marine life education",
+          "Plastic reduction campaigns",
+          "Documentary screenings"
+        ],
+        "media": {
+          "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/e/e0/Ocean_waves.jpg",
+          "infoUrl": "https://worldoceansday.org/"
+        },
+        "visualTheme": {
+          "primaryColor": "#0277BD",
+          "mood": "protective",
+          "icon": "wave"
+        },
+        "crossAssociationTags": ["oceans", "marine", "conservation", "UN"]
+      }
+    },
+
+    {
+      "day": {
+        "id": "ENV-09-16",
+        "monthDay": "09-16",
+        "recurrence": "YEARLY"
+      },
+      "event": {
+        "name": "International Day for the Preservation of the Ozone Layer",
+        "category": "awareness",
+        "importanceLevel": 80,
+        "significance": "Commemorates the signing of the Montreal Protocol on substances that deplete the ozone layer.",
+        "localCustoms": [
+          "Educational campaigns",
+          "Climate action discussions",
+          "Ozone-friendly product awareness"
+        ],
+        "media": {
+          "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/8/8c/Ozone_layer.jpg",
+          "infoUrl": "https://www.un.org/en/observances/ozone-day"
+        },
+        "visualTheme": {
+          "primaryColor": "#03A9F4",
+          "mood": "protective",
+          "icon": "shield"
+        },
+        "crossAssociationTags": ["ozone", "climate", "UN", "atmosphere"]
+      }
+    },
+
+    {
+      "day": {
+        "id": "ENV-09-WEEK",
+        "monthDay": "09-20",
+        "recurrence": "YEARLY",
+        "duration": "week",
+        "note": "Third week of September"
+      },
+      "event": {
+        "name": "Climate Week NYC",
+        "category": "event",
+        "importanceLevel": 90,
+        "significance": "Annual week of events and activities focused on climate action, coinciding with UN General Assembly.",
+        "localCustoms": [
+          "Climate summits",
+          "Corporate commitments",
+          "Innovation showcases",
+          "Youth climate strikes"
+        ],
+        "media": {
+          "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/c/c5/Climate_Week_NYC.jpg",
+          "infoUrl": "https://www.climateweeknyc.org/"
+        },
+        "visualTheme": {
+          "primaryColor": "#1976D2",
+          "mood": "urgent",
+          "icon": "thermometer"
+        },
+        "crossAssociationTags": ["climate", "action", "NYC", "summit"]
+      }
+    },
+
+    {
+      "day": {
+        "id": "ENV-10-04",
+        "monthDay": "10-04",
+        "recurrence": "YEARLY"
+      },
+      "event": {
+        "name": "World Animal Day",
+        "category": "awareness",
+        "importanceLevel": 85,
+        "significance": "International day of action for animal rights and welfare.",
+        "localCustoms": [
+          "Animal shelter volunteering",
+          "Pet adoption events",
+          "Wildlife conservation",
+          "Animal welfare campaigns"
+        ],
+        "media": {
+          "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/a/a5/World_Animal_Day.jpg",
+          "infoUrl": "https://www.worldanimalday.org.uk/"
+        },
+        "visualTheme": {
+          "primaryColor": "#FF6F00",
+          "mood": "compassionate",
+          "icon": "paw"
+        },
+        "crossAssociationTags": ["animals", "welfare", "conservation", "pets"]
+      }
+    },
+
+    {
+      "day": {
+        "id": "ENV-11-LAST-SAT",
+        "recurrence": "YEARLY",
+        "rule": "Last Saturday of November",
+        "note": "2026: Nov 28, 2027: Nov 27, 2028: Nov 25"
+      },
+      "event": {
+        "name": "Buy Nothing Day",
+        "category": "awareness",
+        "importanceLevel": 75,
+        "significance": "International day of protest against consumerism, held on Black Friday.",
+        "localCustoms": [
+          "Avoid shopping",
+          "Swap meets",
+          "Repair cafes",
+          "Anti-consumerism activities",
+          "Mindful consumption"
+        ],
+        "media": {
+          "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/b/b5/Buy_Nothing_Day.jpg",
+          "infoUrl": "https://en.wikipedia.org/wiki/Buy_Nothing_Day"
+        },
+        "visualTheme": {
+          "primaryColor": "#424242",
+          "mood": "reflective",
+          "icon": "ban"
+        },
+        "crossAssociationTags": ["consumerism", "sustainability", "minimalism"]
+      }
+    },
+
+    {
+      "day": {
+        "id": "ENV-12-11",
+        "monthDay": "12-11",
+        "recurrence": "YEARLY"
+      },
+      "event": {
+        "name": "International Mountain Day",
+        "category": "awareness",
+        "importanceLevel": 75,
+        "significance": "UN day to raise awareness about the importance of mountains to life and sustainable development.",
+        "localCustoms": [
+          "Mountain hikes",
+          "Conservation pledges",
+          "Educational programs",
+          "Mountain photography"
+        ],
+        "media": {
+          "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/9/9a/Mountain_landscape.jpg",
+          "infoUrl": "https://www.un.org/en/observances/mountain-day"
+        },
+        "visualTheme": {
+          "primaryColor": "#607D8B",
+          "mood": "majestic",
+          "icon": "mountain"
+        },
+        "crossAssociationTags": ["mountains", "conservation", "UN", "ecosystems"]
+      }
+    }
+  ]
+}

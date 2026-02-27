@@ -1,0 +1,382 @@
+{
+  "calendar": {
+    "id": "health-awareness-calendar",
+    "name": "Health & Wellness Awareness Days",
+    "geography": "GLOBAL",
+    "domain": "awareness",
+    "calendarType": "observance",
+    "isPreloaded": true,
+    "deduplicationStrategy": "day.id",
+    "description": "Global health awareness days and months promoting public health, disease prevention, and wellness.",
+    "source": "WHO, UN, Health Organizations",
+    "version": "1.0"
+  },
+
+  "events": [
+    {
+      "day": {
+        "id": "HEALTH-02-04",
+        "monthDay": "02-04",
+        "recurrence": "YEARLY"
+      },
+      "event": {
+        "name": "World Cancer Day",
+        "category": "awareness",
+        "importanceLevel": 95,
+        "significance": "Global initiative to raise awareness about cancer prevention, detection, and treatment.",
+        "localCustoms": [
+          "Wear purple or pink ribbons",
+          "Share cancer awareness messages",
+          "Support cancer research organizations",
+          "Health screenings and education"
+        ],
+        "media": {
+          "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/6/6c/World_Cancer_Day_Logo.png",
+          "infoUrl": "https://www.worldcancerday.org/"
+        },
+        "visualTheme": {
+          "primaryColor": "#9C27B0",
+          "mood": "supportive",
+          "icon": "ribbon"
+        },
+        "crossAssociationTags": ["cancer", "health", "awareness", "WHO"]
+      }
+    },
+
+    {
+      "day": {
+        "id": "HEALTH-02-MONTH",
+        "monthDay": "02-01",
+        "recurrence": "YEARLY",
+        "duration": "month"
+      },
+      "event": {
+        "name": "American Heart Month",
+        "category": "awareness-month",
+        "importanceLevel": 90,
+        "significance": "Month dedicated to raising awareness about heart disease and promoting cardiovascular health.",
+        "localCustoms": [
+          "Wear red on National Wear Red Day",
+          "Heart health screenings",
+          "Exercise challenges",
+          "Healthy eating campaigns"
+        ],
+        "media": {
+          "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/3/3e/Heart_Health_Awareness.jpg",
+          "infoUrl": "https://www.heart.org/"
+        },
+        "visualTheme": {
+          "primaryColor": "#E53935",
+          "mood": "energetic",
+          "icon": "heart"
+        },
+        "crossAssociationTags": ["heart", "cardiovascular", "prevention"]
+      }
+    },
+
+    {
+      "day": {
+        "id": "HEALTH-03-21",
+        "monthDay": "03-21",
+        "recurrence": "YEARLY"
+      },
+      "event": {
+        "name": "World Down Syndrome Day",
+        "category": "awareness",
+        "importanceLevel": 85,
+        "significance": "Raises awareness about Down syndrome and advocates for rights, inclusion, and well-being.",
+        "localCustoms": [
+          "Wear colorful socks (Lots of Socks campaign)",
+          "Share stories and experiences",
+          "Educational events"
+        ],
+        "media": {
+          "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/5/5a/World_Down_Syndrome_Day.jpg",
+          "infoUrl": "https://www.worlddownsyndromeday.org/"
+        },
+        "visualTheme": {
+          "primaryColor": "#FFD700",
+          "mood": "inclusive",
+          "icon": "socks"
+        },
+        "crossAssociationTags": ["inclusion", "disability", "awareness"]
+      }
+    },
+
+    {
+      "day": {
+        "id": "HEALTH-04-07",
+        "monthDay": "04-07",
+        "recurrence": "YEARLY"
+      },
+      "event": {
+        "name": "World Health Day",
+        "category": "awareness",
+        "importanceLevel": 100,
+        "significance": "WHO's global health awareness day focusing on a specific health theme each year.",
+        "localCustoms": [
+          "Health campaigns and events",
+          "Free health screenings",
+          "Educational seminars",
+          "Social media awareness"
+        ],
+        "media": {
+          "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/9/9c/World_Health_Day.jpg",
+          "infoUrl": "https://www.who.int/campaigns/world-health-day"
+        },
+        "visualTheme": {
+          "primaryColor": "#2196F3",
+          "mood": "informative",
+          "icon": "medical"
+        },
+        "crossAssociationTags": ["WHO", "global-health", "wellness"]
+      }
+    },
+
+    {
+      "day": {
+        "id": "HEALTH-05-MONTH",
+        "monthDay": "05-01",
+        "recurrence": "YEARLY",
+        "duration": "month"
+      },
+      "event": {
+        "name": "Mental Health Awareness Month",
+        "category": "awareness-month",
+        "importanceLevel": 100,
+        "significance": "Dedicated to raising awareness about mental health, reducing stigma, and promoting mental wellness.",
+        "localCustoms": [
+          "Wear green ribbon",
+          "Mental health screenings",
+          "Wellness workshops",
+          "Share mental health resources",
+          "Practice self-care"
+        ],
+        "media": {
+          "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/a/a5/Mental_Health_Awareness.jpg",
+          "infoUrl": "https://www.mhanational.org/"
+        },
+        "visualTheme": {
+          "primaryColor": "#4CAF50",
+          "mood": "supportive",
+          "icon": "brain"
+        },
+        "crossAssociationTags": ["mental-health", "wellness", "self-care", "stigma"]
+      }
+    },
+
+    {
+      "day": {
+        "id": "HEALTH-05-31",
+        "monthDay": "05-31",
+        "recurrence": "YEARLY"
+      },
+      "event": {
+        "name": "World No Tobacco Day",
+        "category": "awareness",
+        "importanceLevel": 90,
+        "significance": "WHO initiative to highlight health risks of tobacco use and advocate for effective policies.",
+        "localCustoms": [
+          "Quit smoking campaigns",
+          "Educational programs",
+          "Policy advocacy",
+          "Support groups"
+        ],
+        "media": {
+          "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/7/7a/No_Tobacco_Day.jpg",
+          "infoUrl": "https://www.who.int/campaigns/world-no-tobacco-day"
+        },
+        "visualTheme": {
+          "primaryColor": "#F44336",
+          "mood": "advocacy",
+          "icon": "no-smoking"
+        },
+        "crossAssociationTags": ["tobacco", "prevention", "WHO"]
+      }
+    },
+
+    {
+      "day": {
+        "id": "HEALTH-09-10",
+        "monthDay": "09-10",
+        "recurrence": "YEARLY"
+      },
+      "event": {
+        "name": "World Suicide Prevention Day",
+        "category": "awareness",
+        "importanceLevel": 100,
+        "significance": "Raises awareness about suicide prevention and promotes actions to prevent suicides.",
+        "localCustoms": [
+          "Light a candle at 8pm",
+          "Share crisis hotline numbers",
+          "Mental health resources",
+          "Community support events"
+        ],
+        "media": {
+          "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/c/c3/Suicide_Prevention_Day.jpg",
+          "infoUrl": "https://www.iasp.info/wspd/"
+        },
+        "visualTheme": {
+          "primaryColor": "#FFD700",
+          "mood": "supportive",
+          "icon": "candle"
+        },
+        "crossAssociationTags": ["mental-health", "prevention", "crisis"]
+      }
+    },
+
+    {
+      "day": {
+        "id": "HEALTH-10-MONTH",
+        "monthDay": "10-01",
+        "recurrence": "YEARLY",
+        "duration": "month"
+      },
+      "event": {
+        "name": "Breast Cancer Awareness Month",
+        "category": "awareness-month",
+        "importanceLevel": 95,
+        "significance": "Annual campaign to increase awareness of breast cancer and raise funds for research.",
+        "localCustoms": [
+          "Wear pink ribbons",
+          "Participate in walks/runs",
+          "Free mammogram screenings",
+          "Fundraising events",
+          "Share survivor stories"
+        ],
+        "media": {
+          "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/1/1a/Pink_Ribbon.svg",
+          "infoUrl": "https://www.nationalbreastcancer.org/"
+        },
+        "visualTheme": {
+          "primaryColor": "#FF69B4",
+          "mood": "hopeful",
+          "icon": "ribbon"
+        },
+        "crossAssociationTags": ["cancer", "women-health", "prevention", "pink"]
+      }
+    },
+
+    {
+      "day": {
+        "id": "HEALTH-10-10",
+        "monthDay": "10-10",
+        "recurrence": "YEARLY"
+      },
+      "event": {
+        "name": "World Mental Health Day",
+        "category": "awareness",
+        "importanceLevel": 95,
+        "significance": "Global day to raise awareness of mental health issues and mobilize support for mental health.",
+        "localCustoms": [
+          "Wear green",
+          "Share mental health stories",
+          "Educational events",
+          "Support mental health organizations"
+        ],
+        "media": {
+          "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/5/5d/Mental_Health_Day.jpg",
+          "infoUrl": "https://www.who.int/mental_health/world-mental-health-day"
+        },
+        "visualTheme": {
+          "primaryColor": "#4CAF50",
+          "mood": "supportive",
+          "icon": "mind"
+        },
+        "crossAssociationTags": ["mental-health", "WHO", "wellness"]
+      }
+    },
+
+    {
+      "day": {
+        "id": "HEALTH-11-MONTH",
+        "monthDay": "11-01",
+        "recurrence": "YEARLY",
+        "duration": "month"
+      },
+      "event": {
+        "name": "Movember / Men's Health Month",
+        "category": "awareness-month",
+        "importanceLevel": 90,
+        "significance": "Annual event raising awareness of men's health issues including prostate cancer, testicular cancer, and mental health.",
+        "localCustoms": [
+          "Grow a mustache",
+          "Fundraising for men's health",
+          "Health screenings",
+          "Mental health discussions"
+        ],
+        "media": {
+          "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/8/8f/Movember_Mustache.jpg",
+          "infoUrl": "https://movember.com/"
+        },
+        "visualTheme": {
+          "primaryColor": "#3F51B5",
+          "mood": "supportive",
+          "icon": "mustache"
+        },
+        "crossAssociationTags": ["men-health", "cancer", "mental-health"]
+      }
+    },
+
+    {
+      "day": {
+        "id": "HEALTH-11-14",
+        "monthDay": "11-14",
+        "recurrence": "YEARLY"
+      },
+      "event": {
+        "name": "World Diabetes Day",
+        "category": "awareness",
+        "importanceLevel": 95,
+        "significance": "Raises global awareness of diabetes, its prevention, and management.",
+        "localCustoms": [
+          "Wear blue circle symbol",
+          "Blood sugar screenings",
+          "Educational campaigns",
+          "Light buildings in blue"
+        ],
+        "media": {
+          "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/4/4e/World_Diabetes_Day.jpg",
+          "infoUrl": "https://worlddiabetesday.org/"
+        },
+        "visualTheme": {
+          "primaryColor": "#2196F3",
+          "mood": "informative",
+          "icon": "circle"
+        },
+        "crossAssociationTags": ["diabetes", "prevention", "awareness"]
+      }
+    },
+
+    {
+      "day": {
+        "id": "HEALTH-12-01",
+        "monthDay": "12-01",
+        "recurrence": "YEARLY"
+      },
+      "event": {
+        "name": "World AIDS Day",
+        "category": "awareness",
+        "importanceLevel": 100,
+        "significance": "Global day dedicated to raising awareness about HIV/AIDS and remembering those who have died.",
+        "localCustoms": [
+          "Wear red ribbon",
+          "HIV testing campaigns",
+          "Educational events",
+          "Memorial services",
+          "Fundraising for research"
+        ],
+        "media": {
+          "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/5/5c/Red_Ribbon.svg",
+          "infoUrl": "https://www.worldaidsday.org/"
+        },
+        "visualTheme": {
+          "primaryColor": "#E53935",
+          "mood": "supportive",
+          "icon": "ribbon"
+        },
+        "crossAssociationTags": ["HIV", "AIDS", "prevention", "awareness"]
+      }
+    }
+  ]
+}

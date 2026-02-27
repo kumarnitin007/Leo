@@ -1,0 +1,409 @@
+{
+  "calendar": {
+    "id": "major-sports-events",
+    "name": "Major Sports Events",
+    "geography": "GLOBAL",
+    "domain": "sports",
+    "calendarType": "reference",
+    "isPreloaded": true,
+    "deduplicationStrategy": "day.id",
+    "description": "Major annual and recurring sports events including championships, tournaments, and iconic sporting occasions.",
+    "version": "1.0"
+  },
+
+  "events": [
+    {
+      "day": {
+        "id": "SPORTS-SUPER-BOWL",
+        "recurrence": "YEARLY",
+        "rule": "First Sunday in February",
+        "note": "2026: Feb 1, 2027: Feb 7, 2028: Feb 6"
+      },
+      "event": {
+        "name": "Super Bowl",
+        "category": "championship",
+        "sport": "American Football",
+        "importanceLevel": 100,
+        "significance": "NFL Championship game, one of the most-watched sporting events globally.",
+        "localCustoms": [
+          "Super Bowl parties",
+          "Watching commercials",
+          "Halftime show performance",
+          "Food and snacks",
+          "Office pools and betting"
+        ],
+        "media": {
+          "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/5/50/Super_Bowl_logo.svg",
+          "infoUrl": "https://en.wikipedia.org/wiki/Super_Bowl"
+        },
+        "visualTheme": {
+          "primaryColor": "#D32F2F",
+          "mood": "energetic",
+          "icon": "football"
+        },
+        "crossAssociationTags": ["NFL", "championship", "USA", "television"]
+      }
+    },
+
+    {
+      "day": {
+        "id": "SPORTS-MARCH-MADNESS",
+        "recurrence": "YEARLY",
+        "rule": "Mid-March through early April",
+        "note": "2026: Mar 17 - Apr 6, 2027: Mar 16 - Apr 5, 2028: Mar 14 - Apr 3"
+      },
+      "event": {
+        "name": "March Madness (NCAA Basketball Tournament)",
+        "category": "tournament",
+        "sport": "Basketball",
+        "importanceLevel": 95,
+        "significance": "NCAA Division I Men's Basketball Championship, featuring 68 college teams in single-elimination tournament.",
+        "localCustoms": [
+          "Filling out brackets",
+          "Office pools",
+          "Watching multiple games",
+          "Cinderella stories",
+          "Final Four weekend"
+        ],
+        "media": {
+          "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/f/f4/NCAA_March_Madness_logo.png",
+          "infoUrl": "https://en.wikipedia.org/wiki/NCAA_Division_I_Men%27s_Basketball_Tournament"
+        },
+        "visualTheme": {
+          "primaryColor": "#FF6F00",
+          "mood": "exciting",
+          "icon": "basketball"
+        },
+        "crossAssociationTags": ["NCAA", "college", "tournament", "brackets"]
+      }
+    },
+
+    {
+      "day": {
+        "id": "SPORTS-MASTERS",
+        "recurrence": "YEARLY",
+        "rule": "First full week of April",
+        "note": "2026: Apr 9-12, 2027: Apr 8-11, 2028: Apr 6-9"
+      },
+      "event": {
+        "name": "The Masters Tournament",
+        "category": "championship",
+        "sport": "Golf",
+        "importanceLevel": 90,
+        "significance": "First major golf championship of the year, held at Augusta National Golf Club.",
+        "localCustoms": [
+          "Green jacket ceremony",
+          "Azalea flowers",
+          "Pimento cheese sandwiches",
+          "Amen Corner",
+          "Par 3 Contest"
+        ],
+        "media": {
+          "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/3/3f/Masters_Tournament_logo.svg",
+          "infoUrl": "https://en.wikipedia.org/wiki/Masters_Tournament"
+        },
+        "visualTheme": {
+          "primaryColor": "#006400",
+          "mood": "prestigious",
+          "icon": "golf"
+        },
+        "crossAssociationTags": ["golf", "major", "Augusta", "tradition"]
+      }
+    },
+
+    {
+      "day": {
+        "id": "SPORTS-KENTUCKY-DERBY",
+        "recurrence": "YEARLY",
+        "rule": "First Saturday in May",
+        "note": "2026: May 2, 2027: May 1, 2028: May 6"
+      },
+      "event": {
+        "name": "Kentucky Derby",
+        "category": "race",
+        "sport": "Horse Racing",
+        "importanceLevel": 85,
+        "significance": "The most famous horse race in America, first leg of the Triple Crown.",
+        "localCustoms": [
+          "Wearing fancy hats",
+          "Mint juleps",
+          "Singing 'My Old Kentucky Home'",
+          "Betting on horses",
+          "Derby parties"
+        ],
+        "media": {
+          "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/9/9c/Kentucky_Derby_logo.svg",
+          "infoUrl": "https://en.wikipedia.org/wiki/Kentucky_Derby"
+        },
+        "visualTheme": {
+          "primaryColor": "#FFD700",
+          "mood": "elegant",
+          "icon": "horse"
+        },
+        "crossAssociationTags": ["horse-racing", "triple-crown", "Kentucky", "tradition"]
+      }
+    },
+
+    {
+      "day": {
+        "id": "SPORTS-INDY-500",
+        "recurrence": "YEARLY",
+        "rule": "Sunday of Memorial Day weekend",
+        "note": "2026: May 24, 2027: May 30, 2028: May 28"
+      },
+      "event": {
+        "name": "Indianapolis 500",
+        "category": "race",
+        "sport": "Auto Racing",
+        "importanceLevel": 90,
+        "significance": "The Greatest Spectacle in Racing, one of the world's oldest and most prestigious auto races.",
+        "localCustoms": [
+          "Drinking milk in Victory Lane",
+          "Singing 'Back Home Again in Indiana'",
+          "Kissing the bricks",
+          "Snake pit concert"
+        ],
+        "media": {
+          "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/a/a5/Indianapolis_500_logo.svg",
+          "infoUrl": "https://en.wikipedia.org/wiki/Indianapolis_500"
+        },
+        "visualTheme": {
+          "primaryColor": "#E53935",
+          "mood": "thrilling",
+          "icon": "race-car"
+        },
+        "crossAssociationTags": ["IndyCar", "racing", "tradition", "speed"]
+      }
+    },
+
+    {
+      "day": {
+        "id": "SPORTS-WIMBLEDON",
+        "recurrence": "YEARLY",
+        "rule": "Last week of June through first week of July",
+        "note": "2026: Jun 29 - Jul 12, 2027: Jun 28 - Jul 11, 2028: Jun 26 - Jul 9"
+      },
+      "event": {
+        "name": "Wimbledon Championships",
+        "category": "championship",
+        "sport": "Tennis",
+        "importanceLevel": 95,
+        "significance": "The oldest and most prestigious tennis tournament in the world, played on grass courts.",
+        "localCustoms": [
+          "Strawberries and cream",
+          "All-white dress code",
+          "Royal Box attendance",
+          "Rain delays",
+          "Queue culture"
+        ],
+        "media": {
+          "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/8/8c/Wimbledon_logo.svg",
+          "infoUrl": "https://en.wikipedia.org/wiki/Wimbledon_Championships"
+        },
+        "visualTheme": {
+          "primaryColor": "#006400",
+          "mood": "elegant",
+          "icon": "tennis"
+        },
+        "crossAssociationTags": ["tennis", "Grand-Slam", "UK", "tradition"]
+      }
+    },
+
+    {
+      "day": {
+        "id": "SPORTS-TOUR-DE-FRANCE",
+        "recurrence": "YEARLY",
+        "rule": "Three weeks in July",
+        "note": "2026: Jul 4-26, 2027: Jul 3-25, 2028: Jul 1-23"
+      },
+      "event": {
+        "name": "Tour de France",
+        "category": "race",
+        "sport": "Cycling",
+        "importanceLevel": 90,
+        "significance": "The world's most prestigious cycling race, covering approximately 3,500 km over 21 stages.",
+        "localCustoms": [
+          "Yellow jersey (leader)",
+          "Mountain stages",
+          "Sprint finishes",
+          "Champagne on Champs-Élysées",
+          "Caravan parade"
+        ],
+        "media": {
+          "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/1/17/Tour_de_France_logo.svg",
+          "infoUrl": "https://en.wikipedia.org/wiki/Tour_de_France"
+        },
+        "visualTheme": {
+          "primaryColor": "#FFD700",
+          "mood": "endurance",
+          "icon": "bicycle"
+        },
+        "crossAssociationTags": ["cycling", "France", "endurance", "yellow-jersey"]
+      }
+    },
+
+    {
+      "day": {
+        "id": "SPORTS-WORLD-SERIES",
+        "recurrence": "YEARLY",
+        "rule": "Late October through early November",
+        "note": "2026: Oct 20 - Nov 1, 2027: Oct 19-31, 2028: Oct 17-29"
+      },
+      "event": {
+        "name": "World Series (MLB)",
+        "category": "championship",
+        "sport": "Baseball",
+        "importanceLevel": 95,
+        "significance": "Major League Baseball's championship series, best-of-seven games.",
+        "localCustoms": [
+          "First pitch ceremonies",
+          "Seventh-inning stretch",
+          "Championship parade",
+          "Commissioner's Trophy",
+          "World Series rings"
+        ],
+        "media": {
+          "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/4/4c/World_Series_logo.svg",
+          "infoUrl": "https://en.wikipedia.org/wiki/World_Series"
+        },
+        "visualTheme": {
+          "primaryColor": "#003087",
+          "mood": "competitive",
+          "icon": "baseball"
+        },
+        "crossAssociationTags": ["MLB", "baseball", "championship", "USA"]
+      }
+    },
+
+    {
+      "day": {
+        "id": "SPORTS-NBA-FINALS",
+        "recurrence": "YEARLY",
+        "rule": "Early to mid-June",
+        "note": "2026: Jun 4-21, 2027: Jun 3-20, 2028: Jun 1-18"
+      },
+      "event": {
+        "name": "NBA Finals",
+        "category": "championship",
+        "sport": "Basketball",
+        "importanceLevel": 95,
+        "significance": "NBA Championship series, best-of-seven games between Eastern and Western Conference champions.",
+        "localCustoms": [
+          "Championship parade",
+          "Larry O'Brien Trophy",
+          "Championship rings",
+          "Finals MVP award"
+        ],
+        "media": {
+          "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/3/3f/NBA_Finals_logo.svg",
+          "infoUrl": "https://en.wikipedia.org/wiki/NBA_Finals"
+        },
+        "visualTheme": {
+          "primaryColor": "#C8102E",
+          "mood": "intense",
+          "icon": "basketball"
+        },
+        "crossAssociationTags": ["NBA", "basketball", "championship", "playoffs"]
+      }
+    },
+
+    {
+      "day": {
+        "id": "SPORTS-WORLD-CUP",
+        "recurrence": "QUADRENNIAL",
+        "rule": "Every 4 years in June-July",
+        "note": "Next: 2026 (USA/Canada/Mexico), 2030, 2034"
+      },
+      "event": {
+        "name": "FIFA World Cup",
+        "category": "championship",
+        "sport": "Soccer/Football",
+        "importanceLevel": 100,
+        "significance": "The world's most-watched sporting event, featuring 32 national teams competing for the championship.",
+        "localCustoms": [
+          "National team support",
+          "Watch parties",
+          "Face painting",
+          "Vuvuzelas",
+          "Opening ceremony"
+        ],
+        "media": {
+          "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/a/a6/FIFA_World_Cup_Trophy.svg",
+          "infoUrl": "https://en.wikipedia.org/wiki/FIFA_World_Cup"
+        },
+        "visualTheme": {
+          "primaryColor": "#FFD700",
+          "mood": "global",
+          "icon": "soccer"
+        },
+        "crossAssociationTags": ["FIFA", "soccer", "global", "championship"]
+      }
+    },
+
+    {
+      "day": {
+        "id": "SPORTS-OLYMPICS-SUMMER",
+        "recurrence": "QUADRENNIAL",
+        "rule": "Every 4 years in July-August",
+        "note": "Next: 2028 (Los Angeles), 2032 (Brisbane)"
+      },
+      "event": {
+        "name": "Summer Olympics",
+        "category": "multi-sport",
+        "sport": "Various",
+        "importanceLevel": 100,
+        "significance": "The world's foremost multi-sport event, featuring thousands of athletes from around the globe.",
+        "localCustoms": [
+          "Opening ceremony",
+          "Olympic torch relay",
+          "Medal ceremonies",
+          "National anthems",
+          "Closing ceremony"
+        ],
+        "media": {
+          "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/5/5c/Olympic_rings.svg",
+          "infoUrl": "https://en.wikipedia.org/wiki/Summer_Olympic_Games"
+        },
+        "visualTheme": {
+          "primaryColor": "#0085C7",
+          "mood": "inspirational",
+          "icon": "rings"
+        },
+        "crossAssociationTags": ["Olympics", "global", "multi-sport", "unity"]
+      }
+    },
+
+    {
+      "day": {
+        "id": "SPORTS-OLYMPICS-WINTER",
+        "recurrence": "QUADRENNIAL",
+        "rule": "Every 4 years in February",
+        "note": "Next: 2026 (Milan-Cortina), 2030 (French Alps)"
+      },
+      "event": {
+        "name": "Winter Olympics",
+        "category": "multi-sport",
+        "sport": "Winter Sports",
+        "importanceLevel": 95,
+        "significance": "International winter sports competition featuring skiing, skating, ice hockey, and more.",
+        "localCustoms": [
+          "Opening ceremony",
+          "Olympic torch relay",
+          "Medal ceremonies",
+          "Ice hockey finals",
+          "Figure skating galas"
+        ],
+        "media": {
+          "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/5/5c/Olympic_rings.svg",
+          "infoUrl": "https://en.wikipedia.org/wiki/Winter_Olympic_Games"
+        },
+        "visualTheme": {
+          "primaryColor": "#00A8E8",
+          "mood": "thrilling",
+          "icon": "snowflake"
+        },
+        "crossAssociationTags": ["Olympics", "winter", "skiing", "skating"]
+      }
+    }
+  ]
+}

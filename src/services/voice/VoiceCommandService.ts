@@ -624,6 +624,148 @@ export class VoiceCommandService {
       return { success: false, error: err, needsUserInput: true };
     }
   }
+
+  /**
+   * Save command as PENDING for user review (new workflow)
+   */
+  async saveCommandAsPending(parsed: ParsedCommand, userId?: string): Promise<string> {
+    const sessionId = `session-${Date.now()}`;
+    const intent = parsed.intent.type;
+    
+    // Extract key fields for display
+    const titleEntity = parsed.entities.find(e => e.type === 'TITLE');
+    const dateEntity = parsed.entities.find(e => e.type === 'DATE');
+    const timeEntity = parsed.entities.find(e => e.type === 'TIME');
+    const priorityEntity = parsed.entities.find(e => e.type === 'PRIORITY');
+    const recurrenceEntity = parsed.entities.find(e => e.type === 'RECURRENCE');
+    const tagEntities = parsed.entities.filter(e => e.type === 'TAG');
+
+    const commandId = await dbService.saveCommand({
+      userId,
+      sessionId,
+      rawTranscript: parsed.transcript,
+      intentType: intent as any,
+      intentConfidence: parsed.intent.confidence,
+      intentMethod: parsed.intent.method,
+      entities: parsed.entities as any,
+      memoDate: dateEntity?.normalizedValue || null,
+      memoTime: timeEntity?.normalizedValue || null,
+      extractedTitle: titleEntity?.normalizedValue || titleEntity?.value || null,
+      extractedPriority: priorityEntity?.normalizedValue as any || null,
+      extractedTags: tagEntities.map(t => String(t.normalizedValue || t.value)),
+      extractedRecurrence: recurrenceEntity?.normalizedValue || null,
+      extractedRecurrenceHuman: recurrenceEntity?.value || null,
+      overallConfidence: parsed.overallConfidence,
+      outcome: 'PENDING',
+      needsUserInput: true,
+    });
+
+    return commandId;
+  }
+
+  /**
+   * Create item from pending command (after user review)
+   */
+  async createFromPending(commandId: string, userId?: string, userEdits?: any): Promise<ExecutionResult> {
+    try {
+      // Load command from DB
+      const command = await dbService.getCommandById(commandId);
+      if (!command) {
+        throw new Error('Command not found');
+      }
+
+      // Reconstruct parsed command
+      const parsed: ParsedCommand = {
+        transcript: command.rawTranscript,
+        intent: {
+          type: command.intentType,
+          confidence: command.intentConfidence || 0.7,
+          method: command.intentMethod || 'RULES',
+        },
+        entities: command.entities || [],
+        overallConfidence: command.overallConfidence || 0.7,
+        timestamp: command.createdAt,
+      };
+
+      // Apply user edits if provided
+      if (userEdits) {
+        // Override intent type if provided
+        if (userEdits.intentType) {
+          parsed.intent.type = userEdits.intentType;
+        }
+        
+        if (userEdits.title) {
+          const titleEntity = parsed.entities.find(e => e.type === 'TITLE');
+          if (titleEntity) {
+            titleEntity.normalizedValue = userEdits.title;
+          }
+        }
+        if (userEdits.date) {
+          const dateEntity = parsed.entities.find(e => e.type === 'DATE');
+          if (dateEntity) {
+            dateEntity.normalizedValue = userEdits.date;
+          }
+        }
+        if (userEdits.time) {
+          const timeEntity = parsed.entities.find(e => e.type === 'TIME');
+          if (timeEntity) {
+            timeEntity.normalizedValue = userEdits.time;
+          } else {
+            parsed.entities.push({
+              type: 'TIME' as any,
+              value: userEdits.time,
+              normalizedValue: userEdits.time,
+              confidence: 1.0,
+            });
+          }
+        }
+        if (userEdits.recurrence) {
+          const recurrenceEntity = parsed.entities.find(e => e.type === 'RECURRENCE');
+          if (recurrenceEntity) {
+            recurrenceEntity.normalizedValue = userEdits.recurrence;
+          } else {
+            parsed.entities.push({
+              type: 'RECURRENCE' as any,
+              value: userEdits.recurrence,
+              normalizedValue: userEdits.recurrence,
+              confidence: 1.0,
+            });
+          }
+        }
+      }
+
+      // Execute the command
+      const result = await this.execute(parsed, userId);
+
+      // Update command status
+      if (result.success) {
+        await dbService.updateCommand(commandId, {
+          outcome: 'SUCCESS',
+          createdItemId: result.createdId || null,
+          createdItemType: result.entityType || null,
+          // userEdited: !!userEdits, // Column doesn't exist in schema
+        });
+      } else {
+        // Update command status as failed (skip failureReason if column doesn't exist)
+        await dbService.updateCommand(commandId, {
+          outcome: 'FAILED',
+        });
+      }
+
+      return result;
+    } catch (err) {
+      return { success: false, error: err, needsUserInput: true };
+    }
+  }
+
+  /**
+   * Cancel/dismiss a pending command
+   */
+  async cancelPendingCommand(commandId: string): Promise<void> {
+    await dbService.updateCommand(commandId, {
+      outcome: 'CANCELLED',
+    });
+  }
 }
 
 export default VoiceCommandService;
