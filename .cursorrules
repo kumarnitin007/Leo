@@ -12,7 +12,7 @@ GENERAL BEHAVIOR
 - Do NOT analyze or infer other files, folders, or project structure unless explicitly asked.
 - Avoid repository-wide or architectural analysis.
 - Do not perform “gut checks” or design reviews unless explicitly requested.
-
+- refer file DATABASE_SCHEMA_REFERENCE.md to check current database entities or check directly in supabse DB.
 OUTPUT
 - Prefer code diffs or updated code blocks.
 - Make the smallest change necessary to satisfy the request.
