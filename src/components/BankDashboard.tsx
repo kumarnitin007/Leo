@@ -100,6 +100,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey }: BankD
   const [filterBank, setFilterBank] = useState("All");
   const [search, setSearch] = useState("");
   const [showDone, setShowDone] = useState(false);
+  const [showSetupBanner, setShowSetupBanner] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   // ── Storage ───────────────────────────────────────────────────────────────
@@ -112,35 +113,57 @@ export default function BankDashboard({ supabase, userId, encryptionKey }: BankD
       if (supabase && userId && encryptionKey) {
         // Load from Supabase
         const { data, error } = await supabase
-          .from('bank_records')
+          .from('myday_bank_records')
           .select('data')
           .eq('user_id', userId)
-          .single();
+          .maybeSingle(); // Use maybeSingle instead of single to handle no rows
 
-        if (data?.data) {
+        if (error) {
+          console.error('[BankDashboard] Supabase query error:', error);
+          // If table doesn't exist or query fails, show setup banner
+          setShowSetupBanner(true);
+          // Use preload data
+          setDeposits(PRELOAD_BANK_DATA.deposits);
+          setAccounts(PRELOAD_BANK_DATA.accounts);
+          setBills(PRELOAD_BANK_DATA.bills);
+          setActions(PRELOAD_BANK_DATA.actions);
+        } else if (data?.data) {
           // Decrypt the data
-          const decrypted = await decryptData(data.data, encryptionKey);
-          const parsed: BankRecordsData = JSON.parse(decrypted);
-          setDeposits(parsed.deposits || []);
-          setAccounts(parsed.accounts || []);
-          setBills(parsed.bills || []);
-          setActions(parsed.actions || []);
+          try {
+            const decrypted = await decryptData(data.data, encryptionKey);
+            const parsed: BankRecordsData = JSON.parse(decrypted);
+            setDeposits(parsed.deposits || []);
+            setAccounts(parsed.accounts || []);
+            setBills(parsed.bills || []);
+            setActions(parsed.actions || []);
+            console.log('[BankDashboard] ✅ Loaded data from Supabase');
+          } catch (decryptError) {
+            console.error('[BankDashboard] Decryption error:', decryptError);
+            // Fallback to preload if decryption fails
+            setDeposits(PRELOAD_BANK_DATA.deposits);
+            setAccounts(PRELOAD_BANK_DATA.accounts);
+            setBills(PRELOAD_BANK_DATA.bills);
+            setActions(PRELOAD_BANK_DATA.actions);
+          }
         } else {
-          // First launch — seed with preloaded data
+          // No data yet — seed with preloaded data
+          console.log('[BankDashboard] 📊 No data found, loading sample data');
           setDeposits(PRELOAD_BANK_DATA.deposits);
           setAccounts(PRELOAD_BANK_DATA.accounts);
           setBills(PRELOAD_BANK_DATA.bills);
           setActions(PRELOAD_BANK_DATA.actions);
         }
       } else {
-        // Fallback: load preload data
+        // No Supabase/encryption — use preload data
+        console.log('[BankDashboard] 💾 Using local preload data');
         setDeposits(PRELOAD_BANK_DATA.deposits);
         setAccounts(PRELOAD_BANK_DATA.accounts);
         setBills(PRELOAD_BANK_DATA.bills);
         setActions(PRELOAD_BANK_DATA.actions);
       }
     } catch (e) {
-      console.error('BankDashboard load error:', e);
+      console.error('[BankDashboard] Load error:', e);
+      // Always fallback to preload data on any error
       setDeposits(PRELOAD_BANK_DATA.deposits);
       setAccounts(PRELOAD_BANK_DATA.accounts);
       setBills(PRELOAD_BANK_DATA.bills);
@@ -156,7 +179,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey }: BankD
         // Encrypt before saving
         const encrypted = await encryptData(JSON.stringify(payload), encryptionKey);
         await supabase
-          .from('bank_records')
+          .from('myday_bank_records')
           .upsert(
             { user_id: userId, data: encrypted, updated_at: new Date().toISOString() },
             { onConflict: 'user_id' }
@@ -267,6 +290,20 @@ export default function BankDashboard({ supabase, userId, encryptionKey }: BankD
 
   return (
     <div style={{minHeight:"100vh",background:"#0D1117",color:"#F9FAFB",fontFamily:"'Sora','Segoe UI',sans-serif",paddingBottom:48}}>
+      {/* Setup Banner */}
+      {showSetupBanner && (
+        <div style={{background:"linear-gradient(90deg,#7F1D1D,#991B1B)",border:"1px solid #DC2626",padding:"12px 20px",margin:"16px",borderRadius:12,display:"flex",alignItems:"center",gap:12}}>
+          <span style={{fontSize:24}}>⚠️</span>
+          <div style={{flex:1}}>
+            <strong style={{color:"#FCA5A5",display:"block",marginBottom:4}}>Database Setup Required</strong>
+            <div style={{color:"#FCA5A5",fontSize:13}}>
+              Run <code style={{background:"rgba(0,0,0,0.3)",padding:"2px 6px",borderRadius:4}}>supabase-bank-records.sql</code> in your Supabase SQL Editor to enable data persistence. Using sample data for now.
+            </div>
+          </div>
+          <button onClick={()=>setShowSetupBanner(false)} style={{background:"rgba(255,255,255,0.2)",border:"none",color:"#FCA5A5",padding:"4px 12px",borderRadius:6,cursor:"pointer",fontSize:20}}>✕</button>
+        </div>
+      )}
+      
       {/* Header */}
       <div style={{background:"linear-gradient(135deg,#1C1C2E 0%,#16213E 55%,#0F3460 100%)",borderBottom:"1px solid #1F2937",padding:"18px 28px 0"}}>
         <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:4,flexWrap:"wrap"}}>
