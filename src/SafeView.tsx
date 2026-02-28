@@ -35,6 +35,7 @@ import SafeTags from './components/SafeTags';
 import SafeDocumentVault from './components/SafeDocumentVault';
 import SafeDocumentVaultForm from './components/SafeDocumentVaultForm';
 import ShareEntryModal from './components/ShareEntryModal';
+import BankDashboard from './components/BankDashboard';
 import SharedWithMeView from './components/SharedWithMeView';
 import SafeFilterSidebar, { SafeFilter } from './components/SafeFilterSidebar';
 import DocumentFilterSidebar, { DocumentFilter } from './components/DocumentFilterSidebar';
@@ -86,7 +87,7 @@ const SafeView: React.FC = () => {
   const [showImportExport, setShowImportExport] = useState(false);
   const [showSafeTags, setShowSafeTags] = useState(false);
   const [showChangePassword, setShowChangePassword] = useState(false);
-  const [activeTab, setActiveTab] = useState<'entries' | 'documents'>('entries');
+  const [activeTab, setActiveTab] = useState<'entries' | 'documents' | 'financial'>('financial');
   const [showDocumentForm, setShowDocumentForm] = useState(false);
   const [editingDocument, setEditingDocument] = useState<DocumentVault | null>(null);
   
@@ -1079,30 +1080,55 @@ const SafeView: React.FC = () => {
           <span style={{ fontSize: '1.25rem' }}>📄</span>
           <span>Documents</span>
         </button>
-      </div>
-
-      {/* Add Button */}
-      <div style={{ 
-        display: 'flex', 
-        justifyContent: 'flex-end',
-        marginBottom: '1.5rem'
-      }}>
         <button
-          onClick={activeTab === 'entries' ? () => setIsAdding(true) : () => setShowDocumentForm(true)}
+          onClick={() => setActiveTab('financial')}
+          className="safe-tab"
           style={{
-            padding: '0.75rem 1.5rem',
-            backgroundColor: '#3b82f6',
-            color: 'white',
-            border: 'none',
-            borderRadius: '0.5rem',
+            flex: 1,
+            padding: '0.75rem 1rem',
+            backgroundColor: activeTab === 'financial' ? '#3b82f6' : 'rgba(255,255,255,0.5)',
+            color: activeTab === 'financial' ? 'white' : '#6b7280',
+            border: activeTab === 'financial' ? 'none' : '2px solid rgba(0,0,0,0.1)',
+            borderRadius: '12px',
             cursor: 'pointer',
-            fontSize: '1rem',
-            fontWeight: 500
+            fontSize: '0.875rem',
+            fontWeight: 600,
+            transition: 'all 0.3s ease',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: '0.25rem'
           }}
         >
-          + Add New
+          <span style={{ fontSize: '1.25rem' }}>🏦</span>
+          <span>Financial</span>
         </button>
       </div>
+
+      {/* Add Button - Only show for entries and documents tabs */}
+      {activeTab !== 'financial' && (
+        <div style={{ 
+          display: 'flex', 
+          justifyContent: 'flex-end',
+          marginBottom: '1.5rem'
+        }}>
+          <button
+            onClick={activeTab === 'entries' ? () => setIsAdding(true) : () => setShowDocumentForm(true)}
+            style={{
+              padding: '0.75rem 1.5rem',
+              backgroundColor: '#3b82f6',
+              color: 'white',
+              border: 'none',
+              borderRadius: '0.5rem',
+              cursor: 'pointer',
+              fontSize: '1rem',
+              fontWeight: 500
+            }}
+          >
+            + Add New
+          </button>
+        </div>
+      )}
 
       {/* Content with Sidebar */}
       <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start' }}>
@@ -1237,6 +1263,13 @@ const SafeView: React.FC = () => {
                     )}
                   </>
                 )
+              ) : activeTab === 'financial' ? (
+                /* Financial Tab - Bank Dashboard */
+                <BankDashboard 
+                  supabase={getSupabaseClient()} 
+                  userId={user?.id} 
+                  encryptionKey={encryptionKey!}
+                />
               ) : (
                 /* Documents Tab with Filter Sidebar */
                 isMobile && showMobileDocFilters && !showDocumentForm && !editingDocument ? (
