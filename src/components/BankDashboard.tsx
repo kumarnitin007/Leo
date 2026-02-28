@@ -68,17 +68,6 @@ function getBankColor(bank: string): string {
 }
 
 function UrgencyBadge({ days }: { days: number | null }) {
-  if (days === null) return null;
-  if (days < 0) return <span style={{fontSize:10,padding:"2px 8px",borderRadius:12,background:"#374151",color:"#6B7280",fontWeight:700}}>Past</span>;
-  if (days === 0) return <span style={{fontSize:10,padding:"2px 8px",borderRadius:12,background:"#7F1D1D",color:"#FCA5A5",fontWeight:700}}>🔥 Today</span>;
-  if (days <= 7) return <span style={{fontSize:10,padding:"2px 8px",borderRadius:12,background:"#7F1D1D",color:"#FCA5A5",fontWeight:700}}>≤ 7d</span>;
-  if (days <= 30) return <span style={{fontSize:10,padding:"2px 8px",borderRadius:12,background:"#7F1D1D",color:"#FCA5A5",fontWeight:700}}>{days}d</span>;
-  if (days <= 90) return <span style={{fontSize:10,padding:"2px 8px",borderRadius:12,background:"#78350F",color:"#FDE047",fontWeight:700}}>{days}d</span>;
-  if (days <= 180) return <span style={{fontSize:10,padding:"2px 8px",borderRadius:12,background:"#064E3B",color:"#6EE7B7",fontWeight:700}}>{days}d</span>;
-  return <span style={{fontSize:10,padding:"2px 8px",borderRadius:12,background:"#1E3A5F",color:"#93C5FD",fontWeight:700}}>{days}d</span>;
-}
-
-function UrgencyBadge({ days }: { days: number | null }) {
   const bs = (bg: string, color: string) => ({ background:bg, color, padding:"2px 10px", borderRadius:20, fontSize:11, fontWeight:700, whiteSpace:"nowrap" as const });
   if (days === null) return <span style={bs("#1F2937","#6B7280")}>No Date</span>;
   if (days < 0)   return <span style={bs("#1F2937","#4B5563")}>Matured</span>;
