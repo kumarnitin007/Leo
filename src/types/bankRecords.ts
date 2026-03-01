@@ -10,6 +10,22 @@
  * - Encryption handled at the Safe level (uses master password key)
  */
 
+// Supported currencies
+export type Currency = 'INR' | 'USD' | 'EUR' | 'GBP';
+
+// Deposit categories for organization
+export type DepositCategory = 
+  | 'Emergency Fund'
+  | 'Retirement'
+  | 'Child Education'
+  | 'House/Property'
+  | 'Vehicle'
+  | 'Wedding'
+  | 'Travel'
+  | 'General Savings'
+  | 'Tax Saving'
+  | 'Other';
+
 export interface Deposit {
   bank: string;
   type: string;
@@ -23,6 +39,14 @@ export interface Deposit {
   duration: string;
   maturityAction: string;
   done: boolean;
+  // New fields
+  currency?: Currency;
+  category?: DepositCategory;
+  tdsPercent?: number | string;  // Tax Deducted at Source %
+  autoRenewal?: boolean;
+  linkedAccount?: string;  // Account where interest/maturity credits
+  documentId?: string;  // Link to Safe Document
+  notes?: string;
   // Future: sharing support
   sharedWith?: string[]; // Group IDs that have access
 }
@@ -38,6 +62,11 @@ export interface BankAccount {
   detail: string;
   nextAction: string;
   done: boolean;
+  // New fields
+  currency?: Currency;
+  accountNumber?: string;
+  ifscCode?: string;
+  branch?: string;
   // Future: sharing support
   sharedWith?: string[];
 }
@@ -51,6 +80,11 @@ export interface Bill {
   phone: string;
   email: string;
   done: boolean;
+  // New fields
+  currency?: Currency;
+  category?: string;
+  autoPay?: boolean;
+  lastPaid?: string;
   // Future: sharing support
   sharedWith?: string[];
 }
@@ -61,8 +95,41 @@ export interface ActionItem {
   date: string;
   note: string;
   done: boolean;
+  // New fields
+  priority?: 'Low' | 'Medium' | 'High' | 'Urgent';
+  reminderDays?: number[];  // Days before to remind (e.g., [30, 7, 1])
   // Future: sharing support
   sharedWith?: string[];
+}
+
+// Savings Goals
+export interface SavingsGoal {
+  id: string;
+  name: string;
+  targetAmount: number;
+  currency: Currency;
+  currentAmount: number;
+  deadline?: string;
+  category?: DepositCategory;
+  linkedDeposits?: string[];  // Deposit IDs contributing to this goal
+  color?: string;
+  notes?: string;
+  createdAt: string;
+  done: boolean;
+}
+
+// Financial Alert for home page integration
+export interface FinancialAlert {
+  id: string;
+  type: 'maturity' | 'bill_due' | 'action' | 'goal_milestone' | 'low_balance';
+  title: string;
+  description: string;
+  date: string;
+  daysUntil: number;
+  severity: 'info' | 'warning' | 'urgent';
+  relatedId?: string;  // ID of deposit/bill/etc
+  currency?: Currency;
+  amount?: number;
 }
 
 export interface BankRecordsData {
@@ -70,6 +137,7 @@ export interface BankRecordsData {
   accounts: BankAccount[];
   bills: Bill[];
   actions: ActionItem[];
+  goals?: SavingsGoal[];
   // Metadata
   updatedAt?: string;
   version?: number; // For future migrations

@@ -682,7 +682,7 @@ export class VoiceCommandService {
           confidence: command.intentConfidence || 0.7,
           method: command.intentMethod || 'RULES',
         },
-        entities: command.entities || [],
+        entities: (command.entities || []) as Entity[],
         overallConfidence: command.overallConfidence || 0.7,
         timestamp: command.createdAt,
       };

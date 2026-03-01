@@ -26,6 +26,7 @@ import { useAuth } from './contexts/AuthContext';
 import MonthlyView from './MonthlyView';
 import WeatherWidget from './components/WeatherWidget';
 import ResolutionProgressWidget from './components/ResolutionProgressWidget';
+import FinancialAlertsWidget from './components/FinancialAlertsWidget';
 import { getDashboardTodos, getTodoGroups, toggleTodoItem } from './services/todoService';
 import { getDashboardComments, dismissCommentFromDashboard } from './services/commentService';
 import { EnrichedCalendarCard } from './components/EnrichedCalendarCard';
@@ -2576,6 +2577,8 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
       </div>
 
       <ResolutionProgressWidget />
+
+      <FinancialAlertsWidget onNavigateToSafe={() => onNavigate('safe')} />
 
       <WeatherWidget />
 
