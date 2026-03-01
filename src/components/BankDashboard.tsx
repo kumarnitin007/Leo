@@ -17,7 +17,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { SupabaseClient } from '@supabase/supabase-js';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend, AreaChart, Area } from 'recharts';
-import { Deposit, BankAccount, Bill, ActionItem, BankRecordsData, PRELOAD_BANK_DATA, SavingsGoal, Currency, DepositCategory } from '../types/bankRecords';
+import { Deposit, BankAccount, Bill, ActionItem, BankRecordsData, SavingsGoal, Currency, DepositCategory } from '../types/bankRecords';
 import { updateFinancialAlertsCache, FinancialAlertsSummary } from './FinancialAlertsWidget';
 import { CryptoKey, encryptData, decryptData } from '../utils/encryption';
 
@@ -197,11 +197,11 @@ export default function BankDashboard({ supabase, userId, encryptionKey }: BankD
           console.error('[BankDashboard] Supabase query error:', error);
           // If table doesn't exist or query fails, show setup banner
           setShowSetupBanner(true);
-          // Use preload data
-          setDeposits(PRELOAD_BANK_DATA.deposits);
-          setAccounts(PRELOAD_BANK_DATA.accounts);
-          setBills(PRELOAD_BANK_DATA.bills);
-          setActions(PRELOAD_BANK_DATA.actions);
+          // Start with empty data - user imports their own Excel
+          setDeposits([]);
+          setAccounts([]);
+          setBills([]);
+          setActions([]);
         } else if (data?.data) {
           // Decrypt the data - parse the stored JSON containing encrypted data and IV
           try {
@@ -226,28 +226,30 @@ export default function BankDashboard({ supabase, userId, encryptionKey }: BankD
             setActions([]);
           }
         } else {
-          // No data yet — seed with preloaded data
-          console.log('[BankDashboard] 📊 No data found, loading sample data');
-          setDeposits(PRELOAD_BANK_DATA.deposits);
-          setAccounts(PRELOAD_BANK_DATA.accounts);
-          setBills(PRELOAD_BANK_DATA.bills);
-          setActions(PRELOAD_BANK_DATA.actions);
+          // No data yet — start empty (this is normal after clearing or first use)
+          console.log('[BankDashboard] 📊 No data found, starting empty');
+          setDeposits([]);
+          setAccounts([]);
+          setBills([]);
+          setActions([]);
         }
       } else {
-        // No Supabase/encryption — use preload data
-        console.log('[BankDashboard] 💾 Using local preload data');
-        setDeposits(PRELOAD_BANK_DATA.deposits);
-        setAccounts(PRELOAD_BANK_DATA.accounts);
-        setBills(PRELOAD_BANK_DATA.bills);
-        setActions(PRELOAD_BANK_DATA.actions);
+        // No Supabase/encryption — start empty
+        console.log('[BankDashboard] 💾 No database connection, starting empty');
+        setShowSetupBanner(true);
+        setDeposits([]);
+        setAccounts([]);
+        setBills([]);
+        setActions([]);
       }
     } catch (e) {
       console.error('[BankDashboard] Load error:', e);
-      // Always fallback to preload data on any error
-      setDeposits(PRELOAD_BANK_DATA.deposits);
-      setAccounts(PRELOAD_BANK_DATA.accounts);
-      setBills(PRELOAD_BANK_DATA.bills);
-      setActions(PRELOAD_BANK_DATA.actions);
+      // Start empty on error
+      setShowSetupBanner(true);
+      setDeposits([]);
+      setAccounts([]);
+      setBills([]);
+      setActions([]);
     }
     setLoading(false);
   }
@@ -256,9 +258,17 @@ export default function BankDashboard({ supabase, userId, encryptionKey }: BankD
   useEffect(() => {
     if (loading) return;
     
-    const totalInvested = deposits.reduce((s,d)=>s+(Number(d.deposit)||0),0);
-    const totalMaturity = deposits.reduce((s,d)=>s+(Number(d.maturityAmt)||Number(d.deposit)||0),0);
+    // ALL totals from Accounts sheet ONLY
     const accountBalance = accounts.reduce((s,a)=>s+(Number(a.amount)||0),0);
+    const fdTotal = accounts.filter(a => a.type === "FD").reduce((s,a)=>s+(Number(a.amount)||0),0);
+    // Estimate FD maturity using ROI (1-year projection)
+    const fdMaturityEst = accounts.filter(a => a.type === "FD").reduce((s,a) => {
+      const principal = Number(a.amount) || 0;
+      const roi = Number(a.roi) || 0.07;
+      return s + principal * (1 + roi);
+    }, 0);
+    const totalInvested = fdTotal; // FDs from accounts
+    const totalMaturity = fdMaturityEst; // Estimated maturity
     
     // Generate alerts - same logic as "Next 30 Days" section
     const alertsList: FinancialAlertsSummary['alerts'] = [];
@@ -746,12 +756,19 @@ export default function BankDashboard({ supabase, userId, encryptionKey }: BankD
     else { const ac=[...actions]; ac[idx]={...ac[idx],done:!ac[idx].done}; save(deposits,accounts,bills,ac); }
   }
 
-  // ── Derived Data ─────────────────────────────────────────────────────────
-  const totalInvested = deposits.reduce((s,d)=>s+(Number(d.deposit)||0),0);
-  const totalMaturity = deposits.reduce((s,d)=>s+(Number(d.maturityAmt)||Number(d.deposit)||0),0);
+  // ── Derived Data (FROM ACCOUNTS ONLY) ───────────────────────────────────
+  const totalInvested = accounts.filter(a => a.type === "FD").reduce((s,a)=>s+(Number(a.amount)||0),0);
+  const totalMaturity = accounts.filter(a => a.type === "FD").reduce((s,a) => {
+    const principal = Number(a.amount) || 0;
+    const roi = Number(a.roi) || 0.07;
+    return s + principal * (1 + roi);
+  }, 0);
+  
+  // Deposits are ONLY for maturity tracking/alerts
   const upcoming90 = deposits.filter(d=>{ const x=daysUntil(d.maturityDate); return x!=null&&x>=0&&x<=90&&!d.done; });
   const sortedDeps = [...deposits].sort((a,b)=>new Date(a.maturityDate||"2099").getTime()-new Date(b.maturityDate||"2099").getTime());
 
+  // Bank totals from deposits (for deposits tab only)
   const bankTotals: Record<string, {deposited:number; maturity:number; count:number; avgRoi:number}> = {};
   deposits.forEach(d=>{
     if(!d.bank) return;
@@ -883,9 +900,9 @@ export default function BankDashboard({ supabase, userId, encryptionKey }: BankD
         <div style={{background:"linear-gradient(90deg,#7F1D1D,#991B1B)",border:"1px solid #DC2626",padding:"12px 20px",margin:"16px",borderRadius:12,display:"flex",alignItems:"center",gap:12}}>
           <span style={{fontSize:24}}>⚠️</span>
           <div style={{flex:1}}>
-            <strong style={{color:"#FCA5A5",display:"block",marginBottom:4}}>Database Setup Required</strong>
+            <strong style={{color:"#FCA5A5",display:"block",marginBottom:4}}>Database Connection Issue</strong>
             <div style={{color:"#FCA5A5",fontSize:13}}>
-              Run <code style={{background:"rgba(0,0,0,0.3)",padding:"2px 6px",borderRadius:4}}>supabase-bank-records.sql</code> in your Supabase SQL Editor to enable data persistence. Using sample data for now.
+              Unable to connect to database. Run <code style={{background:"rgba(0,0,0,0.3)",padding:"2px 6px",borderRadius:4}}>supabase-bank-records.sql</code> in Supabase SQL Editor if not done already.
             </div>
           </div>
           <button onClick={()=>setShowSetupBanner(false)} style={{background:"rgba(255,255,255,0.2)",border:"none",color:"#FCA5A5",padding:"4px 12px",borderRadius:6,cursor:"pointer",fontSize:20}}>✕</button>
@@ -958,40 +975,63 @@ export default function BankDashboard({ supabase, userId, encryptionKey }: BankD
               </div>
             </div>
 
-            {/* Investment Summary with Progress Bar */}
-            <div style={{background:"#0D1117",borderRadius:12,padding:"12px 14px",border:"1px solid #1F2937"}}>
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                <div>
-                  <div style={{fontSize:10,color:"#6B7280",fontWeight:600,textTransform:"uppercase"}}>Total Invested</div>
-                  <div style={{fontSize:18,fontWeight:800,color:"#F9FAFB",fontFamily:"monospace"}}>{fmt(totalInvested)}</div>
-                </div>
-                <div style={{textAlign:"right"}}>
-                  <div style={{fontSize:10,color:"#6B7280",fontWeight:600,textTransform:"uppercase"}}>At Maturity</div>
-                  <div style={{fontSize:18,fontWeight:800,color:"#10B981",fontFamily:"monospace"}}>{fmt(totalMaturity)}</div>
-                </div>
-              </div>
-              {totalInvested > 0 && (
-                <div style={{marginTop:8,background:"#1F2937",borderRadius:6,height:6,overflow:"hidden"}}>
-                  <div style={{width:`${Math.min(100, (totalInvested/totalMaturity)*100)}%`,height:"100%",background:"linear-gradient(90deg,#3B82F6,#10B981)",borderRadius:6}}/>
-                </div>
-              )}
+            {/* Account Summary - From Accounts/Banks sheet ONLY */}
+            {(() => {
+              const accountTotal = accounts.reduce((s, a) => s + (Number(a.amount) || 0), 0);
+              const fdTotal = accounts.filter(a => a.type === "FD").reduce((s, a) => s + (Number(a.amount) || 0), 0);
+              const savingsTotal = accounts.filter(a => a.type === "Saving").reduce((s, a) => s + (Number(a.amount) || 0), 0);
+              const otherTotal = accountTotal - fdTotal - savingsTotal;
               
-              {/* Debug: Bank-wise breakdown */}
-              <div style={{marginTop:12,borderTop:"1px solid #21262D",paddingTop:10}}>
-                <div style={{fontSize:10,color:"#6B7280",marginBottom:6,fontWeight:600}}>📊 BANK-WISE BREAKDOWN (from Deposits sheet):</div>
-                <div style={{display:"flex",flexDirection:"column",gap:4,maxHeight:150,overflowY:"auto"}}>
-                  {Object.entries(bankTotals).sort((a,b) => b[1].deposited - a[1].deposited).map(([bank, data]) => (
-                    <div key={bank} style={{display:"flex",justifyContent:"space-between",fontSize:11,padding:"4px 8px",background:"#161B22",borderRadius:4}}>
-                      <span style={{color:"#9CA3AF"}}>{bank} ({data.count})</span>
-                      <span style={{fontFamily:"monospace",color:"#F9FAFB"}}>{fmt(data.deposited)}</span>
+              // Bank-wise from accounts
+              const accountsByBank: Record<string, number> = {};
+              accounts.forEach(a => {
+                accountsByBank[a.bank] = (accountsByBank[a.bank] || 0) + (Number(a.amount) || 0);
+              });
+              
+              return (
+                <div style={{background:"#0D1117",borderRadius:12,padding:"12px 14px",border:"1px solid #1F2937"}}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                    <div>
+                      <div style={{fontSize:10,color:"#6B7280",fontWeight:600,textTransform:"uppercase"}}>Total Balance</div>
+                      <div style={{fontSize:18,fontWeight:800,color:"#F9FAFB",fontFamily:"monospace"}}>{fmt(accountTotal)}</div>
                     </div>
-                  ))}
+                    <div style={{textAlign:"right"}}>
+                      <div style={{fontSize:10,color:"#6B7280",fontWeight:600,textTransform:"uppercase"}}>FDs</div>
+                      <div style={{fontSize:18,fontWeight:800,color:"#3B82F6",fontFamily:"monospace"}}>{fmt(fdTotal)}</div>
+                    </div>
+                    <div style={{textAlign:"right"}}>
+                      <div style={{fontSize:10,color:"#6B7280",fontWeight:600,textTransform:"uppercase"}}>Savings</div>
+                      <div style={{fontSize:18,fontWeight:800,color:"#10B981",fontFamily:"monospace"}}>{fmt(savingsTotal)}</div>
+                    </div>
+                  </div>
+                  
+                  {/* Progress bar showing FD vs Savings */}
+                  {accountTotal > 0 && (
+                    <div style={{marginTop:10,display:"flex",gap:2}}>
+                      <div style={{width:`${(fdTotal/accountTotal)*100}%`,height:6,background:"#3B82F6",borderRadius:"4px 0 0 4px"}} title={`FDs: ${((fdTotal/accountTotal)*100).toFixed(0)}%`}/>
+                      <div style={{width:`${(savingsTotal/accountTotal)*100}%`,height:6,background:"#10B981"}} title={`Savings: ${((savingsTotal/accountTotal)*100).toFixed(0)}%`}/>
+                      {otherTotal > 0 && <div style={{width:`${(otherTotal/accountTotal)*100}%`,height:6,background:"#8B5CF6",borderRadius:"0 4px 4px 0"}} title={`Other: ${((otherTotal/accountTotal)*100).toFixed(0)}%`}/>}
+                    </div>
+                  )}
+                  
+                  {/* Bank-wise breakdown from Accounts */}
+                  <div style={{marginTop:12,borderTop:"1px solid #21262D",paddingTop:10}}>
+                    <div style={{fontSize:10,color:"#6B7280",marginBottom:6,fontWeight:600}}>📊 BY BANK (from Accounts):</div>
+                    <div style={{display:"flex",flexDirection:"column",gap:4,maxHeight:150,overflowY:"auto"}}>
+                      {Object.entries(accountsByBank).sort((a,b) => b[1] - a[1]).map(([bank, amt]) => (
+                        <div key={bank} style={{display:"flex",justifyContent:"space-between",fontSize:11,padding:"4px 8px",background:"#161B22",borderRadius:4}}>
+                          <span style={{color:"#9CA3AF"}}>{bank}</span>
+                          <span style={{fontFamily:"monospace",color:"#F9FAFB"}}>{fmt(amt)}</span>
+                        </div>
+                      ))}
+                    </div>
+                    <div style={{marginTop:8,fontSize:10,color:"#6B7280",fontStyle:"italic"}}>
+                      Source: Banks/Accounts sheet • {accounts.length} accounts
+                    </div>
+                  </div>
                 </div>
-                <div style={{marginTop:8,fontSize:10,color:"#6B7280",fontStyle:"italic"}}>
-                  Formula: Sum of all deposits[].deposit values = {deposits.length} deposits totaling {fmt(totalInvested)}
-                </div>
-              </div>
-            </div>
+              );
+            })()}
 
             {/* Next 30 Days - Collapsible */}
             {upcoming30Days.length > 0 && (
@@ -1051,20 +1091,20 @@ export default function BankDashboard({ supabase, userId, encryptionKey }: BankD
               </div>
             )}
 
-            {/* Overview Cards */}
+            {/* Overview Cards - FROM ACCOUNTS DATA */}
             <div style={{display:"flex",gap:12,flexWrap:"wrap"}}>
               <div style={{background:"#1C1C2E",borderRadius:14,padding:"16px 20px",borderLeft:"3px solid #3B82F6",flex:1,minWidth:140}}>
-                <div style={{color:"#6B7280",fontSize:10,fontWeight:700,textTransform:"uppercase"}}>Total Invested</div>
+                <div style={{color:"#6B7280",fontSize:10,fontWeight:700,textTransform:"uppercase"}}>FD Invested</div>
                 <div style={{color:"#F9FAFB",fontSize:20,fontWeight:800,fontFamily:"monospace",marginTop:6}}>{fmt(totalInvested)}</div>
-                <div style={{color:"#4B5563",fontSize:11,marginTop:4}}>{deposits.length} deposits</div>
+                <div style={{color:"#4B5563",fontSize:11,marginTop:4}}>{accounts.filter(a=>a.type==="FD").length} FDs</div>
               </div>
               <div style={{background:"#1C1C2E",borderRadius:14,padding:"16px 20px",borderLeft:"3px solid #10B981",flex:1,minWidth:140}}>
-                <div style={{color:"#6B7280",fontSize:10,fontWeight:700,textTransform:"uppercase"}}>At Maturity</div>
+                <div style={{color:"#6B7280",fontSize:10,fontWeight:700,textTransform:"uppercase"}}>Est. Maturity</div>
                 <div style={{color:"#F9FAFB",fontSize:20,fontWeight:800,fontFamily:"monospace",marginTop:6}}>{fmt(totalMaturity)}</div>
-                <div style={{color:"#4B5563",fontSize:11,marginTop:4}}>projected value</div>
+                <div style={{color:"#4B5563",fontSize:11,marginTop:4}}>~1 yr projection</div>
               </div>
               <div style={{background:"#1C1C2E",borderRadius:14,padding:"16px 20px",borderLeft:"3px solid #F59E0B",flex:1,minWidth:140}}>
-                <div style={{color:"#6B7280",fontSize:10,fontWeight:700,textTransform:"uppercase"}}>Total Gain</div>
+                <div style={{color:"#6B7280",fontSize:10,fontWeight:700,textTransform:"uppercase"}}>Est. Gain</div>
                 <div style={{color:"#F9FAFB",fontSize:20,fontWeight:800,fontFamily:"monospace",marginTop:6}}>{fmt(totalMaturity-totalInvested)}</div>
                 <div style={{color:"#4B5563",fontSize:11,marginTop:4}}>{totalInvested?`+${(((totalMaturity-totalInvested)/totalInvested)*100).toFixed(1)}%`:""}</div>
               </div>
@@ -1074,14 +1114,18 @@ export default function BankDashboard({ supabase, userId, encryptionKey }: BankD
 
         {/* ══ NET WORTH TAB ═══════════════════════════════════════════════ */}
         {tab === "networth" && (() => {
-          // Accounts already includes FDs - don't double count with deposits
-          const totalAccountBalance = accounts.reduce((s, a) => s + (Number(a.amount) || 0), 0);
-          const netWorth = totalAccountBalance; // Current net worth from accounts only
+          // ALL calculations from Accounts sheet ONLY
+          const netWorth = accounts.reduce((s, a) => s + (Number(a.amount) || 0), 0);
           
-          // Projected: non-FD accounts stay same, FDs grow to maturity
-          const nonFdAccountsTotal = accounts.filter(a => a.type !== "FD").reduce((s, a) => s + (Number(a.amount) || 0), 0);
-          const fdMaturityTotal = deposits.reduce((s, d) => s + (Number(d.maturityAmt) || Number(d.deposit) || 0), 0);
-          const projectedNetWorth = nonFdAccountsTotal + fdMaturityTotal;
+          // Projected: Estimate FD growth using ROI from accounts (assume 1 year average)
+          const fdAccounts = accounts.filter(a => a.type === "FD");
+          const nonFdTotal = accounts.filter(a => a.type !== "FD").reduce((s, a) => s + (Number(a.amount) || 0), 0);
+          const fdProjected = fdAccounts.reduce((s, a) => {
+            const principal = Number(a.amount) || 0;
+            const roi = Number(a.roi) || 0.07; // Default 7% if not specified
+            return s + principal * (1 + roi); // Simple 1-year projection
+          }, 0);
+          const projectedNetWorth = nonFdTotal + fdProjected;
           
           // Group by account type for breakdown
           const byType: Record<string, number> = {};
@@ -1090,28 +1134,47 @@ export default function BankDashboard({ supabase, userId, encryptionKey }: BankD
             byType[t] = (byType[t] || 0) + (Number(a.amount) || 0);
           });
           
-          // Group by bank for concentration (accounts only - includes FDs)
+          // Group by bank for concentration
           const byBank: Record<string, number> = {};
           accounts.forEach(a => {
             byBank[a.bank] = (byBank[a.bank] || 0) + (Number(a.amount) || 0);
           });
           
+          // Check for mismatch between Accounts FDs and Deposits sheet
+          const accountsFdTotal = fdAccounts.reduce((s, a) => s + (Number(a.amount) || 0), 0);
+          const depositsPrincipalTotal = deposits.reduce((s, d) => s + (Number(d.deposit) || 0), 0);
+          const hasMismatch = Math.abs(accountsFdTotal - depositsPrincipalTotal) > 1000; // Allow small rounding diff
+          
           return (
             <div style={{display:"flex",flexDirection:"column",gap:16}}>
+              {/* Mismatch Warning */}
+              {hasMismatch && (
+                <div style={{background:"#7F1D1D20",border:"1px solid #F8714940",borderRadius:10,padding:12,display:"flex",alignItems:"center",gap:10}}>
+                  <span style={{fontSize:18}}>⚠️</span>
+                  <div>
+                    <div style={{fontSize:12,color:"#FCA5A5",fontWeight:600}}>Data Mismatch Detected</div>
+                    <div style={{fontSize:11,color:"#9CA3AF"}}>
+                      Accounts FDs: {fmt(accountsFdTotal)} vs Deposits sheet: {fmt(depositsPrincipalTotal)}. 
+                      Update your Deposits sheet for accurate maturity tracking.
+                    </div>
+                  </div>
+                </div>
+              )}
+              
               {/* Net Worth Cards */}
               <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"repeat(3, 1fr)",gap:12}}>
                 <div style={{background:"linear-gradient(135deg,#1E3A5F 0%,#0F3460 100%)",borderRadius:16,padding:20,border:"1px solid #3B82F6"}}>
                   <div style={{fontSize:11,color:"#93C5FD",fontWeight:600,textTransform:"uppercase"}}>Current Net Worth</div>
                   <div style={{fontSize:28,fontWeight:800,color:"#F0F6FC",fontFamily:"monospace",marginTop:8}}>{fmt(netWorth)}</div>
-                  <div style={{fontSize:11,color:"#6B7280",marginTop:4}}>{accounts.length} accounts (includes FDs)</div>
+                  <div style={{fontSize:11,color:"#6B7280",marginTop:4}}>{accounts.length} accounts from Banks sheet</div>
                 </div>
                 <div style={{background:"#161B22",borderRadius:16,padding:20,border:"1px solid #238636"}}>
                   <div style={{fontSize:11,color:"#3FB950",fontWeight:600,textTransform:"uppercase"}}>Projected Net Worth</div>
                   <div style={{fontSize:28,fontWeight:800,color:"#3FB950",fontFamily:"monospace",marginTop:8}}>{fmt(projectedNetWorth)}</div>
-                  <div style={{fontSize:11,color:"#6B7280",marginTop:4}}>at all FD maturity</div>
+                  <div style={{fontSize:11,color:"#6B7280",marginTop:4}}>{fdAccounts.length} FDs with avg ROI ~1 year</div>
                 </div>
                 <div style={{background:"#161B22",borderRadius:16,padding:20,border:"1px solid #F59E0B"}}>
-                  <div style={{fontSize:11,color:"#F59E0B",fontWeight:600,textTransform:"uppercase"}}>Total Interest Earned</div>
+                  <div style={{fontSize:11,color:"#F59E0B",fontWeight:600,textTransform:"uppercase"}}>Est. Interest (1 yr)</div>
                   <div style={{fontSize:28,fontWeight:800,color:"#F59E0B",fontFamily:"monospace",marginTop:8}}>{fmt(projectedNetWorth - netWorth)}</div>
                   <div style={{fontSize:11,color:"#6B7280",marginTop:4}}>+{netWorth ? ((projectedNetWorth - netWorth) / netWorth * 100).toFixed(1) : 0}% growth</div>
                 </div>
