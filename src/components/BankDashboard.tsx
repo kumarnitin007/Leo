@@ -975,6 +975,22 @@ export default function BankDashboard({ supabase, userId, encryptionKey }: BankD
                   <div style={{width:`${Math.min(100, (totalInvested/totalMaturity)*100)}%`,height:"100%",background:"linear-gradient(90deg,#3B82F6,#10B981)",borderRadius:6}}/>
                 </div>
               )}
+              
+              {/* Debug: Bank-wise breakdown */}
+              <div style={{marginTop:12,borderTop:"1px solid #21262D",paddingTop:10}}>
+                <div style={{fontSize:10,color:"#6B7280",marginBottom:6,fontWeight:600}}>📊 BANK-WISE BREAKDOWN (from Deposits sheet):</div>
+                <div style={{display:"flex",flexDirection:"column",gap:4,maxHeight:150,overflowY:"auto"}}>
+                  {Object.entries(bankTotals).sort((a,b) => b[1].deposited - a[1].deposited).map(([bank, data]) => (
+                    <div key={bank} style={{display:"flex",justifyContent:"space-between",fontSize:11,padding:"4px 8px",background:"#161B22",borderRadius:4}}>
+                      <span style={{color:"#9CA3AF"}}>{bank} ({data.count})</span>
+                      <span style={{fontFamily:"monospace",color:"#F9FAFB"}}>{fmt(data.deposited)}</span>
+                    </div>
+                  ))}
+                </div>
+                <div style={{marginTop:8,fontSize:10,color:"#6B7280",fontStyle:"italic"}}>
+                  Formula: Sum of all deposits[].deposit values = {deposits.length} deposits totaling {fmt(totalInvested)}
+                </div>
+              </div>
             </div>
 
             {/* Next 30 Days - Collapsible */}
@@ -1479,61 +1495,56 @@ export default function BankDashboard({ supabase, userId, encryptionKey }: BankD
           </div>
         )}
 
-        {/* ══ DEPOSITS TAB ═══════════════════════════════════════════ */}
-        {tab === "deposits" && (
-          <div>
-            {/* Search & Filter - Sticky on scroll */}
-            <div style={{position:"sticky",top:0,zIndex:10,background:"#0D1117",padding:"12px 0",marginBottom:8}}>
-              <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
-                <input placeholder="🔍 Search..." value={search} onChange={e => setSearch(e.target.value)} style={{...inputSt,flex:isMobile?1:"none",width:isMobile?"auto":180,minWidth:120}} />
-                <div style={{display:"flex",gap:4,flexWrap:"wrap",flex:isMobile?undefined:1}}>
-                  <button onClick={() => setFilterBank("All")} style={{background:filterBank === "All" ? "#3B82F6" : "#21262D",color:filterBank === "All" ? "#FFF" : "#8B949E",border:"none",borderRadius:16,padding:"5px 10px",fontSize:10,fontWeight:600,cursor:"pointer"}}>All</button>
-                  {banks.map(b => (
-                    <button key={b} onClick={() => setFilterBank(b)} style={{background:filterBank === b ? getBankColor(b) : "#21262D",color:filterBank === b ? "#FFF" : "#8B949E",border:"none",borderRadius:16,padding:"5px 10px",fontSize:10,fontWeight:600,cursor:"pointer"}}>{b}</button>
-                  ))}
+        {/* ══ DEPOSITS TAB - Table with Collapsible Bank Groups ═══════════ */}
+        {tab === "deposits" && (() => {
+          // Group deposits by bank for collapsible headers
+          const groupedDeps: Record<string, { deps: typeof filtered; indices: number[] }> = {};
+          filtered.forEach((d) => {
+            const origIdx = deposits.indexOf(d);
+            if (!groupedDeps[d.bank]) groupedDeps[d.bank] = { deps: [], indices: [] };
+            groupedDeps[d.bank].deps.push(d);
+            groupedDeps[d.bank].indices.push(origIdx);
+          });
+          const depBankNames = Object.keys(groupedDeps).sort();
+          
+          const toggleDepBank = (bankName: string) => {
+            setExpandedBanks(prev => {
+              const next = new Set(prev);
+              const key = `dep_${bankName}`;
+              if (next.has(key)) next.delete(key);
+              else next.add(key);
+              return next;
+            });
+          };
+          
+          const allExpanded = depBankNames.every(b => expandedBanks.has(`dep_${b}`));
+          
+          return (
+            <div>
+              {/* Search & Filter - Sticky on scroll */}
+              <div style={{position:"sticky",top:0,zIndex:10,background:"#0D1117",padding:"12px 0",marginBottom:8}}>
+                <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
+                  <input placeholder="🔍 Search..." value={search} onChange={e => setSearch(e.target.value)} style={{...inputSt,flex:isMobile?1:"none",width:isMobile?"auto":180,minWidth:120}} />
+                  <div style={{display:"flex",gap:4,flexWrap:"wrap",flex:isMobile?undefined:1}}>
+                    <button onClick={() => setFilterBank("All")} style={{background:filterBank === "All" ? "#3B82F6" : "#21262D",color:filterBank === "All" ? "#FFF" : "#8B949E",border:"none",borderRadius:16,padding:"5px 10px",fontSize:10,fontWeight:600,cursor:"pointer"}}>All</button>
+                    {banks.map(b => (
+                      <button key={b} onClick={() => setFilterBank(b)} style={{background:filterBank === b ? getBankColor(b) : "#21262D",color:filterBank === b ? "#FFF" : "#8B949E",border:"none",borderRadius:16,padding:"5px 10px",fontSize:10,fontWeight:600,cursor:"pointer"}}>{b}</button>
+                    ))}
+                  </div>
+                  <button 
+                    onClick={() => {
+                      const allKeys = depBankNames.map(b => `dep_${b}`);
+                      setExpandedBanks(prev => allExpanded ? new Set([...prev].filter(k => !k.startsWith('dep_'))) : new Set([...prev, ...allKeys]));
+                    }}
+                    style={{background:"#21262D",color:"#8B949E",border:"1px solid #30363D",borderRadius:6,padding:"5px 10px",fontSize:10,fontWeight:600,cursor:"pointer"}}
+                  >
+                    {allExpanded ? "Collapse" : "Expand"}
+                  </button>
+                  {!isMobile && <button onClick={() => openAdd("deposit")} style={{marginLeft:"auto",background:"#238636",color:"#fff",border:"none",borderRadius:6,padding:"6px 14px",fontSize:11,fontWeight:600,cursor:"pointer"}}>+ Add</button>}
                 </div>
-                {!isMobile && <button onClick={() => openAdd("deposit")} style={{marginLeft:"auto",background:"#238636",color:"#fff",border:"none",borderRadius:6,padding:"6px 14px",fontSize:11,fontWeight:600,cursor:"pointer"}}>+ Add</button>}
               </div>
-            </div>
 
-            {/* Mobile Card View */}
-            {isMobile ? (
-              <div style={{display:"flex",flexDirection:"column",gap:10}}>
-                {filtered.length === 0 ? (
-                  <div style={{textAlign:"center",padding:40,color:"#4B5563"}}>No deposits found</div>
-                ) : filtered.map((d, i) => {
-                  const origIdx = deposits.indexOf(d);
-                  const days = daysUntil(d.maturityDate);
-                  const bankColor = getBankColor(d.bank);
-                  return (
-                    <div key={i} style={{background:"#161B22",borderRadius:12,border:`1px solid #30363D`,borderLeft:`3px solid ${bankColor}`,padding:14,opacity:d.done?0.6:1}}>
-                      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:10}}>
-                        <div>
-                          <div style={{display:"flex",alignItems:"center",gap:6}}>
-                            <span style={{fontWeight:700,color:"#F0F6FC",fontSize:14}}>{d.bank}</span>
-                            {d.done && <span style={{background:"#238636",color:"#fff",fontSize:9,padding:"1px 6px",borderRadius:8}}>Done</span>}
-                          </div>
-                          <div style={{fontSize:10,color:"#8B949E"}}>{d.type} · {d.nominee}</div>
-                        </div>
-                        <UrgencyBadge days={days} />
-                      </div>
-                      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:10}}>
-                        <div><div style={{fontSize:9,color:"#8B949E",textTransform:"uppercase"}}>Invested</div><div style={{fontFamily:"monospace",fontWeight:700,color:"#F0F6FC"}}>{fmt(d.deposit)}</div></div>
-                        <div><div style={{fontSize:9,color:"#8B949E",textTransform:"uppercase"}}>Maturity</div><div style={{fontFamily:"monospace",fontWeight:700,color:"#3FB950"}}>{fmt(d.maturityAmt || d.deposit)}</div></div>
-                        <div><div style={{fontSize:9,color:"#8B949E",textTransform:"uppercase"}}>ROI</div><div style={{fontFamily:"monospace",fontWeight:600,color:"#58A6FF"}}>{d.roi ? (Number(d.roi)*100).toFixed(2)+"%" : "—"}</div></div>
-                        <div><div style={{fontSize:9,color:"#8B949E",textTransform:"uppercase"}}>Matures</div><div style={{fontSize:11,color:"#C9D1D9"}}>{fmtDate(d.maturityDate)}</div></div>
-                      </div>
-                      <div style={{display:"flex",gap:6,borderTop:"1px solid #21262D",paddingTop:10}}>
-                        <button onClick={() => toggleDone("deposit", origIdx)} style={{flex:1,background:d.done?"#238636":"#21262D",color:d.done?"#fff":"#8B949E",border:"none",borderRadius:6,padding:"6px",fontSize:10,fontWeight:600,cursor:"pointer"}}>{d.done?"Undo":"✓ Done"}</button>
-                        <button onClick={() => openEdit("deposit", origIdx)} style={{background:"#21262D",color:"#58A6FF",border:"none",borderRadius:6,padding:"6px 12px",fontSize:10,cursor:"pointer"}}>Edit</button>
-                        <button onClick={() => deleteRow("deposit", origIdx)} style={{background:"#21262D",color:"#F85149",border:"none",borderRadius:6,padding:"6px 12px",fontSize:10,cursor:"pointer"}}>🗑</button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            ) : (
-              /* Desktop Table View */
+              {/* Table View with Collapsible Bank Groups */}
               <div style={{background:"#161B22",borderRadius:12,overflow:"hidden",border:"1px solid #30363D"}}>
                 <div style={{overflowX:"auto",scrollbarWidth:"thin",scrollbarColor:"#30363D #161B22"}}>
                   <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
@@ -1546,31 +1557,59 @@ export default function BankDashboard({ supabase, userId, encryptionKey }: BankD
                       {filtered.length === 0 ? (
                         <tr><td colSpan={9} style={{padding:32,textAlign:"center",color:"#8B949E"}}>No deposits found</td></tr>
                       ) : (
-                        filtered.map((d, i) => {
-                          const origIdx = deposits.indexOf(d);
-                          const days = daysUntil(d.maturityDate);
+                        depBankNames.map(bankName => {
+                          const { deps: bankDeps, indices } = groupedDeps[bankName];
+                          const color = getBankColor(bankName);
+                          const totalDeposited = bankDeps.reduce((s, d) => s + (Number(d.deposit) || 0), 0);
+                          const totalMaturityAmt = bankDeps.reduce((s, d) => s + (Number(d.maturityAmt) || Number(d.deposit) || 0), 0);
+                          const isExpanded = expandedBanks.has(`dep_${bankName}`);
+                          
                           return (
-                            <tr key={i} style={{borderBottom:"1px solid #21262D",background:d.done ? "rgba(46,160,67,0.05)" : days != null && days < 0 ? "rgba(110,118,129,0.1)" : days != null && days <= 90 ? "rgba(248,81,73,0.05)" : "transparent",opacity:d.done ? 0.6 : 1}}>
-                              <td style={{padding:"10px 12px"}}>
-                                <div style={{display:"flex",alignItems:"center",gap:6}}>
-                                  <div style={{width:8,height:8,borderRadius:"50%",background:getBankColor(d.bank)}} />
-                                  <span style={{fontWeight:600,color:"#F0F6FC"}}>{d.bank}</span>
-                                </div>
-                                <div style={{fontSize:10,color:"#484F58",fontFamily:"monospace",marginLeft:14}}>{d.depositId}</div>
-                              </td>
-                              <td style={{padding:"10px 12px",color:"#8B949E"}}>{d.type}</td>
-                              <td style={{padding:"10px 12px",color:"#C9D1D9"}}>{d.nominee}</td>
-                              <td style={{padding:"10px 12px",fontFamily:"monospace",fontWeight:600,color:"#F0F6FC"}}>{fmt(d.deposit)}</td>
-                              <td style={{padding:"10px 12px",fontFamily:"monospace"}}><span style={{color:"#3FB950",fontWeight:600}}>{d.roi ? (Number(d.roi) * 100).toFixed(2) + "%" : "—"}</span></td>
-                              <td style={{padding:"10px 12px",fontFamily:"monospace",fontWeight:600,color:"#3FB950"}}>{fmt(d.maturityAmt || d.deposit)}</td>
-                              <td style={{padding:"10px 12px",color:"#C9D1D9",whiteSpace:"nowrap"}}>{fmtDate(d.maturityDate)}</td>
-                              <td style={{padding:"10px 12px"}}><UrgencyBadge days={days} /></td>
-                              <td style={{padding:"10px 12px",whiteSpace:"nowrap"}}>
-                                <button onClick={() => toggleDone("deposit", origIdx)} style={{background:d.done ? "#238636" : "#21262D",color:d.done ? "#fff" : "#8B949E",border:"none",borderRadius:6,padding:"3px 8px",fontSize:10,cursor:"pointer",marginRight:4,fontWeight:600}}>{d.done ? "↩" : "✓"}</button>
-                                <button onClick={() => openEdit("deposit", origIdx)} style={{background:"#21262D",color:"#58A6FF",border:"none",borderRadius:6,padding:"3px 8px",fontSize:10,cursor:"pointer",marginRight:4}}>✏️</button>
-                                <button onClick={() => deleteRow("deposit", origIdx)} style={{background:"#21262D",color:"#F85149",border:"none",borderRadius:6,padding:"3px 8px",fontSize:10,cursor:"pointer"}}>🗑</button>
-                              </td>
-                            </tr>
+                            <React.Fragment key={bankName}>
+                              {/* Bank Header Row - Clickable */}
+                              <tr 
+                                onClick={() => toggleDepBank(bankName)}
+                                style={{background:`${color}15`,cursor:"pointer",borderBottom:"1px solid #21262D"}}
+                              >
+                                <td colSpan={3} style={{padding:"10px 12px"}}>
+                                  <div style={{display:"flex",alignItems:"center",gap:8}}>
+                                    <span style={{fontSize:10,color:"#6B7280",transition:"transform 0.2s",transform:isExpanded?"rotate(90deg)":"rotate(0deg)"}}>▶</span>
+                                    <div style={{width:10,height:10,borderRadius:"50%",background:color}} />
+                                    <span style={{fontWeight:700,color:"#F0F6FC",fontSize:13}}>{bankName}</span>
+                                    <span style={{color:"#6B7280",fontSize:11}}>({bankDeps.length} FD{bankDeps.length > 1 ? "s" : ""})</span>
+                                  </div>
+                                </td>
+                                <td style={{padding:"10px 12px",fontFamily:"monospace",fontWeight:700,color:"#F0F6FC"}}>{fmt(totalDeposited)}</td>
+                                <td style={{padding:"10px 12px"}}></td>
+                                <td style={{padding:"10px 12px",fontFamily:"monospace",fontWeight:700,color:"#3FB950"}}>{fmt(totalMaturityAmt)}</td>
+                                <td colSpan={3} style={{padding:"10px 12px"}}></td>
+                              </tr>
+                              
+                              {/* Deposit Rows - Show when expanded */}
+                              {isExpanded && bankDeps.map((d, j) => {
+                                const origIdx = indices[j];
+                                const days = daysUntil(d.maturityDate);
+                                return (
+                                  <tr key={`${bankName}-${j}`} style={{borderBottom:"1px solid #21262D",background:d.done ? "rgba(46,160,67,0.05)" : days != null && days < 0 ? "rgba(110,118,129,0.1)" : days != null && days <= 90 ? "rgba(248,81,73,0.05)" : "transparent",opacity:d.done ? 0.6 : 1}}>
+                                    <td style={{padding:"10px 12px",paddingLeft:36}}>
+                                      <div style={{fontSize:10,color:"#484F58",fontFamily:"monospace"}}>{d.depositId || "—"}</div>
+                                    </td>
+                                    <td style={{padding:"10px 12px",color:"#8B949E"}}>{d.type}</td>
+                                    <td style={{padding:"10px 12px",color:"#C9D1D9"}}>{d.nominee}</td>
+                                    <td style={{padding:"10px 12px",fontFamily:"monospace",fontWeight:600,color:"#F0F6FC"}}>{fmt(d.deposit)}</td>
+                                    <td style={{padding:"10px 12px",fontFamily:"monospace"}}><span style={{color:"#3FB950",fontWeight:600}}>{d.roi ? (Number(d.roi) * 100).toFixed(2) + "%" : "—"}</span></td>
+                                    <td style={{padding:"10px 12px",fontFamily:"monospace",fontWeight:600,color:"#3FB950"}}>{fmt(d.maturityAmt || d.deposit)}</td>
+                                    <td style={{padding:"10px 12px",color:"#C9D1D9",whiteSpace:"nowrap"}}>{fmtDate(d.maturityDate)}</td>
+                                    <td style={{padding:"10px 12px"}}><UrgencyBadge days={days} /></td>
+                                    <td style={{padding:"10px 12px",whiteSpace:"nowrap"}}>
+                                      <button onClick={() => toggleDone("deposit", origIdx)} style={{background:d.done ? "#238636" : "#21262D",color:d.done ? "#fff" : "#8B949E",border:"none",borderRadius:6,padding:"3px 8px",fontSize:10,cursor:"pointer",marginRight:4,fontWeight:600}}>{d.done ? "↩" : "✓"}</button>
+                                      <button onClick={() => openEdit("deposit", origIdx)} style={{background:"#21262D",color:"#58A6FF",border:"none",borderRadius:6,padding:"3px 8px",fontSize:10,cursor:"pointer",marginRight:4}}>✏️</button>
+                                      <button onClick={() => deleteRow("deposit", origIdx)} style={{background:"#21262D",color:"#F85149",border:"none",borderRadius:6,padding:"3px 8px",fontSize:10,cursor:"pointer"}}>🗑</button>
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </React.Fragment>
                           );
                         })
                       )}
@@ -1578,15 +1617,15 @@ export default function BankDashboard({ supabase, userId, encryptionKey }: BankD
                   </table>
                 </div>
               </div>
-            )}
 
-            {/* Summary Footer */}
-            <div style={{display:"flex",justifyContent:isMobile?"center":"flex-end",gap:8,marginTop:12,flexWrap:"wrap"}}>
-              <div style={{background:"#161B22",borderRadius:8,padding:"8px 14px",border:"1px solid #30363D",fontSize:11}}>Invested: <strong style={{fontFamily:"monospace",color:"#F0F6FC"}}>{fmt(filtered.reduce((s, d) => s + (Number(d.deposit) || 0), 0))}</strong></div>
-              <div style={{background:"#161B22",borderRadius:8,padding:"8px 14px",border:"1px solid #30363D",fontSize:11}}>Maturity: <strong style={{fontFamily:"monospace",color:"#3FB950"}}>{fmt(filtered.reduce((s, d) => s + (Number(d.maturityAmt) || Number(d.deposit) || 0), 0))}</strong></div>
+              {/* Summary Footer */}
+              <div style={{display:"flex",justifyContent:isMobile?"center":"flex-end",gap:8,marginTop:12,flexWrap:"wrap"}}>
+                <div style={{background:"#161B22",borderRadius:8,padding:"8px 14px",border:"1px solid #30363D",fontSize:11}}>Invested: <strong style={{fontFamily:"monospace",color:"#F0F6FC"}}>{fmt(filtered.reduce((s, d) => s + (Number(d.deposit) || 0), 0))}</strong></div>
+                <div style={{background:"#161B22",borderRadius:8,padding:"8px 14px",border:"1px solid #30363D",fontSize:11}}>Maturity: <strong style={{fontFamily:"monospace",color:"#3FB950"}}>{fmt(filtered.reduce((s, d) => s + (Number(d.maturityAmt) || Number(d.deposit) || 0), 0))}</strong></div>
+              </div>
             </div>
-          </div>
-        )}
+          );
+        })()}
 
         {/* ══ ACCOUNTS TAB - Grouped by Bank (Collapsible) ═══════════════ */}
         {tab === "accounts" && (() => {
