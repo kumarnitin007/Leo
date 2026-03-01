@@ -140,6 +140,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey }: BankD
   const [showSetupBanner, setShowSetupBanner] = useState(false);
   const [show30Days, setShow30Days] = useState(false);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  const [expandedBanks, setExpandedBanks] = useState<Set<string>>(new Set());
   const fileRef = useRef<HTMLInputElement>(null);
 
   // ── Responsive detection ───────────────────────────────────────────────────
@@ -346,7 +347,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey }: BankD
     
     const summary: FinancialAlertsSummary = {
       updatedAt: new Date().toISOString(),
-      netWorth: totalInvested + accountBalance,
+      netWorth: accountBalance, // Accounts already includes FDs, don't double count
       totalInvested,
       totalMaturity,
       gainPercent: totalInvested > 0 ? ((totalMaturity - totalInvested) / totalInvested) * 100 : 0,
@@ -1057,23 +1058,24 @@ export default function BankDashboard({ supabase, userId, encryptionKey }: BankD
 
         {/* ══ NET WORTH TAB ═══════════════════════════════════════════════ */}
         {tab === "networth" && (() => {
+          // Accounts already includes FDs - don't double count with deposits
           const totalAccountBalance = accounts.reduce((s, a) => s + (Number(a.amount) || 0), 0);
-          const totalDeposits = deposits.reduce((s, d) => s + (Number(d.deposit) || 0), 0);
-          const netWorth = totalAccountBalance + totalDeposits;
-          const projectedNetWorth = totalAccountBalance + deposits.reduce((s, d) => s + (Number(d.maturityAmt) || Number(d.deposit) || 0), 0);
+          const netWorth = totalAccountBalance; // Current net worth from accounts only
           
-          // Group by category
-          const byCategory: Record<string, number> = {};
-          deposits.forEach(d => {
-            const cat = d.category || 'General Savings';
-            byCategory[cat] = (byCategory[cat] || 0) + (Number(d.deposit) || 0);
+          // Projected: non-FD accounts stay same, FDs grow to maturity
+          const nonFdAccountsTotal = accounts.filter(a => a.type !== "FD").reduce((s, a) => s + (Number(a.amount) || 0), 0);
+          const fdMaturityTotal = deposits.reduce((s, d) => s + (Number(d.maturityAmt) || Number(d.deposit) || 0), 0);
+          const projectedNetWorth = nonFdAccountsTotal + fdMaturityTotal;
+          
+          // Group by account type for breakdown
+          const byType: Record<string, number> = {};
+          accounts.forEach(a => {
+            const t = a.type || 'Other';
+            byType[t] = (byType[t] || 0) + (Number(a.amount) || 0);
           });
           
-          // Group by bank for concentration
+          // Group by bank for concentration (accounts only - includes FDs)
           const byBank: Record<string, number> = {};
-          deposits.forEach(d => {
-            byBank[d.bank] = (byBank[d.bank] || 0) + (Number(d.deposit) || 0);
-          });
           accounts.forEach(a => {
             byBank[a.bank] = (byBank[a.bank] || 0) + (Number(a.amount) || 0);
           });
@@ -1085,7 +1087,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey }: BankD
                 <div style={{background:"linear-gradient(135deg,#1E3A5F 0%,#0F3460 100%)",borderRadius:16,padding:20,border:"1px solid #3B82F6"}}>
                   <div style={{fontSize:11,color:"#93C5FD",fontWeight:600,textTransform:"uppercase"}}>Current Net Worth</div>
                   <div style={{fontSize:28,fontWeight:800,color:"#F0F6FC",fontFamily:"monospace",marginTop:8}}>{fmt(netWorth)}</div>
-                  <div style={{fontSize:11,color:"#6B7280",marginTop:4}}>{deposits.length} deposits + {accounts.length} accounts</div>
+                  <div style={{fontSize:11,color:"#6B7280",marginTop:4}}>{accounts.length} accounts (includes FDs)</div>
                 </div>
                 <div style={{background:"#161B22",borderRadius:16,padding:20,border:"1px solid #238636"}}>
                   <div style={{fontSize:11,color:"#3FB950",fontWeight:600,textTransform:"uppercase"}}>Projected Net Worth</div>
@@ -1101,22 +1103,25 @@ export default function BankDashboard({ supabase, userId, encryptionKey }: BankD
               
               {/* Category Breakdown */}
               <div style={{background:"#161B22",borderRadius:12,padding:16,border:"1px solid #30363D"}}>
-                <div style={{fontSize:13,fontWeight:700,color:"#F0F6FC",marginBottom:12}}>📊 By Category</div>
+                <div style={{fontSize:13,fontWeight:700,color:"#F0F6FC",marginBottom:12}}>📊 By Account Type</div>
                 <div style={{display:"flex",flexDirection:"column",gap:8}}>
-                  {Object.entries(byCategory).sort((a,b) => b[1] - a[1]).map(([cat, amt]) => (
-                    <div key={cat} style={{display:"flex",alignItems:"center",gap:12}}>
-                      <div style={{flex:1}}>
-                        <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
-                          <span style={{fontSize:12,color:"#C9D1D9"}}>{cat}</span>
-                          <span style={{fontSize:12,color:"#F0F6FC",fontWeight:600,fontFamily:"monospace"}}>{fmt(amt)}</span>
+                  {Object.entries(byType).sort((a,b) => b[1] - a[1]).map(([type, amt]) => {
+                    const typeColor = type === "FD" ? "#3B82F6" : type === "Saving" ? "#10B981" : type === "Credit Card" ? "#EF4444" : "#8B5CF6";
+                    return (
+                      <div key={type} style={{display:"flex",alignItems:"center",gap:12}}>
+                        <div style={{flex:1}}>
+                          <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
+                            <span style={{fontSize:12,color:"#C9D1D9"}}>{type}</span>
+                            <span style={{fontSize:12,color:"#F0F6FC",fontWeight:600,fontFamily:"monospace"}}>{fmt(amt)}</span>
+                          </div>
+                          <div style={{background:"#21262D",borderRadius:4,height:6,overflow:"hidden"}}>
+                            <div style={{width:`${netWorth ? (amt/netWorth)*100 : 0}%`,height:"100%",background:typeColor,borderRadius:4}}/>
+                          </div>
                         </div>
-                        <div style={{background:"#21262D",borderRadius:4,height:6,overflow:"hidden"}}>
-                          <div style={{width:`${(amt/totalDeposits)*100}%`,height:"100%",background:getBankColor(cat),borderRadius:4}}/>
-                        </div>
+                        <span style={{fontSize:11,color:"#8B949E",minWidth:40,textAlign:"right"}}>{netWorth ? ((amt/netWorth)*100).toFixed(0) : 0}%</span>
                       </div>
-                      <span style={{fontSize:11,color:"#8B949E",minWidth:40,textAlign:"right"}}>{((amt/totalDeposits)*100).toFixed(0)}%</span>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
               
@@ -1583,7 +1588,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey }: BankD
           </div>
         )}
 
-        {/* ══ ACCOUNTS TAB - Grouped by Bank ═══════════════════════════ */}
+        {/* ══ ACCOUNTS TAB - Grouped by Bank (Collapsible) ═══════════════ */}
         {tab === "accounts" && (() => {
           // Group accounts by bank name
           const grouped: Record<string, { accounts: typeof accounts; indices: number[] }> = {};
@@ -1594,69 +1599,89 @@ export default function BankDashboard({ supabase, userId, encryptionKey }: BankD
           });
           const bankNames = Object.keys(grouped).sort();
           
+          const toggleBank = (bankName: string) => {
+            setExpandedBanks(prev => {
+              const next = new Set(prev);
+              if (next.has(bankName)) next.delete(bankName);
+              else next.add(bankName);
+              return next;
+            });
+          };
+          
           return (
             <div>
-              <div style={{display:"flex",justifyContent:"flex-end",marginBottom:14}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+                <button 
+                  onClick={() => setExpandedBanks(expandedBanks.size === bankNames.length ? new Set() : new Set(bankNames))}
+                  style={{background:"#21262D",color:"#8B949E",border:"1px solid #30363D",borderRadius:6,padding:"5px 12px",fontSize:11,fontWeight:600,cursor:"pointer"}}
+                >
+                  {expandedBanks.size === bankNames.length ? "Collapse All" : "Expand All"}
+                </button>
                 <button onClick={() => openAdd("account")} style={{background:"linear-gradient(135deg,#065F46,#059669)",color:"#fff",border:"none",borderRadius:9,padding:"7px 16px",fontSize:12,fontWeight:700,cursor:"pointer"}}>+ Add Account</button>
               </div>
               {accounts.length === 0 ? (
                 <EmptyState icon="🏦" title="No Bank Accounts" description="Add your bank accounts to track balances and pending actions" action="+ Add Account" onAction={() => openAdd("account")} />
               ) : (
-                <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(320px,1fr))",gap:16}}>
+                <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(320px,1fr))",gap:12,alignItems:"start"}}>
                   {bankNames.map(bankName => {
                     const { accounts: bankAccounts, indices } = grouped[bankName];
                     const color = getBankColor(bankName);
                     const totalBalance = bankAccounts.reduce((s, a) => s + (Number(a.amount) || 0), 0);
                     const hasActions = bankAccounts.some(a => a.nextAction && !a.done);
+                    const isExpanded = expandedBanks.has(bankName);
                     
                     return (
-                      <div key={bankName} style={{background:"#1C1C2E",borderRadius:14,border:`1px solid ${color}30`,borderTop:`3px solid ${color}`,overflow:"hidden"}}>
-                        {/* Bank Header */}
-                        <div style={{padding:"14px 16px",background:`${color}15`,borderBottom:`1px solid ${color}20`}}>
-                          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                      <div key={bankName} style={{background:"#1C1C2E",borderRadius:12,border:`1px solid ${color}30`,borderLeft:`3px solid ${color}`,overflow:"hidden"}}>
+                        {/* Bank Header - Clickable */}
+                        <div 
+                          onClick={() => toggleBank(bankName)}
+                          style={{padding:"12px 14px",background:`${color}10`,cursor:"pointer",display:"flex",justifyContent:"space-between",alignItems:"center"}}
+                        >
+                          <div style={{display:"flex",alignItems:"center",gap:10}}>
+                            <span style={{fontSize:10,color:"#6B7280",transition:"transform 0.2s",transform:isExpanded?"rotate(90deg)":"rotate(0deg)"}}>▶</span>
                             <div>
-                              <div style={{fontSize:16,fontWeight:800,color:"#F3F4F6"}}>{bankName}</div>
-                              <div style={{fontSize:11,color:"#9CA3AF",marginTop:2}}>{bankAccounts.length} account{bankAccounts.length > 1 ? "s" : ""}</div>
-                            </div>
-                            <div style={{textAlign:"right"}}>
-                              <div style={{fontSize:10,color:"#6B7280",textTransform:"uppercase",fontWeight:600}}>Total Balance</div>
-                              <div style={{fontSize:16,fontWeight:800,fontFamily:"monospace",color:"#F9FAFB"}}>{fmt(totalBalance)}</div>
+                              <div style={{fontSize:14,fontWeight:700,color:"#F3F4F6"}}>{bankName}</div>
+                              <div style={{fontSize:10,color:"#9CA3AF"}}>{bankAccounts.length} account{bankAccounts.length > 1 ? "s" : ""}{hasActions ? " · ⚡ Actions" : ""}</div>
                             </div>
                           </div>
-                          {hasActions && <div style={{fontSize:10,color:"#F59E0B",marginTop:6,fontWeight:600}}>⚡ Has pending actions</div>}
+                          <div style={{textAlign:"right"}}>
+                            <div style={{fontSize:15,fontWeight:800,fontFamily:"monospace",color:"#F9FAFB"}}>{fmt(totalBalance)}</div>
+                          </div>
                         </div>
                         
-                        {/* Account Types List */}
-                        <div style={{padding:"8px 0"}}>
-                          {bankAccounts.map((acc, j) => {
-                            const originalIndex = indices[j];
-                            const typeColor = acc.type === "FD" ? "#3B82F6" : acc.type === "Saving" ? "#10B981" : acc.type === "Credit Card" ? "#EF4444" : "#8B5CF6";
-                            return (
-                              <div key={j} style={{padding:"10px 16px",borderBottom:j < bankAccounts.length - 1 ? "1px solid #21262D" : "none",opacity:acc.done ? 0.55 : 1}}>
-                                <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
-                                  <div style={{flex:1}}>
-                                    <div style={{display:"flex",alignItems:"center",gap:8}}>
-                                      <span style={{background:`${typeColor}20`,color:typeColor,padding:"2px 8px",borderRadius:4,fontSize:10,fontWeight:700}}>{acc.type}</span>
-                                      {acc.done && <span style={{fontSize:9,color:"#6B7280"}}>✓ Done</span>}
+                        {/* Account Types List - Collapsible */}
+                        {isExpanded && (
+                          <div style={{borderTop:`1px solid ${color}20`}}>
+                            {bankAccounts.map((acc, j) => {
+                              const originalIndex = indices[j];
+                              const typeColor = acc.type === "FD" ? "#3B82F6" : acc.type === "Saving" ? "#10B981" : acc.type === "Credit Card" ? "#EF4444" : "#8B5CF6";
+                              return (
+                                <div key={j} style={{padding:"10px 14px",borderBottom:j < bankAccounts.length - 1 ? "1px solid #21262D" : "none",opacity:acc.done ? 0.55 : 1}}>
+                                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+                                    <div style={{flex:1}}>
+                                      <div style={{display:"flex",alignItems:"center",gap:8}}>
+                                        <span style={{background:`${typeColor}20`,color:typeColor,padding:"2px 8px",borderRadius:4,fontSize:10,fontWeight:700}}>{acc.type}</span>
+                                        {acc.done && <span style={{fontSize:9,color:"#6B7280"}}>✓ Done</span>}
+                                      </div>
+                                      {acc.holders && <div style={{fontSize:11,color:"#9CA3AF",marginTop:4}}>👤 {acc.holders}</div>}
+                                      <div style={{display:"flex",alignItems:"baseline",gap:8,marginTop:4}}>
+                                        {acc.amount && <span style={{fontSize:14,fontWeight:700,fontFamily:"monospace",color:acc.done ? "#6B7280" : "#F9FAFB"}}>{fmt(acc.amount)}</span>}
+                                        {acc.roi && <span style={{fontSize:11,color:"#34D399"}}>{(Number(acc.roi) * 100).toFixed(2)}% pa</span>}
+                                      </div>
+                                      {acc.nextAction && !acc.done && <div style={{fontSize:11,color:"#F59E0B",marginTop:4,fontWeight:600}}>⚡ {acc.nextAction}</div>}
+                                      {acc.detail && <div style={{fontSize:10,color:"#6B7280",marginTop:2}}>{acc.detail}</div>}
                                     </div>
-                                    {acc.holders && <div style={{fontSize:11,color:"#9CA3AF",marginTop:4}}>👤 {acc.holders}</div>}
-                                    <div style={{display:"flex",alignItems:"baseline",gap:8,marginTop:4}}>
-                                      {acc.amount && <span style={{fontSize:14,fontWeight:700,fontFamily:"monospace",color:acc.done ? "#6B7280" : "#F9FAFB"}}>{fmt(acc.amount)}</span>}
-                                      {acc.roi && <span style={{fontSize:11,color:"#34D399"}}>{(Number(acc.roi) * 100).toFixed(2)}% pa</span>}
+                                    <div style={{display:"flex",gap:4,flexShrink:0}}>
+                                      <button onClick={(e) => { e.stopPropagation(); toggleDone("account", originalIndex); }} style={{background:acc.done ? "#064E3B" : "#1C1C2E",color:acc.done ? "#34D399" : "#6B7280",border:`1px solid ${acc.done ? "#065F46" : "#374151"}`,borderRadius:5,padding:"2px 6px",fontSize:10,cursor:"pointer",fontWeight:700}}>{acc.done ? "↩" : "✓"}</button>
+                                      <button onClick={(e) => { e.stopPropagation(); openEdit("account", originalIndex); }} style={{background:"#1D4ED820",color:"#60A5FA",border:"1px solid #1D4ED840",borderRadius:5,padding:"2px 5px",fontSize:10,cursor:"pointer"}}>✏️</button>
+                                      <button onClick={(e) => { e.stopPropagation(); deleteRow("account", originalIndex); }} style={{background:"#7F1D1D20",color:"#FCA5A5",border:"1px solid #7F1D1D40",borderRadius:5,padding:"2px 5px",fontSize:10,cursor:"pointer"}}>🗑</button>
                                     </div>
-                                    {acc.nextAction && !acc.done && <div style={{fontSize:11,color:"#F59E0B",marginTop:4,fontWeight:600}}>⚡ {acc.nextAction}</div>}
-                                    {acc.detail && <div style={{fontSize:10,color:"#6B7280",marginTop:2}}>{acc.detail}</div>}
-                                  </div>
-                                  <div style={{display:"flex",gap:4,flexShrink:0}}>
-                                    <button onClick={() => toggleDone("account", originalIndex)} style={{background:acc.done ? "#064E3B" : "#1C1C2E",color:acc.done ? "#34D399" : "#6B7280",border:`1px solid ${acc.done ? "#065F46" : "#374151"}`,borderRadius:5,padding:"2px 6px",fontSize:10,cursor:"pointer",fontWeight:700}}>{acc.done ? "↩" : "✓"}</button>
-                                    <button onClick={() => openEdit("account", originalIndex)} style={{background:"#1D4ED820",color:"#60A5FA",border:"1px solid #1D4ED840",borderRadius:5,padding:"2px 5px",fontSize:10,cursor:"pointer"}}>✏️</button>
-                                    <button onClick={() => deleteRow("account", originalIndex)} style={{background:"#7F1D1D20",color:"#FCA5A5",border:"1px solid #7F1D1D40",borderRadius:5,padding:"2px 5px",fontSize:10,cursor:"pointer"}}>🗑</button>
                                   </div>
                                 </div>
-                              </div>
-                            );
-                          })}
-                        </div>
+                              );
+                            })}
+                          </div>
+                        )}
                       </div>
                     );
                   })}

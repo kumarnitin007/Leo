@@ -61,10 +61,12 @@ interface FinancialAlertsWidgetProps {
 }
 
 function formatAmount(n: number): string {
-  if (n >= 10000000) return '₹' + (n / 10000000).toFixed(1) + 'Cr';
-  if (n >= 100000) return '₹' + (n / 100000).toFixed(1) + 'L';
-  if (n >= 1000) return '₹' + (n / 1000).toFixed(0) + 'K';
-  return '₹' + n.toLocaleString();
+  const abs = Math.abs(n);
+  const sign = n < 0 ? '-' : '';
+  if (abs >= 10000000) return sign + '₹' + (abs / 10000000).toFixed(2) + ' Cr';
+  if (abs >= 100000) return sign + '₹' + (abs / 100000).toFixed(2) + ' L';
+  if (abs >= 1000) return sign + '₹' + (abs / 1000).toFixed(1) + ' K';
+  return sign + '₹' + abs.toLocaleString('en-IN', { maximumFractionDigits: 2 });
 }
 
 const FinancialAlertsWidget: React.FC<FinancialAlertsWidgetProps> = ({
@@ -297,7 +299,7 @@ const FinancialAlertsWidget: React.FC<FinancialAlertsWidgetProps> = ({
               <div style={{ fontSize: 9, color: 'rgba(0,0,0,0.45)', textTransform: 'uppercase' }}>Maturity</div>
             </div>
             <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: 14, fontWeight: 700, color: '#b45309' }}>+{summary.gainPercent.toFixed(1)}%</div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: summary.gainPercent >= 0 ? '#047857' : '#dc2626' }}>{summary.gainPercent >= 0 ? '+' : ''}{summary.gainPercent.toFixed(1)}%</div>
               <div style={{ fontSize: 9, color: 'rgba(0,0,0,0.45)', textTransform: 'uppercase' }}>Gain</div>
             </div>
           </div>
