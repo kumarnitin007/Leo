@@ -1,0 +1,6 @@
+16:29:11.350 src/components/BankDashboard.tsx(199,37): error TS2554: Expected 3 arguments, but got 2.
+16:29:11.351 src/components/BankDashboard.tsx(824,121): error TS2322: Type 'string | number' is not assignable to type 'string'.
+16:29:11.351 src/components/BankDashboard.tsx(848,97): error TS2322: Type 'string | number' is not assignable to type 'string'.
+16:29:11.352 src/services/financialAlertsService.ts(55,29): error TS2554: Expected 3 arguments, but got 2.
+16:29:11.352 src/services/voice/VoiceCommandService.ts(681,11): error TS2322: Type 'import("/vercel/path0/src/types/voice-command-db.types").IntentType' is not assignable to type 'import("/vercel/path0/src/services/voice/types").IntentType'.
+16:29:11.389 Error: Command "npm run build" exited with 2
