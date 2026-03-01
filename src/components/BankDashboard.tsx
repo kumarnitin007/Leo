@@ -424,12 +424,27 @@ export default function BankDashboard({ supabase, userId, encryptionKey }: BankD
         const hIdx = rows.findIndex((r: any) => r && r.includes("Bank") && r.includes("Type") && (r.includes("Deposit") || r.includes("Deposit ID")));
         if (hIdx >= 0) {
           const h = rows[hIdx];
-          const col = (n: string) => h.findIndex((x: any) => x && x.toString().toLowerCase().includes(n.toLowerCase()));
-          const [cB, cT, cI, cN, cS, cD, cR, cM, cMD, cDu, cA] = [
+          // Exact match first, then partial match
+          const col = (n: string, exact = false) => {
+            const nLower = n.toLowerCase();
+            // Try exact match first
+            const exactIdx = h.findIndex((x: any) => x && x.toString().toLowerCase().trim() === nLower);
+            if (exactIdx >= 0) return exactIdx;
+            // Fall back to partial match (but not for "Deposit" to avoid matching "Deposit ID")
+            if (exact) return -1;
+            return h.findIndex((x: any) => x && x.toString().toLowerCase().includes(nLower));
+          };
+          const [cB, cT, cI, cN, cS, cR, cM, cMD, cDu, cA] = [
             col("Bank"), col("Type"), col("Deposit ID"), col("Nominee"), 
-            col("Start"), col("Deposit"), col("ROI"), col("Maturity Amount"), 
+            col("Start"), col("ROI"), col("Maturity Amount"), 
             col("Maturity Date"), col("Duration"), col("Maturity")
           ];
+          // For "Deposit" (amount), find column that is exactly "Deposit" or contains "Deposit" but NOT "Deposit ID"
+          const cD = h.findIndex((x: any) => {
+            if (!x) return false;
+            const s = x.toString().toLowerCase().trim();
+            return s === "deposit" || (s.includes("deposit") && !s.includes("id"));
+          });
           
           for (let i = hIdx + 1; i < rows.length; i++) {
             const r = rows[i];
