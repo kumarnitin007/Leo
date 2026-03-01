@@ -45,20 +45,28 @@ const CURRENCY_LOCALES: Record<Currency, string> = { INR: 'en-IN', USD: 'en-US',
 function fmt(n: number | string | null | undefined, currency: Currency = 'INR'): string {
   if (n == null || n === "" || isNaN(Number(n))) return "—";
   const v = Number(n);
+  const abs = Math.abs(v);
+  const sign = v < 0 ? "-" : "";
   const sym = CURRENCY_SYMBOLS[currency];
+  
   if (currency === 'INR') {
-    if (v >= 10000000) return sym + (v/10000000).toFixed(2) + " Cr";
-    if (v >= 100000)  return sym + (v/100000).toFixed(2) + " L";
+    if (abs >= 10000000) return sign + sym + (abs/10000000).toFixed(2) + " Cr";
+    if (abs >= 100000)  return sign + sym + (abs/100000).toFixed(2) + " L";
+    if (abs >= 1000) return sign + sym + (abs/1000).toFixed(2) + " K";
   } else {
-    if (v >= 1000000) return sym + (v/1000000).toFixed(2) + "M";
-    if (v >= 1000) return sym + (v/1000).toFixed(1) + "K";
+    if (abs >= 1000000000) return sign + sym + (abs/1000000000).toFixed(2) + "B";
+    if (abs >= 1000000) return sign + sym + (abs/1000000).toFixed(2) + "M";
+    if (abs >= 1000) return sign + sym + (abs/1000).toFixed(1) + "K";
   }
-  return sym + v.toLocaleString(CURRENCY_LOCALES[currency]);
+  return sign + sym + abs.toLocaleString(CURRENCY_LOCALES[currency], { maximumFractionDigits: 2 });
 }
 
 function fmtFull(n: number | string | null | undefined, currency: Currency = 'INR'): string {
   if (n == null || n === "" || isNaN(Number(n))) return "—";
-  return CURRENCY_SYMBOLS[currency] + Number(n).toLocaleString(CURRENCY_LOCALES[currency]);
+  const v = Number(n);
+  const sign = v < 0 ? "-" : "";
+  const abs = Math.abs(v);
+  return sign + CURRENCY_SYMBOLS[currency] + abs.toLocaleString(CURRENCY_LOCALES[currency], { maximumFractionDigits: 2 });
 }
 
 function fmtDate(str: string | null | undefined): string {
@@ -883,107 +891,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey }: BankD
         </div>
       )}
 
-      {/* ═══ MOBILE STATUS SUMMARY ═══════════════════════════════════════════ */}
-      <div style={{padding:"16px",background:"linear-gradient(135deg,#1C1C2E 0%,#16213E 100%)",borderBottom:"1px solid #1F2937"}}>
-        {/* Quick Stats Row */}
-        <div style={{display:"grid",gridTemplateColumns:"repeat(4, 1fr)",gap:8,marginBottom:16}}>
-          <div style={{background:"#0D1117",borderRadius:10,padding:"10px 8px",textAlign:"center",border:"1px solid #1F2937"}}>
-            <div style={{fontSize:20,fontWeight:800,color:"#3B82F6"}}>{deposits.length}</div>
-            <div style={{fontSize:9,color:"#6B7280",textTransform:"uppercase",fontWeight:600}}>Deposits</div>
-          </div>
-          <div style={{background:"#0D1117",borderRadius:10,padding:"10px 8px",textAlign:"center",border:"1px solid #1F2937"}}>
-            <div style={{fontSize:20,fontWeight:800,color:"#10B981"}}>{accounts.length}</div>
-            <div style={{fontSize:9,color:"#6B7280",textTransform:"uppercase",fontWeight:600}}>Accounts</div>
-          </div>
-          <div style={{background:"#0D1117",borderRadius:10,padding:"10px 8px",textAlign:"center",border:"1px solid #1F2937"}}>
-            <div style={{fontSize:20,fontWeight:800,color:"#F59E0B"}}>{bills.filter(b=>!b.done).length}</div>
-            <div style={{fontSize:9,color:"#6B7280",textTransform:"uppercase",fontWeight:600}}>Bills Due</div>
-          </div>
-          <div style={{background:"#0D1117",borderRadius:10,padding:"10px 8px",textAlign:"center",border:"1px solid #1F2937"}}>
-            <div style={{fontSize:20,fontWeight:800,color:upcoming30Days.length>0?"#EF4444":"#4B5563"}}>{upcoming30Days.length}</div>
-            <div style={{fontSize:9,color:"#6B7280",textTransform:"uppercase",fontWeight:600}}>Actions</div>
-          </div>
-        </div>
-
-        {/* Investment Summary */}
-        <div style={{background:"#0D1117",borderRadius:12,padding:"12px 14px",marginBottom:12,border:"1px solid #1F2937"}}>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-            <div>
-              <div style={{fontSize:10,color:"#6B7280",fontWeight:600,textTransform:"uppercase"}}>Total Invested</div>
-              <div style={{fontSize:18,fontWeight:800,color:"#F9FAFB",fontFamily:"monospace"}}>{fmt(totalInvested)}</div>
-            </div>
-            <div style={{textAlign:"right"}}>
-              <div style={{fontSize:10,color:"#6B7280",fontWeight:600,textTransform:"uppercase"}}>At Maturity</div>
-              <div style={{fontSize:18,fontWeight:800,color:"#10B981",fontFamily:"monospace"}}>{fmt(totalMaturity)}</div>
-            </div>
-          </div>
-          {totalInvested > 0 && (
-            <div style={{marginTop:8,background:"#1F2937",borderRadius:6,height:6,overflow:"hidden"}}>
-              <div style={{width:`${Math.min(100, (totalInvested/totalMaturity)*100)}%`,height:"100%",background:"linear-gradient(90deg,#3B82F6,#10B981)",borderRadius:6}}/>
-            </div>
-          )}
-        </div>
-
-        {/* Upcoming Actions (30 days) - Collapsible */}
-        {upcoming30Days.length > 0 && (
-          <div style={{background:"#0D1117",borderRadius:12,border:"1px solid #1F2937",overflow:"hidden"}}>
-            <button 
-              onClick={()=>setShow30Days(!show30Days)} 
-              style={{width:"100%",padding:"10px 14px",background:"transparent",border:"none",cursor:"pointer",display:"flex",justifyContent:"space-between",alignItems:"center"}}
-            >
-              <div style={{display:"flex",alignItems:"center",gap:8}}>
-                <span style={{fontSize:10,color:"#6B7280",transition:"transform 0.2s",transform:show30Days?"rotate(90deg)":"rotate(0deg)"}}>▶</span>
-                <span style={{fontSize:11,fontWeight:700,color:"#F59E0B",textTransform:"uppercase"}}>⚡ Next 30 Days</span>
-              </div>
-              <div style={{fontSize:10,color:"#6B7280",background:"#21262D",padding:"2px 8px",borderRadius:10}}>{upcoming30Days.length}</div>
-            </button>
-            {show30Days && (
-              <div style={{maxHeight:220,overflowY:"auto",borderTop:"1px solid #1F2937"}}>
-                {upcoming30Days.slice(0, 5).map((item, i) => (
-                  <div key={i} style={{padding:"10px 14px",borderBottom:i<Math.min(4,upcoming30Days.length-1)?"1px solid #1F2937":"none",display:"flex",alignItems:"center",gap:10}}>
-                    <div style={{
-                      width:32,height:32,borderRadius:8,display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,
-                      background: item.type==="maturity"?"rgba(239,68,68,0.15)":item.type==="bill"?"rgba(245,158,11,0.15)":"rgba(59,130,246,0.15)",
-                      color: item.type==="maturity"?"#EF4444":item.type==="bill"?"#F59E0B":"#3B82F6"
-                    }}>
-                      {item.type==="maturity"?"💰":item.type==="bill"?"📋":item.type==="account"?"🏦":"⚡"}
-                    </div>
-                    <div style={{flex:1,minWidth:0}}>
-                      <div style={{fontSize:12,fontWeight:600,color:"#F9FAFB",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{item.title}</div>
-                      <div style={{fontSize:10,color:"#6B7280"}}>{item.bank}{item.bank && item.amount ? " · " : ""}{item.amount ? fmt(Number(item.amount)) : ""}</div>
-                    </div>
-                    <div style={{textAlign:"right"}}>
-                      {item.days >= 0 ? (
-                        <>
-                          <div style={{fontSize:14,fontWeight:800,color:item.days<=7?"#EF4444":item.days<=14?"#F59E0B":"#10B981"}}>{item.days}</div>
-                          <div style={{fontSize:9,color:"#6B7280"}}>days</div>
-                        </>
-                      ) : (
-                        <div style={{fontSize:10,color:"#6B7280"}}>{item.date || "No date"}</div>
-                      )}
-                    </div>
-                  </div>
-                ))}
-                {upcoming30Days.length > 5 && (
-                  <div style={{padding:"8px 14px",textAlign:"center",fontSize:11,color:"#6B7280",background:"#161B22"}}>
-                    +{upcoming30Days.length - 5} more actions
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        )}
-        
-        {upcoming30Days.length === 0 && (
-          <div style={{background:"#0D1117",borderRadius:12,padding:"16px",textAlign:"center",border:"1px solid #1F2937"}}>
-            <div style={{fontSize:24,marginBottom:6}}>✅</div>
-            <div style={{fontSize:12,color:"#10B981",fontWeight:600}}>All Clear!</div>
-            <div style={{fontSize:11,color:"#6B7280"}}>No actions needed in the next 30 days</div>
-          </div>
-        )}
-      </div>
-      
-      {/* Header */}
+      {/* Header - Bank Records title and buttons */}
       <div style={{background:"#161B22",borderBottom:"1px solid #21262D",padding:"12px 16px"}}>
         {/* Title Row */}
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
@@ -1025,10 +933,108 @@ export default function BankDashboard({ supabase, userId, encryptionKey }: BankD
         </div>
       </div>
 
-      <div style={{padding:"22px 28px"}}>
-        {/* Tab Content - Simplified for space, add full implementation */}
+      <div style={{padding:isMobile?"16px":"22px 28px"}}>
+        {/* Tab Content */}
         {tab==="overview" && (
-          <div>
+          <div style={{display:"flex",flexDirection:"column",gap:16}}>
+            {/* Quick Stats Row */}
+            <div style={{display:"grid",gridTemplateColumns:"repeat(4, 1fr)",gap:8}}>
+              <div style={{background:"#0D1117",borderRadius:10,padding:"10px 8px",textAlign:"center",border:"1px solid #1F2937"}}>
+                <div style={{fontSize:20,fontWeight:800,color:"#3B82F6"}}>{deposits.length}</div>
+                <div style={{fontSize:9,color:"#6B7280",textTransform:"uppercase",fontWeight:600}}>Deposits</div>
+              </div>
+              <div style={{background:"#0D1117",borderRadius:10,padding:"10px 8px",textAlign:"center",border:"1px solid #1F2937"}}>
+                <div style={{fontSize:20,fontWeight:800,color:"#10B981"}}>{accounts.length}</div>
+                <div style={{fontSize:9,color:"#6B7280",textTransform:"uppercase",fontWeight:600}}>Accounts</div>
+              </div>
+              <div style={{background:"#0D1117",borderRadius:10,padding:"10px 8px",textAlign:"center",border:"1px solid #1F2937"}}>
+                <div style={{fontSize:20,fontWeight:800,color:"#F59E0B"}}>{bills.filter(b=>!b.done).length}</div>
+                <div style={{fontSize:9,color:"#6B7280",textTransform:"uppercase",fontWeight:600}}>Bills Due</div>
+              </div>
+              <div style={{background:"#0D1117",borderRadius:10,padding:"10px 8px",textAlign:"center",border:"1px solid #1F2937"}}>
+                <div style={{fontSize:20,fontWeight:800,color:upcoming30Days.length>0?"#EF4444":"#4B5563"}}>{upcoming30Days.length}</div>
+                <div style={{fontSize:9,color:"#6B7280",textTransform:"uppercase",fontWeight:600}}>Actions</div>
+              </div>
+            </div>
+
+            {/* Investment Summary with Progress Bar */}
+            <div style={{background:"#0D1117",borderRadius:12,padding:"12px 14px",border:"1px solid #1F2937"}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                <div>
+                  <div style={{fontSize:10,color:"#6B7280",fontWeight:600,textTransform:"uppercase"}}>Total Invested</div>
+                  <div style={{fontSize:18,fontWeight:800,color:"#F9FAFB",fontFamily:"monospace"}}>{fmt(totalInvested)}</div>
+                </div>
+                <div style={{textAlign:"right"}}>
+                  <div style={{fontSize:10,color:"#6B7280",fontWeight:600,textTransform:"uppercase"}}>At Maturity</div>
+                  <div style={{fontSize:18,fontWeight:800,color:"#10B981",fontFamily:"monospace"}}>{fmt(totalMaturity)}</div>
+                </div>
+              </div>
+              {totalInvested > 0 && (
+                <div style={{marginTop:8,background:"#1F2937",borderRadius:6,height:6,overflow:"hidden"}}>
+                  <div style={{width:`${Math.min(100, (totalInvested/totalMaturity)*100)}%`,height:"100%",background:"linear-gradient(90deg,#3B82F6,#10B981)",borderRadius:6}}/>
+                </div>
+              )}
+            </div>
+
+            {/* Next 30 Days - Collapsible */}
+            {upcoming30Days.length > 0 && (
+              <div style={{background:"#0D1117",borderRadius:12,border:"1px solid #1F2937",overflow:"hidden"}}>
+                <button 
+                  onClick={()=>setShow30Days(!show30Days)} 
+                  style={{width:"100%",padding:"10px 14px",background:"transparent",border:"none",cursor:"pointer",display:"flex",justifyContent:"space-between",alignItems:"center"}}
+                >
+                  <div style={{display:"flex",alignItems:"center",gap:8}}>
+                    <span style={{fontSize:10,color:"#6B7280",transition:"transform 0.2s",transform:show30Days?"rotate(90deg)":"rotate(0deg)"}}>▶</span>
+                    <span style={{fontSize:11,fontWeight:700,color:"#F59E0B",textTransform:"uppercase"}}>⚡ Next 30 Days</span>
+                  </div>
+                  <div style={{fontSize:10,color:"#6B7280",background:"#21262D",padding:"2px 8px",borderRadius:10}}>{upcoming30Days.length}</div>
+                </button>
+                {show30Days && (
+                  <div style={{maxHeight:220,overflowY:"auto",borderTop:"1px solid #1F2937"}}>
+                    {upcoming30Days.slice(0, 5).map((item, i) => (
+                      <div key={i} style={{padding:"10px 14px",borderBottom:i<Math.min(4,upcoming30Days.length-1)?"1px solid #1F2937":"none",display:"flex",alignItems:"center",gap:10}}>
+                        <div style={{
+                          width:32,height:32,borderRadius:8,display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,
+                          background: item.type==="maturity"?"rgba(239,68,68,0.15)":item.type==="bill"?"rgba(245,158,11,0.15)":"rgba(59,130,246,0.15)",
+                          color: item.type==="maturity"?"#EF4444":item.type==="bill"?"#F59E0B":"#3B82F6"
+                        }}>
+                          {item.type==="maturity"?"💰":item.type==="bill"?"📋":item.type==="account"?"🏦":"⚡"}
+                        </div>
+                        <div style={{flex:1,minWidth:0}}>
+                          <div style={{fontSize:12,fontWeight:600,color:"#F9FAFB",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{item.title}</div>
+                          <div style={{fontSize:10,color:"#6B7280"}}>{item.bank}{item.bank && item.amount ? " · " : ""}{item.amount ? fmt(Number(item.amount)) : ""}</div>
+                        </div>
+                        <div style={{textAlign:"right"}}>
+                          {item.days >= 0 ? (
+                            <>
+                              <div style={{fontSize:14,fontWeight:800,color:item.days<=7?"#EF4444":item.days<=14?"#F59E0B":"#10B981"}}>{item.days}</div>
+                              <div style={{fontSize:9,color:"#6B7280"}}>days</div>
+                            </>
+                          ) : (
+                            <div style={{fontSize:10,color:"#6B7280"}}>{item.date || "No date"}</div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                    {upcoming30Days.length > 5 && (
+                      <div style={{padding:"8px 14px",textAlign:"center",fontSize:11,color:"#6B7280",background:"#161B22"}}>
+                        +{upcoming30Days.length - 5} more actions
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+            
+            {upcoming30Days.length === 0 && (
+              <div style={{background:"#0D1117",borderRadius:12,padding:"16px",textAlign:"center",border:"1px solid #1F2937"}}>
+                <div style={{fontSize:24,marginBottom:6}}>✅</div>
+                <div style={{fontSize:12,color:"#10B981",fontWeight:600}}>All Clear!</div>
+                <div style={{fontSize:11,color:"#6B7280"}}>No actions needed in the next 30 days</div>
+              </div>
+            )}
+
+            {/* Overview Cards */}
             <div style={{display:"flex",gap:12,flexWrap:"wrap"}}>
               <div style={{background:"#1C1C2E",borderRadius:14,padding:"16px 20px",borderLeft:"3px solid #3B82F6",flex:1,minWidth:140}}>
                 <div style={{color:"#6B7280",fontSize:10,fontWeight:700,textTransform:"uppercase"}}>Total Invested</div>
@@ -1577,40 +1583,88 @@ export default function BankDashboard({ supabase, userId, encryptionKey }: BankD
           </div>
         )}
 
-        {/* ══ ACCOUNTS TAB ═══════════════════════════════════════════ */}
-        {tab === "accounts" && (
-          <div>
-            <div style={{display:"flex",justifyContent:"flex-end",marginBottom:14}}>
-              <button onClick={() => openAdd("account")} style={{background:"linear-gradient(135deg,#065F46,#059669)",color:"#fff",border:"none",borderRadius:9,padding:"7px 16px",fontSize:12,fontWeight:700,cursor:"pointer"}}>+ Add Account</button>
-            </div>
-            {accounts.length === 0 ? (
-              <EmptyState icon="🏦" title="No Bank Accounts" description="Add your bank accounts to track balances and pending actions" action="+ Add Account" onAction={() => openAdd("account")} />
-            ) : (
-              <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(280px,1fr))",gap:12}}>
-                {accounts.map((acc, i) => {
-                  const color = getBankColor(acc.bank);
-                  return (
-                    <div key={i} style={{background:"#1C1C2E",borderRadius:14,padding:18,border:`1px solid ${color}30`,borderTop:`3px solid ${color}`,opacity:acc.done ? 0.55 : 1}}>
-                      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:10}}>
-                        <div><div style={{fontSize:14,fontWeight:800,color:acc.done ? "#6B7280" : "#F3F4F6",textDecoration:acc.done ? "line-through" : "none"}}>{acc.bank}</div><div style={{fontSize:11,color,fontWeight:600}}>{acc.type}</div></div>
-                        <div style={{display:"flex",gap:5}}>
-                          <button onClick={() => toggleDone("account", i)} style={{background:acc.done ? "#064E3B" : "#1C1C2E",color:acc.done ? "#34D399" : "#6B7280",border:`1px solid ${acc.done ? "#065F46" : "#374151"}`,borderRadius:6,padding:"2px 8px",fontSize:10,cursor:"pointer",fontWeight:700}}>{acc.done ? "↩" : "✓"}</button>
-                          <button onClick={() => openEdit("account", i)} style={{background:"#1D4ED820",color:"#60A5FA",border:"1px solid #1D4ED840",borderRadius:6,padding:"2px 6px",fontSize:11,cursor:"pointer"}}>✏️</button>
-                          <button onClick={() => deleteRow("account", i)} style={{background:"#7F1D1D20",color:"#FCA5A5",border:"1px solid #7F1D1D40",borderRadius:6,padding:"2px 6px",fontSize:11,cursor:"pointer"}}>🗑</button>
+        {/* ══ ACCOUNTS TAB - Grouped by Bank ═══════════════════════════ */}
+        {tab === "accounts" && (() => {
+          // Group accounts by bank name
+          const grouped: Record<string, { accounts: typeof accounts; indices: number[] }> = {};
+          accounts.forEach((acc, i) => {
+            if (!grouped[acc.bank]) grouped[acc.bank] = { accounts: [], indices: [] };
+            grouped[acc.bank].accounts.push(acc);
+            grouped[acc.bank].indices.push(i);
+          });
+          const bankNames = Object.keys(grouped).sort();
+          
+          return (
+            <div>
+              <div style={{display:"flex",justifyContent:"flex-end",marginBottom:14}}>
+                <button onClick={() => openAdd("account")} style={{background:"linear-gradient(135deg,#065F46,#059669)",color:"#fff",border:"none",borderRadius:9,padding:"7px 16px",fontSize:12,fontWeight:700,cursor:"pointer"}}>+ Add Account</button>
+              </div>
+              {accounts.length === 0 ? (
+                <EmptyState icon="🏦" title="No Bank Accounts" description="Add your bank accounts to track balances and pending actions" action="+ Add Account" onAction={() => openAdd("account")} />
+              ) : (
+                <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(320px,1fr))",gap:16}}>
+                  {bankNames.map(bankName => {
+                    const { accounts: bankAccounts, indices } = grouped[bankName];
+                    const color = getBankColor(bankName);
+                    const totalBalance = bankAccounts.reduce((s, a) => s + (Number(a.amount) || 0), 0);
+                    const hasActions = bankAccounts.some(a => a.nextAction && !a.done);
+                    
+                    return (
+                      <div key={bankName} style={{background:"#1C1C2E",borderRadius:14,border:`1px solid ${color}30`,borderTop:`3px solid ${color}`,overflow:"hidden"}}>
+                        {/* Bank Header */}
+                        <div style={{padding:"14px 16px",background:`${color}15`,borderBottom:`1px solid ${color}20`}}>
+                          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                            <div>
+                              <div style={{fontSize:16,fontWeight:800,color:"#F3F4F6"}}>{bankName}</div>
+                              <div style={{fontSize:11,color:"#9CA3AF",marginTop:2}}>{bankAccounts.length} account{bankAccounts.length > 1 ? "s" : ""}</div>
+                            </div>
+                            <div style={{textAlign:"right"}}>
+                              <div style={{fontSize:10,color:"#6B7280",textTransform:"uppercase",fontWeight:600}}>Total Balance</div>
+                              <div style={{fontSize:16,fontWeight:800,fontFamily:"monospace",color:"#F9FAFB"}}>{fmt(totalBalance)}</div>
+                            </div>
+                          </div>
+                          {hasActions && <div style={{fontSize:10,color:"#F59E0B",marginTop:6,fontWeight:600}}>⚡ Has pending actions</div>}
+                        </div>
+                        
+                        {/* Account Types List */}
+                        <div style={{padding:"8px 0"}}>
+                          {bankAccounts.map((acc, j) => {
+                            const originalIndex = indices[j];
+                            const typeColor = acc.type === "FD" ? "#3B82F6" : acc.type === "Saving" ? "#10B981" : acc.type === "Credit Card" ? "#EF4444" : "#8B5CF6";
+                            return (
+                              <div key={j} style={{padding:"10px 16px",borderBottom:j < bankAccounts.length - 1 ? "1px solid #21262D" : "none",opacity:acc.done ? 0.55 : 1}}>
+                                <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+                                  <div style={{flex:1}}>
+                                    <div style={{display:"flex",alignItems:"center",gap:8}}>
+                                      <span style={{background:`${typeColor}20`,color:typeColor,padding:"2px 8px",borderRadius:4,fontSize:10,fontWeight:700}}>{acc.type}</span>
+                                      {acc.done && <span style={{fontSize:9,color:"#6B7280"}}>✓ Done</span>}
+                                    </div>
+                                    {acc.holders && <div style={{fontSize:11,color:"#9CA3AF",marginTop:4}}>👤 {acc.holders}</div>}
+                                    <div style={{display:"flex",alignItems:"baseline",gap:8,marginTop:4}}>
+                                      {acc.amount && <span style={{fontSize:14,fontWeight:700,fontFamily:"monospace",color:acc.done ? "#6B7280" : "#F9FAFB"}}>{fmt(acc.amount)}</span>}
+                                      {acc.roi && <span style={{fontSize:11,color:"#34D399"}}>{(Number(acc.roi) * 100).toFixed(2)}% pa</span>}
+                                    </div>
+                                    {acc.nextAction && !acc.done && <div style={{fontSize:11,color:"#F59E0B",marginTop:4,fontWeight:600}}>⚡ {acc.nextAction}</div>}
+                                    {acc.detail && <div style={{fontSize:10,color:"#6B7280",marginTop:2}}>{acc.detail}</div>}
+                                  </div>
+                                  <div style={{display:"flex",gap:4,flexShrink:0}}>
+                                    <button onClick={() => toggleDone("account", originalIndex)} style={{background:acc.done ? "#064E3B" : "#1C1C2E",color:acc.done ? "#34D399" : "#6B7280",border:`1px solid ${acc.done ? "#065F46" : "#374151"}`,borderRadius:5,padding:"2px 6px",fontSize:10,cursor:"pointer",fontWeight:700}}>{acc.done ? "↩" : "✓"}</button>
+                                    <button onClick={() => openEdit("account", originalIndex)} style={{background:"#1D4ED820",color:"#60A5FA",border:"1px solid #1D4ED840",borderRadius:5,padding:"2px 5px",fontSize:10,cursor:"pointer"}}>✏️</button>
+                                    <button onClick={() => deleteRow("account", originalIndex)} style={{background:"#7F1D1D20",color:"#FCA5A5",border:"1px solid #7F1D1D40",borderRadius:5,padding:"2px 5px",fontSize:10,cursor:"pointer"}}>🗑</button>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
                         </div>
                       </div>
-                      {acc.holders && <div style={{fontSize:11,color:"#9CA3AF"}}>👤 {acc.holders}</div>}
-                      {acc.amount && <div style={{fontSize:15,fontWeight:800,fontFamily:"monospace",color:"#F9FAFB",marginTop:4}}>{fmt(acc.amount)}</div>}
-                      {acc.roi && <div style={{fontSize:12,color:"#34D399",marginTop:2}}>{(Number(acc.roi) * 100).toFixed(2)}% pa</div>}
-                      {acc.nextAction && <div style={{fontSize:11,color:"#F59E0B",marginTop:6,fontWeight:600}}>⚡ {acc.nextAction}</div>}
-                      {acc.detail && <div style={{fontSize:11,color:"#6B7280",marginTop:4}}>{acc.detail}</div>}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        )}
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          );
+        })()}
 
         {/* ══ BILLS TAB ══════════════════════════════════════════════ */}
         {tab === "bills" && (
