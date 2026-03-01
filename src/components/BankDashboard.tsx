@@ -194,9 +194,10 @@ export default function BankDashboard({ supabase, userId, encryptionKey }: BankD
           setBills(PRELOAD_BANK_DATA.bills);
           setActions(PRELOAD_BANK_DATA.actions);
         } else if (data?.data) {
-          // Decrypt the data
+          // Decrypt the data - parse the stored JSON containing encrypted data and IV
           try {
-            const decrypted = await decryptData(data.data, encryptionKey);
+            const { encrypted, iv } = JSON.parse(data.data);
+            const decrypted = await decryptData(encrypted, iv, encryptionKey);
             const parsed: BankRecordsData = JSON.parse(decrypted);
             setDeposits(parsed.deposits || []);
             setAccounts(parsed.accounts || []);
@@ -356,12 +357,13 @@ export default function BankDashboard({ supabase, userId, encryptionKey }: BankD
     const payload: BankRecordsData = { deposits: deps, accounts: accs, bills: bls, actions: acts, goals: gls || goals, updatedAt: new Date().toISOString(), version: 1 };
     try {
       if (supabase && userId && encryptionKey) {
-        // Encrypt before saving
-        const encrypted = await encryptData(JSON.stringify(payload), encryptionKey);
+        // Encrypt before saving - store both encrypted data and IV as JSON
+        const { encrypted, iv } = await encryptData(JSON.stringify(payload), encryptionKey);
+        const encryptedPayload = JSON.stringify({ encrypted, iv });
         await supabase
           .from('myday_bank_records')
           .upsert(
-            { user_id: userId, data: encrypted, updated_at: new Date().toISOString() },
+            { user_id: userId, data: encryptedPayload, updated_at: new Date().toISOString() },
             { onConflict: 'user_id' }
           );
       }
@@ -821,7 +823,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey }: BankD
     if (d.done) return;
     const days = daysUntil(d.maturityDate);
     if (days !== null && days >= 0 && days <= 30) {
-      upcoming30Days.push({ type:"maturity", title:`${d.type || "FD"} matures`, bank:d.bank, date:d.maturityDate, days, amount:d.maturityAmt });
+      upcoming30Days.push({ type:"maturity", title:`${d.type || "FD"} matures`, bank:d.bank, date:d.maturityDate, days, amount:String(d.maturityAmt) });
     }
   });
   
@@ -845,7 +847,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey }: BankD
   // Bills due
   bills.forEach(b => {
     if (b.done) return;
-    upcoming30Days.push({ type:"bill", title:`Pay ${b.name}`, bank:"", date:b.due||"", days:-1, amount:b.amount });
+    upcoming30Days.push({ type:"bill", title:`Pay ${b.name}`, bank:"", date:b.due||"", days:-1, amount:String(b.amount) });
   });
   
   // Sort by days (undated last)

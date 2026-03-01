@@ -52,7 +52,9 @@ export async function loadBankRecords(
 
     if (error || !data?.data) return null;
 
-    const decrypted = await decryptData(data.data, encryptionKey);
+    // Parse the stored JSON containing encrypted data and IV
+    const { encrypted, iv } = JSON.parse(data.data);
+    const decrypted = await decryptData(encrypted, iv, encryptionKey);
     return JSON.parse(decrypted) as BankRecordsData;
   } catch (e) {
     console.error('[FinancialAlerts] Failed to load records:', e);

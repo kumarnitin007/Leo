@@ -2,7 +2,7 @@ import IntentClassifier from './IntentClassifier';
 import EntityExtractor from './EntityExtractor';
 import SpeechService from './SpeechService';
 import VoiceCommandLogger from './VoiceCommandLogger';
-import { ParsedCommand, Entity } from './types';
+import { ParsedCommand, Entity, IntentType } from './types';
 import * as storage from '../../storage';
 import * as todoService from '../todoService';
 import dbService from './VoiceCommandDatabaseService';
@@ -678,7 +678,7 @@ export class VoiceCommandService {
       const parsed: ParsedCommand = {
         transcript: command.rawTranscript,
         intent: {
-          type: command.intentType,
+          type: command.intentType as IntentType,
           confidence: command.intentConfidence || 0.7,
           method: command.intentMethod || 'RULES',
         },
