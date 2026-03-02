@@ -601,12 +601,12 @@ export default function BankDashboard({ supabase, userId, encryptionKey }: BankD
         }
       });
       
-      // Merge Accounts (by bank + type)
+      // Merge Accounts (by bank + type + holders to allow multiple accounts of same type)
       const mergedAccounts = [...accounts];
       newAccounts.forEach(newAcc => {
-        const key = `${newAcc.bank}|${newAcc.type}`;
+        const key = `${newAcc.bank}|${newAcc.type}|${newAcc.holders || ''}`;
         const existingIdx = mergedAccounts.findIndex(a => 
-          `${a.bank}|${a.type}` === key
+          `${a.bank}|${a.type}|${a.holders || ''}` === key
         );
         
         if (existingIdx >= 0) {
