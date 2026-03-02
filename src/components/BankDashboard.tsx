@@ -447,6 +447,10 @@ export default function BankDashboard({ supabase, userId, encryptionKey }: BankD
             return s === "deposit" || (s.includes("deposit") && !s.includes("id"));
           });
           
+          // Find Status column for skip logic
+          const cStatus = h.findIndex((x: any) => x && x.toString().toLowerCase() === "status");
+          const cCur = h.findIndex((x: any) => x && x.toString().toLowerCase() === "currency");
+          
           for (let i = hIdx + 1; i < rows.length; i++) {
             const r = rows[i];
             if (!r || !r[cB]) continue;
@@ -455,6 +459,11 @@ export default function BankDashboard({ supabase, userId, encryptionKey }: BankD
             // Skip total/summary rows
             const bankLower = bank.toLowerCase();
             if (bankLower.includes("total") || bankLower.includes("grand") || bankLower.includes("sum") || bankLower === "total") continue;
+            // Skip rows with Status = SKIP, ARCHIVE, DRAFT, IGNORE
+            if (cStatus >= 0 && r[cStatus]) {
+              const status = r[cStatus].toString().toLowerCase().trim();
+              if (["skip", "archive", "draft", "ignore", "old", "inactive"].includes(status)) continue;
+            }
             
             newDeposits.push({
               bank: bank,
@@ -468,6 +477,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey }: BankD
               maturityDate: toISO(r[cMD]) || "",
               duration: r[cDu]?.toString() || "",
               maturityAction: r[cA]?.toString() || "",
+              currency: (cCur >= 0 && r[cCur]) ? r[cCur].toString().toUpperCase() as any : "INR",
               done: false
             });
           }
@@ -485,6 +495,9 @@ export default function BankDashboard({ supabase, userId, encryptionKey }: BankD
             col("Source"), col("Amount"), col("Type"), col("1st"), col("2nd"),
             col("Online"), col("Next"), col("ROI"), col("Address"), col("Details")
           ];
+          // Find Status and Currency columns
+          const cStatus = h.findIndex((x: any) => x && x.toString().toLowerCase() === "status");
+          const cCur = h.findIndex((x: any) => x && x.toString().toLowerCase() === "currency");
           
           for (let i = hIdx + 1; i < rows.length; i++) {
             const r = rows[i];
@@ -494,6 +507,11 @@ export default function BankDashboard({ supabase, userId, encryptionKey }: BankD
             // Skip total/summary rows
             const bankLower = bank.toLowerCase();
             if (bankLower.includes("total") || bankLower.includes("grand") || bankLower.includes("sum")) continue;
+            // Skip rows with Status = SKIP, ARCHIVE, DRAFT, IGNORE
+            if (cStatus >= 0 && r[cStatus]) {
+              const status = r[cStatus].toString().toLowerCase().trim();
+              if (["skip", "archive", "draft", "ignore", "old", "inactive"].includes(status)) continue;
+            }
             
             newAccounts.push({
               bank: bank,
@@ -505,6 +523,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey }: BankD
               address: r[cAd]?.toString() || "",
               detail: r[cDe]?.toString() || "",
               nextAction: r[cAc]?.toString() || "",
+              currency: (cCur >= 0 && r[cCur]) ? r[cCur].toString().toUpperCase() as any : "INR",
               done: false
             });
           }
@@ -522,6 +541,9 @@ export default function BankDashboard({ supabase, userId, encryptionKey }: BankD
             col("Name"), col("Freq"), col("Amount"), col("Date"),
             col("Priority"), col("Phone"), col("Email")
           ];
+          // Find Status and Currency columns
+          const cStatus = h.findIndex((x: any) => x && x.toString().toLowerCase() === "status");
+          const cCur = h.findIndex((x: any) => x && x.toString().toLowerCase() === "currency");
           
           for (let i = hIdx + 1; i < rows.length; i++) {
             const r = rows[i];
@@ -531,6 +553,11 @@ export default function BankDashboard({ supabase, userId, encryptionKey }: BankD
             // Skip total/summary rows
             const nameLower = name.toLowerCase();
             if (nameLower.includes("total") || nameLower.includes("grand") || nameLower.includes("sum")) continue;
+            // Skip rows with Status = SKIP, ARCHIVE, DRAFT, IGNORE
+            if (cStatus >= 0 && r[cStatus]) {
+              const status = r[cStatus].toString().toLowerCase().trim();
+              if (["skip", "archive", "draft", "ignore", "old", "inactive"].includes(status)) continue;
+            }
             
             newBills.push({
               name: name,
@@ -540,6 +567,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey }: BankD
               priority: r[cP]?.toString() || "Normal",
               phone: r[cPh]?.toString() || "",
               email: r[cE]?.toString() || "",
+              currency: (cCur >= 0 && r[cCur]) ? r[cCur].toString().toUpperCase() as any : "INR",
               done: false
             });
           }
@@ -766,6 +794,216 @@ export default function BankDashboard({ supabase, userId, encryptionKey }: BankD
     }
   }
 
+  async function handleExportTemplate() {
+    const { utils, writeFile } = await import('xlsx');
+    
+    // Helper to convert date string to Excel serial number
+    const dateToExcel = (dateStr: string) => {
+      const d = new Date(dateStr);
+      return 25569 + d.getTime() / 86400000; // Excel epoch is 1/1/1900
+    };
+    
+    // Instructions sheet - Updated with ALL fields + Status column
+    const instructionsData = [
+      ["📋 BANK RECORDS TEMPLATE - INSTRUCTIONS"],
+      [""],
+      ["⚠️ IMPORTANT RULES:"],
+      ["1. DO NOT add new columns - only the columns listed below are imported"],
+      ["2. DO NOT rename existing columns - the app looks for specific column names"],
+      ["3. DO NOT add new sheets - only Deposits, Banks, and Bills sheets are processed"],
+      ["4. DO NOT include 'Total' or 'Grand Total' rows - they will be skipped automatically"],
+      ["5. Keep the header row intact - it's required for import to work"],
+      [""],
+      ["📝 HOW TO USE:"],
+      ["1. Fill in your data in the Deposits, Banks, and Bills sheets"],
+      ["2. Delete the example rows or modify them with your data"],
+      ["3. Save the file as .xlsx"],
+      ["4. Import it using the Import button in the app"],
+      [""],
+      ["🚫 SKIP ROWS DURING IMPORT:"],
+      ["- Use the 'Status' column to control which rows get imported"],
+      ["- Set Status to: SKIP, ARCHIVE, DRAFT, IGNORE, OLD, or INACTIVE to skip the row"],
+      ["- Leave Status blank or set to ACTIVE to import the row"],
+      ["- This lets you keep old/archived records in Excel without importing them"],
+      [""],
+      ["💰 CURRENCY SUPPORT:"],
+      ["- Supported currencies: INR (₹), USD ($), EUR (€), GBP (£)"],
+      ["- Add a 'Currency' column with values: INR, USD, EUR, or GBP"],
+      ["- If no currency specified, INR is assumed"],
+      [""],
+      ["═══════════════════════════════════════════════════════════════"],
+      ["📊 DEPOSITS SHEET - ALL SUPPORTED COLUMNS:"],
+      ["═══════════════════════════════════════════════════════════════"],
+      ["Status         - ACTIVE (import) or SKIP/ARCHIVE/DRAFT/IGNORE (don't import)"],
+      ["Bank           - Bank name (required)"],
+      ["Type           - FD, RD, SCSS, PPF, Tax Saver FD, etc."],
+      ["Deposit ID     - Unique ID from bank"],
+      ["Nominee        - Name of nominee"],
+      ["Start Date     - When deposit was created (Excel date)"],
+      ["Deposit        - Amount invested (number)"],
+      ["ROI            - Interest rate as decimal (0.07 = 7%)"],
+      ["Maturity Amount - Expected amount at maturity"],
+      ["Maturity Date  - When deposit matures (Excel date)"],
+      ["Duration       - e.g., '12 months', '5 years', '365 days'"],
+      ["Maturity Action - What to do: Renew, Close, Transfer, etc."],
+      ["Currency       - INR, USD, EUR, GBP"],
+      ["Category       - Emergency Fund, Retirement, Tax Saving, etc."],
+      ["TDS Percent    - Tax deducted at source % (e.g., 10)"],
+      ["Auto Renewal   - Yes/No"],
+      ["Linked Account - Account where interest credits"],
+      ["Notes          - Any additional notes"],
+      [""],
+      ["═══════════════════════════════════════════════════════════════"],
+      ["🏦 BANKS (ACCOUNTS) SHEET - ALL SUPPORTED COLUMNS:"],
+      ["═══════════════════════════════════════════════════════════════"],
+      ["Status         - ACTIVE (import) or SKIP/ARCHIVE/DRAFT/IGNORE (don't import)"],
+      ["Source         - Bank name (required)"],
+      ["Amount         - Current balance (number)"],
+      ["Type           - Saving, FD, Current, Credit Card, PPF, etc."],
+      ["1st Holder     - Primary account holder name"],
+      ["2nd Holder     - Joint holder (if any)"],
+      ["Online         - Yes/No - Online banking enabled?"],
+      ["Next Action    - Pending action (Update KYC, etc.)"],
+      ["ROI            - Interest rate as decimal"],
+      ["Address        - Branch address"],
+      ["Details        - Additional details (account number, etc.)"],
+      ["Currency       - INR, USD, EUR, GBP"],
+      ["Account Number - Full account number"],
+      ["IFSC Code      - IFSC code for transfers"],
+      ["Branch         - Branch name"],
+      [""],
+      ["═══════════════════════════════════════════════════════════════"],
+      ["📄 BILLS SHEET - ALL SUPPORTED COLUMNS:"],
+      ["═══════════════════════════════════════════════════════════════"],
+      ["Status         - ACTIVE (import) or SKIP/ARCHIVE/DRAFT/IGNORE (don't import)"],
+      ["Name           - Bill name (required)"],
+      ["Frequency      - Monthly, Quarterly, Yearly, etc."],
+      ["Amount         - Bill amount (number)"],
+      ["Date           - Due date (e.g., '15th', '2024-03-15')"],
+      ["Priority       - Low, Normal, High"],
+      ["Phone          - Contact phone"],
+      ["Email          - Contact email"],
+      ["Currency       - INR, USD, EUR, GBP"],
+      ["Category       - Utility, Entertainment, Insurance, etc."],
+      ["Auto Pay       - Yes/No"],
+      [""],
+      ["💡 TIPS:"],
+      ["- Dates: Use Excel date format (select cell > Format as Date)"],
+      ["- ROI: Enter as decimal (0.07 = 7%) - app displays as percentage"],
+      ["- Amounts: Enter numbers only, no currency symbols"],
+      ["- Duration: Free text like '12 months', '1 year', '365 days'"],
+      ["- To keep old FDs in Excel but not import: set Status to ARCHIVE"],
+    ];
+    
+    // Deposits sheet - ALL supported columns with Status + INR/USD examples
+    const depositsHeaders = ["Status", "Bank", "Type", "Deposit ID", "Nominee", "Start Date", "Deposit", "ROI", "Maturity Amount", "Maturity Date", "Duration", "Maturity Action", "Currency", "Category", "TDS Percent", "Auto Renewal", "Linked Account", "Notes"];
+    const depositsData = [
+      depositsHeaders,
+      ["ACTIVE", "ICICI Bank", "Fixed Deposit", "FD123456", "Rahul Kumar", dateToExcel("2024-01-15"), 500000, 0.072, 536000, dateToExcel("2025-01-15"), "12 months", "Renew", "INR", "General Savings", 10, "Yes", "ICICI Savings A/C", "Auto renewal enabled"],
+      ["ACTIVE", "SBI", "Tax Saver FD", "FD789012", "Priya Sharma", dateToExcel("2024-03-01"), 150000, 0.068, 161200, dateToExcel("2029-03-01"), "5 years", "Close", "INR", "Tax Saving", 0, "No", "", "Under 80C limit"],
+      ["ACTIVE", "HDFC Bank", "SCSS", "SCSS001", "Retired Kumar", dateToExcel("2024-06-01"), 1500000, 0.082, 1623000, dateToExcel("2029-06-01"), "5 years", "Transfer", "INR", "Retirement", 10, "No", "HDFC Savings", "Senior Citizen Scheme"],
+      ["ACTIVE", "Chase Bank", "Certificate of Deposit", "CD456789", "John Smith", dateToExcel("2024-02-15"), 10000, 0.045, 10450, dateToExcel("2025-02-15"), "12 months", "Renew", "USD", "Emergency Fund", 0, "Yes", "Chase Checking", "US emergency fund"],
+      ["ARCHIVE", "Old Bank", "Fixed Deposit", "OLD123", "Old Nominee", dateToExcel("2020-01-01"), 100000, 0.08, 140000, dateToExcel("2025-01-01"), "5 years", "Closed", "INR", "", 0, "No", "", "This row will NOT be imported (Status=ARCHIVE)"],
+    ];
+    
+    // Banks sheet - ALL supported columns with Status + INR/USD examples
+    const banksHeaders = ["Status", "Source", "Amount", "Type", "1st Holder", "2nd Holder", "Online", "Next Action", "ROI", "Address", "Details", "Currency", "Account Number", "IFSC Code", "Branch"];
+    const banksData = [
+      banksHeaders,
+      ["ACTIVE", "HDFC Bank", 150000, "Saving", "Rahul Kumar", "Priya Kumar", "Yes", "Update KYC", 0.035, "Andheri West, Mumbai", "Primary savings account", "INR", "50100123456789", "HDFC0001234", "Andheri West"],
+      ["ACTIVE", "ICICI Bank", 500000, "FD", "Rahul Kumar", "", "Yes", "Check maturity", 0.072, "Bandra, Mumbai", "Fixed deposit", "INR", "157701234567", "ICIC0001234", "Bandra"],
+      ["ACTIVE", "SBI", 25000, "Current", "Kumar Enterprises", "", "Yes", "", 0, "Noida Sector 18", "Business account", "INR", "32105678901", "SBIN0012345", "Noida Sec 18"],
+      ["ACTIVE", "HDFC Bank", -45000, "Credit Card", "Rahul Kumar", "", "Yes", "Pay by 15th", 0, "", "Regalia Credit Card", "INR", "4567XXXX8901", "", ""],
+      ["ACTIVE", "Bank of America", 5000, "Checking", "John Smith", "Jane Smith", "Yes", "", 0.001, "NYC Manhattan", "US checking account", "USD", "1234567890", "", "Manhattan"],
+      ["SKIP", "Closed Bank", 0, "Saving", "Old Account", "", "No", "", 0, "", "Account closed in 2020", "INR", "", "", "This row will NOT be imported (Status=SKIP)"],
+    ];
+    
+    // Bills sheet - ALL supported columns with Status
+    const billsHeaders = ["Status", "Name", "Frequency", "Amount", "Date", "Priority", "Phone", "Email", "Currency", "Category", "Auto Pay"];
+    const billsData = [
+      billsHeaders,
+      ["ACTIVE", "Electricity Bill", "Monthly", 2500, "15th", "High", "1800-123-456", "support@power.com", "INR", "Utility", "No"],
+      ["ACTIVE", "Internet - Airtel", "Monthly", 999, "1st", "Normal", "1800-987-654", "support@airtel.com", "INR", "Utility", "Yes"],
+      ["ACTIVE", "Health Insurance", "Yearly", 25000, "2024-04-15", "High", "", "claims@insurance.com", "INR", "Insurance", "No"],
+      ["ACTIVE", "Netflix", "Monthly", 15.99, "20th", "Low", "", "support@netflix.com", "USD", "Entertainment", "Yes"],
+      ["SKIP", "Old Subscription", "Monthly", 0, "", "Low", "", "", "INR", "", "This row will NOT be imported"],
+    ];
+    
+    // Helper to apply header styling (background color + borders)
+    const applyHeaderStyle = (ws: any, numCols: number) => {
+      const headerStyle = {
+        fill: { fgColor: { rgb: "1F4E79" } },
+        font: { bold: true, color: { rgb: "FFFFFF" } },
+        border: {
+          top: { style: "thin", color: { rgb: "000000" } },
+          bottom: { style: "thin", color: { rgb: "000000" } },
+          left: { style: "thin", color: { rgb: "000000" } },
+          right: { style: "thin", color: { rgb: "000000" } }
+        }
+      };
+      const cols = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
+      for (let i = 0; i < numCols; i++) {
+        const cell = cols[i] + "1";
+        if (ws[cell]) {
+          ws[cell].s = headerStyle;
+        }
+      }
+    };
+    
+    // Create workbook
+    const wb = utils.book_new();
+    
+    // Add Instructions sheet
+    const wsInstructions = utils.aoa_to_sheet(instructionsData);
+    wsInstructions['!cols'] = [{ wch: 80 }];
+    utils.book_append_sheet(wb, wsInstructions, "Instructions");
+    
+    // Add Deposits sheet with formatting (Status is col A, so columns shift by 1)
+    const wsDeposits = utils.aoa_to_sheet(depositsData);
+    wsDeposits['!cols'] = [
+      { wch: 10 }, { wch: 14 }, { wch: 16 }, { wch: 14 }, { wch: 14 }, { wch: 12 },
+      { wch: 12 }, { wch: 8 }, { wch: 14 }, { wch: 12 }, { wch: 12 }, 
+      { wch: 14 }, { wch: 10 }, { wch: 16 }, { wch: 10 }, { wch: 12 }, { wch: 18 }, { wch: 30 }
+    ];
+    // Apply number formats to data cells (rows 2-6, columns shifted: F=StartDate, J=MaturityDate, G=Deposit, I=MaturityAmt, H=ROI)
+    for (let r = 2; r <= 6; r++) {
+      ['F','J'].forEach(col => { const c = col + r; if(wsDeposits[c]) wsDeposits[c].z = 'yyyy-mm-dd'; }); // Dates
+      ['G','I'].forEach(col => { const c = col + r; if(wsDeposits[c]) wsDeposits[c].z = '#,##0'; }); // Amounts
+      ['H'].forEach(col => { const c = col + r; if(wsDeposits[c]) wsDeposits[c].z = '0.00%'; }); // ROI as %
+    }
+    applyHeaderStyle(wsDeposits, depositsHeaders.length);
+    utils.book_append_sheet(wb, wsDeposits, "Deposits");
+    
+    // Add Banks sheet with formatting (Status is col A, Amount is col C, ROI is col I)
+    const wsBanks = utils.aoa_to_sheet(banksData);
+    wsBanks['!cols'] = [
+      { wch: 10 }, { wch: 18 }, { wch: 12 }, { wch: 12 }, { wch: 16 }, { wch: 16 },
+      { wch: 8 }, { wch: 16 }, { wch: 8 }, { wch: 22 }, { wch: 22 }, 
+      { wch: 10 }, { wch: 18 }, { wch: 14 }, { wch: 16 }
+    ];
+    for (let r = 2; r <= 7; r++) {
+      ['C'].forEach(col => { const c = col + r; if(wsBanks[c]) wsBanks[c].z = '#,##0'; }); // Amounts
+      ['I'].forEach(col => { const c = col + r; if(wsBanks[c]) wsBanks[c].z = '0.00%'; }); // ROI as %
+    }
+    applyHeaderStyle(wsBanks, banksHeaders.length);
+    utils.book_append_sheet(wb, wsBanks, "Banks");
+    
+    // Add Bills sheet with formatting (Status is col A, Amount is col D)
+    const wsBills = utils.aoa_to_sheet(billsData);
+    wsBills['!cols'] = [
+      { wch: 10 }, { wch: 18 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 10 }, 
+      { wch: 15 }, { wch: 25 }, { wch: 10 }, { wch: 14 }, { wch: 10 }
+    ];
+    for (let r = 2; r <= 6; r++) {
+      ['D'].forEach(col => { const c = col + r; if(wsBills[c]) wsBills[c].z = '#,##0.00'; }); // Amounts (col D now due to Status)
+    }
+    applyHeaderStyle(wsBills, billsHeaders.length);
+    utils.book_append_sheet(wb, wsBills, "Bills");
+    
+    // Download
+    writeFile(wb, "BankRecords_Template.xlsx");
+  }
+
   function saveModal() {
     const {type,mode,idx}=modal!;
     if(type==="deposit"){ const d=[...deposits]; mode==="add"?d.push(form):d[idx!]=form; save(d,accounts,bills,actions); }
@@ -811,16 +1049,15 @@ export default function BankDashboard({ supabase, userId, encryptionKey }: BankD
   const pieData = Object.entries(bankTotals).map(([name,v])=>({ name, value:v.deposited, color:getBankColor(name) }));
   
   const typePieData = (() => {
-    const types: Record<string, number> = {};
+    const banks: Record<string, number> = {};
     deposits.forEach(d => {
-      const t = d.type || 'Fixed Deposit';
-      types[t] = (types[t] || 0) + (Number(d.deposit) || 0);
+      const b = d.bank || 'Unknown';
+      banks[b] = (banks[b] || 0) + (Number(d.deposit) || 0);
     });
-    const colors = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6'];
-    return Object.entries(types).map(([name, value], i) => ({ 
+    return Object.entries(banks).map(([name, value]) => ({ 
       name, 
       value, 
-      color: colors[i % colors.length] 
+      color: getBankColor(name) 
     }));
   })();
   
@@ -851,14 +1088,12 @@ export default function BankDashboard({ supabase, userId, encryptionKey }: BankD
 
   const allTabs = [
     {id:"overview",  icon:"📊", label:"Overview", key:"1"},
-    {id:"networth",  icon:"💎", label:"Net Worth", key:"2"},
-    {id:"goals",     icon:"🎯", label:"Goals", key:"3"},
-    {id:"timeline",  icon:"📅", label:"Timeline", key:"4"},
-    {id:"deposits",  icon:"💰", label:"Deposits", key:"5"},
-    {id:"accounts",  icon:"🏦", label:"Accounts", key:"6"},
-    {id:"bills",     icon:"📋", label:"Bills", key:"7"},
-    {id:"actions",   icon:"⚡", label:"Actions", key:"8"},
-    {id:"charts",    icon:"📈", label:"Charts", key:"9"},
+    {id:"timeline",  icon:"📅", label:"Timeline", key:"2"},
+    {id:"deposits",  icon:"💰", label:"Deposits", key:"3"},
+    {id:"accounts",  icon:"🏦", label:"Accounts", key:"4"},
+    {id:"bills",     icon:"📋", label:"Bills", key:"5"},
+    {id:"actions",   icon:"⚡", label:"Actions", key:"6"},
+    {id:"charts",    icon:"📈", label:"Charts", key:"7"},
   ];
   
   const banks = Array.from(new Set(deposits.map(d => d.bank).filter(Boolean)));
@@ -946,6 +1181,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey }: BankD
             {savedMsg && <span style={{color:"#34D399",fontSize:11,fontWeight:600}}>✓ Saved</span>}
           </div>
           <div style={{display:"flex",gap:6}}>
+            <button onClick={handleExportTemplate} style={{background:"#21262D",color:"#A78BFA",border:"1px solid #30363D",borderRadius:6,padding:"6px 10px",fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}} title="Download Template Excel">📥{!isMobile && " Template"}</button>
             <button onClick={()=>fileRef.current?.click()} style={{background:"#238636",color:"#fff",border:"none",borderRadius:6,padding:"6px 10px",fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}} title="Import Excel">📂{!isMobile && " Import"}</button>
             <input ref={fileRef} type="file" accept=".xlsx,.xls" style={{display:"none"}} onChange={e=>{if(e.target.files?.[0])handleExcel(e.target.files[0]);e.target.value="";}} />
             <button onClick={handleExportPDF} style={{background:"#21262D",color:"#58A6FF",border:"1px solid #30363D",borderRadius:6,padding:"6px 10px",fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}} title="Export PDF">📄{!isMobile && " PDF"}</button>
@@ -1002,52 +1238,63 @@ export default function BankDashboard({ supabase, userId, encryptionKey }: BankD
               </div>
             </div>
 
-            {/* Account Summary - From Accounts/Banks sheet ONLY */}
+            {/* Portfolio Summary - Professional Card Layout */}
             {(() => {
               const accountTotal = accounts.reduce((s, a) => s + (Number(a.amount) || 0), 0);
               const fdTotal = accounts.filter(a => a.type === "FD").reduce((s, a) => s + (Number(a.amount) || 0), 0);
               const savingsTotal = accounts.filter(a => a.type === "Saving").reduce((s, a) => s + (Number(a.amount) || 0), 0);
               const otherTotal = accountTotal - fdTotal - savingsTotal;
               
-              // Bank-wise from accounts
-              const accountsByBank: Record<string, number> = {};
-              accounts.forEach(a => {
-                accountsByBank[a.bank] = (accountsByBank[a.bank] || 0) + (Number(a.amount) || 0);
-              });
+              const segments = [
+                { label: "Fixed Deposits", amount: fdTotal, color: "#3B82F6", pct: accountTotal ? (fdTotal/accountTotal)*100 : 0 },
+                { label: "Savings", amount: savingsTotal, color: "#10B981", pct: accountTotal ? (savingsTotal/accountTotal)*100 : 0 },
+                ...(otherTotal > 0 ? [{ label: "Other", amount: otherTotal, color: "#8B5CF6", pct: accountTotal ? (otherTotal/accountTotal)*100 : 0 }] : [])
+              ];
               
               return (
-                <div style={{background:"#0D1117",borderRadius:12,padding:"12px 14px",border:"1px solid #1F2937"}}>
-                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
+                <div style={{background:"linear-gradient(135deg, #0F172A 0%, #1E293B 100%)",borderRadius:16,border:"1px solid #334155",overflow:"hidden"}}>
+                  {/* Header with Total */}
+                  <div style={{padding:"16px 18px",borderBottom:"1px solid #334155",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
                     <div>
-                      <div style={{fontSize:10,color:"#6B7280",fontWeight:600,textTransform:"uppercase"}}>Total Balance</div>
-                      <div style={{fontSize:18,fontWeight:800,color:"#F9FAFB",fontFamily:"monospace"}}>{fmt(accountTotal)}</div>
+                      <div style={{fontSize:11,color:"#94A3B8",fontWeight:500,letterSpacing:"0.5px"}}>TOTAL PORTFOLIO</div>
+                      <div style={{fontSize:26,fontWeight:800,color:"#F8FAFC",fontFamily:"monospace",marginTop:4}}>{fmt(accountTotal)}</div>
                     </div>
                     <div style={{textAlign:"right"}}>
-                      <div style={{fontSize:10,color:"#6B7280",fontWeight:600,textTransform:"uppercase"}}>FDs</div>
-                      <div style={{fontSize:18,fontWeight:800,color:"#3B82F6",fontFamily:"monospace"}}>{fmt(fdTotal)}</div>
+                      <div style={{fontSize:10,color:"#64748B"}}>{accounts.length} accounts</div>
                     </div>
-                    <div style={{textAlign:"right"}}>
-                      <div style={{fontSize:10,color:"#6B7280",fontWeight:600,textTransform:"uppercase"}}>Savings</div>
-                      <div style={{fontSize:18,fontWeight:800,color:"#10B981",fontFamily:"monospace"}}>{fmt(savingsTotal)}</div>
-                    </div>
-                    {otherTotal > 0 && (
-                      <div style={{textAlign:"right"}}>
-                        <div style={{fontSize:10,color:"#6B7280",fontWeight:600,textTransform:"uppercase"}}>Other</div>
-                        <div style={{fontSize:18,fontWeight:800,color:"#8B5CF6",fontFamily:"monospace"}}>{fmt(otherTotal)}</div>
-                      </div>
-                    )}
                   </div>
                   
-                  {/* Progress bar showing FD vs Savings */}
+                  {/* Allocation Bar */}
                   {accountTotal > 0 && (
-                    <div style={{marginTop:10,display:"flex",gap:2}}>
-                      <div style={{width:`${(fdTotal/accountTotal)*100}%`,height:6,background:"#3B82F6",borderRadius:"4px 0 0 4px"}} title={`FDs: ${((fdTotal/accountTotal)*100).toFixed(0)}%`}/>
-                      <div style={{width:`${(savingsTotal/accountTotal)*100}%`,height:6,background:"#10B981"}} title={`Savings: ${((savingsTotal/accountTotal)*100).toFixed(0)}%`}/>
-                      {otherTotal > 0 && <div style={{width:`${(otherTotal/accountTotal)*100}%`,height:6,background:"#8B5CF6",borderRadius:"0 4px 4px 0"}} title={`Other: ${((otherTotal/accountTotal)*100).toFixed(0)}%`}/>}
+                    <div style={{padding:"0 18px"}}>
+                      <div style={{display:"flex",height:8,borderRadius:4,overflow:"hidden",background:"#1E293B"}}>
+                        {segments.map((seg, i) => (
+                          <div 
+                            key={seg.label} 
+                            style={{
+                              width:`${seg.pct}%`,
+                              background:seg.color,
+                              transition:"width 0.3s ease"
+                            }} 
+                            title={`${seg.label}: ${seg.pct.toFixed(1)}%`}
+                          />
+                        ))}
+                      </div>
                     </div>
                   )}
-                  <div style={{marginTop:6,fontSize:10,color:"#6B7280",fontStyle:"italic"}}>
-                    {accounts.length} accounts • See Accounts tab for bank breakdown
+                  
+                  {/* Breakdown Cards */}
+                  <div style={{display:"grid",gridTemplateColumns:`repeat(${segments.length}, 1fr)`,gap:1,background:"#334155",marginTop:12}}>
+                    {segments.map((seg, i) => (
+                      <div key={seg.label} style={{background:"#0F172A",padding:"12px 14px",textAlign:"center"}}>
+                        <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:6,marginBottom:6}}>
+                          <div style={{width:8,height:8,borderRadius:2,background:seg.color}}/>
+                          <span style={{fontSize:10,color:"#94A3B8",fontWeight:500,textTransform:"uppercase",letterSpacing:"0.3px"}}>{seg.label}</span>
+                        </div>
+                        <div style={{fontSize:16,fontWeight:700,color:"#F8FAFC",fontFamily:"monospace"}}>{fmt(seg.amount)}</div>
+                        <div style={{fontSize:10,color:seg.color,fontWeight:600,marginTop:2}}>{seg.pct.toFixed(1)}%</div>
+                      </div>
+                    ))}
                   </div>
                 </div>
               );
@@ -1111,298 +1358,115 @@ export default function BankDashboard({ supabase, userId, encryptionKey }: BankD
               </div>
             )}
 
-            {/* Overview Cards - FROM ACCOUNTS DATA */}
-            <div style={{display:"flex",gap:12,flexWrap:"wrap"}}>
-              <div style={{background:"#1C1C2E",borderRadius:14,padding:"16px 20px",borderLeft:"3px solid #3B82F6",flex:1,minWidth:140}}>
-                <div style={{color:"#6B7280",fontSize:10,fontWeight:700,textTransform:"uppercase"}}>FD Invested</div>
-                <div style={{color:"#F9FAFB",fontSize:20,fontWeight:800,fontFamily:"monospace",marginTop:6}}>{fmt(totalInvested)}</div>
-                <div style={{color:"#4B5563",fontSize:11,marginTop:4}}>{accounts.filter(a=>a.type==="FD").length} FDs</div>
+            {/* FD Projections - Matching Professional Style */}
+            <div style={{background:"linear-gradient(135deg, #0F172A 0%, #1E293B 100%)",borderRadius:16,border:"1px solid #334155",overflow:"hidden"}}>
+              <div style={{padding:"12px 18px",borderBottom:"1px solid #334155"}}>
+                <div style={{fontSize:11,color:"#94A3B8",fontWeight:500,letterSpacing:"0.5px"}}>FD PROJECTIONS (1 YEAR)</div>
               </div>
-              <div style={{background:"#1C1C2E",borderRadius:14,padding:"16px 20px",borderLeft:"3px solid #10B981",flex:1,minWidth:140}}>
-                <div style={{color:"#6B7280",fontSize:10,fontWeight:700,textTransform:"uppercase"}}>Est. Maturity</div>
-                <div style={{color:"#F9FAFB",fontSize:20,fontWeight:800,fontFamily:"monospace",marginTop:6}}>{fmt(totalMaturity)}</div>
-                <div style={{color:"#4B5563",fontSize:11,marginTop:4}}>~1 yr projection</div>
-              </div>
-              <div style={{background:"#1C1C2E",borderRadius:14,padding:"16px 20px",borderLeft:"3px solid #F59E0B",flex:1,minWidth:140}}>
-                <div style={{color:"#6B7280",fontSize:10,fontWeight:700,textTransform:"uppercase"}}>Est. Gain</div>
-                <div style={{color:"#F9FAFB",fontSize:20,fontWeight:800,fontFamily:"monospace",marginTop:6}}>{fmt(totalMaturity-totalInvested)}</div>
-                <div style={{color:"#4B5563",fontSize:11,marginTop:4}}>{totalInvested?`+${(((totalMaturity-totalInvested)/totalInvested)*100).toFixed(1)}%`:""}</div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* ══ NET WORTH TAB ═══════════════════════════════════════════════ */}
-        {tab === "networth" && (() => {
-          // ALL calculations from Accounts sheet ONLY
-          const netWorth = accounts.reduce((s, a) => s + (Number(a.amount) || 0), 0);
-          
-          // Projected: Estimate FD growth using ROI from accounts (assume 1 year average)
-          const fdAccounts = accounts.filter(a => a.type === "FD");
-          const nonFdTotal = accounts.filter(a => a.type !== "FD").reduce((s, a) => s + (Number(a.amount) || 0), 0);
-          const fdProjected = fdAccounts.reduce((s, a) => {
-            const principal = Number(a.amount) || 0;
-            const roi = Number(a.roi) || 0.07; // Default 7% if not specified
-            return s + principal * (1 + roi); // Simple 1-year projection
-          }, 0);
-          const projectedNetWorth = nonFdTotal + fdProjected;
-          
-          // Group by account type for breakdown
-          const byType: Record<string, number> = {};
-          accounts.forEach(a => {
-            const t = a.type || 'Other';
-            byType[t] = (byType[t] || 0) + (Number(a.amount) || 0);
-          });
-          
-          // Group by bank for concentration
-          const byBank: Record<string, number> = {};
-          accounts.forEach(a => {
-            byBank[a.bank] = (byBank[a.bank] || 0) + (Number(a.amount) || 0);
-          });
-          
-          // Check for mismatch between Accounts FDs and Deposits sheet
-          const accountsFdTotal = fdAccounts.reduce((s, a) => s + (Number(a.amount) || 0), 0);
-          const depositsPrincipalTotal = deposits.reduce((s, d) => s + (Number(d.deposit) || 0), 0);
-          const hasMismatch = Math.abs(accountsFdTotal - depositsPrincipalTotal) > 1000; // Allow small rounding diff
-          
-          return (
-            <div style={{display:"flex",flexDirection:"column",gap:16}}>
-              {/* Mismatch Warning */}
-              {hasMismatch && (
-                <div style={{background:"#7F1D1D20",border:"1px solid #F8714940",borderRadius:10,padding:12,display:"flex",alignItems:"center",gap:10}}>
-                  <span style={{fontSize:18}}>⚠️</span>
-                  <div>
-                    <div style={{fontSize:12,color:"#FCA5A5",fontWeight:600}}>Data Mismatch Detected</div>
-                    <div style={{fontSize:11,color:"#9CA3AF"}}>
-                      Accounts FDs: {fmt(accountsFdTotal)} vs Deposits sheet: {fmt(depositsPrincipalTotal)}. 
-                      Update your Deposits sheet for accurate maturity tracking.
-                    </div>
+              <div style={{display:"grid",gridTemplateColumns:"repeat(3, 1fr)",gap:1,background:"#334155"}}>
+                <div style={{background:"#0F172A",padding:"14px 16px",textAlign:"center"}}>
+                  <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:6,marginBottom:6}}>
+                    <div style={{width:8,height:8,borderRadius:2,background:"#3B82F6"}}/>
+                    <span style={{fontSize:10,color:"#94A3B8",fontWeight:500,textTransform:"uppercase",letterSpacing:"0.3px"}}>Invested</span>
                   </div>
+                  <div style={{fontSize:18,fontWeight:700,color:"#F8FAFC",fontFamily:"monospace"}}>{fmt(totalInvested)}</div>
+                  <div style={{fontSize:10,color:"#64748B",marginTop:4}}>{accounts.filter(a=>a.type==="FD").length} FDs</div>
                 </div>
-              )}
-              
-              {/* Net Worth Cards */}
-              <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"repeat(3, 1fr)",gap:12}}>
-                <div style={{background:"linear-gradient(135deg,#1E3A5F 0%,#0F3460 100%)",borderRadius:16,padding:20,border:"1px solid #3B82F6"}}>
-                  <div style={{fontSize:11,color:"#93C5FD",fontWeight:600,textTransform:"uppercase"}}>Current Net Worth</div>
-                  <div style={{fontSize:28,fontWeight:800,color:"#F0F6FC",fontFamily:"monospace",marginTop:8}}>{fmt(netWorth)}</div>
-                  <div style={{fontSize:11,color:"#6B7280",marginTop:4}}>{accounts.length} accounts from Banks sheet</div>
+                <div style={{background:"#0F172A",padding:"14px 16px",textAlign:"center"}}>
+                  <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:6,marginBottom:6}}>
+                    <div style={{width:8,height:8,borderRadius:2,background:"#10B981"}}/>
+                    <span style={{fontSize:10,color:"#94A3B8",fontWeight:500,textTransform:"uppercase",letterSpacing:"0.3px"}}>Maturity</span>
+                  </div>
+                  <div style={{fontSize:18,fontWeight:700,color:"#F8FAFC",fontFamily:"monospace"}}>{fmt(totalMaturity)}</div>
+                  <div style={{fontSize:10,color:"#64748B",marginTop:4}}>projected value</div>
                 </div>
-                <div style={{background:"#161B22",borderRadius:16,padding:20,border:"1px solid #238636"}}>
-                  <div style={{fontSize:11,color:"#3FB950",fontWeight:600,textTransform:"uppercase"}}>Projected Net Worth</div>
-                  <div style={{fontSize:28,fontWeight:800,color:"#3FB950",fontFamily:"monospace",marginTop:8}}>{fmt(projectedNetWorth)}</div>
-                  <div style={{fontSize:11,color:"#6B7280",marginTop:4}}>{fdAccounts.length} FDs with avg ROI ~1 year</div>
-                </div>
-                <div style={{background:"#161B22",borderRadius:16,padding:20,border:"1px solid #F59E0B"}}>
-                  <div style={{fontSize:11,color:"#F59E0B",fontWeight:600,textTransform:"uppercase"}}>Est. Interest (1 yr)</div>
-                  <div style={{fontSize:28,fontWeight:800,color:"#F59E0B",fontFamily:"monospace",marginTop:8}}>{fmt(projectedNetWorth - netWorth)}</div>
-                  <div style={{fontSize:11,color:"#6B7280",marginTop:4}}>+{netWorth ? ((projectedNetWorth - netWorth) / netWorth * 100).toFixed(1) : 0}% growth</div>
-                </div>
-              </div>
-              
-              {/* Category Breakdown */}
-              <div style={{background:"#161B22",borderRadius:12,padding:16,border:"1px solid #30363D"}}>
-                <div style={{fontSize:13,fontWeight:700,color:"#F0F6FC",marginBottom:12}}>📊 By Account Type</div>
-                <div style={{display:"flex",flexDirection:"column",gap:8}}>
-                  {Object.entries(byType).sort((a,b) => b[1] - a[1]).map(([type, amt]) => {
-                    const typeColor = type === "FD" ? "#3B82F6" : type === "Saving" ? "#10B981" : type === "Credit Card" ? "#EF4444" : "#8B5CF6";
-                    return (
-                      <div key={type} style={{display:"flex",alignItems:"center",gap:12}}>
-                        <div style={{flex:1}}>
-                          <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
-                            <span style={{fontSize:12,color:"#C9D1D9"}}>{type}</span>
-                            <span style={{fontSize:12,color:"#F0F6FC",fontWeight:600,fontFamily:"monospace"}}>{fmt(amt)}</span>
-                          </div>
-                          <div style={{background:"#21262D",borderRadius:4,height:6,overflow:"hidden"}}>
-                            <div style={{width:`${netWorth ? (amt/netWorth)*100 : 0}%`,height:"100%",background:typeColor,borderRadius:4}}/>
-                          </div>
-                        </div>
-                        <span style={{fontSize:11,color:"#8B949E",minWidth:40,textAlign:"right"}}>{netWorth ? ((amt/netWorth)*100).toFixed(0) : 0}%</span>
-                      </div>
-                    );
-                  })}
+                <div style={{background:"#0F172A",padding:"14px 16px",textAlign:"center"}}>
+                  <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:6,marginBottom:6}}>
+                    <div style={{width:8,height:8,borderRadius:2,background:"#F59E0B"}}/>
+                    <span style={{fontSize:10,color:"#94A3B8",fontWeight:500,textTransform:"uppercase",letterSpacing:"0.3px"}}>Est. Gain</span>
+                  </div>
+                  <div style={{fontSize:18,fontWeight:700,color:"#10B981",fontFamily:"monospace"}}>{fmt(totalMaturity-totalInvested)}</div>
+                  <div style={{fontSize:10,color:"#10B981",fontWeight:600,marginTop:4}}>{totalInvested?`+${(((totalMaturity-totalInvested)/totalInvested)*100).toFixed(1)}%`:""}</div>
                 </div>
               </div>
-              
-              {/* Bank Concentration */}
-              <div style={{background:"#161B22",borderRadius:12,padding:16,border:"1px solid #30363D"}}>
-                <div style={{fontSize:13,fontWeight:700,color:"#F0F6FC",marginBottom:12}}>🏦 Bank Concentration</div>
-                <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"repeat(4, 1fr)",gap:8}}>
-                  {Object.entries(byBank).sort((a,b) => b[1] - a[1]).map(([bank, amt]) => (
-                    <div key={bank} style={{background:"#21262D",borderRadius:8,padding:12,borderLeft:`3px solid ${getBankColor(bank)}`}}>
-                      <div style={{fontSize:11,color:"#8B949E"}}>{bank}</div>
-                      <div style={{fontSize:14,fontWeight:700,color:"#F0F6FC",fontFamily:"monospace"}}>{fmt(amt)}</div>
-                      <div style={{fontSize:10,color:getBankColor(bank)}}>{((amt/netWorth)*100).toFixed(0)}%</div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          );
-        })()}
-        
-        {/* ══ GOALS TAB ═══════════════════════════════════════════════════ */}
-        {tab === "goals" && (
-          <div style={{display:"flex",flexDirection:"column",gap:16}}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-              <div style={{fontSize:14,fontWeight:700,color:"#F0F6FC"}}>🎯 Savings Goals</div>
-              <button onClick={() => {
-                const newGoal: SavingsGoal = {
-                  ...emptyGoal,
-                  id: Date.now().toString(),
-                  createdAt: new Date().toISOString()
-                };
-                setForm(newGoal);
-                setModal({type:"goal",mode:"add"});
-              }} style={{background:"#238636",color:"#fff",border:"none",borderRadius:6,padding:"6px 14px",fontSize:11,fontWeight:600,cursor:"pointer"}}>+ Add Goal</button>
             </div>
             
-            {goals.length === 0 ? (
-              <EmptyState icon="🎯" title="No Goals Set" description="Set savings goals to track your progress towards financial milestones" action="+ Create Goal" onAction={() => {
-                const newGoal: SavingsGoal = { ...emptyGoal, id: Date.now().toString(), createdAt: new Date().toISOString() };
-                setForm(newGoal);
-                setModal({type:"goal",mode:"add"});
-              }} />
-            ) : (
-              <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"repeat(2, 1fr)",gap:12}}>
-                {goals.map((g, i) => {
-                  const progress = g.targetAmount > 0 ? (g.currentAmount / g.targetAmount) * 100 : 0;
-                  const daysLeft = g.deadline ? daysUntil(g.deadline) : null;
-                  return (
-                    <div key={g.id} style={{background:"#161B22",borderRadius:12,padding:16,border:`1px solid ${g.color || '#30363D'}`,borderTop:`3px solid ${g.color || '#3B82F6'}`,opacity:g.done?0.6:1}}>
-                      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:12}}>
-                        <div>
-                          <div style={{fontSize:14,fontWeight:700,color:g.done?"#8B949E":"#F0F6FC",textDecoration:g.done?"line-through":"none"}}>{g.name}</div>
-                          <div style={{fontSize:11,color:"#8B949E"}}>{g.category}</div>
+            {/* Net Worth Breakdown - Collapsible */}
+            {(() => {
+              const netWorth = accounts.reduce((s, a) => s + (Number(a.amount) || 0), 0);
+              const byType: Record<string, number> = {};
+              accounts.forEach(a => {
+                const t = a.type || 'Other';
+                byType[t] = (byType[t] || 0) + (Number(a.amount) || 0);
+              });
+              const byBank: Record<string, number> = {};
+              accounts.forEach(a => {
+                byBank[a.bank] = (byBank[a.bank] || 0) + (Number(a.amount) || 0);
+              });
+              
+              return (
+                <div style={{background:"#0D1117",borderRadius:12,border:"1px solid #1F2937",overflow:"hidden"}}>
+                  <button 
+                    onClick={() => setExpandedBanks(prev => prev.has('_networth') ? new Set([...prev].filter(k => k !== '_networth')) : new Set([...prev, '_networth']))}
+                    style={{width:"100%",padding:"10px 14px",background:"transparent",border:"none",cursor:"pointer",display:"flex",justifyContent:"space-between",alignItems:"center"}}
+                  >
+                    <div style={{display:"flex",alignItems:"center",gap:8}}>
+                      <span style={{fontSize:10,color:"#6B7280",transition:"transform 0.2s",transform:expandedBanks.has('_networth')?"rotate(90deg)":"rotate(0deg)"}}>▶</span>
+                      <span style={{fontSize:11,fontWeight:700,color:"#9CA3AF",textTransform:"uppercase"}}>💎 Net Worth Breakdown</span>
+                    </div>
+                    <span style={{fontSize:12,color:"#F9FAFB",fontFamily:"monospace",fontWeight:700}}>{fmt(netWorth)}</span>
+                  </button>
+                  {expandedBanks.has('_networth') && (
+                    <div style={{borderTop:"1px solid #1F2937",padding:14,display:"flex",flexDirection:"column",gap:12}}>
+                      {/* By Account Type */}
+                      <div>
+                        <div style={{fontSize:11,fontWeight:700,color:"#8B949E",marginBottom:8}}>📊 By Account Type</div>
+                        <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                          {Object.entries(byType).sort((a,b) => b[1] - a[1]).map(([type, amt]) => {
+                            const typeColor = type === "FD" ? "#3B82F6" : type === "Saving" ? "#10B981" : type === "Credit Card" ? "#EF4444" : "#8B5CF6";
+                            return (
+                              <div key={type} style={{display:"flex",alignItems:"center",gap:10}}>
+                                <div style={{flex:1}}>
+                                  <div style={{display:"flex",justifyContent:"space-between",marginBottom:3}}>
+                                    <span style={{fontSize:11,color:"#C9D1D9"}}>{type}</span>
+                                    <span style={{fontSize:11,color:"#F0F6FC",fontWeight:600,fontFamily:"monospace"}}>{fmt(amt)}</span>
+                                  </div>
+                                  <div style={{background:"#21262D",borderRadius:3,height:5,overflow:"hidden"}}>
+                                    <div style={{width:`${netWorth ? (amt/netWorth)*100 : 0}%`,height:"100%",background:typeColor,borderRadius:3}}/>
+                                  </div>
+                                </div>
+                                <span style={{fontSize:10,color:"#6B7280",minWidth:35,textAlign:"right"}}>{netWorth ? ((amt/netWorth)*100).toFixed(0) : 0}%</span>
+                              </div>
+                            );
+                          })}
                         </div>
-                        <div style={{display:"flex",gap:4}}>
-                          <button onClick={() => { setForm(g); setModal({type:"goal",mode:"edit",idx:i}); }} style={{background:"#21262D",color:"#58A6FF",border:"none",borderRadius:4,padding:"4px 8px",fontSize:10,cursor:"pointer"}}>Edit</button>
-                          <button onClick={() => { const newGoals = goals.filter((_,j) => j !== i); setGoals(newGoals); persist(deposits,accounts,bills,actions,newGoals); }} style={{background:"#21262D",color:"#F85149",border:"none",borderRadius:4,padding:"4px 8px",fontSize:10,cursor:"pointer"}}>🗑</button>
+                      </div>
+                      
+                      {/* Bank Concentration */}
+                      <div>
+                        <div style={{fontSize:11,fontWeight:700,color:"#8B949E",marginBottom:8}}>🏦 Bank Concentration</div>
+                        <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"repeat(4, 1fr)",gap:6}}>
+                          {Object.entries(byBank).sort((a,b) => b[1] - a[1]).slice(0, 8).map(([bank, amt]) => (
+                            <div key={bank} style={{background:"#161B22",borderRadius:6,padding:8,borderLeft:`2px solid ${getBankColor(bank)}`}}>
+                              <div style={{fontSize:10,color:"#8B949E",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{bank}</div>
+                              <div style={{fontSize:12,fontWeight:700,color:"#F0F6FC",fontFamily:"monospace"}}>{fmt(amt)}</div>
+                              <div style={{fontSize:9,color:getBankColor(bank)}}>{((amt/netWorth)*100).toFixed(0)}%</div>
+                            </div>
+                          ))}
                         </div>
-                      </div>
-                      <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",marginBottom:8}}>
-                        <div style={{fontSize:20,fontWeight:800,color:g.color || '#3B82F6',fontFamily:"monospace"}}>{fmt(g.currentAmount, g.currency)}</div>
-                        <div style={{fontSize:12,color:"#8B949E"}}>of {fmt(g.targetAmount, g.currency)}</div>
-                      </div>
-                      <div style={{background:"#21262D",borderRadius:6,height:8,overflow:"hidden",marginBottom:8}}>
-                        <div style={{width:`${Math.min(100, progress)}%`,height:"100%",background:`linear-gradient(90deg, ${g.color || '#3B82F6'}, ${g.color || '#3B82F6'}aa)`,borderRadius:6,transition:"width 0.3s"}}/>
-                      </div>
-                      <div style={{display:"flex",justifyContent:"space-between",fontSize:11}}>
-                        <span style={{color:progress>=100?"#3FB950":"#8B949E"}}>{progress.toFixed(0)}% complete</span>
-                        {daysLeft !== null && <span style={{color:daysLeft<30?"#F85149":"#8B949E"}}>{daysLeft > 0 ? `${daysLeft} days left` : daysLeft === 0 ? "Due today!" : "Overdue"}</span>}
                       </div>
                     </div>
-                  );
-                })}
-              </div>
-            )}
+                  )}
+                </div>
+              );
+            })()}
           </div>
         )}
         
+        {/* ══ GOALS TAB ═══════════════════════════════════════════════════ */}
         {/* ══ CHARTS TAB ════════════════════════════════════════════════ */}
         {tab === "charts" && (
           <div style={{display:"flex",flexDirection:"column",gap:20}}>
-            {/* Row 1: Investment by Bank & Type */}
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16}}>
-              <div style={{background:"#1C1C2E",borderRadius:14,padding:22}}>
-                <div style={{fontSize:14,fontWeight:700,color:"#E5E7EB",marginBottom:4}}>🥧 Investment by Bank</div>
-                <div style={{fontSize:12,color:"#4B5563",marginBottom:12}}>Share of total corpus</div>
-                {pieData.length === 0 ? (
-                  <div style={{color:"#4B5563",padding:40,textAlign:"center"}}>No data</div>
-                ) : (
-                  <>
-                    <ResponsiveContainer width="100%" height={220}>
-                      <PieChart>
-                        <Pie 
-                          data={pieData} 
-                          cx="50%" 
-                          cy="50%" 
-                          innerRadius={60} 
-                          outerRadius={95} 
-                          paddingAngle={3} 
-                          dataKey="value"
-                          label={({name, percent}) => `${name.slice(0, 6)} ${(percent * 100).toFixed(0)}%`}
-                          labelLine={false}
-                        >
-                          {pieData.map((e, i) => <Cell key={i} fill={e.color} stroke="#111827" strokeWidth={2} />)}
-                        </Pie>
-                        <Tooltip 
-                          formatter={(v: any) => `₹${(v / 100000).toFixed(1)}L`} 
-                          contentStyle={{background:"#1C1C2E",border:"1px solid #374151",borderRadius:8,fontSize:12}} 
-                        />
-                      </PieChart>
-                    </ResponsiveContainer>
-                    <button 
-                      onClick={() => setShowLegend(prev => prev.has('bank') ? new Set([...prev].filter(k => k !== 'bank')) : new Set([...prev, 'bank']))}
-                      style={{marginTop:8,background:"#21262D",border:"1px solid #30363D",color:"#9CA3AF",padding:"4px 12px",borderRadius:6,fontSize:11,cursor:"pointer",display:"flex",alignItems:"center",gap:6}}
-                    >
-                      <span style={{fontSize:10,transition:"transform 0.2s",transform:showLegend.has('bank')?"rotate(90deg)":"rotate(0deg)"}}>▶</span>
-                      Legend ({pieData.length})
-                    </button>
-                    {showLegend.has('bank') && (
-                      <div style={{display:"flex",flexWrap:"wrap",gap:8,marginTop:8}}>
-                        {pieData.map((e, i) => (
-                          <div key={i} style={{display:"flex",alignItems:"center",gap:6,fontSize:12,background:"#0D1117",padding:"4px 10px",borderRadius:20}}>
-                            <div style={{width:9,height:9,borderRadius:"50%",background:e.color}} />
-                            <span style={{color:"#D1D5DB"}}>{e.name}</span>
-                            <span style={{color:e.color,fontWeight:700}}>{(e.value / 100000).toFixed(1)}L</span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </>
-                )}
-              </div>
-
-              <div style={{background:"#1C1C2E",borderRadius:14,padding:22}}>
-                <div style={{fontSize:14,fontWeight:700,color:"#E5E7EB",marginBottom:4}}>🎯 Investment by Type</div>
-                <div style={{fontSize:12,color:"#4B5563",marginBottom:12}}>Account type distribution</div>
-                {typePieData.length === 0 ? (
-                  <div style={{color:"#4B5563",padding:40,textAlign:"center"}}>No data</div>
-                ) : (
-                  <>
-                    <ResponsiveContainer width="100%" height={220}>
-                      <PieChart>
-                        <Pie 
-                          data={typePieData} 
-                          cx="50%" 
-                          cy="50%" 
-                          outerRadius={95} 
-                          paddingAngle={3} 
-                          dataKey="value"
-                          label={({name, percent}) => `${name.slice(0, 8)} ${(percent * 100).toFixed(0)}%`}
-                          labelLine={false}
-                        >
-                          {typePieData.map((e, i) => <Cell key={i} fill={e.color} stroke="#111827" strokeWidth={2} />)}
-                        </Pie>
-                        <Tooltip 
-                          formatter={(v: any) => `₹${(v / 100000).toFixed(1)}L`} 
-                          contentStyle={{background:"#1C1C2E",border:"1px solid #374151",borderRadius:8,fontSize:12}} 
-                        />
-                      </PieChart>
-                    </ResponsiveContainer>
-                    <button 
-                      onClick={() => setShowLegend(prev => prev.has('type') ? new Set([...prev].filter(k => k !== 'type')) : new Set([...prev, 'type']))}
-                      style={{marginTop:8,background:"#21262D",border:"1px solid #30363D",color:"#9CA3AF",padding:"4px 12px",borderRadius:6,fontSize:11,cursor:"pointer",display:"flex",alignItems:"center",gap:6}}
-                    >
-                      <span style={{fontSize:10,transition:"transform 0.2s",transform:showLegend.has('type')?"rotate(90deg)":"rotate(0deg)"}}>▶</span>
-                      Legend ({typePieData.length})
-                    </button>
-                    {showLegend.has('type') && (
-                      <div style={{display:"flex",flexWrap:"wrap",gap:8,marginTop:8}}>
-                        {typePieData.map((e, i) => (
-                          <div key={i} style={{display:"flex",alignItems:"center",gap:6,fontSize:12,background:"#0D1117",padding:"4px 10px",borderRadius:20}}>
-                            <div style={{width:9,height:9,borderRadius:"50%",background:e.color}} />
-                            <span style={{color:"#D1D5DB"}}>{e.name}</span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </>
-                )}
-              </div>
-            </div>
-
             {/* ROI Comparison */}
             <div style={{background:"#1C1C2E",borderRadius:14,padding:22}}>
               <div style={{fontSize:14,fontWeight:700,color:"#E5E7EB",marginBottom:4}}>📊 ROI Comparison</div>
@@ -1647,18 +1711,18 @@ export default function BankDashboard({ supabase, userId, encryptionKey }: BankD
                 </div>
               </div>
 
-              {/* Table View with Collapsible Bank Groups */}
+              {/* Table View with Collapsible Bank Groups - ALL columns */}
               <div style={{background:"#161B22",borderRadius:12,overflow:"hidden",border:"1px solid #30363D"}}>
                 <div style={{overflowX:"auto",scrollbarWidth:"thin",scrollbarColor:"#30363D #161B22"}}>
-                  <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
+                  <table style={{width:"100%",borderCollapse:"collapse",fontSize:11}}>
                     <thead><tr style={{background:"#0D1117",borderBottom:"1px solid #21262D"}}>
-                      {["Bank","Type","Nominee","Invested","ROI","Maturity ₹","Matures","Days",""].map(h => (
-                        <th key={h} style={{padding:"10px 12px",textAlign:"left",color:"#8B949E",fontWeight:600,fontSize:11,whiteSpace:"nowrap"}}>{h}</th>
+                      {["Bank/ID","Type","Nominee","Invested","ROI","Maturity ₹","Start","Maturity","Duration","Action",""].map(h => (
+                        <th key={h} style={{padding:"8px 10px",textAlign:"left",color:"#8B949E",fontWeight:600,fontSize:10,whiteSpace:"nowrap"}}>{h}</th>
                       ))}
                     </tr></thead>
                     <tbody>
                       {filtered.length === 0 ? (
-                        <tr><td colSpan={9} style={{padding:32,textAlign:"center",color:"#8B949E"}}>No deposits found</td></tr>
+                        <tr><td colSpan={11} style={{padding:32,textAlign:"center",color:"#8B949E"}}>No deposits found</td></tr>
                       ) : (
                         depBankNames.map(bankName => {
                           const { deps: bankDeps, indices } = groupedDeps[bankName];
@@ -1674,18 +1738,18 @@ export default function BankDashboard({ supabase, userId, encryptionKey }: BankD
                                 onClick={() => toggleDepBank(bankName)}
                                 style={{background:`${color}15`,cursor:"pointer",borderBottom:"1px solid #21262D"}}
                               >
-                                <td colSpan={3} style={{padding:"10px 12px"}}>
+                                <td colSpan={3} style={{padding:"8px 10px"}}>
                                   <div style={{display:"flex",alignItems:"center",gap:8}}>
                                     <span style={{fontSize:10,color:"#6B7280",transition:"transform 0.2s",transform:isExpanded?"rotate(90deg)":"rotate(0deg)"}}>▶</span>
                                     <div style={{width:10,height:10,borderRadius:"50%",background:color}} />
-                                    <span style={{fontWeight:700,color:"#F0F6FC",fontSize:13}}>{bankName}</span>
-                                    <span style={{color:"#6B7280",fontSize:11}}>({bankDeps.length} FD{bankDeps.length > 1 ? "s" : ""})</span>
+                                    <span style={{fontWeight:700,color:"#F0F6FC",fontSize:12}}>{bankName}</span>
+                                    <span style={{color:"#6B7280",fontSize:10}}>({bankDeps.length} FD{bankDeps.length > 1 ? "s" : ""})</span>
                                   </div>
                                 </td>
-                                <td style={{padding:"10px 12px",fontFamily:"monospace",fontWeight:700,color:"#F0F6FC"}}>{fmt(totalDeposited)}</td>
-                                <td style={{padding:"10px 12px"}}></td>
-                                <td style={{padding:"10px 12px",fontFamily:"monospace",fontWeight:700,color:"#3FB950"}}>{fmt(totalMaturityAmt)}</td>
-                                <td colSpan={3} style={{padding:"10px 12px"}}></td>
+                                <td style={{padding:"8px 10px",fontFamily:"monospace",fontWeight:700,color:"#F0F6FC",fontSize:11}}>{fmt(totalDeposited)}</td>
+                                <td style={{padding:"8px 10px"}}></td>
+                                <td style={{padding:"8px 10px",fontFamily:"monospace",fontWeight:700,color:"#3FB950",fontSize:11}}>{fmt(totalMaturityAmt)}</td>
+                                <td colSpan={5} style={{padding:"8px 10px"}}></td>
                               </tr>
                               
                               {/* Deposit Rows - Show when expanded */}
@@ -1694,20 +1758,27 @@ export default function BankDashboard({ supabase, userId, encryptionKey }: BankD
                                 const days = daysUntil(d.maturityDate);
                                 return (
                                   <tr key={`${bankName}-${j}`} style={{borderBottom:"1px solid #21262D",background:d.done ? "rgba(46,160,67,0.05)" : days != null && days < 0 ? "rgba(110,118,129,0.1)" : days != null && days <= 90 ? "rgba(248,81,73,0.05)" : "transparent",opacity:d.done ? 0.6 : 1}}>
-                                    <td style={{padding:"10px 12px",paddingLeft:36}}>
-                                      <div style={{fontSize:10,color:"#484F58",fontFamily:"monospace"}}>{d.depositId || "—"}</div>
+                                    <td style={{padding:"8px 10px",paddingLeft:32}}>
+                                      <div style={{fontSize:9,color:"#484F58",fontFamily:"monospace"}}>{d.depositId || "—"}</div>
                                     </td>
-                                    <td style={{padding:"10px 12px",color:"#8B949E"}}>{d.type}</td>
-                                    <td style={{padding:"10px 12px",color:"#C9D1D9"}}>{d.nominee}</td>
-                                    <td style={{padding:"10px 12px",fontFamily:"monospace",fontWeight:600,color:"#F0F6FC"}}>{fmt(d.deposit)}</td>
-                                    <td style={{padding:"10px 12px",fontFamily:"monospace"}}><span style={{color:"#3FB950",fontWeight:600}}>{d.roi ? (Number(d.roi) * 100).toFixed(2) + "%" : "—"}</span></td>
-                                    <td style={{padding:"10px 12px",fontFamily:"monospace",fontWeight:600,color:"#3FB950"}}>{fmt(d.maturityAmt || d.deposit)}</td>
-                                    <td style={{padding:"10px 12px",color:"#C9D1D9",whiteSpace:"nowrap"}}>{fmtDate(d.maturityDate)}</td>
-                                    <td style={{padding:"10px 12px"}}><UrgencyBadge days={days} /></td>
-                                    <td style={{padding:"10px 12px",whiteSpace:"nowrap"}}>
-                                      <button onClick={() => toggleDone("deposit", origIdx)} style={{background:d.done ? "#238636" : "#21262D",color:d.done ? "#fff" : "#8B949E",border:"none",borderRadius:6,padding:"3px 8px",fontSize:10,cursor:"pointer",marginRight:4,fontWeight:600}}>{d.done ? "↩" : "✓"}</button>
-                                      <button onClick={() => openEdit("deposit", origIdx)} style={{background:"#21262D",color:"#58A6FF",border:"none",borderRadius:6,padding:"3px 8px",fontSize:10,cursor:"pointer",marginRight:4}}>✏️</button>
-                                      <button onClick={() => deleteRow("deposit", origIdx)} style={{background:"#21262D",color:"#F85149",border:"none",borderRadius:6,padding:"3px 8px",fontSize:10,cursor:"pointer"}}>🗑</button>
+                                    <td style={{padding:"8px 10px",color:"#9CA3AF",fontSize:10}}>{d.type || "FD"}</td>
+                                    <td style={{padding:"8px 10px",color:"#C9D1D9",fontSize:10}}>{d.nominee || "—"}</td>
+                                    <td style={{padding:"8px 10px",fontFamily:"monospace",fontWeight:600,color:"#F0F6FC",fontSize:11}}>{fmt(d.deposit)}</td>
+                                    <td style={{padding:"8px 10px",fontFamily:"monospace",color:"#3FB950",fontWeight:600,fontSize:10}}>{d.roi ? (Number(d.roi) * 100).toFixed(2) + "%" : "—"}</td>
+                                    <td style={{padding:"8px 10px",fontFamily:"monospace",fontWeight:600,color:"#3FB950",fontSize:11}}>{fmt(d.maturityAmt || d.deposit)}</td>
+                                    <td style={{padding:"8px 10px",color:"#9CA3AF",whiteSpace:"nowrap",fontSize:10}}>{fmtDate(d.startDate)}</td>
+                                    <td style={{padding:"8px 10px",whiteSpace:"nowrap"}}>
+                                      <div style={{display:"flex",alignItems:"center",gap:4}}>
+                                        <span style={{color:"#C9D1D9",fontSize:10}}>{fmtDate(d.maturityDate)}</span>
+                                        <UrgencyBadge days={days} />
+                                      </div>
+                                    </td>
+                                    <td style={{padding:"8px 10px",color:"#6B7280",fontSize:9}}>{d.duration || "—"}</td>
+                                    <td style={{padding:"8px 10px",color:"#9CA3AF",fontSize:9,maxWidth:80,overflow:"hidden",textOverflow:"ellipsis"}} title={d.maturityAction}>{d.maturityAction || "—"}</td>
+                                    <td style={{padding:"8px 10px",whiteSpace:"nowrap"}}>
+                                      <button onClick={() => toggleDone("deposit", origIdx)} style={{background:d.done ? "#238636" : "#21262D",color:d.done ? "#fff" : "#8B949E",border:"none",borderRadius:4,padding:"2px 6px",fontSize:9,cursor:"pointer",marginRight:3,fontWeight:600}}>{d.done ? "↩" : "✓"}</button>
+                                      <button onClick={() => openEdit("deposit", origIdx)} style={{background:"#21262D",color:"#58A6FF",border:"none",borderRadius:4,padding:"2px 6px",fontSize:9,cursor:"pointer",marginRight:3}}>✏️</button>
+                                      <button onClick={() => deleteRow("deposit", origIdx)} style={{background:"#21262D",color:"#F85149",border:"none",borderRadius:4,padding:"2px 6px",fontSize:9,cursor:"pointer"}}>🗑</button>
                                     </td>
                                   </tr>
                                 );
@@ -1725,6 +1796,55 @@ export default function BankDashboard({ supabase, userId, encryptionKey }: BankD
               <div style={{display:"flex",justifyContent:isMobile?"center":"flex-end",gap:8,marginTop:12,flexWrap:"wrap"}}>
                 <div style={{background:"#161B22",borderRadius:8,padding:"8px 14px",border:"1px solid #30363D",fontSize:11}}>Invested: <strong style={{fontFamily:"monospace",color:"#F0F6FC"}}>{fmt(filtered.reduce((s, d) => s + (Number(d.deposit) || 0), 0))}</strong></div>
                 <div style={{background:"#161B22",borderRadius:8,padding:"8px 14px",border:"1px solid #30363D",fontSize:11}}>Maturity: <strong style={{fontFamily:"monospace",color:"#3FB950"}}>{fmt(filtered.reduce((s, d) => s + (Number(d.maturityAmt) || Number(d.deposit) || 0), 0))}</strong></div>
+              </div>
+
+              {/* By Bank Chart - Below data */}
+              <div style={{background:"#0D1117",borderRadius:12,border:"1px solid #1F2937",padding:14,marginTop:16}}>
+                <div style={{fontSize:12,fontWeight:700,color:"#9CA3AF",marginBottom:10}}>🏦 Deposits by Bank</div>
+                {typePieData.length === 0 ? (
+                  <div style={{color:"#4B5563",padding:20,textAlign:"center"}}>No data</div>
+                ) : (
+                  <>
+                    <ResponsiveContainer width="100%" height={160}>
+                      <PieChart>
+                        <Pie 
+                          data={typePieData} 
+                          cx="50%" 
+                          cy="50%" 
+                          outerRadius={60} 
+                          paddingAngle={3} 
+                          dataKey="value"
+                          label={({name, percent}) => `${name.slice(0, 8)} ${(percent * 100).toFixed(0)}%`}
+                          labelLine={false}
+                        >
+                          {typePieData.map((e, i) => <Cell key={i} fill={e.color} stroke="#111827" strokeWidth={2} />)}
+                        </Pie>
+                        <Tooltip 
+                          formatter={(v: any) => fmt(v)} 
+                          contentStyle={{background:"#1C1C2E",border:"1px solid #374151",borderRadius:8,fontSize:12}} 
+                        />
+                      </PieChart>
+                    </ResponsiveContainer>
+                    <button 
+                      onClick={() => setShowLegend(prev => prev.has('dep_type') ? new Set([...prev].filter(k => k !== 'dep_type')) : new Set([...prev, 'dep_type']))}
+                      style={{marginTop:6,background:"#21262D",border:"1px solid #30363D",color:"#9CA3AF",padding:"4px 12px",borderRadius:6,fontSize:11,cursor:"pointer",display:"flex",alignItems:"center",gap:6}}
+                    >
+                      <span style={{fontSize:10,transition:"transform 0.2s",transform:showLegend.has('dep_type')?"rotate(90deg)":"rotate(0deg)"}}>▶</span>
+                      Legend ({typePieData.length})
+                    </button>
+                    {showLegend.has('dep_type') && (
+                      <div style={{display:"flex",flexWrap:"wrap",gap:6,marginTop:8}}>
+                        {typePieData.map((e, i) => (
+                          <div key={i} style={{display:"flex",alignItems:"center",gap:4,fontSize:11,background:"#161B22",padding:"3px 8px",borderRadius:12}}>
+                            <div style={{width:8,height:8,borderRadius:"50%",background:e.color}} />
+                            <span style={{color:"#D1D5DB"}}>{e.name}</span>
+                            <span style={{color:e.color,fontWeight:600}}>{fmt(e.value)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </>
+                )}
               </div>
             </div>
           );
@@ -1794,7 +1914,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey }: BankD
                             </div>
                           </div>
                           
-                          {/* Account Types List - Collapsible */}
+                          {/* Account Types List - Collapsible - ALL fields */}
                           {isExpanded && (
                             <div style={{borderTop:`1px solid ${color}20`}}>
                               {bankAccounts.map((acc, j) => {
@@ -1804,17 +1924,23 @@ export default function BankDashboard({ supabase, userId, encryptionKey }: BankD
                                   <div key={j} style={{padding:"10px 14px",borderBottom:j < bankAccounts.length - 1 ? "1px solid #21262D" : "none",opacity:acc.done ? 0.55 : 1}}>
                                     <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
                                       <div style={{flex:1}}>
-                                        <div style={{display:"flex",alignItems:"center",gap:8}}>
+                                        <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
                                           <span style={{background:`${typeColor}20`,color:typeColor,padding:"2px 8px",borderRadius:4,fontSize:10,fontWeight:700}}>{acc.type}</span>
+                                          {acc.online && <span style={{fontSize:9,color:acc.online === "Yes" ? "#34D399" : "#6B7280",background:acc.online === "Yes" ? "#064E3B30" : "#37415140",padding:"2px 6px",borderRadius:4}}>🌐 {acc.online}</span>}
                                           {acc.done && <span style={{fontSize:9,color:"#6B7280"}}>✓ Done</span>}
                                         </div>
-                                        {acc.holders && <div style={{fontSize:11,color:"#9CA3AF",marginTop:4}}>👤 {acc.holders}</div>}
-                                        <div style={{display:"flex",alignItems:"baseline",gap:8,marginTop:4}}>
+                                        {acc.holders && <div style={{fontSize:11,color:"#C9D1D9",marginTop:4}}>👤 {acc.holders}</div>}
+                                        <div style={{display:"flex",alignItems:"baseline",gap:8,marginTop:4,flexWrap:"wrap"}}>
                                           {acc.amount && <span style={{fontSize:14,fontWeight:700,fontFamily:"monospace",color:acc.done ? "#6B7280" : "#F9FAFB"}}>{fmt(acc.amount)}</span>}
-                                          {acc.roi && <span style={{fontSize:11,color:"#34D399"}}>{(Number(acc.roi) * 100).toFixed(2)}% pa</span>}
+                                          {acc.roi && <span style={{fontSize:11,color:"#34D399",fontFamily:"monospace"}}>{(Number(acc.roi) * 100).toFixed(2)}% pa</span>}
+                                          {acc.currency && acc.currency !== "INR" && <span style={{fontSize:9,background:"#1F2937",color:"#9CA3AF",padding:"2px 6px",borderRadius:4}}>{acc.currency}</span>}
                                         </div>
+                                        {acc.address && <div style={{fontSize:10,color:"#6B7280",marginTop:3}}>📍 {acc.address}</div>}
+                                        {acc.detail && <div style={{fontSize:10,color:"#9CA3AF",marginTop:2}}>📝 {acc.detail}</div>}
+                                        {acc.accountNumber && <div style={{fontSize:9,color:"#484F58",marginTop:2,fontFamily:"monospace"}}>A/C: {acc.accountNumber}</div>}
+                                        {acc.ifscCode && <div style={{fontSize:9,color:"#484F58",fontFamily:"monospace"}}>IFSC: {acc.ifscCode}</div>}
+                                        {acc.branch && <div style={{fontSize:9,color:"#484F58"}}>Branch: {acc.branch}</div>}
                                         {acc.nextAction && !acc.done && <div style={{fontSize:11,color:"#F59E0B",marginTop:4,fontWeight:600}}>⚡ {acc.nextAction}</div>}
-                                        {acc.detail && <div style={{fontSize:10,color:"#6B7280",marginTop:2}}>{acc.detail}</div>}
                                       </div>
                                       <div style={{display:"flex",gap:4,flexShrink:0}}>
                                         <button onClick={(e) => { e.stopPropagation(); toggleDone("account", originalIndex); }} style={{background:acc.done ? "#064E3B" : "#1C1C2E",color:acc.done ? "#34D399" : "#6B7280",border:`1px solid ${acc.done ? "#065F46" : "#374151"}`,borderRadius:5,padding:"2px 6px",fontSize:10,cursor:"pointer",fontWeight:700}}>{acc.done ? "↩" : "✓"}</button>
@@ -1865,6 +1991,56 @@ export default function BankDashboard({ supabase, userId, encryptionKey }: BankD
                           {accounts.length} accounts across {bankNames.length} banks
                         </div>
                       </div>
+                    )}
+                  </div>
+                  
+                  {/* Investment by Bank Chart */}
+                  <div style={{marginTop:16,background:"#0D1117",borderRadius:12,border:"1px solid #1F2937",padding:14}}>
+                    <div style={{fontSize:12,fontWeight:700,color:"#9CA3AF",marginBottom:10}}>🏦 Investment by Bank</div>
+                    {pieData.length === 0 ? (
+                      <div style={{color:"#4B5563",padding:20,textAlign:"center"}}>No data</div>
+                    ) : (
+                      <>
+                        <ResponsiveContainer width="100%" height={180}>
+                          <PieChart>
+                            <Pie 
+                              data={pieData} 
+                              cx="50%" 
+                              cy="50%" 
+                              innerRadius={50} 
+                              outerRadius={70} 
+                              paddingAngle={3} 
+                              dataKey="value"
+                              label={({name, percent}) => `${name.slice(0, 6)} ${(percent * 100).toFixed(0)}%`}
+                              labelLine={false}
+                            >
+                              {pieData.map((e, i) => <Cell key={i} fill={e.color} stroke="#111827" strokeWidth={2} />)}
+                            </Pie>
+                            <Tooltip 
+                              formatter={(v: any) => fmt(v)} 
+                              contentStyle={{background:"#1C1C2E",border:"1px solid #374151",borderRadius:8,fontSize:12}} 
+                            />
+                          </PieChart>
+                        </ResponsiveContainer>
+                        <button 
+                          onClick={() => setShowLegend(prev => prev.has('bank') ? new Set([...prev].filter(k => k !== 'bank')) : new Set([...prev, 'bank']))}
+                          style={{marginTop:8,background:"#21262D",border:"1px solid #30363D",color:"#9CA3AF",padding:"4px 12px",borderRadius:6,fontSize:11,cursor:"pointer",display:"flex",alignItems:"center",gap:6}}
+                        >
+                          <span style={{fontSize:10,transition:"transform 0.2s",transform:showLegend.has('bank')?"rotate(90deg)":"rotate(0deg)"}}>▶</span>
+                          Legend ({pieData.length})
+                        </button>
+                        {showLegend.has('bank') && (
+                          <div style={{display:"flex",flexWrap:"wrap",gap:6,marginTop:8}}>
+                            {pieData.map((e, i) => (
+                              <div key={i} style={{display:"flex",alignItems:"center",gap:4,fontSize:11,background:"#161B22",padding:"3px 8px",borderRadius:12}}>
+                                <div style={{width:8,height:8,borderRadius:"50%",background:e.color}} />
+                                <span style={{color:"#D1D5DB"}}>{e.name}</span>
+                                <span style={{color:e.color,fontWeight:600}}>{fmt(e.value)}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </>
                     )}
                   </div>
                 </>
