@@ -447,9 +447,10 @@ export default function BankDashboard({ supabase, userId, encryptionKey }: BankD
             return s === "deposit" || (s.includes("deposit") && !s.includes("id"));
           });
           
-          // Find Status column for skip logic
-          const cStatus = h.findIndex((x: any) => x && x.toString().toLowerCase() === "status");
-          const cCur = h.findIndex((x: any) => x && x.toString().toLowerCase() === "currency");
+          // Find Status column for skip logic (use trim for robust matching)
+          const cStatus = h.findIndex((x: any) => x && x.toString().toLowerCase().trim() === "status");
+          const cCur = h.findIndex((x: any) => x && x.toString().toLowerCase().trim() === "currency");
+          console.log("[Excel Import] Deposits sheet - Currency column index:", cCur, "Headers:", h);
           
           for (let i = hIdx + 1; i < rows.length; i++) {
             const r = rows[i];
@@ -465,6 +466,8 @@ export default function BankDashboard({ supabase, userId, encryptionKey }: BankD
               if (["skip", "archive", "draft", "ignore", "old", "inactive"].includes(status)) continue;
             }
             
+            const currencyVal = (cCur >= 0 && r[cCur]) ? r[cCur].toString().trim().toUpperCase() : "INR";
+            console.log("[Excel Import] Deposit:", bank, "Currency col value:", r[cCur], "→", currencyVal);
             newDeposits.push({
               bank: bank,
               type: r[cT]?.toString() || "Fixed Deposit",
@@ -477,7 +480,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey }: BankD
               maturityDate: toISO(r[cMD]) || "",
               duration: r[cDu]?.toString() || "",
               maturityAction: r[cA]?.toString() || "",
-              currency: (cCur >= 0 && r[cCur]) ? r[cCur].toString().toUpperCase() as any : "INR",
+              currency: currencyVal as any,
               done: false
             });
           }
@@ -495,9 +498,10 @@ export default function BankDashboard({ supabase, userId, encryptionKey }: BankD
             col("Source"), col("Amount"), col("Type"), col("1st"), col("2nd"),
             col("Online"), col("Next"), col("ROI"), col("Address"), col("Details")
           ];
-          // Find Status and Currency columns
-          const cStatus = h.findIndex((x: any) => x && x.toString().toLowerCase() === "status");
-          const cCur = h.findIndex((x: any) => x && x.toString().toLowerCase() === "currency");
+          // Find Status and Currency columns (use trim for robust matching)
+          const cStatus = h.findIndex((x: any) => x && x.toString().toLowerCase().trim() === "status");
+          const cCur = h.findIndex((x: any) => x && x.toString().toLowerCase().trim() === "currency");
+          console.log("[Excel Import] Banks sheet - Currency column index:", cCur, "Headers:", h);
           
           for (let i = hIdx + 1; i < rows.length; i++) {
             const r = rows[i];
@@ -513,6 +517,8 @@ export default function BankDashboard({ supabase, userId, encryptionKey }: BankD
               if (["skip", "archive", "draft", "ignore", "old", "inactive"].includes(status)) continue;
             }
             
+            const currencyVal = (cCur >= 0 && r[cCur]) ? r[cCur].toString().trim().toUpperCase() : "INR";
+            console.log("[Excel Import] Account:", bank, "Currency col value:", r[cCur], "→", currencyVal);
             newAccounts.push({
               bank: bank,
               type: r[cT]?.toString() || "Saving",
@@ -523,7 +529,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey }: BankD
               address: r[cAd]?.toString() || "",
               detail: r[cDe]?.toString() || "",
               nextAction: r[cAc]?.toString() || "",
-              currency: (cCur >= 0 && r[cCur]) ? r[cCur].toString().toUpperCase() as any : "INR",
+              currency: currencyVal as any,
               done: false
             });
           }
@@ -541,9 +547,9 @@ export default function BankDashboard({ supabase, userId, encryptionKey }: BankD
             col("Name"), col("Freq"), col("Amount"), col("Date"),
             col("Priority"), col("Phone"), col("Email")
           ];
-          // Find Status and Currency columns
-          const cStatus = h.findIndex((x: any) => x && x.toString().toLowerCase() === "status");
-          const cCur = h.findIndex((x: any) => x && x.toString().toLowerCase() === "currency");
+          // Find Status and Currency columns (use trim for robust matching)
+          const cStatus = h.findIndex((x: any) => x && x.toString().toLowerCase().trim() === "status");
+          const cCur = h.findIndex((x: any) => x && x.toString().toLowerCase().trim() === "currency");
           
           for (let i = hIdx + 1; i < rows.length; i++) {
             const r = rows[i];
@@ -559,6 +565,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey }: BankD
               if (["skip", "archive", "draft", "ignore", "old", "inactive"].includes(status)) continue;
             }
             
+            const currencyVal = (cCur >= 0 && r[cCur]) ? r[cCur].toString().trim().toUpperCase() : "INR";
             newBills.push({
               name: name,
               freq: r[cF]?.toString() || "Monthly",
@@ -567,7 +574,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey }: BankD
               priority: r[cP]?.toString() || "Normal",
               phone: r[cPh]?.toString() || "",
               email: r[cE]?.toString() || "",
-              currency: (cCur >= 0 && r[cCur]) ? r[cCur].toString().toUpperCase() as any : "INR",
+              currency: currencyVal as any,
               done: false
             });
           }
