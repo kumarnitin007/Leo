@@ -138,6 +138,9 @@ export interface BankRecordsData {
   bills: Bill[];
   actions: ActionItem[];
   goals?: SavingsGoal[];
+  // Currency settings
+  exchangeRates?: { USD: number; EUR: number; GBP: number };
+  displayCurrency?: 'INR' | 'USD' | 'EUR' | 'GBP';
   // Metadata
   updatedAt?: string;
   version?: number; // For future migrations

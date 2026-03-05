@@ -41,6 +41,27 @@ function daysUntil(dateStr: string | null | undefined): number | null {
 
 const CURRENCY_SYMBOLS: Record<Currency, string> = { INR: '₹', USD: '$', EUR: '€', GBP: '£' };
 const CURRENCY_LOCALES: Record<Currency, string> = { INR: 'en-IN', USD: 'en-US', EUR: 'de-DE', GBP: 'en-GB' };
+const DEFAULT_RATES = { USD: 83, EUR: 90, GBP: 105 }; // Rates to INR
+
+// Convert amount to target currency using exchange rates
+function convertCurrency(
+  amount: number, 
+  fromCurrency: Currency, 
+  toCurrency: Currency, 
+  rates: {USD: number; EUR: number; GBP: number}
+): number {
+  if (fromCurrency === toCurrency) return amount;
+  
+  // First convert to INR (base currency)
+  let inrAmount = amount;
+  if (fromCurrency !== 'INR') {
+    inrAmount = amount * (rates[fromCurrency as keyof typeof rates] || 1);
+  }
+  
+  // Then convert from INR to target
+  if (toCurrency === 'INR') return inrAmount;
+  return inrAmount / (rates[toCurrency as keyof typeof rates] || 1);
+}
 
 function fmt(n: number | string | null | undefined, currency: Currency = 'INR'): string {
   if (n == null || n === "" || isNaN(Number(n))) return "—";
@@ -135,6 +156,11 @@ export default function BankDashboard({ supabase, userId, encryptionKey }: BankD
   const [modal, setModal] = useState<{type: string; mode: string; idx?: number} | null>(null);
   const [form, setForm] = useState<any>({});
   const [filterBank, setFilterBank] = useState("All");
+  
+  // Currency conversion settings
+  const [displayCurrency, setDisplayCurrency] = useState<'INR' | 'USD' | 'EUR' | 'GBP'>('INR');
+  const [exchangeRates, setExchangeRates] = useState<{USD: number; EUR: number; GBP: number}>({ USD: 83, EUR: 90, GBP: 105 });
+  const [showRatesModal, setShowRatesModal] = useState(false);
   const [search, setSearch] = useState("");
   const [showDone, setShowDone] = useState(false);
   const [showSetupBanner, setShowSetupBanner] = useState(false);
@@ -214,6 +240,8 @@ export default function BankDashboard({ supabase, userId, encryptionKey }: BankD
             setBills(parsed.bills || []);
             setActions(parsed.actions || []);
             setGoals(parsed.goals || []);
+            if (parsed.exchangeRates) setExchangeRates(parsed.exchangeRates);
+            if (parsed.displayCurrency) setDisplayCurrency(parsed.displayCurrency);
             console.log('[BankDashboard] ✅ Loaded data from Supabase');
           } catch (decryptError) {
             console.error('[BankDashboard] Decryption error:', decryptError);
@@ -373,8 +401,8 @@ export default function BankDashboard({ supabase, userId, encryptionKey }: BankD
     updateFinancialAlertsCache(summary);
   }, [loading, deposits, accounts, bills, actions]);
 
-  async function persist(deps: Deposit[], accs: BankAccount[], bls: Bill[], acts: ActionItem[], gls?: SavingsGoal[]) {
-    const payload: BankRecordsData = { deposits: deps, accounts: accs, bills: bls, actions: acts, goals: gls || goals, updatedAt: new Date().toISOString(), version: 1 };
+  async function persist(deps: Deposit[], accs: BankAccount[], bls: Bill[], acts: ActionItem[], gls?: SavingsGoal[], rates?: {USD: number; EUR: number; GBP: number}, dispCur?: 'INR' | 'USD' | 'EUR' | 'GBP') {
+    const payload: BankRecordsData = { deposits: deps, accounts: accs, bills: bls, actions: acts, goals: gls || goals, exchangeRates: rates || exchangeRates, displayCurrency: dispCur || displayCurrency, updatedAt: new Date().toISOString(), version: 1 };
     try {
       if (supabase && userId && encryptionKey) {
         // Encrypt before saving - store both encrypted data and IV as JSON
@@ -1028,13 +1056,23 @@ export default function BankDashboard({ supabase, userId, encryptionKey }: BankD
     else { const ac=[...actions]; ac[idx]={...ac[idx],done:!ac[idx].done}; save(deposits,accounts,bills,ac); }
   }
 
-  // ── Derived Data (FROM ACCOUNTS ONLY) ───────────────────────────────────
-  const totalInvested = accounts.filter(a => a.type === "FD").reduce((s,a)=>s+(Number(a.amount)||0),0);
+  // ── Derived Data (FROM ACCOUNTS ONLY) with Multi-Currency Support ─────────
+  // Helper to sum amounts converting to display currency
+  const sumConverted = (items: {amount?: number|string; currency?: Currency}[]) => 
+    items.reduce((s, a) => s + convertCurrency(Number(a.amount) || 0, (a.currency || 'INR') as Currency, displayCurrency, exchangeRates), 0);
+  
+  const totalInvested = accounts.filter(a => a.type === "FD").reduce((s,a) => 
+    s + convertCurrency(Number(a.amount) || 0, (a.currency || 'INR') as Currency, displayCurrency, exchangeRates), 0);
+  
   const totalMaturity = accounts.filter(a => a.type === "FD").reduce((s,a) => {
     const principal = Number(a.amount) || 0;
     const roi = Number(a.roi) || 0.07;
-    return s + principal * (1 + roi);
+    const maturityVal = principal * (1 + roi);
+    return s + convertCurrency(maturityVal, (a.currency || 'INR') as Currency, displayCurrency, exchangeRates);
   }, 0);
+  
+  const netWorthConverted = accounts.reduce((s, a) => 
+    s + convertCurrency(Number(a.amount) || 0, (a.currency || 'INR') as Currency, displayCurrency, exchangeRates), 0);
   
   // Deposits are ONLY for maturity tracking/alerts
   const upcoming90 = deposits.filter(d=>{ const x=daysUntil(d.maturityDate); return x!=null&&x>=0&&x<=90&&!d.done; });
@@ -1225,6 +1263,39 @@ export default function BankDashboard({ supabase, userId, encryptionKey }: BankD
         {/* Tab Content */}
         {tab==="overview" && (
           <div style={{display:"flex",flexDirection:"column",gap:16}}>
+            {/* Currency Toggle Bar */}
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",background:"#0D1117",borderRadius:10,padding:"8px 14px",border:"1px solid #1F2937"}}>
+              <div style={{display:"flex",alignItems:"center",gap:8}}>
+                <span style={{fontSize:10,color:"#6B7280",fontWeight:600}}>DISPLAY CURRENCY:</span>
+                <div style={{display:"flex",gap:4}}>
+                  {(['INR', 'USD', 'EUR', 'GBP'] as const).map(cur => (
+                    <button
+                      key={cur}
+                      onClick={() => { setDisplayCurrency(cur); persist(deposits, accounts, bills, actions, goals, exchangeRates, cur); }}
+                      style={{
+                        background: displayCurrency === cur ? '#1F6FEB' : '#21262D',
+                        color: displayCurrency === cur ? '#FFFFFF' : '#8B949E',
+                        border: 'none',
+                        padding: '4px 10px',
+                        borderRadius: 6,
+                        fontSize: 11,
+                        fontWeight: 600,
+                        cursor: 'pointer'
+                      }}
+                    >
+                      {CURRENCY_SYMBOLS[cur]} {cur}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <button
+                onClick={() => setShowRatesModal(true)}
+                style={{background:"#21262D",color:"#8B949E",border:"none",padding:"4px 10px",borderRadius:6,fontSize:10,fontWeight:600,cursor:"pointer",display:"flex",alignItems:"center",gap:4}}
+              >
+                ⚙️ Rates
+              </button>
+            </div>
+            
             {/* Quick Stats Row */}
             <div style={{display:"grid",gridTemplateColumns:"repeat(4, 1fr)",gap:8}}>
               <div style={{background:"#0D1117",borderRadius:10,padding:"10px 8px",textAlign:"center",border:"1px solid #1F2937"}}>
@@ -1245,11 +1316,13 @@ export default function BankDashboard({ supabase, userId, encryptionKey }: BankD
               </div>
             </div>
 
-            {/* Portfolio Summary - Professional Card Layout */}
+            {/* Portfolio Summary - Professional Card Layout with Currency Conversion */}
             {(() => {
-              const accountTotal = accounts.reduce((s, a) => s + (Number(a.amount) || 0), 0);
-              const fdTotal = accounts.filter(a => a.type === "FD").reduce((s, a) => s + (Number(a.amount) || 0), 0);
-              const savingsTotal = accounts.filter(a => a.type === "Saving").reduce((s, a) => s + (Number(a.amount) || 0), 0);
+              const accountTotal = sumConverted(accounts);
+              const fdTotal = accounts.filter(a => a.type === "FD").reduce((s, a) => 
+                s + convertCurrency(Number(a.amount) || 0, (a.currency || 'INR') as Currency, displayCurrency, exchangeRates), 0);
+              const savingsTotal = accounts.filter(a => a.type === "Saving").reduce((s, a) => 
+                s + convertCurrency(Number(a.amount) || 0, (a.currency || 'INR') as Currency, displayCurrency, exchangeRates), 0);
               const otherTotal = accountTotal - fdTotal - savingsTotal;
               
               const segments = [
@@ -1263,8 +1336,8 @@ export default function BankDashboard({ supabase, userId, encryptionKey }: BankD
                   {/* Header with Total */}
                   <div style={{padding:"16px 18px",borderBottom:"1px solid #334155",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
                     <div>
-                      <div style={{fontSize:11,color:"#94A3B8",fontWeight:500,letterSpacing:"0.5px"}}>TOTAL PORTFOLIO</div>
-                      <div style={{fontSize:26,fontWeight:800,color:"#F8FAFC",fontFamily:"monospace",marginTop:4}}>{fmt(accountTotal)}</div>
+                      <div style={{fontSize:11,color:"#94A3B8",fontWeight:500,letterSpacing:"0.5px"}}>TOTAL PORTFOLIO ({displayCurrency})</div>
+                      <div style={{fontSize:26,fontWeight:800,color:"#F8FAFC",fontFamily:"monospace",marginTop:4}}>{fmt(accountTotal, displayCurrency)}</div>
                     </div>
                     <div style={{textAlign:"right"}}>
                       <div style={{fontSize:10,color:"#64748B"}}>{accounts.length} accounts</div>
@@ -1298,7 +1371,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey }: BankD
                           <div style={{width:8,height:8,borderRadius:2,background:seg.color}}/>
                           <span style={{fontSize:10,color:"#94A3B8",fontWeight:500,textTransform:"uppercase",letterSpacing:"0.3px"}}>{seg.label}</span>
                         </div>
-                        <div style={{fontSize:16,fontWeight:700,color:"#F8FAFC",fontFamily:"monospace"}}>{fmt(seg.amount)}</div>
+                        <div style={{fontSize:16,fontWeight:700,color:"#F8FAFC",fontFamily:"monospace"}}>{fmt(seg.amount, displayCurrency)}</div>
                         <div style={{fontSize:10,color:seg.color,fontWeight:600,marginTop:2}}>{seg.pct.toFixed(1)}%</div>
                       </div>
                     ))}
@@ -1368,7 +1441,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey }: BankD
             {/* FD Projections - Matching Professional Style */}
             <div style={{background:"linear-gradient(135deg, #0F172A 0%, #1E293B 100%)",borderRadius:16,border:"1px solid #334155",overflow:"hidden"}}>
               <div style={{padding:"12px 18px",borderBottom:"1px solid #334155"}}>
-                <div style={{fontSize:11,color:"#94A3B8",fontWeight:500,letterSpacing:"0.5px"}}>FD PROJECTIONS (1 YEAR)</div>
+                <div style={{fontSize:11,color:"#94A3B8",fontWeight:500,letterSpacing:"0.5px"}}>FD PROJECTIONS (1 YEAR) - {displayCurrency}</div>
               </div>
               <div style={{display:"grid",gridTemplateColumns:"repeat(3, 1fr)",gap:1,background:"#334155"}}>
                 <div style={{background:"#0F172A",padding:"14px 16px",textAlign:"center"}}>
@@ -1376,7 +1449,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey }: BankD
                     <div style={{width:8,height:8,borderRadius:2,background:"#3B82F6"}}/>
                     <span style={{fontSize:10,color:"#94A3B8",fontWeight:500,textTransform:"uppercase",letterSpacing:"0.3px"}}>Invested</span>
                   </div>
-                  <div style={{fontSize:18,fontWeight:700,color:"#F8FAFC",fontFamily:"monospace"}}>{fmt(totalInvested)}</div>
+                  <div style={{fontSize:18,fontWeight:700,color:"#F8FAFC",fontFamily:"monospace"}}>{fmt(totalInvested, displayCurrency)}</div>
                   <div style={{fontSize:10,color:"#64748B",marginTop:4}}>{accounts.filter(a=>a.type==="FD").length} FDs</div>
                 </div>
                 <div style={{background:"#0F172A",padding:"14px 16px",textAlign:"center"}}>
@@ -1384,7 +1457,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey }: BankD
                     <div style={{width:8,height:8,borderRadius:2,background:"#10B981"}}/>
                     <span style={{fontSize:10,color:"#94A3B8",fontWeight:500,textTransform:"uppercase",letterSpacing:"0.3px"}}>Maturity</span>
                   </div>
-                  <div style={{fontSize:18,fontWeight:700,color:"#F8FAFC",fontFamily:"monospace"}}>{fmt(totalMaturity)}</div>
+                  <div style={{fontSize:18,fontWeight:700,color:"#F8FAFC",fontFamily:"monospace"}}>{fmt(totalMaturity, displayCurrency)}</div>
                   <div style={{fontSize:10,color:"#64748B",marginTop:4}}>projected value</div>
                 </div>
                 <div style={{background:"#0F172A",padding:"14px 16px",textAlign:"center"}}>
@@ -1392,23 +1465,23 @@ export default function BankDashboard({ supabase, userId, encryptionKey }: BankD
                     <div style={{width:8,height:8,borderRadius:2,background:"#F59E0B"}}/>
                     <span style={{fontSize:10,color:"#94A3B8",fontWeight:500,textTransform:"uppercase",letterSpacing:"0.3px"}}>Est. Gain</span>
                   </div>
-                  <div style={{fontSize:18,fontWeight:700,color:"#10B981",fontFamily:"monospace"}}>{fmt(totalMaturity-totalInvested)}</div>
+                  <div style={{fontSize:18,fontWeight:700,color:"#10B981",fontFamily:"monospace"}}>{fmt(totalMaturity-totalInvested, displayCurrency)}</div>
                   <div style={{fontSize:10,color:"#10B981",fontWeight:600,marginTop:4}}>{totalInvested?`+${(((totalMaturity-totalInvested)/totalInvested)*100).toFixed(1)}%`:""}</div>
                 </div>
               </div>
             </div>
             
-            {/* Net Worth Breakdown - Collapsible */}
+            {/* Net Worth Breakdown - Collapsible with Currency Conversion */}
             {(() => {
-              const netWorth = accounts.reduce((s, a) => s + (Number(a.amount) || 0), 0);
+              const netWorth = netWorthConverted;
               const byType: Record<string, number> = {};
               accounts.forEach(a => {
                 const t = a.type || 'Other';
-                byType[t] = (byType[t] || 0) + (Number(a.amount) || 0);
+                byType[t] = (byType[t] || 0) + convertCurrency(Number(a.amount) || 0, (a.currency || 'INR') as Currency, displayCurrency, exchangeRates);
               });
               const byBank: Record<string, number> = {};
               accounts.forEach(a => {
-                byBank[a.bank] = (byBank[a.bank] || 0) + (Number(a.amount) || 0);
+                byBank[a.bank] = (byBank[a.bank] || 0) + convertCurrency(Number(a.amount) || 0, (a.currency || 'INR') as Currency, displayCurrency, exchangeRates);
               });
               
               return (
@@ -1419,9 +1492,9 @@ export default function BankDashboard({ supabase, userId, encryptionKey }: BankD
                   >
                     <div style={{display:"flex",alignItems:"center",gap:8}}>
                       <span style={{fontSize:10,color:"#6B7280",transition:"transform 0.2s",transform:expandedBanks.has('_networth')?"rotate(90deg)":"rotate(0deg)"}}>▶</span>
-                      <span style={{fontSize:11,fontWeight:700,color:"#9CA3AF",textTransform:"uppercase"}}>💎 Net Worth Breakdown</span>
+                      <span style={{fontSize:11,fontWeight:700,color:"#9CA3AF",textTransform:"uppercase"}}>💎 Net Worth ({displayCurrency})</span>
                     </div>
-                    <span style={{fontSize:12,color:"#F9FAFB",fontFamily:"monospace",fontWeight:700}}>{fmt(netWorth)}</span>
+                    <span style={{fontSize:12,color:"#F9FAFB",fontFamily:"monospace",fontWeight:700}}>{fmt(netWorth, displayCurrency)}</span>
                   </button>
                   {expandedBanks.has('_networth') && (
                     <div style={{borderTop:"1px solid #1F2937",padding:14,display:"flex",flexDirection:"column",gap:12}}>
@@ -1436,7 +1509,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey }: BankD
                                 <div style={{flex:1}}>
                                   <div style={{display:"flex",justifyContent:"space-between",marginBottom:3}}>
                                     <span style={{fontSize:11,color:"#C9D1D9"}}>{type}</span>
-                                    <span style={{fontSize:11,color:"#F0F6FC",fontWeight:600,fontFamily:"monospace"}}>{fmt(amt)}</span>
+                                    <span style={{fontSize:11,color:"#F0F6FC",fontWeight:600,fontFamily:"monospace"}}>{fmt(amt, displayCurrency)}</span>
                                   </div>
                                   <div style={{background:"#21262D",borderRadius:3,height:5,overflow:"hidden"}}>
                                     <div style={{width:`${netWorth ? (amt/netWorth)*100 : 0}%`,height:"100%",background:typeColor,borderRadius:3}}/>
@@ -1456,7 +1529,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey }: BankD
                           {Object.entries(byBank).sort((a,b) => b[1] - a[1]).slice(0, 8).map(([bank, amt]) => (
                             <div key={bank} style={{background:"#161B22",borderRadius:6,padding:8,borderLeft:`2px solid ${getBankColor(bank)}`}}>
                               <div style={{fontSize:10,color:"#8B949E",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{bank}</div>
-                              <div style={{fontSize:12,fontWeight:700,color:"#F0F6FC",fontFamily:"monospace"}}>{fmt(amt)}</div>
+                              <div style={{fontSize:12,fontWeight:700,color:"#F0F6FC",fontFamily:"monospace"}}>{fmt(amt, displayCurrency)}</div>
                               <div style={{fontSize:9,color:getBankColor(bank)}}>{((amt/netWorth)*100).toFixed(0)}%</div>
                             </div>
                           ))}
@@ -2207,6 +2280,62 @@ export default function BankDashboard({ supabase, userId, encryptionKey }: BankD
             <div style={{display:"flex",gap:12,marginTop:22,justifyContent:"flex-end"}}>
               <button onClick={()=>setModal(null)} style={{background:"#374151",color:"#9CA3AF",border:"none",borderRadius:10,padding:"9px 18px",cursor:"pointer"}}>Cancel</button>
               <button onClick={saveModal} style={{background:"linear-gradient(135deg,#1D4ED8,#2563EB)",color:"#fff",border:"none",borderRadius:10,padding:"9px 22px",cursor:"pointer"}}>Save</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Exchange Rates Modal */}
+      {showRatesModal && (
+        <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.85)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:1001,padding:16}}>
+          <div style={{background:"#1C1C2E",borderRadius:20,padding:28,width:"100%",maxWidth:400,border:"1px solid #374151"}}>
+            <div style={{display:"flex",justifyContent:"space-between",marginBottom:22}}>
+              <div style={{fontSize:17,fontWeight:800,color:"#F9FAFB"}}>Exchange Rates (to INR)</div>
+              <button onClick={()=>setShowRatesModal(false)} style={{background:"#374151",color:"#9CA3AF",border:"none",borderRadius:8,padding:"3px 12px",cursor:"pointer"}}>✕</button>
+            </div>
+            <div style={{fontSize:11,color:"#9CA3AF",marginBottom:16}}>
+              Set exchange rates for currency conversion. These rates define how many INR equals 1 unit of foreign currency.
+            </div>
+            <div style={{display:"flex",flexDirection:"column",gap:14}}>
+              <div>
+                <label style={{fontSize:11,color:"#9CA3AF",display:"block",marginBottom:4}}>1 USD = ₹</label>
+                <input 
+                  type="number" 
+                  step="0.01"
+                  value={exchangeRates.USD} 
+                  onChange={e => setExchangeRates({...exchangeRates, USD: Number(e.target.value) || 83})}
+                  style={{width:"100%",background:"#21262D",border:"1px solid #30363D",borderRadius:8,padding:"10px 12px",color:"#F0F6FC",fontSize:14}}
+                />
+              </div>
+              <div>
+                <label style={{fontSize:11,color:"#9CA3AF",display:"block",marginBottom:4}}>1 EUR = ₹</label>
+                <input 
+                  type="number"
+                  step="0.01" 
+                  value={exchangeRates.EUR} 
+                  onChange={e => setExchangeRates({...exchangeRates, EUR: Number(e.target.value) || 90})}
+                  style={{width:"100%",background:"#21262D",border:"1px solid #30363D",borderRadius:8,padding:"10px 12px",color:"#F0F6FC",fontSize:14}}
+                />
+              </div>
+              <div>
+                <label style={{fontSize:11,color:"#9CA3AF",display:"block",marginBottom:4}}>1 GBP = ₹</label>
+                <input 
+                  type="number"
+                  step="0.01" 
+                  value={exchangeRates.GBP} 
+                  onChange={e => setExchangeRates({...exchangeRates, GBP: Number(e.target.value) || 105})}
+                  style={{width:"100%",background:"#21262D",border:"1px solid #30363D",borderRadius:8,padding:"10px 12px",color:"#F0F6FC",fontSize:14}}
+                />
+              </div>
+            </div>
+            <div style={{display:"flex",gap:12,marginTop:22,justifyContent:"flex-end"}}>
+              <button onClick={()=>setShowRatesModal(false)} style={{background:"#374151",color:"#9CA3AF",border:"none",borderRadius:10,padding:"9px 18px",cursor:"pointer"}}>Cancel</button>
+              <button 
+                onClick={() => { persist(deposits, accounts, bills, actions, goals, exchangeRates, displayCurrency); setShowRatesModal(false); }}
+                style={{background:"linear-gradient(135deg,#1D4ED8,#2563EB)",color:"#fff",border:"none",borderRadius:10,padding:"9px 22px",cursor:"pointer"}}
+              >
+                Save Rates
+              </button>
             </div>
           </div>
         </div>
