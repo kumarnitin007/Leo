@@ -64,7 +64,7 @@ const AppContent: React.FC = () => {
   const [key, setKey] = useState(0); // Used to force refresh of views
   const [showAbout, setShowAbout] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
-  const [showOnboarding, setShowOnboarding] = useState(isFirstTimeUser());
+  const [showOnboarding, setShowOnboarding] = useState(false); // Disabled - go directly to login
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showTimerModal, setShowTimerModal] = useState(false);
   const [showGiftCardsModal, setShowGiftCardsModal] = useState(false);
