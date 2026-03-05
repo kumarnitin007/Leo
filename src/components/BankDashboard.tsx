@@ -168,6 +168,8 @@ export default function BankDashboard({ supabase, userId, encryptionKey }: BankD
   const [displayCurrency, setDisplayCurrency] = useState<'ORIGINAL' | 'INR' | 'USD' | 'EUR' | 'GBP'>('ORIGINAL');
   const [exchangeRates, setExchangeRates] = useState<{USD: number; EUR: number; GBP: number}>({ USD: 83, EUR: 90, GBP: 105 });
   const [showRatesModal, setShowRatesModal] = useState(false);
+  const [accountsViewMode, setAccountsViewMode] = useState<'cards' | 'grouped' | 'flat'>('cards');
+  const [depositsViewMode, setDepositsViewMode] = useState<'cards' | 'grouped' | 'flat'>('grouped');
   const [search, setSearch] = useState("");
   const [showDone, setShowDone] = useState(false);
   const [showSetupBanner, setShowSetupBanner] = useState(false);
@@ -1143,10 +1145,10 @@ export default function BankDashboard({ supabase, userId, encryptionKey }: BankD
 
   const allTabs = [
     {id:"overview",  icon:"📊", label:"Overview", key:"1"},
-    {id:"timeline",  icon:"📅", label:"Timeline", key:"2"},
+    {id:"accounts",  icon:"🏦", label:"Accounts", key:"2"},
     {id:"deposits",  icon:"💰", label:"Deposits", key:"3"},
-    {id:"accounts",  icon:"🏦", label:"Accounts", key:"4"},
-    {id:"bills",     icon:"📋", label:"Bills", key:"5"},
+    {id:"bills",     icon:"📋", label:"Bills", key:"4"},
+    {id:"timeline",  icon:"📅", label:"Timeline", key:"5"},
     {id:"actions",   icon:"⚡", label:"Actions", key:"6"},
     {id:"charts",    icon:"📈", label:"Charts", key:"7"},
   ];
@@ -1269,10 +1271,147 @@ export default function BankDashboard({ supabase, userId, encryptionKey }: BankD
         </div>
       </div>
 
-      <div style={{padding:isMobile?"16px":"22px 28px"}}>
+      <div style={{padding:isMobile?"12px":"22px 28px"}}>
         {/* Tab Content */}
         {tab==="overview" && (
-          <div style={{display:"flex",flexDirection:"column",gap:16}}>
+          <div style={{display:"flex",flexDirection:"column",gap:isMobile?12:16}}>
+            
+            {/* ═══ MOBILE OVERVIEW ═══ */}
+            {isMobile ? (
+              <>
+                {/* Mobile: Net Worth Hero Card */}
+                <div style={{background:"linear-gradient(135deg, #1E3A5F 0%, #0F172A 100%)",borderRadius:16,padding:"20px 16px",textAlign:"center"}}>
+                  <div style={{fontSize:11,color:"#94A3B8",fontWeight:500,letterSpacing:1,marginBottom:4}}>NET WORTH</div>
+                  <div style={{fontSize:32,fontWeight:800,color:"#F8FAFC",fontFamily:"monospace"}}>{fmt(netWorthConverted, targetCurrency)}</div>
+                  <div style={{display:"flex",justifyContent:"center",gap:12,marginTop:12}}>
+                    {(['INR', 'USD'] as const).map(cur => (
+                      <button
+                        key={cur}
+                        onClick={() => { setDisplayCurrency(cur); persist(deposits, accounts, bills, actions, goals, exchangeRates, cur); }}
+                        style={{
+                          background: displayCurrency === cur ? '#1F6FEB' : 'rgba(255,255,255,0.1)',
+                          color: displayCurrency === cur ? '#FFF' : '#94A3B8',
+                          border: 'none',
+                          padding: '8px 16px',
+                          borderRadius: 20,
+                          fontSize: 13,
+                          fontWeight: 600,
+                          minWidth: 60
+                        }}
+                      >
+                        {CURRENCY_SYMBOLS[cur]}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Mobile: Quick Stats - 2x2 Grid with Large Touch Targets */}
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+                  <div onClick={() => setTab("deposits")} style={{background:"#0D1117",borderRadius:14,padding:"16px",border:"1px solid #1E3A5F",cursor:"pointer",textAlign:"center"}}>
+                    <div style={{fontSize:28,fontWeight:800,color:"#3B82F6"}}>{deposits.length}</div>
+                    <div style={{fontSize:11,color:"#6B7280",fontWeight:600,marginTop:4}}>Fixed Deposits</div>
+                    <div style={{fontSize:12,color:"#3B82F6",fontFamily:"monospace",marginTop:6}}>{fmt(totalInvested, targetCurrency)}</div>
+                  </div>
+                  <div onClick={() => setTab("accounts")} style={{background:"#0D1117",borderRadius:14,padding:"16px",border:"1px solid #065F46",cursor:"pointer",textAlign:"center"}}>
+                    <div style={{fontSize:28,fontWeight:800,color:"#10B981"}}>{accounts.length}</div>
+                    <div style={{fontSize:11,color:"#6B7280",fontWeight:600,marginTop:4}}>Accounts</div>
+                    <div style={{fontSize:12,color:"#10B981",fontFamily:"monospace",marginTop:6}}>{fmt(sumConverted(accounts), targetCurrency)}</div>
+                  </div>
+                  <div onClick={() => setTab("bills")} style={{background:"#0D1117",borderRadius:14,padding:"16px",border:`1px solid ${bills.filter(b=>!b.done).length > 0 ? '#92400E' : '#374151'}`,cursor:"pointer",textAlign:"center"}}>
+                    <div style={{fontSize:28,fontWeight:800,color:bills.filter(b=>!b.done).length > 0 ? "#F59E0B" : "#6B7280"}}>{bills.filter(b=>!b.done).length}</div>
+                    <div style={{fontSize:11,color:"#6B7280",fontWeight:600,marginTop:4}}>Bills Due</div>
+                    <div style={{fontSize:12,color:"#F59E0B",fontFamily:"monospace",marginTop:6}}>{fmt(bills.filter(b=>!b.done).reduce((s,b)=>s+(Number(b.amount)||0),0), targetCurrency)}</div>
+                  </div>
+                  <div style={{background:"#0D1117",borderRadius:14,padding:"16px",border:`1px solid ${upcoming30Days.length > 0 ? '#7F1D1D' : '#374151'}`,textAlign:"center"}}>
+                    <div style={{fontSize:28,fontWeight:800,color:upcoming30Days.length > 0 ? "#EF4444" : "#6B7280"}}>{upcoming30Days.length}</div>
+                    <div style={{fontSize:11,color:"#6B7280",fontWeight:600,marginTop:4}}>Maturing Soon</div>
+                    <div style={{fontSize:10,color:"#9CA3AF",marginTop:6}}>Next 30 days</div>
+                  </div>
+                </div>
+
+                {/* Mobile: Upcoming Maturities - Swipeable Cards */}
+                {upcoming30Days.length > 0 && (
+                  <div style={{background:"#0D1117",borderRadius:14,padding:"14px",border:"1px solid #7F1D1D"}}>
+                    <div style={{fontSize:12,fontWeight:700,color:"#EF4444",marginBottom:12,display:"flex",alignItems:"center",gap:6}}>
+                      <span>⚡</span> Maturing Soon
+                    </div>
+                    <div style={{display:"flex",flexDirection:"column",gap:10}}>
+                      {upcoming30Days.slice(0, 3).map((d, i) => {
+                        return (
+                          <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"12px",background:"#161B22",borderRadius:10,borderLeft:`3px solid ${d.days <= 7 ? '#EF4444' : '#F59E0B'}`}}>
+                            <div>
+                              <div style={{fontSize:13,fontWeight:600,color:"#F0F6FC"}}>{d.bank}</div>
+                              <div style={{fontSize:11,color:"#9CA3AF"}}>{fmtDate(d.date)}</div>
+                            </div>
+                            <div style={{textAlign:"right"}}>
+                              <div style={{fontSize:14,fontWeight:700,fontFamily:"monospace",color:"#3FB950"}}>{fmt(d.amount)}</div>
+                              <div style={{fontSize:10,color:d.days <= 7 ? '#EF4444' : '#F59E0B',fontWeight:600}}>{d.days}d left</div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                      {upcoming30Days.length > 3 && (
+                        <button onClick={() => setTab("deposits")} style={{background:"#21262D",color:"#58A6FF",border:"none",borderRadius:8,padding:"10px",fontSize:12,fontWeight:600}}>
+                          View all {upcoming30Days.length} →
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Mobile: Pending Bills */}
+                {bills.filter(b => !b.done).length > 0 && (
+                  <div style={{background:"#0D1117",borderRadius:14,padding:"14px",border:"1px solid #92400E"}}>
+                    <div style={{fontSize:12,fontWeight:700,color:"#F59E0B",marginBottom:12,display:"flex",alignItems:"center",gap:6}}>
+                      <span>📋</span> Pending Bills
+                    </div>
+                    <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                      {bills.filter(b => !b.done).slice(0, 3).map((b, i) => (
+                        <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 12px",background:"#161B22",borderRadius:10}}>
+                          <div style={{fontSize:13,fontWeight:600,color:"#F0F6FC"}}>{b.name}</div>
+                          <div style={{display:"flex",alignItems:"center",gap:10}}>
+                            <span style={{fontSize:13,fontWeight:700,fontFamily:"monospace",color:"#F59E0B"}}>{fmt(b.amount)}</span>
+                            <button 
+                              onClick={() => toggleDone("bill", bills.indexOf(b))}
+                              style={{background:"#238636",color:"#fff",border:"none",borderRadius:6,padding:"6px 10px",fontSize:11,fontWeight:600}}
+                            >✓</button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Mobile: Portfolio Breakdown */}
+                <div style={{background:"#161B22",borderRadius:14,padding:"14px"}}>
+                  <div style={{fontSize:12,fontWeight:700,color:"#9CA3AF",marginBottom:12}}>Portfolio by Type</div>
+                  {(() => {
+                    const types = ['FD', 'Saving', 'Credit Card', 'Loan', 'Other'];
+                    const typeColors: Record<string, string> = { FD: '#3B82F6', Saving: '#10B981', 'Credit Card': '#EF4444', Loan: '#F59E0B', Other: '#8B5CF6' };
+                    const typeAmounts = types.map(t => ({
+                      type: t,
+                      amount: accounts.filter(a => (t === 'Other' ? !types.slice(0, -1).includes(a.type || '') : a.type === t))
+                        .reduce((s, a) => s + convertCurrency(Number(a.amount) || 0, (a.currency || 'INR') as Currency, targetCurrency, exchangeRates), 0)
+                    })).filter(t => t.amount !== 0);
+                    const total = typeAmounts.reduce((s, t) => s + Math.abs(t.amount), 0);
+                    
+                    return (
+                      <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                        {typeAmounts.map(t => (
+                          <div key={t.type} style={{display:"flex",alignItems:"center",gap:10}}>
+                            <div style={{width:10,height:10,borderRadius:3,background:typeColors[t.type] || '#8B5CF6',flexShrink:0}} />
+                            <div style={{flex:1,fontSize:12,color:"#C9D1D9"}}>{t.type}</div>
+                            <div style={{fontSize:13,fontFamily:"monospace",fontWeight:600,color:t.amount < 0 ? "#EF4444" : "#F0F6FC"}}>{fmt(t.amount, targetCurrency)}</div>
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })()}
+                </div>
+              </>
+            ) : (
+            /* ═══ DESKTOP OVERVIEW ═══ */
+            <>
             {/* Currency Toggle Bar */}
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",background:"#0D1117",borderRadius:10,padding:"8px 14px",border:"1px solid #1F2937",flexWrap:"wrap",gap:8}}>
               <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
@@ -1523,24 +1662,53 @@ export default function BankDashboard({ supabase, userId, encryptionKey }: BankD
                   </button>
                   {expandedBanks.has('_networth') && (
                     <div style={{borderTop:"1px solid #1F2937",padding:14,display:"flex",flexDirection:"column",gap:12}}>
+                      {/* Assets vs Liabilities Summary */}
+                      {(() => {
+                        const totalAssets = Object.values(byType).filter(v => v > 0).reduce((s, v) => s + v, 0);
+                        const totalLiabilities = Math.abs(Object.values(byType).filter(v => v < 0).reduce((s, v) => s + v, 0));
+                        return (
+                          <div style={{display:"flex",gap:12,marginBottom:4}}>
+                            <div style={{flex:1,background:"#064E3B30",borderRadius:6,padding:8,borderLeft:"3px solid #10B981"}}>
+                              <div style={{fontSize:9,color:"#6B7280",textTransform:"uppercase"}}>Assets</div>
+                              <div style={{fontSize:14,fontWeight:700,color:"#10B981",fontFamily:"monospace"}}>{fmt(totalAssets, targetCurrency)}</div>
+                            </div>
+                            <div style={{flex:1,background:"#7F1D1D30",borderRadius:6,padding:8,borderLeft:"3px solid #EF4444"}}>
+                              <div style={{fontSize:9,color:"#6B7280",textTransform:"uppercase"}}>Liabilities</div>
+                              <div style={{fontSize:14,fontWeight:700,color:"#EF4444",fontFamily:"monospace"}}>{fmt(totalLiabilities, targetCurrency)}</div>
+                            </div>
+                          </div>
+                        );
+                      })()}
+                      
                       {/* By Account Type */}
                       <div>
                         <div style={{fontSize:11,fontWeight:700,color:"#8B949E",marginBottom:8}}>📊 By Account Type</div>
                         <div style={{display:"flex",flexDirection:"column",gap:6}}>
                           {Object.entries(byType).sort((a,b) => b[1] - a[1]).map(([type, amt]) => {
-                            const typeColor = type === "FD" ? "#3B82F6" : type === "Saving" ? "#10B981" : type === "Credit Card" ? "#EF4444" : "#8B5CF6";
+                            const isNegative = amt < 0;
+                            const typeColor = isNegative ? "#EF4444" : 
+                              type === "FD" ? "#3B82F6" : type === "Saving" ? "#10B981" : type === "Credit Card" ? "#EF4444" : 
+                              type === "401K" ? "#F59E0B" : type === "Stock" ? "#8B5CF6" : "#6366F1";
+                            // For bar width: use absolute value relative to total assets (for positive) or total liabilities (for negative)
+                            const totalAssets = Object.values(byType).filter(v => v > 0).reduce((s, v) => s + v, 0);
+                            const totalLiabilities = Math.abs(Object.values(byType).filter(v => v < 0).reduce((s, v) => s + v, 0));
+                            const barBase = isNegative ? totalLiabilities : totalAssets;
+                            const barPct = barBase > 0 ? (Math.abs(amt) / barBase) * 100 : 0;
+                            // For percentage display: show as % of net worth
+                            const pctOfNetWorth = netWorth !== 0 ? ((amt / netWorth) * 100) : 0;
+                            
                             return (
                               <div key={type} style={{display:"flex",alignItems:"center",gap:10}}>
                                 <div style={{flex:1}}>
                                   <div style={{display:"flex",justifyContent:"space-between",marginBottom:3}}>
-                                    <span style={{fontSize:11,color:"#C9D1D9"}}>{type}</span>
-                                    <span style={{fontSize:11,color:"#F0F6FC",fontWeight:600,fontFamily:"monospace"}}>{fmt(amt, targetCurrency)}</span>
+                                    <span style={{fontSize:11,color:"#C9D1D9"}}>{type} {isNegative && <span style={{fontSize:9,color:"#EF4444"}}>(Liability)</span>}</span>
+                                    <span style={{fontSize:11,color:isNegative ? "#EF4444" : "#F0F6FC",fontWeight:600,fontFamily:"monospace"}}>{fmt(amt, targetCurrency)}</span>
                                   </div>
                                   <div style={{background:"#21262D",borderRadius:3,height:5,overflow:"hidden"}}>
-                                    <div style={{width:`${netWorth ? (amt/netWorth)*100 : 0}%`,height:"100%",background:typeColor,borderRadius:3}}/>
+                                    <div style={{width:`${Math.min(barPct, 100)}%`,height:"100%",background:typeColor,borderRadius:3}}/>
                                   </div>
                                 </div>
-                                <span style={{fontSize:10,color:"#6B7280",minWidth:35,textAlign:"right"}}>{netWorth ? ((amt/netWorth)*100).toFixed(0) : 0}%</span>
+                                <span style={{fontSize:10,color:isNegative ? "#EF4444" : "#6B7280",minWidth:35,textAlign:"right"}}>{pctOfNetWorth.toFixed(0)}%</span>
                               </div>
                             );
                           })}
@@ -1551,13 +1719,17 @@ export default function BankDashboard({ supabase, userId, encryptionKey }: BankD
                       <div>
                         <div style={{fontSize:11,fontWeight:700,color:"#8B949E",marginBottom:8}}>🏦 Bank Concentration</div>
                         <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"repeat(4, 1fr)",gap:6}}>
-                          {Object.entries(byBank).sort((a,b) => b[1] - a[1]).slice(0, 8).map(([bank, amt]) => (
-                            <div key={bank} style={{background:"#161B22",borderRadius:6,padding:8,borderLeft:`2px solid ${getBankColor(bank)}`}}>
-                              <div style={{fontSize:10,color:"#8B949E",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{bank}</div>
-                              <div style={{fontSize:12,fontWeight:700,color:"#F0F6FC",fontFamily:"monospace"}}>{fmt(amt, targetCurrency)}</div>
-                              <div style={{fontSize:9,color:getBankColor(bank)}}>{((amt/netWorth)*100).toFixed(0)}%</div>
-                            </div>
-                          ))}
+                          {Object.entries(byBank).sort((a,b) => b[1] - a[1]).slice(0, 8).map(([bank, amt]) => {
+                            const isNegative = amt < 0;
+                            const pctOfNetWorth = netWorth !== 0 ? ((amt / netWorth) * 100) : 0;
+                            return (
+                              <div key={bank} style={{background:"#161B22",borderRadius:6,padding:8,borderLeft:`2px solid ${isNegative ? "#EF4444" : getBankColor(bank)}`}}>
+                                <div style={{fontSize:10,color:"#8B949E",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{bank}</div>
+                                <div style={{fontSize:12,fontWeight:700,color:isNegative ? "#EF4444" : "#F0F6FC",fontFamily:"monospace"}}>{fmt(amt, targetCurrency)}</div>
+                                <div style={{fontSize:9,color:isNegative ? "#EF4444" : getBankColor(bank)}}>{pctOfNetWorth.toFixed(0)}%</div>
+                              </div>
+                            );
+                          })}
                         </div>
                       </div>
                     </div>
@@ -1565,6 +1737,8 @@ export default function BankDashboard({ supabase, userId, encryptionKey }: BankD
                 </div>
               );
             })()}
+            </>
+            )}
           </div>
         )}
         
@@ -1793,9 +1967,142 @@ export default function BankDashboard({ supabase, userId, encryptionKey }: BankD
           
           return (
             <div>
+              {/* ═══ MOBILE DEPOSITS VIEW ═══ */}
+              {isMobile ? (
+                <div style={{display:"flex",flexDirection:"column",gap:12}}>
+                  {/* Mobile: Summary Header */}
+                  <div style={{background:"linear-gradient(135deg, #1E3A5F 0%, #0F172A 100%)",borderRadius:14,padding:"16px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                    <div>
+                      <div style={{fontSize:10,color:"#94A3B8",fontWeight:500}}>TOTAL INVESTED</div>
+                      <div style={{fontSize:22,fontWeight:800,color:"#F8FAFC",fontFamily:"monospace"}}>{fmt(filtered.reduce((s, d) => s + (Number(d.deposit) || 0), 0))}</div>
+                    </div>
+                    <div style={{textAlign:"right"}}>
+                      <div style={{fontSize:10,color:"#94A3B8",fontWeight:500}}>MATURITY</div>
+                      <div style={{fontSize:22,fontWeight:800,color:"#3FB950",fontFamily:"monospace"}}>{fmt(filtered.reduce((s, d) => s + (Number(d.maturityAmt) || Number(d.deposit) || 0), 0))}</div>
+                    </div>
+                  </div>
+                  
+                  {/* Mobile: Search */}
+                  <input placeholder="🔍 Search deposits..." value={search} onChange={e => setSearch(e.target.value)} style={{...inputSt,padding:"12px 14px",borderRadius:10,fontSize:14}} />
+                  
+                  {/* Mobile: Bank Filter Pills */}
+                  <div style={{display:"flex",gap:6,overflowX:"auto",paddingBottom:4,WebkitOverflowScrolling:"touch"}}>
+                    <button onClick={() => setFilterBank("All")} style={{background:filterBank === "All" ? "#3B82F6" : "#21262D",color:filterBank === "All" ? "#FFF" : "#8B949E",border:"none",borderRadius:20,padding:"8px 14px",fontSize:12,fontWeight:600,flexShrink:0}}>All ({deposits.length})</button>
+                    {depBankNames.map(b => (
+                      <button key={b} onClick={() => setFilterBank(b)} style={{background:filterBank === b ? getBankColor(b) : "#21262D",color:filterBank === b ? "#FFF" : "#8B949E",border:"none",borderRadius:20,padding:"8px 14px",fontSize:12,fontWeight:600,flexShrink:0,display:"flex",alignItems:"center",gap:4}}>
+                        <div style={{width:8,height:8,borderRadius:"50%",background:getBankColor(b)}} />
+                        {b} ({groupedDeps[b]?.deps.length || 0})
+                      </button>
+                    ))}
+                  </div>
+                  
+                  {/* Mobile: Deposit Cards */}
+                  {filtered.length === 0 ? (
+                    <div style={{padding:40,textAlign:"center",color:"#6B7280"}}>No deposits found</div>
+                  ) : (
+                    <div style={{display:"flex",flexDirection:"column",gap:10}}>
+                      {filtered.map((d, idx) => {
+                        const origIdx = deposits.indexOf(d);
+                        const days = daysUntil(d.maturityDate);
+                        const color = getBankColor(d.bank);
+                        const urgency = days === null ? "none" : days < 0 ? "expired" : days <= 7 ? "urgent" : days <= 30 ? "soon" : "none";
+                        return (
+                          <div 
+                            key={idx} 
+                            style={{
+                              background:"#161B22",
+                              borderRadius:14,
+                              borderLeft:`4px solid ${color}`,
+                              padding:"14px",
+                              opacity: d.done ? 0.6 : 1
+                            }}
+                          >
+                            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:10}}>
+                              <div>
+                                <div style={{fontSize:15,fontWeight:700,color:"#F0F6FC"}}>{d.bank}</div>
+                                <div style={{fontSize:11,color:"#6B7280",marginTop:2}}>{d.type || "FD"} {d.depositId && `• ${d.depositId}`}</div>
+                              </div>
+                              {days !== null && !d.done && (
+                                <div style={{
+                                  background: urgency === "urgent" ? "#7F1D1D" : urgency === "soon" ? "#92400E" : urgency === "expired" ? "#374151" : "#0D1117",
+                                  color: urgency === "urgent" ? "#FCA5A5" : urgency === "soon" ? "#FCD34D" : urgency === "expired" ? "#9CA3AF" : "#6B7280",
+                                  padding:"4px 10px",
+                                  borderRadius:20,
+                                  fontSize:11,
+                                  fontWeight:600
+                                }}>
+                                  {days < 0 ? "Matured" : `${days}d`}
+                                </div>
+                              )}
+                              {d.done && <span style={{fontSize:11,color:"#34D399",fontWeight:600}}>✓ Done</span>}
+                            </div>
+                            
+                            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-end"}}>
+                              <div>
+                                <div style={{fontSize:11,color:"#6B7280"}}>Invested</div>
+                                <div style={{fontSize:18,fontWeight:700,fontFamily:"monospace",color:"#F0F6FC"}}>{fmt(d.deposit)}</div>
+                                {d.roi && <div style={{fontSize:11,color:"#3FB950",marginTop:2}}>{(Number(d.roi) * 100).toFixed(2)}% pa</div>}
+                              </div>
+                              <div style={{textAlign:"right"}}>
+                                <div style={{fontSize:11,color:"#6B7280"}}>Maturity</div>
+                                <div style={{fontSize:18,fontWeight:700,fontFamily:"monospace",color:"#3FB950"}}>{fmt(d.maturityAmt || d.deposit)}</div>
+                                <div style={{fontSize:10,color:"#9CA3AF",marginTop:2}}>{fmtDate(d.maturityDate)}</div>
+                              </div>
+                            </div>
+                            
+                            {/* Mobile: Action Buttons */}
+                            <div style={{display:"flex",gap:8,marginTop:12,paddingTop:12,borderTop:"1px solid #21262D"}}>
+                              <button 
+                                onClick={() => toggleDone("deposit", origIdx)} 
+                                style={{flex:1,background:d.done ? "#064E3B" : "#21262D",color:d.done ? "#34D399" : "#9CA3AF",border:"none",borderRadius:8,padding:"10px",fontSize:12,fontWeight:600}}
+                              >
+                                {d.done ? "↩ Undo" : "✓ Mark Done"}
+                              </button>
+                              <button 
+                                onClick={() => openEdit("deposit", origIdx)} 
+                                style={{background:"#1D4ED820",color:"#60A5FA",border:"none",borderRadius:8,padding:"10px 14px",fontSize:12}}
+                              >✏️</button>
+                              <button 
+                                onClick={() => deleteRow("deposit", origIdx)} 
+                                style={{background:"#7F1D1D20",color:"#FCA5A5",border:"none",borderRadius:8,padding:"10px 14px",fontSize:12}}
+                              >🗑</button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              ) : (
+              /* ═══ DESKTOP DEPOSITS VIEW ═══ */
+              <>
               {/* Search & Filter - Sticky on scroll */}
               <div style={{position:"sticky",top:0,zIndex:10,background:"#0D1117",padding:"12px 0",marginBottom:8}}>
                 <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
+                  {/* View Mode Toggle */}
+                  <div style={{display:"flex",gap:1,background:"#0D1117",borderRadius:6,padding:2,border:"1px solid #30363D"}}>
+                    <button
+                      onClick={() => setDepositsViewMode('cards')}
+                      style={{background:depositsViewMode === 'cards' ? '#238636' : 'transparent',color:depositsViewMode === 'cards' ? '#FFF' : '#6B7280',border:'none',padding:'4px 10px',borderRadius:4,fontSize:10,fontWeight:600,cursor:'pointer'}}
+                      title="Card view grouped by bank"
+                    >
+                      ▦ Cards
+                    </button>
+                    <button
+                      onClick={() => setDepositsViewMode('grouped')}
+                      style={{background:depositsViewMode === 'grouped' ? '#238636' : 'transparent',color:depositsViewMode === 'grouped' ? '#FFF' : '#6B7280',border:'none',padding:'4px 10px',borderRadius:4,fontSize:10,fontWeight:600,cursor:'pointer'}}
+                      title="Grid view grouped by bank"
+                    >
+                      ▤ By Bank
+                    </button>
+                    <button
+                      onClick={() => setDepositsViewMode('flat')}
+                      style={{background:depositsViewMode === 'flat' ? '#238636' : 'transparent',color:depositsViewMode === 'flat' ? '#FFF' : '#6B7280',border:'none',padding:'4px 10px',borderRadius:4,fontSize:10,fontWeight:600,cursor:'pointer'}}
+                      title="Flat grid view - all rows"
+                    >
+                      ≡ All
+                    </button>
+                  </div>
                   <input placeholder="🔍 Search..." value={search} onChange={e => setSearch(e.target.value)} style={{...inputSt,flex:isMobile?1:"none",width:isMobile?"auto":180,minWidth:120}} />
                   <div style={{display:"flex",gap:4,flexWrap:"wrap",flex:isMobile?undefined:1}}>
                     <button onClick={() => setFilterBank("All")} style={{background:filterBank === "All" ? "#3B82F6" : "#21262D",color:filterBank === "All" ? "#FFF" : "#8B949E",border:"none",borderRadius:16,padding:"5px 10px",fontSize:10,fontWeight:600,cursor:"pointer"}}>All</button>
@@ -1816,7 +2123,8 @@ export default function BankDashboard({ supabase, userId, encryptionKey }: BankD
                 </div>
               </div>
 
-              {/* Table View with Collapsible Bank Groups - ALL columns */}
+              {/* ═══ GROUPED GRID VIEW - By Bank ═══ */}
+              {depositsViewMode === 'grouped' && (
               <div style={{background:"#161B22",borderRadius:12,overflow:"hidden",border:"1px solid #30363D"}}>
                 <div style={{overflowX:"auto",scrollbarWidth:"thin",scrollbarColor:"#30363D #161B22"}}>
                   <table style={{width:"100%",borderCollapse:"collapse",fontSize:11}}>
@@ -1835,26 +2143,53 @@ export default function BankDashboard({ supabase, userId, encryptionKey }: BankD
                           const totalDeposited = bankDeps.reduce((s, d) => s + (Number(d.deposit) || 0), 0);
                           const totalMaturityAmt = bankDeps.reduce((s, d) => s + (Number(d.maturityAmt) || Number(d.deposit) || 0), 0);
                           const isExpanded = expandedBanks.has(`dep_${bankName}`);
+                          const isSingleRow = bankDeps.length === 1;
+                          const singleDep = isSingleRow ? bankDeps[0] : null;
+                          // Find common values across all deposits in this bank
+                          const commonNominee = bankDeps.every(d => d.nominee === bankDeps[0]?.nominee) ? bankDeps[0]?.nominee : null;
+                          const commonType = bankDeps.every(d => d.type === bankDeps[0]?.type) ? bankDeps[0]?.type : null;
                           
                           return (
                             <React.Fragment key={bankName}>
-                              {/* Bank Header Row - Clickable */}
+                              {/* Bank Header Row - Clickable - Shows details if single row or common fields */}
                               <tr 
                                 onClick={() => toggleDepBank(bankName)}
                                 style={{background:`${color}15`,cursor:"pointer",borderBottom:"1px solid #21262D"}}
                               >
-                                <td colSpan={3} style={{padding:"8px 10px"}}>
+                                <td style={{padding:"8px 10px"}}>
                                   <div style={{display:"flex",alignItems:"center",gap:8}}>
                                     <span style={{fontSize:10,color:"#6B7280",transition:"transform 0.2s",transform:isExpanded?"rotate(90deg)":"rotate(0deg)"}}>▶</span>
                                     <div style={{width:10,height:10,borderRadius:"50%",background:color}} />
                                     <span style={{fontWeight:700,color:"#F0F6FC",fontSize:12}}>{bankName}</span>
                                     <span style={{color:"#6B7280",fontSize:10}}>({bankDeps.length} FD{bankDeps.length > 1 ? "s" : ""})</span>
                                   </div>
+                                  {isSingleRow && singleDep?.depositId && <div style={{fontSize:9,color:"#484F58",fontFamily:"monospace",marginLeft:30}}>{singleDep.depositId}</div>}
                                 </td>
+                                <td style={{padding:"8px 10px",color:"#9CA3AF",fontSize:10}}>{isSingleRow ? (singleDep?.type || "FD") : (commonType || "—")}</td>
+                                <td style={{padding:"8px 10px",color:"#C9D1D9",fontSize:10}}>{isSingleRow ? (singleDep?.nominee || "—") : (commonNominee || (bankDeps.length > 1 ? "Various" : "—"))}</td>
                                 <td style={{padding:"8px 10px",fontFamily:"monospace",fontWeight:700,color:"#F0F6FC",fontSize:11}}>{fmt(totalDeposited)}</td>
-                                <td style={{padding:"8px 10px"}}></td>
+                                <td style={{padding:"8px 10px",fontFamily:"monospace",color:"#3FB950",fontWeight:600,fontSize:10}}>{isSingleRow && singleDep?.roi ? (Number(singleDep.roi) * 100).toFixed(2) + "%" : "—"}</td>
                                 <td style={{padding:"8px 10px",fontFamily:"monospace",fontWeight:700,color:"#3FB950",fontSize:11}}>{fmt(totalMaturityAmt)}</td>
-                                <td colSpan={5} style={{padding:"8px 10px"}}></td>
+                                <td style={{padding:"8px 10px",color:"#9CA3AF",whiteSpace:"nowrap",fontSize:10}}>{isSingleRow ? fmtDate(singleDep?.startDate) : "—"}</td>
+                                <td style={{padding:"8px 10px",whiteSpace:"nowrap"}}>
+                                  {isSingleRow ? (
+                                    <div style={{display:"flex",alignItems:"center",gap:4}}>
+                                      <span style={{color:"#C9D1D9",fontSize:10}}>{fmtDate(singleDep?.maturityDate)}</span>
+                                      <UrgencyBadge days={daysUntil(singleDep?.maturityDate)} />
+                                    </div>
+                                  ) : "—"}
+                                </td>
+                                <td style={{padding:"8px 10px",color:"#6B7280",fontSize:9}}>{isSingleRow ? (singleDep?.duration || "—") : "—"}</td>
+                                <td style={{padding:"8px 10px",color:"#9CA3AF",fontSize:9,maxWidth:80,overflow:"hidden",textOverflow:"ellipsis"}}>{isSingleRow ? (singleDep?.maturityAction || "—") : "—"}</td>
+                                <td style={{padding:"8px 10px",whiteSpace:"nowrap"}}>
+                                  {isSingleRow && (
+                                    <>
+                                      <button onClick={(e) => { e.stopPropagation(); toggleDone("deposit", indices[0]); }} style={{background:singleDep?.done ? "#238636" : "#21262D",color:singleDep?.done ? "#fff" : "#8B949E",border:"none",borderRadius:4,padding:"2px 6px",fontSize:9,cursor:"pointer",marginRight:3,fontWeight:600}}>{singleDep?.done ? "↩" : "✓"}</button>
+                                      <button onClick={(e) => { e.stopPropagation(); openEdit("deposit", indices[0]); }} style={{background:"#21262D",color:"#58A6FF",border:"none",borderRadius:4,padding:"2px 6px",fontSize:9,cursor:"pointer",marginRight:3}}>✏️</button>
+                                      <button onClick={(e) => { e.stopPropagation(); deleteRow("deposit", indices[0]); }} style={{background:"#21262D",color:"#F85149",border:"none",borderRadius:4,padding:"2px 6px",fontSize:9,cursor:"pointer"}}>🗑</button>
+                                    </>
+                                  )}
+                                </td>
                               </tr>
                               
                               {/* Deposit Rows - Show when expanded */}
@@ -1896,6 +2231,162 @@ export default function BankDashboard({ supabase, userId, encryptionKey }: BankD
                   </table>
                 </div>
               </div>
+              )}
+
+              {/* ═══ FLAT GRID VIEW - All Rows ═══ */}
+              {depositsViewMode === 'flat' && (
+              <div style={{background:"#161B22",borderRadius:12,overflow:"hidden",border:"1px solid #30363D"}}>
+                <div style={{overflowX:"auto",scrollbarWidth:"thin",scrollbarColor:"#30363D #161B22"}}>
+                  <table style={{width:"100%",borderCollapse:"collapse",fontSize:11}}>
+                    <thead><tr style={{background:"#0D1117",borderBottom:"1px solid #21262D"}}>
+                      {["Bank","ID","Type","Nominee","Invested","ROI","Maturity ₹","Start","Maturity","Duration","Action",""].map(h => (
+                        <th key={h} style={{padding:"8px 10px",textAlign:"left",color:"#8B949E",fontWeight:600,fontSize:10,whiteSpace:"nowrap"}}>{h}</th>
+                      ))}
+                    </tr></thead>
+                    <tbody>
+                      {filtered.length === 0 ? (
+                        <tr><td colSpan={12} style={{padding:32,textAlign:"center",color:"#8B949E"}}>No deposits found</td></tr>
+                      ) : (
+                        filtered.map((d, idx) => {
+                          const origIdx = deposits.indexOf(d);
+                          const days = daysUntil(d.maturityDate);
+                          const color = getBankColor(d.bank);
+                          return (
+                            <tr key={idx} style={{borderBottom:"1px solid #21262D",background:d.done ? "rgba(46,160,67,0.05)" : days != null && days < 0 ? "rgba(110,118,129,0.1)" : days != null && days <= 90 ? "rgba(248,81,73,0.05)" : "transparent",opacity:d.done ? 0.6 : 1}}>
+                              <td style={{padding:"8px 10px"}}>
+                                <div style={{display:"flex",alignItems:"center",gap:6}}>
+                                  <div style={{width:8,height:8,borderRadius:"50%",background:color}} />
+                                  <span style={{fontWeight:600,color:"#F0F6FC",fontSize:11}}>{d.bank}</span>
+                                </div>
+                              </td>
+                              <td style={{padding:"8px 10px",fontSize:9,color:"#484F58",fontFamily:"monospace"}}>{d.depositId || "—"}</td>
+                              <td style={{padding:"8px 10px",color:"#9CA3AF",fontSize:10}}>{d.type || "FD"}</td>
+                              <td style={{padding:"8px 10px",color:"#C9D1D9",fontSize:10}}>{d.nominee || "—"}</td>
+                              <td style={{padding:"8px 10px",fontFamily:"monospace",fontWeight:600,color:"#F0F6FC",fontSize:11}}>{fmt(d.deposit)}</td>
+                              <td style={{padding:"8px 10px",fontFamily:"monospace",color:"#3FB950",fontWeight:600,fontSize:10}}>{d.roi ? (Number(d.roi) * 100).toFixed(2) + "%" : "—"}</td>
+                              <td style={{padding:"8px 10px",fontFamily:"monospace",fontWeight:600,color:"#3FB950",fontSize:11}}>{fmt(d.maturityAmt || d.deposit)}</td>
+                              <td style={{padding:"8px 10px",color:"#9CA3AF",whiteSpace:"nowrap",fontSize:10}}>{fmtDate(d.startDate)}</td>
+                              <td style={{padding:"8px 10px",whiteSpace:"nowrap"}}>
+                                <div style={{display:"flex",alignItems:"center",gap:4}}>
+                                  <span style={{color:"#C9D1D9",fontSize:10}}>{fmtDate(d.maturityDate)}</span>
+                                  <UrgencyBadge days={days} />
+                                </div>
+                              </td>
+                              <td style={{padding:"8px 10px",color:"#6B7280",fontSize:9}}>{d.duration || "—"}</td>
+                              <td style={{padding:"8px 10px",color:"#9CA3AF",fontSize:9,maxWidth:80,overflow:"hidden",textOverflow:"ellipsis"}} title={d.maturityAction}>{d.maturityAction || "—"}</td>
+                              <td style={{padding:"8px 10px",whiteSpace:"nowrap"}}>
+                                <button onClick={() => toggleDone("deposit", origIdx)} style={{background:d.done ? "#238636" : "#21262D",color:d.done ? "#fff" : "#8B949E",border:"none",borderRadius:4,padding:"2px 6px",fontSize:9,cursor:"pointer",marginRight:3,fontWeight:600}}>{d.done ? "↩" : "✓"}</button>
+                                <button onClick={() => openEdit("deposit", origIdx)} style={{background:"#21262D",color:"#58A6FF",border:"none",borderRadius:4,padding:"2px 6px",fontSize:9,cursor:"pointer",marginRight:3}}>✏️</button>
+                                <button onClick={() => deleteRow("deposit", origIdx)} style={{background:"#21262D",color:"#F85149",border:"none",borderRadius:4,padding:"2px 6px",fontSize:9,cursor:"pointer"}}>🗑</button>
+                              </td>
+                            </tr>
+                          );
+                        })
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+              )}
+
+              {/* ═══ CARDS VIEW - Grouped by Bank ═══ */}
+              {depositsViewMode === 'cards' && (
+                <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(340px,1fr))",gap:12,alignItems:"start"}}>
+                  {filtered.length === 0 ? (
+                    <div style={{gridColumn:"1/-1",padding:32,textAlign:"center",color:"#8B949E"}}>No deposits found</div>
+                  ) : (
+                    depBankNames.map(bankName => {
+                      const { deps: bankDeps, indices } = groupedDeps[bankName];
+                      const color = getBankColor(bankName);
+                      const totalDeposited = bankDeps.reduce((s, d) => s + (Number(d.deposit) || 0), 0);
+                      const totalMaturityAmt = bankDeps.reduce((s, d) => s + (Number(d.maturityAmt) || Number(d.deposit) || 0), 0);
+                      const isExpanded = expandedBanks.has(`dep_card_${bankName}`);
+                      
+                      const toggleCardBank = () => {
+                        setExpandedBanks(prev => {
+                          const next = new Set(prev);
+                          const key = `dep_card_${bankName}`;
+                          if (next.has(key)) next.delete(key);
+                          else next.add(key);
+                          return next;
+                        });
+                      };
+                      
+                      return (
+                        <div key={bankName} style={{background:"#1C1C2E",borderRadius:12,border:`1px solid ${color}30`,borderLeft:`3px solid ${color}`,overflow:"hidden"}}>
+                          {/* Bank Header - Clickable */}
+                          <div 
+                            onClick={toggleCardBank}
+                            style={{padding:"12px 14px",background:`${color}10`,cursor:"pointer",display:"flex",justifyContent:"space-between",alignItems:"center"}}
+                          >
+                            <div style={{display:"flex",alignItems:"center",gap:10}}>
+                              <span style={{fontSize:10,color:"#6B7280",transition:"transform 0.2s",transform:isExpanded?"rotate(90deg)":"rotate(0deg)"}}>▶</span>
+                              <div>
+                                <div style={{fontSize:14,fontWeight:700,color:"#F3F4F6"}}>{bankName}</div>
+                                <div style={{fontSize:10,color:"#9CA3AF"}}>{bankDeps.length} FD{bankDeps.length > 1 ? "s" : ""}</div>
+                              </div>
+                            </div>
+                            <div style={{textAlign:"right"}}>
+                              <div style={{fontSize:12,fontWeight:600,fontFamily:"monospace",color:"#9CA3AF"}}>Inv: {fmt(totalDeposited)}</div>
+                              <div style={{fontSize:14,fontWeight:800,fontFamily:"monospace",color:"#3FB950"}}>Mat: {fmt(totalMaturityAmt)}</div>
+                            </div>
+                          </div>
+                          
+                          {/* Deposits List - Collapsible */}
+                          {isExpanded && (
+                            <div style={{borderTop:`1px solid ${color}20`}}>
+                              {bankDeps.map((d, j) => {
+                                const origIdx = indices[j];
+                                const days = daysUntil(d.maturityDate);
+                                const urgency = days === null ? "none" : days < 0 ? "expired" : days <= 7 ? "urgent" : days <= 30 ? "soon" : days <= 90 ? "warning" : "none";
+                                return (
+                                  <div key={j} style={{padding:"10px 14px",borderBottom:j < bankDeps.length - 1 ? "1px solid #21262D" : "none",background:d.done ? "rgba(46,160,67,0.05)" : urgency === "expired" ? "rgba(110,118,129,0.1)" : urgency === "urgent" ? "rgba(248,81,73,0.05)" : "transparent",opacity:d.done ? 0.6 : 1}}>
+                                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+                                      <div style={{flex:1}}>
+                                        <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+                                          {d.depositId && <span style={{fontSize:9,color:"#484F58",fontFamily:"monospace"}}>{d.depositId}</span>}
+                                          <span style={{background:"#1D4ED820",color:"#60A5FA",padding:"2px 6px",borderRadius:4,fontSize:9,fontWeight:600}}>{d.type || "FD"}</span>
+                                          {d.nominee && <span style={{fontSize:9,color:"#6B7280"}}>👤 {d.nominee}</span>}
+                                          {d.done && <span style={{fontSize:9,color:"#34D399"}}>✓ Done</span>}
+                                        </div>
+                                        <div style={{display:"flex",alignItems:"baseline",gap:12,marginTop:6,flexWrap:"wrap"}}>
+                                          <div>
+                                            <span style={{fontSize:9,color:"#6B7280"}}>Invested</span>
+                                            <div style={{fontSize:13,fontWeight:700,fontFamily:"monospace",color:"#F0F6FC"}}>{fmt(d.deposit)}</div>
+                                          </div>
+                                          <div>
+                                            <span style={{fontSize:9,color:"#6B7280"}}>ROI</span>
+                                            <div style={{fontSize:11,fontWeight:600,fontFamily:"monospace",color:"#3FB950"}}>{d.roi ? (Number(d.roi) * 100).toFixed(2) + "%" : "—"}</div>
+                                          </div>
+                                          <div>
+                                            <span style={{fontSize:9,color:"#6B7280"}}>Maturity</span>
+                                            <div style={{fontSize:13,fontWeight:700,fontFamily:"monospace",color:"#3FB950"}}>{fmt(d.maturityAmt || d.deposit)}</div>
+                                          </div>
+                                        </div>
+                                        <div style={{display:"flex",gap:12,marginTop:6,fontSize:10,color:"#9CA3AF"}}>
+                                          <span>{fmtDate(d.startDate)} → {fmtDate(d.maturityDate)}</span>
+                                          {d.duration && <span style={{color:"#6B7280"}}>{d.duration}</span>}
+                                          <UrgencyBadge days={days} />
+                                        </div>
+                                        {d.maturityAction && <div style={{fontSize:10,color:"#F59E0B",marginTop:4}}>⚡ {d.maturityAction}</div>}
+                                      </div>
+                                      <div style={{display:"flex",gap:4,flexShrink:0}}>
+                                        <button onClick={(e) => { e.stopPropagation(); toggleDone("deposit", origIdx); }} style={{background:d.done ? "#064E3B" : "#1C1C2E",color:d.done ? "#34D399" : "#6B7280",border:`1px solid ${d.done ? "#065F46" : "#374151"}`,borderRadius:5,padding:"2px 6px",fontSize:10,cursor:"pointer",fontWeight:700}}>{d.done ? "↩" : "✓"}</button>
+                                        <button onClick={(e) => { e.stopPropagation(); openEdit("deposit", origIdx); }} style={{background:"#1D4ED820",color:"#60A5FA",border:"1px solid #1D4ED840",borderRadius:5,padding:"2px 5px",fontSize:10,cursor:"pointer"}}>✏️</button>
+                                        <button onClick={(e) => { e.stopPropagation(); deleteRow("deposit", origIdx); }} style={{background:"#7F1D1D20",color:"#FCA5A5",border:"1px solid #7F1D1D40",borderRadius:5,padding:"2px 5px",fontSize:10,cursor:"pointer"}}>🗑</button>
+                                      </div>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              )}
 
               {/* Summary Footer */}
               <div style={{display:"flex",justifyContent:isMobile?"center":"flex-end",gap:8,marginTop:12,flexWrap:"wrap"}}>
@@ -1951,6 +2442,8 @@ export default function BankDashboard({ supabase, userId, encryptionKey }: BankD
                   </>
                 )}
               </div>
+              </>
+              )}
             </div>
           );
         })()}
@@ -1958,16 +2451,18 @@ export default function BankDashboard({ supabase, userId, encryptionKey }: BankD
         {/* ══ ACCOUNTS TAB - Grouped by Bank (Collapsible) ═══════════════ */}
         {tab === "accounts" && (() => {
           // Group accounts by bank name - track currencies for mixed mode
-          const grouped: Record<string, { accounts: typeof accounts; indices: number[]; total: number; currencies: Set<string>; dominantCurrency: Currency }> = {};
+          const grouped: Record<string, { accounts: typeof accounts; indices: number[]; total: number; sortTotal: number; currencies: Set<string>; dominantCurrency: Currency }> = {};
           accounts.forEach((acc, i) => {
             const accCurrency = (acc.currency && CURRENCY_SYMBOLS[acc.currency as Currency]) ? acc.currency as Currency : 'INR';
-            if (!grouped[acc.bank]) grouped[acc.bank] = { accounts: [], indices: [], total: 0, currencies: new Set(), dominantCurrency: accCurrency };
+            if (!grouped[acc.bank]) grouped[acc.bank] = { accounts: [], indices: [], total: 0, sortTotal: 0, currencies: new Set(), dominantCurrency: accCurrency };
             grouped[acc.bank].accounts.push(acc);
             grouped[acc.bank].indices.push(i);
             grouped[acc.bank].currencies.add(accCurrency);
             
-            // In ORIGINAL mode: sum raw amounts (no conversion)
-            // In specific currency mode: convert to that currency
+            // sortTotal: always convert to INR for proper sorting comparison
+            grouped[acc.bank].sortTotal += convertCurrency(Number(acc.amount) || 0, accCurrency, 'INR', exchangeRates);
+            
+            // total: for display - raw in ORIGINAL mode, converted otherwise
             if (displayCurrency === 'ORIGINAL') {
               grouped[acc.bank].total += Number(acc.amount) || 0;
             } else {
@@ -1980,18 +2475,18 @@ export default function BankDashboard({ supabase, userId, encryptionKey }: BankD
             if (g.currencies.size === 1) {
               g.dominantCurrency = Array.from(g.currencies)[0] as Currency;
             } else {
-              // Mixed currencies - find the one with highest total value
+              // Mixed currencies - find the one with highest total value (converted to INR)
               const byAmount: Record<string, number> = {};
               g.accounts.forEach(acc => {
                 const cur = (acc.currency && CURRENCY_SYMBOLS[acc.currency as Currency]) ? acc.currency : 'INR';
-                byAmount[cur] = (byAmount[cur] || 0) + (Number(acc.amount) || 0);
+                byAmount[cur] = (byAmount[cur] || 0) + convertCurrency(Number(acc.amount) || 0, cur as Currency, 'INR', exchangeRates);
               });
               g.dominantCurrency = Object.entries(byAmount).sort((a, b) => b[1] - a[1])[0]?.[0] as Currency || 'INR';
             }
           });
           
-          // Sort by total amount (highest first)
-          const bankNames = Object.keys(grouped).sort((a, b) => grouped[b].total - grouped[a].total);
+          // Sort by converted total (INR) for proper comparison across currencies
+          const bankNames = Object.keys(grouped).sort((a, b) => grouped[b].sortTotal - grouped[a].sortTotal);
           
           const toggleBank = (bankName: string) => {
             setExpandedBanks(prev => {
@@ -2004,14 +2499,185 @@ export default function BankDashboard({ supabase, userId, encryptionKey }: BankD
           
           return (
             <div>
+              {/* ═══ MOBILE ACCOUNTS VIEW ═══ */}
+              {isMobile ? (
+                <div style={{display:"flex",flexDirection:"column",gap:12}}>
+                  {/* Mobile: Summary Header */}
+                  <div style={{background:"linear-gradient(135deg, #065F46 0%, #0F172A 100%)",borderRadius:14,padding:"16px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                    <div>
+                      <div style={{fontSize:10,color:"#94A3B8",fontWeight:500}}>NET BALANCE</div>
+                      <div style={{fontSize:24,fontWeight:800,color:"#F8FAFC",fontFamily:"monospace"}}>{fmt(sumConverted(accounts), targetCurrency)}</div>
+                    </div>
+                    <div style={{display:"flex",gap:6}}>
+                      {(['INR', 'USD'] as const).map(cur => (
+                        <button
+                          key={cur}
+                          onClick={() => { setDisplayCurrency(cur); persist(deposits, accounts, bills, actions, goals, exchangeRates, cur); }}
+                          style={{
+                            background: displayCurrency === cur ? '#10B981' : 'rgba(255,255,255,0.1)',
+                            color: displayCurrency === cur ? '#FFF' : '#94A3B8',
+                            border: 'none',
+                            padding: '6px 12px',
+                            borderRadius: 16,
+                            fontSize: 12,
+                            fontWeight: 600
+                          }}
+                        >
+                          {CURRENCY_SYMBOLS[cur]}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  
+                  {/* Mobile: Bank List with Inline Accounts - Vertical Layout */}
+                  {accounts.length === 0 ? (
+                    <div style={{padding:40,textAlign:"center",color:"#6B7280"}}>No accounts found</div>
+                  ) : (
+                    <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                      {bankNames.map(bankName => {
+                        const { total, currencies, dominantCurrency, accounts: bankAccounts, indices } = grouped[bankName];
+                        const color = getBankColor(bankName);
+                        const headerCurrency = displayCurrency === 'ORIGINAL' ? dominantCurrency : displayCurrency as Currency;
+                        const isExpanded = expandedBanks.has(bankName);
+                        
+                        return (
+                          <div key={bankName}>
+                            {/* Bank Header Row */}
+                            <button 
+                              onClick={() => toggleBank(bankName)}
+                              style={{
+                                width: "100%",
+                                background: isExpanded ? `${color}15` : "#161B22",
+                                color: "#F0F6FC",
+                                border: `1px solid ${isExpanded ? color : "#30363D"}`,
+                                borderLeft: `4px solid ${color}`,
+                                borderRadius: isExpanded ? "10px 10px 0 0" : 10,
+                                padding: "14px 16px",
+                                fontSize: 14,
+                                fontWeight: 600,
+                                textAlign: "left",
+                                display: "flex",
+                                justifyContent: "space-between",
+                                alignItems: "center"
+                              }}
+                            >
+                              <div style={{display:"flex",alignItems:"center",gap:10}}>
+                                <span style={{fontSize:11,color:"#6B7280",transition:"transform 0.2s",transform:isExpanded?"rotate(90deg)":"rotate(0deg)"}}>▶</span>
+                                <div style={{width:10,height:10,borderRadius:"50%",background:color}} />
+                                <div>
+                                  <div>{bankName}</div>
+                                  <div style={{fontSize:11,color:"#6B7280",fontWeight:500}}>{bankAccounts.length} account{bankAccounts.length > 1 ? "s" : ""}</div>
+                                </div>
+                              </div>
+                              <div style={{fontSize:16,fontFamily:"monospace",fontWeight:700,color:"#F0F6FC"}}>{fmt(total, headerCurrency)}</div>
+                            </button>
+                            
+                            {/* Expanded Accounts for this Bank */}
+                            {isExpanded && (
+                              <div style={{background:"#0D1117",borderLeft:`4px solid ${color}`,borderRight:`1px solid ${color}`,borderBottom:`1px solid ${color}`,borderRadius:"0 0 10px 10px",padding:"8px"}}>
+                                {bankAccounts.map((acc, j) => {
+                                  const origIdx = indices[j];
+                                  const typeColor = acc.type === "FD" ? "#3B82F6" : acc.type === "Saving" ? "#10B981" : acc.type === "Credit Card" ? "#EF4444" : acc.type === "Loan" ? "#F59E0B" : "#8B5CF6";
+                                  const accCurrency = (acc.currency || 'INR') as Currency;
+                                  const isNegative = Number(acc.amount) < 0;
+                                  
+                                  return (
+                                    <div 
+                                      key={j}
+                                      style={{
+                                        background:"#161B22",
+                                        borderRadius:10,
+                                        padding:"12px",
+                                        marginBottom: j < bankAccounts.length - 1 ? 8 : 0,
+                                        opacity: acc.done ? 0.6 : 1
+                                      }}
+                                    >
+                                      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+                                        <div style={{flex:1}}>
+                                          <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:4}}>
+                                            <span style={{background:`${typeColor}20`,color:typeColor,padding:"2px 6px",borderRadius:4,fontSize:10,fontWeight:700}}>{acc.type}</span>
+                                            {acc.online === "Yes" && <span style={{fontSize:9,color:"#34D399"}}>🌐</span>}
+                                            {acc.done && <span style={{fontSize:9,color:"#34D399"}}>✓</span>}
+                                          </div>
+                                          {acc.holders && <div style={{fontSize:11,color:"#9CA3AF"}}>👤 {acc.holders}</div>}
+                                        </div>
+                                        <div style={{textAlign:"right"}}>
+                                          <div style={{fontSize:18,fontWeight:800,fontFamily:"monospace",color:isNegative ? "#EF4444" : "#F0F6FC"}}>{fmt(acc.amount, accCurrency)}</div>
+                                          {acc.roi && <div style={{fontSize:10,color:"#3FB950"}}>{(Number(acc.roi) * 100).toFixed(2)}%</div>}
+                                        </div>
+                                      </div>
+                                      
+                                      {acc.nextAction && !acc.done && (
+                                        <div style={{marginTop:8,padding:"6px 8px",background:"#F59E0B15",borderRadius:6,color:"#F59E0B",fontSize:11,fontWeight:600}}>
+                                          ⚡ {acc.nextAction}
+                                        </div>
+                                      )}
+                                      
+                                      {/* Mobile: Action Buttons */}
+                                      <div style={{display:"flex",gap:6,marginTop:10,paddingTop:10,borderTop:"1px solid #21262D"}}>
+                                        <button 
+                                          onClick={(e) => { e.stopPropagation(); toggleDone("account", origIdx); }} 
+                                          style={{flex:1,background:acc.done ? "#064E3B" : "#21262D",color:acc.done ? "#34D399" : "#9CA3AF",border:"none",borderRadius:6,padding:"8px",fontSize:11,fontWeight:600}}
+                                        >
+                                          {acc.done ? "↩ Undo" : "✓ Done"}
+                                        </button>
+                                        <button 
+                                          onClick={(e) => { e.stopPropagation(); openEdit("account", origIdx); }} 
+                                          style={{background:"#1D4ED820",color:"#60A5FA",border:"none",borderRadius:6,padding:"8px 12px",fontSize:11}}
+                                        >✏️</button>
+                                        <button 
+                                          onClick={(e) => { e.stopPropagation(); deleteRow("account", origIdx); }} 
+                                          style={{background:"#7F1D1D20",color:"#FCA5A5",border:"none",borderRadius:6,padding:"8px 12px",fontSize:11}}
+                                        >🗑</button>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              ) : (
+              /* ═══ DESKTOP ACCOUNTS VIEW ═══ */
+              <>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14,flexWrap:"wrap",gap:8}}>
-                <div style={{display:"flex",alignItems:"center",gap:8}}>
-                  <button 
-                    onClick={() => setExpandedBanks(expandedBanks.size === bankNames.length ? new Set() : new Set(bankNames))}
-                    style={{background:"#21262D",color:"#8B949E",border:"1px solid #30363D",borderRadius:6,padding:"5px 12px",fontSize:11,fontWeight:600,cursor:"pointer"}}
-                  >
-                    {expandedBanks.size === bankNames.length ? "Collapse All" : "Expand All"}
-                  </button>
+                <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+                  {/* View Mode Toggle */}
+                  <div style={{display:"flex",gap:1,background:"#0D1117",borderRadius:6,padding:2,border:"1px solid #30363D"}}>
+                    <button
+                      onClick={() => setAccountsViewMode('cards')}
+                      style={{background:accountsViewMode === 'cards' ? '#238636' : 'transparent',color:accountsViewMode === 'cards' ? '#FFF' : '#6B7280',border:'none',padding:'4px 10px',borderRadius:4,fontSize:10,fontWeight:600,cursor:'pointer'}}
+                      title="Card view grouped by bank"
+                    >
+                      ▦ Cards
+                    </button>
+                    <button
+                      onClick={() => setAccountsViewMode('grouped')}
+                      style={{background:accountsViewMode === 'grouped' ? '#238636' : 'transparent',color:accountsViewMode === 'grouped' ? '#FFF' : '#6B7280',border:'none',padding:'4px 10px',borderRadius:4,fontSize:10,fontWeight:600,cursor:'pointer'}}
+                      title="Grid view grouped by bank"
+                    >
+                      ▤ By Bank
+                    </button>
+                    <button
+                      onClick={() => setAccountsViewMode('flat')}
+                      style={{background:accountsViewMode === 'flat' ? '#238636' : 'transparent',color:accountsViewMode === 'flat' ? '#FFF' : '#6B7280',border:'none',padding:'4px 10px',borderRadius:4,fontSize:10,fontWeight:600,cursor:'pointer'}}
+                      title="Flat grid view - all rows"
+                    >
+                      ≡ All
+                    </button>
+                  </div>
+                  {accountsViewMode === 'cards' && (
+                    <button 
+                      onClick={() => setExpandedBanks(expandedBanks.size === bankNames.length ? new Set() : new Set(bankNames))}
+                      style={{background:"#21262D",color:"#8B949E",border:"1px solid #30363D",borderRadius:6,padding:"5px 12px",fontSize:11,fontWeight:600,cursor:"pointer"}}
+                    >
+                      {expandedBanks.size === bankNames.length ? "Collapse All" : "Expand All"}
+                    </button>
+                  )}
                   <div style={{display:"flex",gap:2}}>
                     <button
                       onClick={() => { setDisplayCurrency('ORIGINAL'); persist(deposits, accounts, bills, actions, goals, exchangeRates, 'ORIGINAL'); }}
@@ -2047,6 +2713,13 @@ export default function BankDashboard({ supabase, userId, encryptionKey }: BankD
                       </button>
                     ))}
                   </div>
+                  <button
+                    onClick={() => setShowRatesModal(true)}
+                    style={{background:"#161B22",color:"#6B7280",border:"1px solid #30363D",borderRadius:4,padding:"3px 8px",fontSize:9,cursor:"pointer",display:"flex",alignItems:"center",gap:4}}
+                    title="Edit exchange rates"
+                  >
+                    <span>$1=₹{exchangeRates.USD}</span>
+                  </button>
                 </div>
                 <button onClick={() => openAdd("account")} style={{background:"linear-gradient(135deg,#065F46,#059669)",color:"#fff",border:"none",borderRadius:9,padding:"7px 16px",fontSize:12,fontWeight:700,cursor:"pointer"}}>+ Add Account</button>
               </div>
@@ -2054,6 +2727,184 @@ export default function BankDashboard({ supabase, userId, encryptionKey }: BankD
                 <EmptyState icon="🏦" title="No Bank Accounts" description="Add your bank accounts to track balances and pending actions" action="+ Add Account" onAction={() => openAdd("account")} />
               ) : (
                 <>
+                  {/* ═══ GROUPED GRID VIEW - By Bank ═══ */}
+                  {accountsViewMode === 'grouped' && (
+                    <div style={{background:"#161B22",borderRadius:12,overflow:"hidden",border:"1px solid #30363D",marginBottom:16}}>
+                      <div style={{overflowX:"auto",scrollbarWidth:"thin",scrollbarColor:"#30363D #161B22"}}>
+                        <table style={{width:"100%",borderCollapse:"collapse",fontSize:11}}>
+                          <thead><tr style={{background:"#0D1117",borderBottom:"1px solid #21262D"}}>
+                            {["Bank","Type","Holders","Amount","Currency","ROI","A/C Number","IFSC","Branch","Online","Address","Details","Action",""].map(h => (
+                              <th key={h} style={{padding:"8px 10px",textAlign:"left",color:"#8B949E",fontWeight:600,fontSize:10,whiteSpace:"nowrap"}}>{h}</th>
+                            ))}
+                          </tr></thead>
+                          <tbody>
+                            {bankNames.map(bankName => {
+                              const { accounts: bankAccounts, indices, total: totalBalance, currencies, dominantCurrency, sortTotal } = grouped[bankName];
+                              const color = getBankColor(bankName);
+                              const isExpanded = expandedBanks.has(`acc_grid_${bankName}`);
+                              const isMixedCurrency = currencies.size > 1;
+                              const headerCurrency = displayCurrency === 'ORIGINAL' ? dominantCurrency : displayCurrency;
+                              const isSingleRow = bankAccounts.length === 1;
+                              const singleAcc = isSingleRow ? bankAccounts[0] : null;
+                              const singleAccCurrency = singleAcc ? ((singleAcc.currency || 'INR') as Currency) : 'INR';
+                              const singleTypeColor = singleAcc?.type === "FD" ? "#3B82F6" : singleAcc?.type === "Saving" ? "#10B981" : singleAcc?.type === "Credit Card" ? "#EF4444" : singleAcc?.type === "Loan" ? "#F59E0B" : "#8B5CF6";
+                              // Find common values across all accounts in this bank
+                              const commonType = bankAccounts.every(a => a.type === bankAccounts[0]?.type) ? bankAccounts[0]?.type : null;
+                              const commonHolders = bankAccounts.every(a => a.holders === bankAccounts[0]?.holders) ? bankAccounts[0]?.holders : null;
+                              
+                              const toggleGridBank = () => {
+                                setExpandedBanks(prev => {
+                                  const next = new Set(prev);
+                                  const key = `acc_grid_${bankName}`;
+                                  if (next.has(key)) next.delete(key);
+                                  else next.add(key);
+                                  return next;
+                                });
+                              };
+                              
+                              return (
+                                <React.Fragment key={bankName}>
+                                  {/* Bank Header Row - Clickable - Shows details if single row or common fields */}
+                                  <tr 
+                                    onClick={toggleGridBank}
+                                    style={{background:`${color}15`,cursor:"pointer",borderBottom:"1px solid #21262D"}}
+                                  >
+                                    <td style={{padding:"8px 10px"}}>
+                                      <div style={{display:"flex",alignItems:"center",gap:8}}>
+                                        <span style={{fontSize:10,color:"#6B7280",transition:"transform 0.2s",transform:isExpanded?"rotate(90deg)":"rotate(0deg)"}}>▶</span>
+                                        <div style={{width:10,height:10,borderRadius:"50%",background:color}} />
+                                        <span style={{fontWeight:700,color:"#F0F6FC",fontSize:12}}>{bankName}</span>
+                                        <span style={{color:"#6B7280",fontSize:10}}>({bankAccounts.length} acc{bankAccounts.length > 1 ? "s" : ""})</span>
+                                        {isMixedCurrency && displayCurrency === 'ORIGINAL' && <span style={{fontSize:9,color:"#6B7280"}}>🌐 ({Array.from(currencies).join('+')})</span>}
+                                      </div>
+                                    </td>
+                                    <td style={{padding:"8px 10px"}}>
+                                      {isSingleRow ? (
+                                        <span style={{background:`${singleTypeColor}20`,color:singleTypeColor,padding:"2px 6px",borderRadius:4,fontSize:9,fontWeight:700}}>{singleAcc?.type || "—"}</span>
+                                      ) : (commonType ? <span style={{color:"#9CA3AF",fontSize:10}}>{commonType}</span> : "—")}
+                                    </td>
+                                    <td style={{padding:"8px 10px",color:"#C9D1D9",fontSize:10,maxWidth:100,overflow:"hidden",textOverflow:"ellipsis"}}>{isSingleRow ? (singleAcc?.holders || "—") : (commonHolders || (bankAccounts.length > 1 ? "Various" : "—"))}</td>
+                                    <td style={{padding:"8px 10px",fontFamily:"monospace",fontWeight:700,color:"#F0F6FC",fontSize:11}}>{fmt(totalBalance, isSingleRow ? singleAccCurrency : headerCurrency)}</td>
+                                    <td style={{padding:"8px 10px",color:"#9CA3AF",fontSize:9}}>{isSingleRow ? singleAccCurrency : (isMixedCurrency ? "Mixed" : headerCurrency)}</td>
+                                    <td style={{padding:"8px 10px",fontFamily:"monospace",color:"#3FB950",fontWeight:600,fontSize:10}}>{isSingleRow && singleAcc?.roi ? (Number(singleAcc.roi) * 100).toFixed(2) + "%" : "—"}</td>
+                                    <td style={{padding:"8px 10px",color:"#9CA3AF",fontSize:9,fontFamily:"monospace"}}>{isSingleRow ? (singleAcc?.accountNumber || "—") : "—"}</td>
+                                    <td style={{padding:"8px 10px",color:"#9CA3AF",fontSize:9,fontFamily:"monospace"}}>{isSingleRow ? (singleAcc?.ifscCode || "—") : "—"}</td>
+                                    <td style={{padding:"8px 10px",color:"#9CA3AF",fontSize:9,maxWidth:80,overflow:"hidden",textOverflow:"ellipsis"}}>{isSingleRow ? (singleAcc?.branch || "—") : "—"}</td>
+                                    <td style={{padding:"8px 10px"}}>{isSingleRow && singleAcc?.online && <span style={{fontSize:9,color:singleAcc.online === "Yes" ? "#34D399" : "#6B7280",background:singleAcc.online === "Yes" ? "#064E3B30" : "#37415140",padding:"2px 4px",borderRadius:3}}>{singleAcc.online === "Yes" ? "🌐" : "—"}</span>}</td>
+                                    <td style={{padding:"8px 10px",color:"#6B7280",fontSize:9,maxWidth:80,overflow:"hidden",textOverflow:"ellipsis"}}>{isSingleRow ? (singleAcc?.address || "—") : "—"}</td>
+                                    <td style={{padding:"8px 10px",color:"#9CA3AF",fontSize:9,maxWidth:80,overflow:"hidden",textOverflow:"ellipsis"}}>{isSingleRow ? (singleAcc?.detail || "—") : "—"}</td>
+                                    <td style={{padding:"8px 10px",color:isSingleRow && singleAcc?.nextAction && !singleAcc.done ? "#F59E0B" : "#6B7280",fontSize:9,maxWidth:80,overflow:"hidden",textOverflow:"ellipsis",fontWeight:isSingleRow && singleAcc?.nextAction && !singleAcc.done ? 600 : 400}}>{isSingleRow ? (singleAcc?.nextAction ? (singleAcc.done ? "✓ " : "⚡ ") + singleAcc.nextAction : "—") : "—"}</td>
+                                    <td style={{padding:"8px 10px",whiteSpace:"nowrap"}}>
+                                      {isSingleRow && (
+                                        <>
+                                          <button onClick={(e) => { e.stopPropagation(); toggleDone("account", indices[0]); }} style={{background:singleAcc?.done ? "#238636" : "#21262D",color:singleAcc?.done ? "#fff" : "#8B949E",border:"none",borderRadius:4,padding:"2px 6px",fontSize:9,cursor:"pointer",marginRight:3,fontWeight:600}}>{singleAcc?.done ? "↩" : "✓"}</button>
+                                          <button onClick={(e) => { e.stopPropagation(); openEdit("account", indices[0]); }} style={{background:"#21262D",color:"#58A6FF",border:"none",borderRadius:4,padding:"2px 6px",fontSize:9,cursor:"pointer",marginRight:3}}>✏️</button>
+                                          <button onClick={(e) => { e.stopPropagation(); deleteRow("account", indices[0]); }} style={{background:"#21262D",color:"#F85149",border:"none",borderRadius:4,padding:"2px 6px",fontSize:9,cursor:"pointer"}}>🗑</button>
+                                        </>
+                                      )}
+                                    </td>
+                                  </tr>
+                                  
+                                  {/* Account Rows - Show when expanded */}
+                                  {isExpanded && bankAccounts.map((acc, j) => {
+                                    const origIdx = indices[j];
+                                    const typeColor = acc.type === "FD" ? "#3B82F6" : acc.type === "Saving" ? "#10B981" : acc.type === "Credit Card" ? "#EF4444" : acc.type === "Loan" ? "#F59E0B" : "#8B5CF6";
+                                    const accCurrency = (acc.currency || 'INR') as Currency;
+                                    return (
+                                      <tr key={`${bankName}-${j}`} style={{borderBottom:"1px solid #21262D",background:acc.done ? "rgba(46,160,67,0.05)" : "transparent",opacity:acc.done ? 0.6 : 1}}>
+                                        <td style={{padding:"8px 10px",paddingLeft:32,color:"#6B7280",fontSize:10}}>—</td>
+                                        <td style={{padding:"8px 10px"}}>
+                                          <span style={{background:`${typeColor}20`,color:typeColor,padding:"2px 6px",borderRadius:4,fontSize:9,fontWeight:700}}>{acc.type || "—"}</span>
+                                        </td>
+                                        <td style={{padding:"8px 10px",color:"#C9D1D9",fontSize:10,maxWidth:100,overflow:"hidden",textOverflow:"ellipsis"}} title={acc.holders}>{acc.holders || "—"}</td>
+                                        <td style={{padding:"8px 10px",fontFamily:"monospace",fontWeight:600,color:acc.done ? "#6B7280" : "#F0F6FC",fontSize:11}}>{fmt(acc.amount, accCurrency)}</td>
+                                        <td style={{padding:"8px 10px",color:"#9CA3AF",fontSize:9}}>{accCurrency}</td>
+                                        <td style={{padding:"8px 10px",fontFamily:"monospace",color:"#3FB950",fontWeight:600,fontSize:10}}>{acc.roi ? (Number(acc.roi) * 100).toFixed(2) + "%" : "—"}</td>
+                                        <td style={{padding:"8px 10px",color:"#9CA3AF",fontSize:9,fontFamily:"monospace"}}>{acc.accountNumber || "—"}</td>
+                                        <td style={{padding:"8px 10px",color:"#9CA3AF",fontSize:9,fontFamily:"monospace"}}>{acc.ifscCode || "—"}</td>
+                                        <td style={{padding:"8px 10px",color:"#9CA3AF",fontSize:9,maxWidth:80,overflow:"hidden",textOverflow:"ellipsis"}} title={acc.branch}>{acc.branch || "—"}</td>
+                                        <td style={{padding:"8px 10px"}}>
+                                          {acc.online && <span style={{fontSize:9,color:acc.online === "Yes" ? "#34D399" : "#6B7280",background:acc.online === "Yes" ? "#064E3B30" : "#37415140",padding:"2px 4px",borderRadius:3}}>{acc.online === "Yes" ? "🌐" : "—"}</span>}
+                                        </td>
+                                        <td style={{padding:"8px 10px",color:"#6B7280",fontSize:9,maxWidth:80,overflow:"hidden",textOverflow:"ellipsis"}} title={acc.address}>{acc.address || "—"}</td>
+                                        <td style={{padding:"8px 10px",color:"#9CA3AF",fontSize:9,maxWidth:80,overflow:"hidden",textOverflow:"ellipsis"}} title={acc.detail}>{acc.detail || "—"}</td>
+                                        <td style={{padding:"8px 10px",color:acc.nextAction && !acc.done ? "#F59E0B" : "#6B7280",fontSize:9,maxWidth:80,overflow:"hidden",textOverflow:"ellipsis",fontWeight:acc.nextAction && !acc.done ? 600 : 400}} title={acc.nextAction}>{acc.nextAction ? (acc.done ? "✓ " : "⚡ ") + acc.nextAction : "—"}</td>
+                                        <td style={{padding:"8px 10px",whiteSpace:"nowrap"}}>
+                                          <button onClick={(e) => { e.stopPropagation(); toggleDone("account", origIdx); }} style={{background:acc.done ? "#238636" : "#21262D",color:acc.done ? "#fff" : "#8B949E",border:"none",borderRadius:4,padding:"2px 6px",fontSize:9,cursor:"pointer",marginRight:3,fontWeight:600}}>{acc.done ? "↩" : "✓"}</button>
+                                          <button onClick={(e) => { e.stopPropagation(); openEdit("account", origIdx); }} style={{background:"#21262D",color:"#58A6FF",border:"none",borderRadius:4,padding:"2px 6px",fontSize:9,cursor:"pointer",marginRight:3}}>✏️</button>
+                                          <button onClick={(e) => { e.stopPropagation(); deleteRow("account", origIdx); }} style={{background:"#21262D",color:"#F85149",border:"none",borderRadius:4,padding:"2px 6px",fontSize:9,cursor:"pointer"}}>🗑</button>
+                                        </td>
+                                      </tr>
+                                    );
+                                  })}
+                                </React.Fragment>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* ═══ FLAT GRID VIEW - All Rows ═══ */}
+                  {accountsViewMode === 'flat' && (
+                    <div style={{background:"#161B22",borderRadius:12,overflow:"hidden",border:"1px solid #30363D",marginBottom:16}}>
+                      <div style={{overflowX:"auto",scrollbarWidth:"thin",scrollbarColor:"#30363D #161B22"}}>
+                        <table style={{width:"100%",borderCollapse:"collapse",fontSize:11}}>
+                          <thead><tr style={{background:"#0D1117",borderBottom:"1px solid #21262D"}}>
+                            {["Bank","Type","Holders","Amount","Currency","ROI","A/C Number","IFSC","Branch","Online","Address","Details","Action",""].map(h => (
+                              <th key={h} style={{padding:"8px 10px",textAlign:"left",color:"#8B949E",fontWeight:600,fontSize:10,whiteSpace:"nowrap"}}>{h}</th>
+                            ))}
+                          </tr></thead>
+                          <tbody>
+                            {accounts.length === 0 ? (
+                              <tr><td colSpan={14} style={{padding:32,textAlign:"center",color:"#8B949E"}}>No accounts found</td></tr>
+                            ) : (
+                              accounts.map((acc, idx) => {
+                                const color = getBankColor(acc.bank);
+                                const typeColor = acc.type === "FD" ? "#3B82F6" : acc.type === "Saving" ? "#10B981" : acc.type === "Credit Card" ? "#EF4444" : acc.type === "Loan" ? "#F59E0B" : "#8B5CF6";
+                                const accCurrency = (acc.currency || 'INR') as Currency;
+                                return (
+                                  <tr key={idx} style={{borderBottom:"1px solid #21262D",background:acc.done ? "rgba(46,160,67,0.05)" : "transparent",opacity:acc.done ? 0.6 : 1}}>
+                                    <td style={{padding:"8px 10px"}}>
+                                      <div style={{display:"flex",alignItems:"center",gap:6}}>
+                                        <div style={{width:8,height:8,borderRadius:"50%",background:color}} />
+                                        <span style={{fontWeight:600,color:"#F0F6FC",fontSize:11}}>{acc.bank}</span>
+                                      </div>
+                                    </td>
+                                    <td style={{padding:"8px 10px"}}>
+                                      <span style={{background:`${typeColor}20`,color:typeColor,padding:"2px 6px",borderRadius:4,fontSize:9,fontWeight:700}}>{acc.type || "—"}</span>
+                                    </td>
+                                    <td style={{padding:"8px 10px",color:"#C9D1D9",fontSize:10,maxWidth:100,overflow:"hidden",textOverflow:"ellipsis"}} title={acc.holders}>{acc.holders || "—"}</td>
+                                    <td style={{padding:"8px 10px",fontFamily:"monospace",fontWeight:600,color:acc.done ? "#6B7280" : "#F0F6FC",fontSize:11}}>{fmt(acc.amount, accCurrency)}</td>
+                                    <td style={{padding:"8px 10px",color:"#9CA3AF",fontSize:9}}>{accCurrency}</td>
+                                    <td style={{padding:"8px 10px",fontFamily:"monospace",color:"#3FB950",fontWeight:600,fontSize:10}}>{acc.roi ? (Number(acc.roi) * 100).toFixed(2) + "%" : "—"}</td>
+                                    <td style={{padding:"8px 10px",color:"#9CA3AF",fontSize:9,fontFamily:"monospace"}}>{acc.accountNumber || "—"}</td>
+                                    <td style={{padding:"8px 10px",color:"#9CA3AF",fontSize:9,fontFamily:"monospace"}}>{acc.ifscCode || "—"}</td>
+                                    <td style={{padding:"8px 10px",color:"#9CA3AF",fontSize:9,maxWidth:80,overflow:"hidden",textOverflow:"ellipsis"}} title={acc.branch}>{acc.branch || "—"}</td>
+                                    <td style={{padding:"8px 10px"}}>
+                                      {acc.online && <span style={{fontSize:9,color:acc.online === "Yes" ? "#34D399" : "#6B7280",background:acc.online === "Yes" ? "#064E3B30" : "#37415140",padding:"2px 4px",borderRadius:3}}>{acc.online === "Yes" ? "🌐" : "—"}</span>}
+                                    </td>
+                                    <td style={{padding:"8px 10px",color:"#6B7280",fontSize:9,maxWidth:80,overflow:"hidden",textOverflow:"ellipsis"}} title={acc.address}>{acc.address || "—"}</td>
+                                    <td style={{padding:"8px 10px",color:"#9CA3AF",fontSize:9,maxWidth:80,overflow:"hidden",textOverflow:"ellipsis"}} title={acc.detail}>{acc.detail || "—"}</td>
+                                    <td style={{padding:"8px 10px",color:acc.nextAction && !acc.done ? "#F59E0B" : "#6B7280",fontSize:9,maxWidth:80,overflow:"hidden",textOverflow:"ellipsis",fontWeight:acc.nextAction && !acc.done ? 600 : 400}} title={acc.nextAction}>{acc.nextAction ? (acc.done ? "✓ " : "⚡ ") + acc.nextAction : "—"}</td>
+                                    <td style={{padding:"8px 10px",whiteSpace:"nowrap"}}>
+                                      <button onClick={() => toggleDone("account", idx)} style={{background:acc.done ? "#238636" : "#21262D",color:acc.done ? "#fff" : "#8B949E",border:"none",borderRadius:4,padding:"2px 6px",fontSize:9,cursor:"pointer",marginRight:3,fontWeight:600}}>{acc.done ? "↩" : "✓"}</button>
+                                      <button onClick={() => openEdit("account", idx)} style={{background:"#21262D",color:"#58A6FF",border:"none",borderRadius:4,padding:"2px 6px",fontSize:9,cursor:"pointer",marginRight:3}}>✏️</button>
+                                      <button onClick={() => deleteRow("account", idx)} style={{background:"#21262D",color:"#F85149",border:"none",borderRadius:4,padding:"2px 6px",fontSize:9,cursor:"pointer"}}>🗑</button>
+                                    </td>
+                                  </tr>
+                                );
+                              })
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* ═══ CARDS VIEW - Grouped by Bank ═══ */}
+                  {accountsViewMode === 'cards' && (
                   <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(320px,1fr))",gap:12,alignItems:"start"}}>
                     {bankNames.map(bankName => {
                       const { accounts: bankAccounts, indices, total: totalBalance, currencies, dominantCurrency } = grouped[bankName];
@@ -2126,6 +2977,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey }: BankD
                       );
                     })}
                   </div>
+                  )}
                   
                   {/* Bank Summary - Collapsible */}
                   <div style={{marginTop:16,background:"#0D1117",borderRadius:12,border:"1px solid #1F2937",overflow:"hidden"}}>
@@ -2137,20 +2989,21 @@ export default function BankDashboard({ supabase, userId, encryptionKey }: BankD
                         <span style={{fontSize:10,color:"#6B7280",transition:"transform 0.2s",transform:expandedBanks.has('_summary')?"rotate(90deg)":"rotate(0deg)"}}>▶</span>
                         <span style={{fontSize:11,fontWeight:700,color:"#9CA3AF",textTransform:"uppercase"}}>📊 Bank-wise Summary</span>
                       </div>
-                      <div style={{fontSize:12,color:"#F9FAFB",fontFamily:"monospace",fontWeight:700}}>{fmt(sumConverted(accounts), displayCurrency)}</div>
+                      <div style={{fontSize:12,color:"#F9FAFB",fontFamily:"monospace",fontWeight:700}}>{fmt(sumConverted(accounts), displayCurrency === 'ORIGINAL' ? 'INR' : displayCurrency)}</div>
                     </button>
                     {expandedBanks.has('_summary') && (
                       <div style={{borderTop:"1px solid #1F2937",padding:"10px 14px"}}>
                         <div style={{display:"flex",flexDirection:"column",gap:6}}>
                           {bankNames.map(bankName => {
-                            const total = grouped[bankName].total;
+                            const { total, dominantCurrency, sortTotal } = grouped[bankName];
                             const grandTotal = sumConverted(accounts);
-                            const pct = grandTotal > 0 ? (total / grandTotal * 100) : 0;
+                            const pct = grandTotal > 0 ? (sortTotal / grandTotal * 100) : 0;
+                            const summaryCurrency = displayCurrency === 'ORIGINAL' ? dominantCurrency : displayCurrency as Currency;
                             return (
                               <div key={bankName} style={{display:"flex",alignItems:"center",gap:10}}>
                                 <div style={{width:10,height:10,borderRadius:"50%",background:getBankColor(bankName),flexShrink:0}} />
                                 <span style={{flex:1,fontSize:12,color:"#C9D1D9"}}>{bankName}</span>
-                                <span style={{fontSize:12,fontFamily:"monospace",fontWeight:700,color:"#F9FAFB"}}>{fmt(total, displayCurrency)}</span>
+                                <span style={{fontSize:12,fontFamily:"monospace",fontWeight:700,color:"#F9FAFB"}}>{fmt(total, summaryCurrency)}</span>
                                 <span style={{fontSize:10,color:"#6B7280",minWidth:40,textAlign:"right"}}>{pct.toFixed(0)}%</span>
                               </div>
                             );
@@ -2214,6 +3067,8 @@ export default function BankDashboard({ supabase, userId, encryptionKey }: BankD
                   </div>
                 </>
               )}
+              </>
+              )}
             </div>
           );
         })()}
@@ -2221,6 +3076,100 @@ export default function BankDashboard({ supabase, userId, encryptionKey }: BankD
         {/* ══ BILLS TAB ══════════════════════════════════════════════ */}
         {tab === "bills" && (
           <div>
+            {/* ═══ MOBILE BILLS VIEW ═══ */}
+            {isMobile ? (
+              <div style={{display:"flex",flexDirection:"column",gap:12}}>
+                {/* Mobile: Summary Header */}
+                <div style={{background:"linear-gradient(135deg, #92400E 0%, #0F172A 100%)",borderRadius:14,padding:"16px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                  <div>
+                    <div style={{fontSize:10,color:"#94A3B8",fontWeight:500}}>PENDING BILLS</div>
+                    <div style={{fontSize:28,fontWeight:800,color:"#F8FAFC"}}>{bills.filter(b => !b.done).length}</div>
+                  </div>
+                  <div style={{textAlign:"right"}}>
+                    <div style={{fontSize:10,color:"#94A3B8",fontWeight:500}}>TOTAL DUE</div>
+                    <div style={{fontSize:20,fontWeight:800,color:"#F59E0B",fontFamily:"monospace"}}>{fmt(bills.filter(b => !b.done).reduce((s, b) => s + (Number(b.amount) || 0), 0))}</div>
+                  </div>
+                </div>
+                
+                {/* Mobile: Filter Tabs */}
+                <div style={{display:"flex",gap:8}}>
+                  <button 
+                    onClick={() => setShowDone(false)}
+                    style={{flex:1,background:!showDone ? "#F59E0B" : "#21262D",color:!showDone ? "#000" : "#9CA3AF",border:"none",borderRadius:10,padding:"10px",fontSize:13,fontWeight:600}}
+                  >
+                    Pending ({bills.filter(b => !b.done).length})
+                  </button>
+                  <button 
+                    onClick={() => setShowDone(true)}
+                    style={{flex:1,background:showDone ? "#10B981" : "#21262D",color:showDone ? "#FFF" : "#9CA3AF",border:"none",borderRadius:10,padding:"10px",fontSize:13,fontWeight:600}}
+                  >
+                    Paid ({bills.filter(b => b.done).length})
+                  </button>
+                </div>
+                
+                {/* Mobile: Bills List */}
+                {bills.length === 0 ? (
+                  <div style={{padding:40,textAlign:"center",color:"#6B7280"}}>No bills tracked yet</div>
+                ) : (
+                  <div style={{display:"flex",flexDirection:"column",gap:10}}>
+                    {bills.filter(b => showDone ? b.done : !b.done).map((bill, i) => {
+                      const origIdx = bills.indexOf(bill);
+                      return (
+                        <div 
+                          key={i}
+                          style={{
+                            background:"#161B22",
+                            borderRadius:14,
+                            padding:"14px",
+                            borderLeft:`4px solid ${bill.done ? "#10B981" : "#F59E0B"}`,
+                            opacity: bill.done ? 0.7 : 1
+                          }}
+                        >
+                          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:8}}>
+                            <div style={{flex:1}}>
+                              <div style={{fontSize:15,fontWeight:700,color:bill.done ? "#6B7280" : "#F0F6FC",textDecoration:bill.done ? "line-through" : "none"}}>{bill.name}</div>
+                              <div style={{fontSize:12,color:"#6B7280",marginTop:4}}>{bill.freq}</div>
+                            </div>
+                            {bill.amount && (
+                              <div style={{fontSize:18,fontWeight:800,fontFamily:"monospace",color:bill.done ? "#6B7280" : "#F59E0B"}}>{fmt(bill.amount)}</div>
+                            )}
+                          </div>
+                          
+                          {bill.due && (
+                            <div style={{fontSize:12,color:"#9CA3AF",marginBottom:10}}>Due: {bill.due}</div>
+                          )}
+                          
+                          {/* Mobile: Action Buttons */}
+                          <div style={{display:"flex",gap:8,paddingTop:10,borderTop:"1px solid #21262D"}}>
+                            <button 
+                              onClick={() => toggleDone("bill", origIdx)} 
+                              style={{flex:1,background:bill.done ? "#064E3B" : "#F59E0B20",color:bill.done ? "#34D399" : "#F59E0B",border:"none",borderRadius:8,padding:"10px",fontSize:12,fontWeight:600}}
+                            >
+                              {bill.done ? "↩ Unpaid" : "✓ Mark Paid"}
+                            </button>
+                            <button 
+                              onClick={() => openEdit("bill", origIdx)} 
+                              style={{background:"#1D4ED820",color:"#60A5FA",border:"none",borderRadius:8,padding:"10px 14px",fontSize:12}}
+                            >✏️</button>
+                            <button 
+                              onClick={() => deleteRow("bill", origIdx)} 
+                              style={{background:"#7F1D1D20",color:"#FCA5A5",border:"none",borderRadius:8,padding:"10px 14px",fontSize:12}}
+                            >🗑</button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                    {bills.filter(b => showDone ? b.done : !b.done).length === 0 && (
+                      <div style={{padding:30,textAlign:"center",color:"#6B7280",fontSize:13}}>
+                        {showDone ? "No paid bills yet" : "All bills are paid! 🎉"}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            ) : (
+            /* ═══ DESKTOP BILLS VIEW ═══ */
+            <>
             <div style={{display:"flex",justifyContent:"flex-end",marginBottom:14}}>
               <button onClick={() => openAdd("bill")} style={{background:"linear-gradient(135deg,#065F46,#059669)",color:"#fff",border:"none",borderRadius:9,padding:"7px 16px",fontSize:12,fontWeight:700,cursor:"pointer"}}>+ Add Bill</button>
             </div>
@@ -2243,6 +3192,8 @@ export default function BankDashboard({ supabase, userId, encryptionKey }: BankD
                   </div>
                 ))}
               </div>
+            )}
+            </>
             )}
           </div>
         )}
