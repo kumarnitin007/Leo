@@ -177,6 +177,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey }: BankD
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [expandedBanks, setExpandedBanks] = useState<Set<string>>(new Set());
   const [showLegend, setShowLegend] = useState<Set<string>>(new Set());
+  const [showMoreMenu, setShowMoreMenu] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   // ── Responsive detection ───────────────────────────────────────────────────
@@ -1143,15 +1144,18 @@ export default function BankDashboard({ supabase, userId, encryptionKey }: BankD
       .map(([month, amt]) => ({ month, amt: (amt / 100000).toFixed(1) }));
   })();
 
-  const allTabs = [
+  const mainTabs = [
     {id:"overview",  icon:"📊", label:"Overview", key:"1"},
     {id:"accounts",  icon:"🏦", label:"Accounts", key:"2"},
     {id:"deposits",  icon:"💰", label:"Deposits", key:"3"},
     {id:"bills",     icon:"📋", label:"Bills", key:"4"},
+  ];
+  const moreTabs = [
     {id:"timeline",  icon:"📅", label:"Timeline", key:"5"},
     {id:"actions",   icon:"⚡", label:"Actions", key:"6"},
     {id:"charts",    icon:"📈", label:"Charts", key:"7"},
   ];
+  const allTabs = [...mainTabs, ...moreTabs];
   
   const banks = Array.from(new Set(deposits.map(d => d.bank).filter(Boolean)));
   const filtered = deposits.filter(d => {
@@ -1229,13 +1233,13 @@ export default function BankDashboard({ supabase, userId, encryptionKey }: BankD
       )}
 
       {/* Header - Bank Records title and buttons */}
-      <div style={{background:"#161B22",borderBottom:"1px solid #21262D",padding:"12px 16px"}}>
+      <div style={{background:"#161B22",borderBottom:"1px solid #21262D",padding:isMobile?"10px 12px":"12px 16px"}}>
         {/* Title Row */}
-        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
-          <div style={{display:"flex",alignItems:"center",gap:10}}>
-            <span style={{fontSize:22}}>🦁</span>
-            <div style={{fontSize:15,fontWeight:700,color:"#F9FAFB"}}>Bank Records</div>
-            {savedMsg && <span style={{color:"#34D399",fontSize:11,fontWeight:600}}>✓ Saved</span>}
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:isMobile?8:12}}>
+          <div style={{display:"flex",alignItems:"center",gap:isMobile?6:10}}>
+            <span style={{fontSize:isMobile?18:22}}>🦁</span>
+            <div style={{fontSize:isMobile?13:15,fontWeight:700,color:"#F9FAFB"}}>{isMobile ? "Bank" : "Bank Records"}</div>
+            {savedMsg && <span style={{color:"#34D399",fontSize:11,fontWeight:600}}>✓</span>}
           </div>
           <div style={{display:"flex",gap:6}}>
             <button onClick={handleExportTemplate} style={{background:"#21262D",color:"#A78BFA",border:"1px solid #30363D",borderRadius:6,padding:"6px 10px",fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}} title="Download Template Excel">📥{!isMobile && " Template"}</button>
@@ -1245,33 +1249,34 @@ export default function BankDashboard({ supabase, userId, encryptionKey }: BankD
             <button onClick={handleClearAll} style={{background:"#21262D",color:"#F85149",border:"1px solid #30363D",borderRadius:6,padding:"6px 10px",fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}} title="Clear All">🗑</button>
           </div>
         </div>
-        {/* Tabs - Icons on mobile, full labels on desktop */}
-        <div style={{display:"flex",gap:isMobile?4:8,overflowX:"auto",paddingBottom:8,WebkitOverflowScrolling:"touch",scrollbarWidth:"thin",scrollbarColor:"#30363D #161B22"}}>
-          {allTabs.map(t=>(
-            <button 
-              key={t.id} 
-              onClick={()=>setTab(t.id)} 
-              title={isMobile ? `${t.label} (${t.key})` : `Press ${t.key}`}
-              style={{
-                background:tab===t.id?"#1F6FEB":"#21262D",
-                color:tab===t.id?"#FFFFFF":"#8B949E",
-                border:"none",
-                padding:isMobile?"8px 10px":"7px 12px",
-                borderRadius:20,cursor:"pointer",
-                fontSize:isMobile?14:11,fontWeight:600,fontFamily:"inherit",whiteSpace:"nowrap",
-                flexShrink:0,
-                minWidth:isMobile?40:"auto",
-                display:"flex",alignItems:"center",justifyContent:"center",gap:4
-              }}
-            >
-              <span>{t.icon}</span>
-              {!isMobile && <span>{t.label}</span>}
-            </button>
-          ))}
-        </div>
+        {/* Tabs - Desktop only (mobile uses bottom bar) */}
+        {!isMobile && (
+          <div style={{display:"flex",gap:8,overflowX:"auto",paddingBottom:8,scrollbarWidth:"thin",scrollbarColor:"#30363D #161B22"}}>
+            {allTabs.map(t=>(
+              <button 
+                key={t.id} 
+                onClick={()=>setTab(t.id)} 
+                title={`Press ${t.key}`}
+                style={{
+                  background:tab===t.id?"#1F6FEB":"#21262D",
+                  color:tab===t.id?"#FFFFFF":"#8B949E",
+                  border:"none",
+                  padding:"7px 12px",
+                  borderRadius:20,cursor:"pointer",
+                  fontSize:11,fontWeight:600,fontFamily:"inherit",whiteSpace:"nowrap",
+                  flexShrink:0,
+                  display:"flex",alignItems:"center",justifyContent:"center",gap:4
+                }}
+              >
+                <span>{t.icon}</span>
+                <span>{t.label}</span>
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
-      <div style={{padding:isMobile?"12px":"22px 28px"}}>
+      <div style={{padding:isMobile?"8px 6px":"22px 28px",paddingBottom:isMobile?80:28}}>
         {/* Tab Content */}
         {tab==="overview" && (
           <div style={{display:"flex",flexDirection:"column",gap:isMobile?12:16}}>
@@ -3199,7 +3204,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey }: BankD
         )}
       </div>
 
-      {/* Floating Action Button (Mobile) */}
+      {/* Floating Action Button (Mobile) - positioned above bottom bar */}
       {isMobile && !modal && (
         <button
           onClick={() => {
@@ -3209,8 +3214,8 @@ export default function BankDashboard({ supabase, userId, encryptionKey }: BankD
           }}
           style={{
             position: "fixed",
-            bottom: 24,
-            right: 24,
+            bottom: 80,
+            right: 16,
             width: 56,
             height: 56,
             borderRadius: "50%",
@@ -3379,6 +3384,122 @@ export default function BankDashboard({ supabase, userId, encryptionKey }: BankD
             </div>
           </div>
         </div>
+      )}
+
+      {/* ═══ MOBILE BOTTOM TAB BAR ═══ */}
+      {isMobile && (
+        <>
+          {/* More Menu Overlay */}
+          {showMoreMenu && (
+            <div 
+              style={{
+                position:"fixed",
+                inset:0,
+                background:"rgba(0,0,0,0.5)",
+                zIndex:998
+              }}
+              onClick={() => setShowMoreMenu(false)}
+            />
+          )}
+          
+          {/* More Menu Popup */}
+          {showMoreMenu && (
+            <div style={{
+              position:"fixed",
+              bottom:70,
+              right:12,
+              background:"#1C1C2E",
+              borderRadius:12,
+              border:"1px solid #30363D",
+              boxShadow:"0 4px 20px rgba(0,0,0,0.4)",
+              zIndex:999,
+              overflow:"hidden"
+            }}>
+              {moreTabs.map(t => (
+                <button
+                  key={t.id}
+                  onClick={() => { setTab(t.id); setShowMoreMenu(false); }}
+                  style={{
+                    display:"flex",
+                    alignItems:"center",
+                    gap:10,
+                    width:"100%",
+                    padding:"14px 20px",
+                    background: tab === t.id ? "#1F6FEB" : "transparent",
+                    color: tab === t.id ? "#FFF" : "#C9D1D9",
+                    border:"none",
+                    borderBottom:"1px solid #30363D",
+                    fontSize:14,
+                    fontWeight:600,
+                    textAlign:"left"
+                  }}
+                >
+                  <span style={{fontSize:18}}>{t.icon}</span>
+                  <span>{t.label}</span>
+                </button>
+              ))}
+            </div>
+          )}
+          
+          {/* Bottom Tab Bar */}
+          <div style={{
+            position:"fixed",
+            bottom:0,
+            left:0,
+            right:0,
+            background:"linear-gradient(180deg, #161B22 0%, #0D1117 100%)",
+            borderTop:"1px solid #30363D",
+            display:"flex",
+            justifyContent:"space-around",
+            alignItems:"center",
+            padding:"8px 4px 12px",
+            zIndex:200
+          }}>
+            {mainTabs.map(t => {
+              const isActive = tab === t.id;
+              return (
+                <button
+                  key={t.id}
+                  onClick={() => { setTab(t.id); setShowMoreMenu(false); }}
+                  style={{
+                    display:"flex",
+                    flexDirection:"column",
+                    alignItems:"center",
+                    gap:2,
+                    background:"transparent",
+                    border:"none",
+                    padding:"4px 8px",
+                    color: isActive ? "#3B82F6" : "#6B7280",
+                    minWidth:60
+                  }}
+                >
+                  <span style={{fontSize:20}}>{t.icon}</span>
+                  <span style={{fontSize:10,fontWeight:isActive ? 700 : 500}}>{t.label}</span>
+                  {isActive && <div style={{width:4,height:4,borderRadius:"50%",background:"#3B82F6",marginTop:2}} />}
+                </button>
+              );
+            })}
+            {/* More Button */}
+            <button
+              onClick={() => setShowMoreMenu(!showMoreMenu)}
+              style={{
+                display:"flex",
+                flexDirection:"column",
+                alignItems:"center",
+                gap:2,
+                background:"transparent",
+                border:"none",
+                padding:"4px 8px",
+                color: moreTabs.some(t => t.id === tab) ? "#3B82F6" : "#6B7280",
+                minWidth:60
+              }}
+            >
+              <span style={{fontSize:20}}>•••</span>
+              <span style={{fontSize:10,fontWeight: moreTabs.some(t => t.id === tab) ? 700 : 500}}>More</span>
+              {moreTabs.some(t => t.id === tab) && <div style={{width:4,height:4,borderRadius:"50%",background:"#3B82F6",marginTop:2}} />}
+            </button>
+          </div>
+        </>
       )}
     </div>
   );

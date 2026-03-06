@@ -914,7 +914,7 @@ const SafeView: React.FC = () => {
 
   // Unlocked state - show list or detail/form
   return (
-    <div style={{ padding: '2rem', maxWidth: '1400px', margin: '0 auto' }}>
+    <div style={{ padding: isMobile ? '0.5rem' : '2rem', maxWidth: '1400px', margin: '0 auto' }}>
       {/* Auto-lock warning */}
       {timeUntilLock !== null && timeUntilLock < 60 && (
         <div style={{
