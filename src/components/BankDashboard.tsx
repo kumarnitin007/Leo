@@ -449,6 +449,11 @@ export default function BankDashboard({ supabase, userId, encryptionKey }: BankD
       let newAccounts: BankAccount[] = [];
       let newBills: Bill[] = [];
       
+      // Track items to DELETE
+      let deleteDeposits: { bank: string; depositId?: string; startDate?: string }[] = [];
+      let deleteAccounts: { bank: string; type: string; holders: string }[] = [];
+      let deleteBills: { name: string }[] = [];
+      
       // Helper to convert Excel date to ISO string
       const toISO = (val: any): string | null => {
         if (!val) return null;
@@ -498,9 +503,19 @@ export default function BankDashboard({ supabase, userId, encryptionKey }: BankD
             // Skip total/summary rows
             const bankLower = bank.toLowerCase();
             if (bankLower.includes("total") || bankLower.includes("grand") || bankLower.includes("sum") || bankLower === "total") continue;
-            // Skip rows with Status = SKIP, ARCHIVE, DRAFT, IGNORE
+            // Handle Status column
             if (cStatus >= 0 && r[cStatus]) {
               const status = r[cStatus].toString().toLowerCase().trim();
+              // DELETE - mark for removal
+              if (status === "delete" || status === "remove") {
+                deleteDeposits.push({
+                  bank: bank,
+                  depositId: r[cI]?.toString() || "",
+                  startDate: toISO(r[cS]) || ""
+                });
+                continue;
+              }
+              // Skip rows with Status = SKIP, ARCHIVE, DRAFT, IGNORE
               if (["skip", "archive", "draft", "ignore", "old", "inactive"].includes(status)) continue;
             }
             
@@ -549,9 +564,19 @@ export default function BankDashboard({ supabase, userId, encryptionKey }: BankD
             // Skip total/summary rows
             const bankLower = bank.toLowerCase();
             if (bankLower.includes("total") || bankLower.includes("grand") || bankLower.includes("sum")) continue;
-            // Skip rows with Status = SKIP, ARCHIVE, DRAFT, IGNORE
+            // Handle Status column
             if (cStatus >= 0 && r[cStatus]) {
               const status = r[cStatus].toString().toLowerCase().trim();
+              // DELETE - mark for removal
+              if (status === "delete" || status === "remove") {
+                deleteAccounts.push({
+                  bank: bank,
+                  type: r[cT]?.toString() || "Saving",
+                  holders: [r[cN1], r[cN2]].filter(Boolean).join(", ")
+                });
+                continue;
+              }
+              // Skip rows with Status = SKIP, ARCHIVE, DRAFT, IGNORE
               if (["skip", "archive", "draft", "ignore", "old", "inactive"].includes(status)) continue;
             }
             
@@ -597,9 +622,15 @@ export default function BankDashboard({ supabase, userId, encryptionKey }: BankD
             // Skip total/summary rows
             const nameLower = name.toLowerCase();
             if (nameLower.includes("total") || nameLower.includes("grand") || nameLower.includes("sum")) continue;
-            // Skip rows with Status = SKIP, ARCHIVE, DRAFT, IGNORE
+            // Handle Status column
             if (cStatus >= 0 && r[cStatus]) {
               const status = r[cStatus].toString().toLowerCase().trim();
+              // DELETE - mark for removal
+              if (status === "delete" || status === "remove") {
+                deleteBills.push({ name: name });
+                continue;
+              }
+              // Skip rows with Status = SKIP, ARCHIVE, DRAFT, IGNORE
               if (["skip", "archive", "draft", "ignore", "old", "inactive"].includes(status)) continue;
             }
             
@@ -622,9 +653,54 @@ export default function BankDashboard({ supabase, userId, encryptionKey }: BankD
       // ── Smart Merge Logic ──
       let addedCount = 0;
       let updatedCount = 0;
+      let deletedCount = 0;
       
+      // First, handle DELETIONS
+      // Delete Deposits
+      let mergedDeposits = [...deposits];
+      deleteDeposits.forEach(del => {
+        const key = del.depositId 
+          ? `${del.bank}|${del.depositId}`
+          : `${del.bank}|${del.startDate}`;
+        const idx = mergedDeposits.findIndex(d => {
+          const existingKey = d.depositId
+            ? `${d.bank}|${d.depositId}`
+            : `${d.bank}|${d.startDate}`;
+          return existingKey === key;
+        });
+        if (idx >= 0) {
+          mergedDeposits.splice(idx, 1);
+          deletedCount++;
+        }
+      });
+      
+      // Delete Accounts
+      let mergedAccounts = [...accounts];
+      deleteAccounts.forEach(del => {
+        const key = `${del.bank}|${del.type}|${del.holders || ''}`;
+        const idx = mergedAccounts.findIndex(a => 
+          `${a.bank}|${a.type}|${a.holders || ''}` === key
+        );
+        if (idx >= 0) {
+          mergedAccounts.splice(idx, 1);
+          deletedCount++;
+        }
+      });
+      
+      // Delete Bills
+      let mergedBills = [...bills];
+      deleteBills.forEach(del => {
+        const idx = mergedBills.findIndex(b => 
+          b.name.toLowerCase() === del.name.toLowerCase()
+        );
+        if (idx >= 0) {
+          mergedBills.splice(idx, 1);
+          deletedCount++;
+        }
+      });
+      
+      // Then, handle ADD/UPDATE
       // Merge Deposits (by bank + depositId OR bank + startDate)
-      const mergedDeposits = [...deposits];
       newDeposits.forEach(newDep => {
         const key = newDep.depositId 
           ? `${newDep.bank}|${newDep.depositId}`
@@ -647,7 +723,6 @@ export default function BankDashboard({ supabase, userId, encryptionKey }: BankD
       });
       
       // Merge Accounts (by bank + type + holders to allow multiple accounts of same type)
-      const mergedAccounts = [...accounts];
       newAccounts.forEach(newAcc => {
         const key = `${newAcc.bank}|${newAcc.type}|${newAcc.holders || ''}`;
         const existingIdx = mergedAccounts.findIndex(a => 
@@ -664,7 +739,6 @@ export default function BankDashboard({ supabase, userId, encryptionKey }: BankD
       });
       
       // Merge Bills (by name)
-      const mergedBills = [...bills];
       newBills.forEach(newBill => {
         const existingIdx = mergedBills.findIndex(b => 
           b.name.toLowerCase() === newBill.name.toLowerCase()
@@ -682,7 +756,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey }: BankD
       // Save merged data
       save(mergedDeposits, mergedAccounts, mergedBills, actions);
       
-      alert(`✅ Excel imported!\n📊 ${addedCount} new records added\n✏️ ${updatedCount} records updated\n📁 Total: ${mergedDeposits.length} deposits, ${mergedAccounts.length} accounts, ${mergedBills.length} bills`);
+      alert(`✅ Excel imported!\n📊 ${addedCount} new records added\n✏️ ${updatedCount} records updated\n🗑️ ${deletedCount} records deleted\n📁 Total: ${mergedDeposits.length} deposits, ${mergedAccounts.length} accounts, ${mergedBills.length} bills`);
       
     } catch (e) {
       console.error('Excel import failed:', e);
@@ -865,11 +939,12 @@ export default function BankDashboard({ supabase, userId, encryptionKey }: BankD
       ["3. Save the file as .xlsx"],
       ["4. Import it using the Import button in the app"],
       [""],
-      ["🚫 SKIP ROWS DURING IMPORT:"],
-      ["- Use the 'Status' column to control which rows get imported"],
-      ["- Set Status to: SKIP, ARCHIVE, DRAFT, IGNORE, OLD, or INACTIVE to skip the row"],
-      ["- Leave Status blank or set to ACTIVE to import the row"],
-      ["- This lets you keep old/archived records in Excel without importing them"],
+      ["🚫 SKIP / DELETE ROWS:"],
+      ["- Use the 'Status' column to control how rows are processed"],
+      ["- SKIP, ARCHIVE, DRAFT, IGNORE, OLD, INACTIVE → Row is skipped (not imported)"],
+      ["- DELETE or REMOVE → Matching record is DELETED from dashboard"],
+      ["- Blank or ACTIVE → Row is imported/updated normally"],
+      ["- DELETE uses the same matching keys: Bank+DepositID, Bank+Type+Holders, or Bill Name"],
       [""],
       ["💰 CURRENCY SUPPORT:"],
       ["- Supported currencies: INR (₹), USD ($), EUR (€), GBP (£)"],
@@ -879,7 +954,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey }: BankD
       ["═══════════════════════════════════════════════════════════════"],
       ["📊 DEPOSITS SHEET - ALL SUPPORTED COLUMNS:"],
       ["═══════════════════════════════════════════════════════════════"],
-      ["Status         - ACTIVE (import) or SKIP/ARCHIVE/DRAFT/IGNORE (don't import)"],
+      ["Status         - ACTIVE (import), SKIP/ARCHIVE (don't import), DELETE (remove from dashboard)"],
       ["Bank           - Bank name (required)"],
       ["Type           - FD, RD, SCSS, PPF, Tax Saver FD, etc."],
       ["Deposit ID     - Unique ID from bank"],
@@ -901,7 +976,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey }: BankD
       ["═══════════════════════════════════════════════════════════════"],
       ["🏦 BANKS (ACCOUNTS) SHEET - ALL SUPPORTED COLUMNS:"],
       ["═══════════════════════════════════════════════════════════════"],
-      ["Status         - ACTIVE (import) or SKIP/ARCHIVE/DRAFT/IGNORE (don't import)"],
+      ["Status         - ACTIVE (import), SKIP/ARCHIVE (don't import), DELETE (remove from dashboard)"],
       ["Source         - Bank name (required)"],
       ["Amount         - Current balance (number)"],
       ["Type           - Saving, FD, Current, Credit Card, PPF, etc."],
@@ -920,7 +995,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey }: BankD
       ["═══════════════════════════════════════════════════════════════"],
       ["📄 BILLS SHEET - ALL SUPPORTED COLUMNS:"],
       ["═══════════════════════════════════════════════════════════════"],
-      ["Status         - ACTIVE (import) or SKIP/ARCHIVE/DRAFT/IGNORE (don't import)"],
+      ["Status         - ACTIVE (import), SKIP/ARCHIVE (don't import), DELETE (remove from dashboard)"],
       ["Name           - Bill name (required)"],
       ["Frequency      - Monthly, Quarterly, Yearly, etc."],
       ["Amount         - Bill amount (number)"],
@@ -1217,7 +1292,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey }: BankD
   }
 
   return (
-    <div style={{minHeight:"100vh",background:"#0D1117",color:"#F9FAFB",fontFamily:"'Sora','Segoe UI',sans-serif",paddingBottom:48}}>
+    <div style={{minHeight:"100vh",background:"#0D1117",color:"#F9FAFB",fontFamily:"'Sora','Segoe UI',sans-serif",paddingBottom:isMobile?120:48,margin:isMobile?"-0.5rem":"0",width:isMobile?"calc(100% + 1rem)":"auto"}}>
       {/* Setup Banner */}
       {showSetupBanner && (
         <div style={{background:"linear-gradient(90deg,#7F1D1D,#991B1B)",border:"1px solid #DC2626",padding:"12px 20px",margin:"16px",borderRadius:12,display:"flex",alignItems:"center",gap:12}}>
@@ -1276,7 +1351,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey }: BankD
         )}
       </div>
 
-      <div style={{padding:isMobile?"8px 6px":"22px 28px",paddingBottom:isMobile?80:28}}>
+      <div style={{padding:isMobile?"8px 6px":"22px 28px",paddingBottom:isMobile?140:28}}>
         {/* Tab Content */}
         {tab==="overview" && (
           <div style={{display:"flex",flexDirection:"column",gap:isMobile?12:16}}>
@@ -3214,7 +3289,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey }: BankD
           }}
           style={{
             position: "fixed",
-            bottom: 80,
+            bottom: 130,
             right: 16,
             width: 56,
             height: 56,
@@ -3406,7 +3481,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey }: BankD
           {showMoreMenu && (
             <div style={{
               position:"fixed",
-              bottom:70,
+              bottom:115,
               right:12,
               background:"#1C1C2E",
               borderRadius:12,
@@ -3441,10 +3516,10 @@ export default function BankDashboard({ supabase, userId, encryptionKey }: BankD
             </div>
           )}
           
-          {/* Bottom Tab Bar */}
+          {/* Bottom Tab Bar - positioned above main app navigation */}
           <div style={{
             position:"fixed",
-            bottom:0,
+            bottom:60,
             left:0,
             right:0,
             background:"linear-gradient(180deg, #161B22 0%, #0D1117 100%)",
@@ -3452,7 +3527,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey }: BankD
             display:"flex",
             justifyContent:"space-around",
             alignItems:"center",
-            padding:"8px 4px 12px",
+            padding:"6px 4px 8px",
             zIndex:200
           }}>
             {mainTabs.map(t => {
