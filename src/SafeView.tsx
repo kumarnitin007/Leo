@@ -39,6 +39,7 @@ import BankDashboard from './components/BankDashboard';
 import SharedWithMeView from './components/SharedWithMeView';
 import SafeFilterSidebar, { SafeFilter } from './components/SafeFilterSidebar';
 import DocumentFilterSidebar, { DocumentFilter } from './components/DocumentFilterSidebar';
+import GroupsManager from './components/GroupsManager';
 import * as sharingService from './services/sharingService';
 import getSupabaseClient from './lib/supabase';
 import { loadUserGroupKeys } from './services/groupEncryptionService';
@@ -87,6 +88,7 @@ const SafeView: React.FC = () => {
   const [showImportExport, setShowImportExport] = useState(false);
   const [showSafeTags, setShowSafeTags] = useState(false);
   const [showChangePassword, setShowChangePassword] = useState(false);
+  const [showGroupsChat, setShowGroupsChat] = useState(false);
   const [activeTab, setActiveTab] = useState<'entries' | 'documents' | 'financial'>('financial');
   const [showDocumentForm, setShowDocumentForm] = useState(false);
   const [editingDocument, setEditingDocument] = useState<DocumentVault | null>(null);
@@ -1264,12 +1266,39 @@ const SafeView: React.FC = () => {
                   </>
                 )
               ) : activeTab === 'financial' ? (
-                /* Financial Tab - Bank Dashboard */
-                <BankDashboard 
-                  supabase={getSupabaseClient()} 
-                  userId={user?.id} 
-                  encryptionKey={encryptionKey!}
-                />
+                /* Financial Tab - Bank Dashboard with Group Chat access */
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', width: '100%' }}>
+                  <div style={{ 
+                    display: 'flex', 
+                    justifyContent: 'flex-end', 
+                    padding: '0.25rem 0.5rem',
+                  }}>
+                    <button
+                      onClick={() => setShowGroupsChat(true)}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.5rem',
+                        padding: '0.5rem 1rem',
+                        background: 'linear-gradient(135deg, #0D9488, #0F766E)',
+                        color: '#fff',
+                        border: 'none',
+                        borderRadius: '0.5rem',
+                        cursor: 'pointer',
+                        fontSize: '0.85rem',
+                        fontWeight: 600,
+                        boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                      }}
+                    >
+                      💬 Group Finance Chat
+                    </button>
+                  </div>
+                  <BankDashboard 
+                    supabase={getSupabaseClient()} 
+                    userId={user?.id} 
+                    encryptionKey={encryptionKey!}
+                  />
+                </div>
               ) : (
                 /* Documents Tab with Filter Sidebar */
                 isMobile && showMobileDocFilters && !showDocumentForm && !editingDocument ? (
@@ -1458,6 +1487,33 @@ const SafeView: React.FC = () => {
             loadEntries(); // Reload to reflect sharing status
           }}
         />
+      )}
+
+      {/* Groups Finance Chat Modal - opened from Safe with encryption key for secure data access */}
+      {showGroupsChat && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          background: 'rgba(0,0,0,0.5)',
+          zIndex: 1000,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}>
+          <div style={{
+            background: '#fff',
+            borderRadius: '1rem',
+            width: '95%',
+            maxWidth: '1200px',
+            height: '90vh',
+            overflow: 'hidden',
+          }}>
+            <GroupsManager 
+              onClose={() => setShowGroupsChat(false)} 
+              encryptionKey={encryptionKey}
+            />
+          </div>
+        </div>
       )}
     </div>
   );

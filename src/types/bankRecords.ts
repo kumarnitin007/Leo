@@ -67,6 +67,7 @@ export interface BankAccount {
   accountNumber?: string;
   ifscCode?: string;
   branch?: string;
+  hidden?: boolean; // Hide from default view, aggregate into "Other Accounts"
   // Future: sharing support
   sharedWith?: string[];
 }

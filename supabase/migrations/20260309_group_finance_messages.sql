@@ -9,7 +9,7 @@ CREATE TABLE IF NOT EXISTS myday_group_finance_messages (
   group_id TEXT NOT NULL REFERENCES myday_groups(id) ON DELETE CASCADE,
   sender_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   sender_name TEXT NOT NULL,
-  type TEXT NOT NULL CHECK (type IN ('text', 'fd', 'alert', 'doc')),
+  type TEXT NOT NULL CHECK (type IN ('text', 'fd', 'account', 'alert', 'doc')),
   text TEXT,
   payload JSONB,
   created_at TIMESTAMPTZ DEFAULT NOW()
@@ -45,12 +45,17 @@ CREATE POLICY "Group members can send messages"
     )
   );
 
--- Enable realtime for this table
-ALTER PUBLICATION supabase_realtime ADD TABLE myday_group_finance_messages;
+-- Enable realtime for this table (ignore error if already added)
+DO $$
+BEGIN
+  ALTER PUBLICATION supabase_realtime ADD TABLE myday_group_finance_messages;
+EXCEPTION WHEN duplicate_object THEN
+  NULL; -- Table already in publication, ignore
+END $$;
 
 -- ============================================================================
 -- COMMENTS
 -- ============================================================================
-COMMENT ON TABLE myday_group_finance_messages IS 'Group finance chat messages for sharing FDs, alerts, and documents';
-COMMENT ON COLUMN myday_group_finance_messages.type IS 'Message type: text, fd (deposit card), alert (maturity alert), doc (document)';
-COMMENT ON COLUMN myday_group_finance_messages.payload IS 'JSON payload containing fd, alert, or doc data depending on type';
+COMMENT ON TABLE myday_group_finance_messages IS 'Group finance chat messages for sharing FDs, accounts, alerts, and documents';
+COMMENT ON COLUMN myday_group_finance_messages.type IS 'Message type: text, fd (deposit card), account (bank account), alert (maturity alert), doc (document)';
+COMMENT ON COLUMN myday_group_finance_messages.payload IS 'JSON payload containing fd, account, alert, or doc data depending on type';

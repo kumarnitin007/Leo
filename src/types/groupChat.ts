@@ -3,7 +3,7 @@
  * Types for the encrypted group messaging feature in Safe section
  */
 
-export type MessageType = 'text' | 'fd' | 'alert' | 'doc';
+export type MessageType = 'text' | 'fd' | 'account' | 'alert' | 'doc';
 
 export interface FDPayload {
   id: string;
@@ -14,6 +14,17 @@ export interface FDPayload {
   roi: number | string;
   maturityAmt: number | string;
   currency?: string;
+}
+
+export interface AccountPayload {
+  id: string;
+  bank: string;
+  type: string;
+  holders: string;
+  amount: number | string;
+  roi?: number | string;
+  currency?: string;
+  accountNumber?: string;
 }
 
 export interface AlertPayload {
@@ -40,12 +51,14 @@ export interface GroupFinanceMessage {
   text: string;
   payload?: {
     fd?: FDPayload;
+    account?: AccountPayload;
     alert?: AlertPayload;
     doc?: DocPayload;
   };
   created_at: string;
   // Flattened fields for UI convenience
   fd?: FDPayload;
+  account?: AccountPayload;
   alert?: AlertPayload;
   doc?: DocPayload;
 }
@@ -69,5 +82,6 @@ export interface GroupFinanceChatProps {
   };
   members: GroupMemberProfile[];
   userDeposits?: FDPayload[];
+  userAccounts?: AccountPayload[];
   onBack: () => void;
 }

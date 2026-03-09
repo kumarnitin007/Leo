@@ -19,22 +19,25 @@ import {
 import * as sharingService from '../services/sharingService';
 import getSupabaseClient from '../lib/supabase';
 import GroupFinanceChat from './groups/GroupFinanceChat';
-import { GroupMemberProfile, FDPayload } from '../types/groupChat';
+import { GroupMemberProfile, FDPayload, AccountPayload } from '../types/groupChat';
 import { decryptData, CryptoKey } from '../utils/encryption';
-import { getEncryptionKey } from '../storage';
 
 interface GroupsManagerProps {
   onClose: () => void;
+  encryptionKey?: CryptoKey | null; // Only passed when opened from Safe
 }
 
 const GROUP_ICONS = ['👥', '👨‍👩‍👧‍👦', '🏠', '💼', '🎯', '💪', '🎨', '📚', '🎮', '✈️', '🌟', '❤️'];
 const GROUP_COLORS = ['#6366f1', '#8b5cf6', '#ec4899', '#ef4444', '#f97316', '#f59e0b', '#10b981', '#14b8a6', '#06b6d4', '#3b82f6'];
 const MEMBER_COLORS = ['#6366F1', '#10B981', '#F97316', '#8B5CF6', '#EF4444', '#F59E0B', '#06B6D4', '#EC4899'];
 
-const GroupsManager: React.FC<GroupsManagerProps> = ({ onClose }) => {
+const GroupsManager: React.FC<GroupsManagerProps> = ({ onClose, encryptionKey }) => {
   const { theme } = useTheme();
   const { user } = useAuth();
   const supabase = getSupabaseClient();
+  
+  // Check if we have access to Safe data (encryption key provided = opened from Safe)
+  const hasSecureAccess = !!encryptionKey;
   
   // Data state
   const [groups, setGroups] = useState<SharingGroup[]>([]);
@@ -49,6 +52,7 @@ const GroupsManager: React.FC<GroupsManagerProps> = ({ onClose }) => {
   const [activeChatGroup, setActiveChatGroup] = useState<SharingGroup | null>(null);
   const [chatMembers, setChatMembers] = useState<GroupMember[]>([]);
   const [userBankDeposits, setUserBankDeposits] = useState<FDPayload[]>([]);
+  const [userBankAccounts, setUserBankAccounts] = useState<AccountPayload[]>([]);
   
   // UI state
   const [activeTab, setActiveTab] = useState<'groups' | 'invitations'>('groups');
@@ -265,10 +269,15 @@ const GroupsManager: React.FC<GroupsManagerProps> = ({ onClose }) => {
     setShowCreateModal(true);
   };
 
-  // Fetch user's bank deposits for Finance Chat
+  // Fetch user's bank deposits/accounts for Finance Chat (only when opened from Safe with encryption key)
   useEffect(() => {
-    async function fetchDeposits() {
-      if (!user?.id || !supabase) return;
+    async function fetchBankData() {
+      if (!user?.id || !supabase || !encryptionKey) {
+        // No encryption key = not opened from Safe, skip fetching secure data
+        setUserBankDeposits([]);
+        setUserBankAccounts([]);
+        return;
+      }
       try {
         const { data } = await supabase
           .from('myday_bank_records')
@@ -277,35 +286,44 @@ const GroupsManager: React.FC<GroupsManagerProps> = ({ onClose }) => {
           .maybeSingle();
 
         if (data?.data) {
-          const encryptionKey = await getEncryptionKey();
-          if (encryptionKey) {
-            try {
-              const { encrypted, iv } = JSON.parse(data.data);
-              const decrypted = await decryptData(encrypted, iv, encryptionKey);
-              const parsed = JSON.parse(decrypted);
-              if (parsed.deposits) {
-                setUserBankDeposits(parsed.deposits.map((d: Record<string, unknown>, idx: number) => ({
-                  id: d.depositId || `dep-${idx}`,
-                  bank: d.bank || '',
-                  type: d.type || 'FD',
-                  deposit: d.deposit || 0,
-                  maturityDate: d.maturityDate || '',
-                  roi: d.roi || 0,
-                  maturityAmt: d.maturityAmt || 0,
-                  currency: d.currency || 'INR',
-                })));
-              }
-            } catch {
-              console.log('[GroupsManager] Could not decrypt bank records');
+          try {
+            const { encrypted, iv } = JSON.parse(data.data);
+            const decrypted = await decryptData(encrypted, iv, encryptionKey);
+            const parsed = JSON.parse(decrypted);
+            if (parsed.deposits) {
+              setUserBankDeposits(parsed.deposits.map((d: Record<string, unknown>, idx: number) => ({
+                id: d.depositId || `dep-${idx}`,
+                bank: d.bank || '',
+                type: d.type || 'FD',
+                deposit: d.deposit || 0,
+                maturityDate: d.maturityDate || '',
+                roi: d.roi || 0,
+                maturityAmt: d.maturityAmt || 0,
+                currency: d.currency || 'INR',
+              })));
             }
+            if (parsed.accounts) {
+              setUserBankAccounts(parsed.accounts.map((a: Record<string, unknown>, idx: number) => ({
+                id: a.accountId || `acc-${idx}`,
+                bank: a.bank || '',
+                type: a.type || 'Saving',
+                holders: a.holders || '',
+                amount: a.amount || 0,
+                roi: a.roi || 0,
+                currency: a.currency || 'INR',
+                accountNumber: a.accountNumber || '',
+              })));
+            }
+          } catch {
+            console.log('[GroupsManager] Could not decrypt bank records');
           }
         }
       } catch (err) {
-        console.error('[GroupsManager] Failed to fetch deposits:', err);
+        console.error('[GroupsManager] Failed to fetch bank data:', err);
       }
     }
-    fetchDeposits();
-  }, [user?.id, supabase]);
+    fetchBankData();
+  }, [user?.id, supabase, encryptionKey]);
 
   // Helper to map GroupMember to GroupMemberProfile for chat
   const mapMemberToProfile = (member: GroupMember, index: number): GroupMemberProfile => {
@@ -670,7 +688,9 @@ const GroupsManager: React.FC<GroupsManagerProps> = ({ onClose }) => {
                               }}
                               style={{
                                 padding: '0.5rem 1rem',
-                                background: 'linear-gradient(135deg, #0D9488, #0F766E)',
+                                background: hasSecureAccess 
+                                  ? 'linear-gradient(135deg, #0D9488, #0F766E)' 
+                                  : 'linear-gradient(135deg, #6B7280, #4B5563)',
                                 color: '#fff',
                                 border: 'none',
                                 borderRadius: '0.5rem',
@@ -678,8 +698,9 @@ const GroupsManager: React.FC<GroupsManagerProps> = ({ onClose }) => {
                                 fontSize: '0.85rem',
                                 fontWeight: 600,
                               }}
+                              title={hasSecureAccess ? 'Chat with FD & Account sharing' : 'Chat only (open from Safe for FD/Account sharing)'}
                             >
-                              💬 Finance Chat
+                              💬 {hasSecureAccess ? 'Finance Chat' : 'Group Chat'}
                             </button>
                             <button
                               onClick={(e) => {
@@ -1251,6 +1272,7 @@ const GroupsManager: React.FC<GroupsManagerProps> = ({ onClose }) => {
             }}
             members={chatMembers.map(mapMemberToProfile)}
             userDeposits={userBankDeposits}
+            userAccounts={userBankAccounts}
             onBack={closeFinanceChat}
           />
         </div>

@@ -125,7 +125,7 @@ function UrgencyBadge({ days }: { days: number | null }) {
 }
 
 const emptyDeposit: Deposit  = { bank:"", type:"Fixed Deposit", depositId:"", nominee:"", startDate:"", deposit:"", roi:"", maturityAmt:"", maturityDate:"", duration:"", maturityAction:"", done:false, currency:"INR", category:"General Savings", tdsPercent:"", autoRenewal:false, linkedAccount:"", notes:"" };
-const emptyAccount: BankAccount  = { bank:"", type:"Saving", holders:"", amount:"", roi:"", online:"Yes", address:"", detail:"", nextAction:"", done:false, currency:"INR", accountNumber:"", ifscCode:"", branch:"" };
+const emptyAccount: BankAccount  = { bank:"", type:"Saving", holders:"", amount:"", roi:"", online:"Yes", address:"", detail:"", nextAction:"", done:false, currency:"INR", accountNumber:"", ifscCode:"", branch:"", hidden:false };
 const emptyBill: Bill     = { name:"", freq:"Monthly", amount:"", due:"", priority:"Normal", phone:"", email:"", done:false, currency:"INR", category:"", autoPay:false };
 const emptyAction: ActionItem   = { title:"", bank:"", date:"", note:"", done:false, priority:"Medium", reminderDays:[7,1] };
 const emptyGoal: SavingsGoal = { id:"", name:"", targetAmount:0, currency:"INR", currentAmount:0, deadline:"", category:"General Savings", linkedDeposits:[], color:"#3B82F6", notes:"", createdAt:"", done:false };
@@ -170,6 +170,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey }: BankD
   const [showRatesModal, setShowRatesModal] = useState(false);
   const [accountsViewMode, setAccountsViewMode] = useState<'cards' | 'grouped' | 'flat'>('cards');
   const [depositsViewMode, setDepositsViewMode] = useState<'cards' | 'grouped' | 'flat'>('grouped');
+  const [showAllAccounts, setShowAllAccounts] = useState(false); // false = hide accounts marked as hidden
   const [search, setSearch] = useState("");
   const [showDone, setShowDone] = useState(false);
   const [showSetupBanner, setShowSetupBanner] = useState(false);
@@ -551,9 +552,10 @@ export default function BankDashboard({ supabase, userId, encryptionKey }: BankD
             col("Source"), col("Amount"), col("Type"), col("1st"), col("2nd"),
             col("Online"), col("Next"), col("ROI"), col("Address"), col("Details")
           ];
-          // Find Status and Currency columns (use trim for robust matching)
+          // Find Status, Currency, and Hidden columns (use trim for robust matching)
           const cStatus = h.findIndex((x: any) => x && x.toString().toLowerCase().trim() === "status");
           const cCur = h.findIndex((x: any) => x && x.toString().toLowerCase().trim() === "currency");
+          const cHidden = h.findIndex((x: any) => x && x.toString().toLowerCase().trim() === "hidden");
           console.log("[Excel Import] Banks sheet - Currency column index:", cCur, "Headers:", h);
           
           for (let i = hIdx + 1; i < rows.length; i++) {
@@ -581,6 +583,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey }: BankD
             }
             
             const currencyVal = (cCur >= 0 && r[cCur]) ? r[cCur].toString().trim().toUpperCase() : "INR";
+            const hiddenVal = cHidden >= 0 && r[cHidden] ? ["yes", "true", "1", "y"].includes(r[cHidden].toString().toLowerCase().trim()) : false;
             console.log("[Excel Import] Account:", bank, "Currency col value:", r[cCur], "→", currencyVal);
             newAccounts.push({
               bank: bank,
@@ -593,6 +596,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey }: BankD
               detail: r[cDe]?.toString() || "",
               nextAction: r[cAc]?.toString() || "",
               currency: currencyVal as any,
+              hidden: hiddenVal,
               done: false
             });
           }
@@ -991,6 +995,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey }: BankD
       ["Account Number - Full account number"],
       ["IFSC Code      - IFSC code for transfers"],
       ["Branch         - Branch name"],
+      ["Hidden         - Yes/No - Hide from default view (shown as 'Other Accounts' aggregate)"],
       [""],
       ["═══════════════════════════════════════════════════════════════"],
       ["📄 BILLS SHEET - ALL SUPPORTED COLUMNS:"],
@@ -1026,16 +1031,17 @@ export default function BankDashboard({ supabase, userId, encryptionKey }: BankD
       ["ARCHIVE", "Old Bank", "Fixed Deposit", "OLD123", "Old Nominee", dateToExcel("2020-01-01"), 100000, 0.08, 140000, dateToExcel("2025-01-01"), "5 years", "Closed", "INR", "", 0, "No", "", "This row will NOT be imported (Status=ARCHIVE)"],
     ];
     
-    // Banks sheet - ALL supported columns with Status + INR/USD examples
-    const banksHeaders = ["Status", "Source", "Amount", "Type", "1st Holder", "2nd Holder", "Online", "Next Action", "ROI", "Address", "Details", "Currency", "Account Number", "IFSC Code", "Branch"];
+    // Banks sheet - ALL supported columns with Status + INR/USD examples + Hidden
+    const banksHeaders = ["Status", "Source", "Amount", "Type", "1st Holder", "2nd Holder", "Online", "Next Action", "ROI", "Address", "Details", "Currency", "Account Number", "IFSC Code", "Branch", "Hidden"];
     const banksData = [
       banksHeaders,
-      ["ACTIVE", "HDFC Bank", 150000, "Saving", "Rahul Kumar", "Priya Kumar", "Yes", "Update KYC", 0.035, "Andheri West, Mumbai", "Primary savings account", "INR", "50100123456789", "HDFC0001234", "Andheri West"],
-      ["ACTIVE", "ICICI Bank", 500000, "FD", "Rahul Kumar", "", "Yes", "Check maturity", 0.072, "Bandra, Mumbai", "Fixed deposit", "INR", "157701234567", "ICIC0001234", "Bandra"],
-      ["ACTIVE", "SBI", 25000, "Current", "Kumar Enterprises", "", "Yes", "", 0, "Noida Sector 18", "Business account", "INR", "32105678901", "SBIN0012345", "Noida Sec 18"],
-      ["ACTIVE", "HDFC Bank", -45000, "Credit Card", "Rahul Kumar", "", "Yes", "Pay by 15th", 0, "", "Regalia Credit Card", "INR", "4567XXXX8901", "", ""],
-      ["ACTIVE", "Bank of America", 5000, "Checking", "John Smith", "Jane Smith", "Yes", "", 0.001, "NYC Manhattan", "US checking account", "USD", "1234567890", "", "Manhattan"],
-      ["SKIP", "Closed Bank", 0, "Saving", "Old Account", "", "No", "", 0, "", "Account closed in 2020", "INR", "", "", "This row will NOT be imported (Status=SKIP)"],
+      ["ACTIVE", "HDFC Bank", 150000, "Saving", "Rahul Kumar", "Priya Kumar", "Yes", "Update KYC", 0.035, "Andheri West, Mumbai", "Primary savings account", "INR", "50100123456789", "HDFC0001234", "Andheri West", "No"],
+      ["ACTIVE", "ICICI Bank", 500000, "FD", "Rahul Kumar", "", "Yes", "Check maturity", 0.072, "Bandra, Mumbai", "Fixed deposit", "INR", "157701234567", "ICIC0001234", "Bandra", "No"],
+      ["ACTIVE", "SBI", 25000, "Current", "Kumar Enterprises", "", "Yes", "", 0, "Noida Sector 18", "Business account", "INR", "32105678901", "SBIN0012345", "Noida Sec 18", "No"],
+      ["ACTIVE", "HDFC Bank", -45000, "Credit Card", "Rahul Kumar", "", "Yes", "Pay by 15th", 0, "", "Regalia Credit Card", "INR", "4567XXXX8901", "", "", "No"],
+      ["ACTIVE", "Bank of America", 5000, "Checking", "John Smith", "Jane Smith", "Yes", "", 0.001, "NYC Manhattan", "US checking account", "USD", "1234567890", "", "Manhattan", "No"],
+      ["ACTIVE", "Old PPF Account", 50000, "PPF", "Rahul Kumar", "", "No", "", 0.071, "SBI Main Branch", "Dormant PPF from 2015", "INR", "PPF123456", "", "Main Branch", "Yes"],
+      ["SKIP", "Closed Bank", 0, "Saving", "Old Account", "", "No", "", 0, "", "Account closed in 2020", "INR", "", "", "", "No"],
     ];
     
     // Bills sheet - ALL supported columns with Status
@@ -1094,14 +1100,14 @@ export default function BankDashboard({ supabase, userId, encryptionKey }: BankD
     applyHeaderStyle(wsDeposits, depositsHeaders.length);
     utils.book_append_sheet(wb, wsDeposits, "Deposits");
     
-    // Add Banks sheet with formatting (Status is col A, Amount is col C, ROI is col I)
+    // Add Banks sheet with formatting (Status is col A, Amount is col C, ROI is col I, Hidden is col P)
     const wsBanks = utils.aoa_to_sheet(banksData);
     wsBanks['!cols'] = [
       { wch: 10 }, { wch: 18 }, { wch: 12 }, { wch: 12 }, { wch: 16 }, { wch: 16 },
       { wch: 8 }, { wch: 16 }, { wch: 8 }, { wch: 22 }, { wch: 22 }, 
-      { wch: 10 }, { wch: 18 }, { wch: 14 }, { wch: 16 }
+      { wch: 10 }, { wch: 18 }, { wch: 14 }, { wch: 16 }, { wch: 8 }
     ];
-    for (let r = 2; r <= 7; r++) {
+    for (let r = 2; r <= 8; r++) {
       ['C'].forEach(col => { const c = col + r; if(wsBanks[c]) wsBanks[c].z = '#,##0'; }); // Amounts
       ['I'].forEach(col => { const c = col + r; if(wsBanks[c]) wsBanks[c].z = '0.00%'; }); // ROI as %
     }
@@ -2530,14 +2536,27 @@ export default function BankDashboard({ supabase, userId, encryptionKey }: BankD
 
         {/* ══ ACCOUNTS TAB - Grouped by Bank (Collapsible) ═══════════════ */}
         {tab === "accounts" && (() => {
+          // Separate visible and hidden accounts
+          const hiddenAccounts = accounts.filter(acc => acc.hidden && !showAllAccounts);
+          const visibleAccounts = showAllAccounts ? accounts : accounts.filter(acc => !acc.hidden);
+          const hiddenCount = accounts.filter(acc => acc.hidden).length;
+          
+          // Calculate aggregated hidden accounts total
+          const hiddenTotal = hiddenAccounts.reduce((sum, acc) => {
+            const accCurrency = (acc.currency && CURRENCY_SYMBOLS[acc.currency as Currency]) ? acc.currency as Currency : 'INR';
+            return sum + convertCurrency(Number(acc.amount) || 0, accCurrency, displayCurrency === 'ORIGINAL' ? 'INR' : displayCurrency as Currency, exchangeRates);
+          }, 0);
+          
           // Group accounts by bank name - track currencies for mixed mode
-          const grouped: Record<string, { accounts: typeof accounts; indices: number[]; total: number; sortTotal: number; currencies: Set<string>; dominantCurrency: Currency }> = {};
-          accounts.forEach((acc, i) => {
+          const grouped: Record<string, { accounts: typeof accounts; indices: number[]; total: number; sortTotal: number; currencies: Set<string>; dominantCurrency: Currency; hasHidden?: boolean }> = {};
+          visibleAccounts.forEach((acc) => {
+            const origIdx = accounts.indexOf(acc);
             const accCurrency = (acc.currency && CURRENCY_SYMBOLS[acc.currency as Currency]) ? acc.currency as Currency : 'INR';
             if (!grouped[acc.bank]) grouped[acc.bank] = { accounts: [], indices: [], total: 0, sortTotal: 0, currencies: new Set(), dominantCurrency: accCurrency };
             grouped[acc.bank].accounts.push(acc);
-            grouped[acc.bank].indices.push(i);
+            grouped[acc.bank].indices.push(origIdx);
             grouped[acc.bank].currencies.add(accCurrency);
+            if (acc.hidden) grouped[acc.bank].hasHidden = true;
             
             // sortTotal: always convert to INR for proper sorting comparison
             grouped[acc.bank].sortTotal += convertCurrency(Number(acc.amount) || 0, accCurrency, 'INR', exchangeRates);
@@ -2583,35 +2602,65 @@ export default function BankDashboard({ supabase, userId, encryptionKey }: BankD
               {isMobile ? (
                 <div style={{display:"flex",flexDirection:"column",gap:12}}>
                   {/* Mobile: Summary Header */}
-                  <div style={{background:"linear-gradient(135deg, #065F46 0%, #0F172A 100%)",borderRadius:14,padding:"16px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                    <div>
-                      <div style={{fontSize:10,color:"#94A3B8",fontWeight:500}}>NET BALANCE</div>
-                      <div style={{fontSize:24,fontWeight:800,color:"#F8FAFC",fontFamily:"monospace"}}>{fmt(sumConverted(accounts), targetCurrency)}</div>
+                  <div style={{background:"linear-gradient(135deg, #065F46 0%, #0F172A 100%)",borderRadius:14,padding:"16px"}}>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                      <div>
+                        <div style={{fontSize:10,color:"#94A3B8",fontWeight:500}}>NET BALANCE {!showAllAccounts && hiddenCount > 0 && `(${visibleAccounts.length} active)`}</div>
+                        <div style={{fontSize:24,fontWeight:800,color:"#F8FAFC",fontFamily:"monospace"}}>{fmt(sumConverted(visibleAccounts), targetCurrency)}</div>
+                      </div>
+                      <div style={{display:"flex",gap:6}}>
+                        {(['INR', 'USD'] as const).map(cur => (
+                          <button
+                            key={cur}
+                            onClick={() => { setDisplayCurrency(cur); persist(deposits, accounts, bills, actions, goals, exchangeRates, cur); }}
+                            style={{
+                              background: displayCurrency === cur ? '#10B981' : 'rgba(255,255,255,0.1)',
+                              color: displayCurrency === cur ? '#FFF' : '#94A3B8',
+                              border: 'none',
+                              padding: '6px 12px',
+                              borderRadius: 16,
+                              fontSize: 12,
+                              fontWeight: 600
+                            }}
+                          >
+                            {CURRENCY_SYMBOLS[cur]}
+                          </button>
+                        ))}
+                      </div>
                     </div>
-                    <div style={{display:"flex",gap:6}}>
-                      {(['INR', 'USD'] as const).map(cur => (
+                    {/* Show All / Active Toggle */}
+                    {hiddenCount > 0 && (
+                      <div style={{marginTop:12,display:"flex",alignItems:"center",gap:8}}>
                         <button
-                          key={cur}
-                          onClick={() => { setDisplayCurrency(cur); persist(deposits, accounts, bills, actions, goals, exchangeRates, cur); }}
+                          onClick={() => setShowAllAccounts(!showAllAccounts)}
                           style={{
-                            background: displayCurrency === cur ? '#10B981' : 'rgba(255,255,255,0.1)',
-                            color: displayCurrency === cur ? '#FFF' : '#94A3B8',
+                            background: showAllAccounts ? '#0D9488' : 'rgba(255,255,255,0.1)',
+                            color: showAllAccounts ? '#FFF' : '#94A3B8',
                             border: 'none',
-                            padding: '6px 12px',
+                            padding: '6px 14px',
                             borderRadius: 16,
-                            fontSize: 12,
-                            fontWeight: 600
+                            fontSize: 11,
+                            fontWeight: 600,
+                            cursor: 'pointer'
                           }}
                         >
-                          {CURRENCY_SYMBOLS[cur]}
+                          {showAllAccounts ? `👁 All (${accounts.length})` : `👁 Show All (+${hiddenCount} hidden)`}
                         </button>
-                      ))}
-                    </div>
+                        {!showAllAccounts && hiddenTotal > 0 && (
+                          <span style={{fontSize:11,color:"#6B7280"}}>Hidden: {fmt(hiddenTotal, targetCurrency)}</span>
+                        )}
+                      </div>
+                    )}
                   </div>
                   
                   {/* Mobile: Bank List with Inline Accounts - Vertical Layout */}
-                  {accounts.length === 0 ? (
+                  {visibleAccounts.length === 0 && hiddenAccounts.length === 0 ? (
                     <div style={{padding:40,textAlign:"center",color:"#6B7280"}}>No accounts found</div>
+                  ) : visibleAccounts.length === 0 && !showAllAccounts ? (
+                    <div style={{padding:40,textAlign:"center",color:"#6B7280"}}>
+                      <div style={{fontSize:14,marginBottom:8}}>All accounts are hidden</div>
+                      <button onClick={() => setShowAllAccounts(true)} style={{background:"#0D9488",color:"#FFF",border:"none",padding:"8px 16px",borderRadius:8,fontSize:12,fontWeight:600,cursor:"pointer"}}>Show All Accounts</button>
+                    </div>
                   ) : (
                     <div style={{display:"flex",flexDirection:"column",gap:8}}>
                       {bankNames.map(bankName => {
@@ -2678,6 +2727,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey }: BankD
                                             <span style={{background:`${typeColor}20`,color:typeColor,padding:"2px 6px",borderRadius:4,fontSize:10,fontWeight:700}}>{acc.type}</span>
                                             {acc.online === "Yes" && <span style={{fontSize:9,color:"#34D399"}}>🌐</span>}
                                             {acc.done && <span style={{fontSize:9,color:"#34D399"}}>✓</span>}
+                                            {acc.hidden && <span style={{background:"#374151",color:"#9CA3AF",padding:"2px 6px",borderRadius:4,fontSize:9,fontWeight:600}}>Hidden</span>}
                                           </div>
                                           {acc.holders && <div style={{fontSize:11,color:"#9CA3AF"}}>👤 {acc.holders}</div>}
                                         </div>
@@ -2718,6 +2768,39 @@ export default function BankDashboard({ supabase, userId, encryptionKey }: BankD
                           </div>
                         );
                       })}
+                      
+                      {/* Aggregated Hidden Accounts Card (when not showing all) */}
+                      {!showAllAccounts && hiddenCount > 0 && (
+                        <div style={{marginTop:8}}>
+                          <button 
+                            onClick={() => setShowAllAccounts(true)}
+                            style={{
+                              width: "100%",
+                              background: "#1E293B",
+                              color: "#94A3B8",
+                              border: "1px dashed #475569",
+                              borderRadius: 10,
+                              padding: "14px 16px",
+                              fontSize: 14,
+                              fontWeight: 600,
+                              textAlign: "left",
+                              display: "flex",
+                              justifyContent: "space-between",
+                              alignItems: "center",
+                              cursor: "pointer"
+                            }}
+                          >
+                            <div style={{display:"flex",alignItems:"center",gap:10}}>
+                              <div style={{width:10,height:10,borderRadius:"50%",background:"#475569"}} />
+                              <div>
+                                <div>Other Accounts</div>
+                                <div style={{fontSize:11,color:"#64748B",fontWeight:500}}>{hiddenCount} hidden account{hiddenCount > 1 ? "s" : ""} · Tap to show</div>
+                              </div>
+                            </div>
+                            <div style={{fontSize:16,fontFamily:"monospace",fontWeight:700,color:"#64748B"}}>{fmt(hiddenTotal, targetCurrency)}</div>
+                          </button>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -2800,11 +2883,38 @@ export default function BankDashboard({ supabase, userId, encryptionKey }: BankD
                   >
                     <span>$1=₹{exchangeRates.USD}</span>
                   </button>
+                  {/* Show All / Active Accounts Toggle */}
+                  {hiddenCount > 0 && (
+                    <button
+                      onClick={() => setShowAllAccounts(!showAllAccounts)}
+                      style={{
+                        background: showAllAccounts ? '#0D9488' : '#21262D',
+                        color: showAllAccounts ? '#FFF' : '#8B949E',
+                        border: '1px solid #30363D',
+                        padding: '4px 12px',
+                        borderRadius: 6,
+                        fontSize: 10,
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 4
+                      }}
+                    >
+                      {showAllAccounts ? `👁 All (${accounts.length})` : `👁 Active (${visibleAccounts.length})`}
+                      {!showAllAccounts && <span style={{color:"#6B7280"}}>+{hiddenCount}</span>}
+                    </button>
+                  )}
                 </div>
                 <button onClick={() => openAdd("account")} style={{background:"linear-gradient(135deg,#065F46,#059669)",color:"#fff",border:"none",borderRadius:9,padding:"7px 16px",fontSize:12,fontWeight:700,cursor:"pointer"}}>+ Add Account</button>
               </div>
-              {accounts.length === 0 ? (
+              {visibleAccounts.length === 0 && hiddenCount === 0 ? (
                 <EmptyState icon="🏦" title="No Bank Accounts" description="Add your bank accounts to track balances and pending actions" action="+ Add Account" onAction={() => openAdd("account")} />
+              ) : visibleAccounts.length === 0 && !showAllAccounts ? (
+                <div style={{textAlign:"center",padding:40,background:"#161B22",borderRadius:12,border:"1px solid #30363D"}}>
+                  <div style={{fontSize:14,color:"#9CA3AF",marginBottom:12}}>All {hiddenCount} account{hiddenCount > 1 ? "s are" : " is"} hidden</div>
+                  <button onClick={() => setShowAllAccounts(true)} style={{background:"#0D9488",color:"#FFF",border:"none",padding:"8px 20px",borderRadius:8,fontSize:12,fontWeight:600,cursor:"pointer"}}>Show All Accounts</button>
+                </div>
               ) : (
                 <>
                   {/* ═══ GROUPED GRID VIEW - By Bank ═══ */}
@@ -2937,45 +3047,66 @@ export default function BankDashboard({ supabase, userId, encryptionKey }: BankD
                             ))}
                           </tr></thead>
                           <tbody>
-                            {accounts.length === 0 ? (
+                            {visibleAccounts.length === 0 ? (
                               <tr><td colSpan={14} style={{padding:32,textAlign:"center",color:"#8B949E"}}>No accounts found</td></tr>
                             ) : (
-                              accounts.map((acc, idx) => {
-                                const color = getBankColor(acc.bank);
-                                const typeColor = acc.type === "FD" ? "#3B82F6" : acc.type === "Saving" ? "#10B981" : acc.type === "Credit Card" ? "#EF4444" : acc.type === "Loan" ? "#F59E0B" : "#8B5CF6";
-                                const accCurrency = (acc.currency || 'INR') as Currency;
-                                return (
-                                  <tr key={idx} style={{borderBottom:"1px solid #21262D",background:acc.done ? "rgba(46,160,67,0.05)" : "transparent",opacity:acc.done ? 0.6 : 1}}>
-                                    <td style={{padding:"8px 10px"}}>
-                                      <div style={{display:"flex",alignItems:"center",gap:6}}>
-                                        <div style={{width:8,height:8,borderRadius:"50%",background:color}} />
-                                        <span style={{fontWeight:600,color:"#F0F6FC",fontSize:11}}>{acc.bank}</span>
+                              <>
+                                {visibleAccounts.map((acc) => {
+                                  const idx = accounts.indexOf(acc);
+                                  const color = getBankColor(acc.bank);
+                                  const typeColor = acc.type === "FD" ? "#3B82F6" : acc.type === "Saving" ? "#10B981" : acc.type === "Credit Card" ? "#EF4444" : acc.type === "Loan" ? "#F59E0B" : "#8B5CF6";
+                                  const accCurrency = (acc.currency || 'INR') as Currency;
+                                  return (
+                                    <tr key={idx} style={{borderBottom:"1px solid #21262D",background:acc.done ? "rgba(46,160,67,0.05)" : acc.hidden ? "rgba(100,116,139,0.05)" : "transparent",opacity:acc.done ? 0.6 : 1}}>
+                                      <td style={{padding:"8px 10px"}}>
+                                        <div style={{display:"flex",alignItems:"center",gap:6}}>
+                                          <div style={{width:8,height:8,borderRadius:"50%",background:color}} />
+                                          <span style={{fontWeight:600,color:"#F0F6FC",fontSize:11}}>{acc.bank}</span>
+                                          {acc.hidden && <span style={{background:"#374151",color:"#9CA3AF",padding:"1px 4px",borderRadius:3,fontSize:8,fontWeight:600}}>Hidden</span>}
+                                        </div>
+                                      </td>
+                                      <td style={{padding:"8px 10px"}}>
+                                        <span style={{background:`${typeColor}20`,color:typeColor,padding:"2px 6px",borderRadius:4,fontSize:9,fontWeight:700}}>{acc.type || "—"}</span>
+                                      </td>
+                                      <td style={{padding:"8px 10px",color:"#C9D1D9",fontSize:10,maxWidth:100,overflow:"hidden",textOverflow:"ellipsis"}} title={acc.holders}>{acc.holders || "—"}</td>
+                                      <td style={{padding:"8px 10px",fontFamily:"monospace",fontWeight:600,color:acc.done ? "#6B7280" : "#F0F6FC",fontSize:11}}>{fmt(acc.amount, accCurrency)}</td>
+                                      <td style={{padding:"8px 10px",color:"#9CA3AF",fontSize:9}}>{accCurrency}</td>
+                                      <td style={{padding:"8px 10px",fontFamily:"monospace",color:"#3FB950",fontWeight:600,fontSize:10}}>{acc.roi ? (Number(acc.roi) * 100).toFixed(2) + "%" : "—"}</td>
+                                      <td style={{padding:"8px 10px",color:"#9CA3AF",fontSize:9,fontFamily:"monospace"}}>{acc.accountNumber || "—"}</td>
+                                      <td style={{padding:"8px 10px",color:"#9CA3AF",fontSize:9,fontFamily:"monospace"}}>{acc.ifscCode || "—"}</td>
+                                      <td style={{padding:"8px 10px",color:"#9CA3AF",fontSize:9,maxWidth:80,overflow:"hidden",textOverflow:"ellipsis"}} title={acc.branch}>{acc.branch || "—"}</td>
+                                      <td style={{padding:"8px 10px"}}>
+                                        {acc.online && <span style={{fontSize:9,color:acc.online === "Yes" ? "#34D399" : "#6B7280",background:acc.online === "Yes" ? "#064E3B30" : "#37415140",padding:"2px 4px",borderRadius:3}}>{acc.online === "Yes" ? "🌐" : "—"}</span>}
+                                      </td>
+                                      <td style={{padding:"8px 10px",color:"#6B7280",fontSize:9,maxWidth:80,overflow:"hidden",textOverflow:"ellipsis"}} title={acc.address}>{acc.address || "—"}</td>
+                                      <td style={{padding:"8px 10px",color:"#9CA3AF",fontSize:9,maxWidth:80,overflow:"hidden",textOverflow:"ellipsis"}} title={acc.detail}>{acc.detail || "—"}</td>
+                                      <td style={{padding:"8px 10px",color:acc.nextAction && !acc.done ? "#F59E0B" : "#6B7280",fontSize:9,maxWidth:80,overflow:"hidden",textOverflow:"ellipsis",fontWeight:acc.nextAction && !acc.done ? 600 : 400}} title={acc.nextAction}>{acc.nextAction ? (acc.done ? "✓ " : "⚡ ") + acc.nextAction : "—"}</td>
+                                      <td style={{padding:"8px 10px",whiteSpace:"nowrap"}}>
+                                        <button onClick={() => toggleDone("account", idx)} style={{background:acc.done ? "#238636" : "#21262D",color:acc.done ? "#fff" : "#8B949E",border:"none",borderRadius:4,padding:"2px 6px",fontSize:9,cursor:"pointer",marginRight:3,fontWeight:600}}>{acc.done ? "↩" : "✓"}</button>
+                                        <button onClick={() => openEdit("account", idx)} style={{background:"#21262D",color:"#58A6FF",border:"none",borderRadius:4,padding:"2px 6px",fontSize:9,cursor:"pointer",marginRight:3}}>✏️</button>
+                                        <button onClick={() => deleteRow("account", idx)} style={{background:"#21262D",color:"#F85149",border:"none",borderRadius:4,padding:"2px 6px",fontSize:9,cursor:"pointer"}}>🗑</button>
+                                      </td>
+                                    </tr>
+                                  );
+                                })}
+                                {/* Aggregated Hidden Row */}
+                                {!showAllAccounts && hiddenCount > 0 && (
+                                  <tr style={{borderBottom:"1px solid #21262D",background:"#1E293B",cursor:"pointer"}} onClick={() => setShowAllAccounts(true)}>
+                                    <td colSpan={3} style={{padding:"12px 10px"}}>
+                                      <div style={{display:"flex",alignItems:"center",gap:8}}>
+                                        <div style={{width:8,height:8,borderRadius:"50%",background:"#475569"}} />
+                                        <span style={{fontWeight:600,color:"#94A3B8",fontSize:11}}>Other Accounts</span>
+                                        <span style={{background:"#374151",color:"#9CA3AF",padding:"2px 6px",borderRadius:4,fontSize:9,fontWeight:600}}>{hiddenCount} hidden</span>
                                       </div>
                                     </td>
-                                    <td style={{padding:"8px 10px"}}>
-                                      <span style={{background:`${typeColor}20`,color:typeColor,padding:"2px 6px",borderRadius:4,fontSize:9,fontWeight:700}}>{acc.type || "—"}</span>
-                                    </td>
-                                    <td style={{padding:"8px 10px",color:"#C9D1D9",fontSize:10,maxWidth:100,overflow:"hidden",textOverflow:"ellipsis"}} title={acc.holders}>{acc.holders || "—"}</td>
-                                    <td style={{padding:"8px 10px",fontFamily:"monospace",fontWeight:600,color:acc.done ? "#6B7280" : "#F0F6FC",fontSize:11}}>{fmt(acc.amount, accCurrency)}</td>
-                                    <td style={{padding:"8px 10px",color:"#9CA3AF",fontSize:9}}>{accCurrency}</td>
-                                    <td style={{padding:"8px 10px",fontFamily:"monospace",color:"#3FB950",fontWeight:600,fontSize:10}}>{acc.roi ? (Number(acc.roi) * 100).toFixed(2) + "%" : "—"}</td>
-                                    <td style={{padding:"8px 10px",color:"#9CA3AF",fontSize:9,fontFamily:"monospace"}}>{acc.accountNumber || "—"}</td>
-                                    <td style={{padding:"8px 10px",color:"#9CA3AF",fontSize:9,fontFamily:"monospace"}}>{acc.ifscCode || "—"}</td>
-                                    <td style={{padding:"8px 10px",color:"#9CA3AF",fontSize:9,maxWidth:80,overflow:"hidden",textOverflow:"ellipsis"}} title={acc.branch}>{acc.branch || "—"}</td>
-                                    <td style={{padding:"8px 10px"}}>
-                                      {acc.online && <span style={{fontSize:9,color:acc.online === "Yes" ? "#34D399" : "#6B7280",background:acc.online === "Yes" ? "#064E3B30" : "#37415140",padding:"2px 4px",borderRadius:3}}>{acc.online === "Yes" ? "🌐" : "—"}</span>}
-                                    </td>
-                                    <td style={{padding:"8px 10px",color:"#6B7280",fontSize:9,maxWidth:80,overflow:"hidden",textOverflow:"ellipsis"}} title={acc.address}>{acc.address || "—"}</td>
-                                    <td style={{padding:"8px 10px",color:"#9CA3AF",fontSize:9,maxWidth:80,overflow:"hidden",textOverflow:"ellipsis"}} title={acc.detail}>{acc.detail || "—"}</td>
-                                    <td style={{padding:"8px 10px",color:acc.nextAction && !acc.done ? "#F59E0B" : "#6B7280",fontSize:9,maxWidth:80,overflow:"hidden",textOverflow:"ellipsis",fontWeight:acc.nextAction && !acc.done ? 600 : 400}} title={acc.nextAction}>{acc.nextAction ? (acc.done ? "✓ " : "⚡ ") + acc.nextAction : "—"}</td>
-                                    <td style={{padding:"8px 10px",whiteSpace:"nowrap"}}>
-                                      <button onClick={() => toggleDone("account", idx)} style={{background:acc.done ? "#238636" : "#21262D",color:acc.done ? "#fff" : "#8B949E",border:"none",borderRadius:4,padding:"2px 6px",fontSize:9,cursor:"pointer",marginRight:3,fontWeight:600}}>{acc.done ? "↩" : "✓"}</button>
-                                      <button onClick={() => openEdit("account", idx)} style={{background:"#21262D",color:"#58A6FF",border:"none",borderRadius:4,padding:"2px 6px",fontSize:9,cursor:"pointer",marginRight:3}}>✏️</button>
-                                      <button onClick={() => deleteRow("account", idx)} style={{background:"#21262D",color:"#F85149",border:"none",borderRadius:4,padding:"2px 6px",fontSize:9,cursor:"pointer"}}>🗑</button>
+                                    <td style={{padding:"12px 10px",fontFamily:"monospace",fontWeight:600,color:"#64748B",fontSize:11}}>{fmt(hiddenTotal, targetCurrency)}</td>
+                                    <td colSpan={9} style={{padding:"12px 10px",color:"#64748B",fontSize:10}}>Click to show all accounts</td>
+                                    <td style={{padding:"12px 10px"}}>
+                                      <button style={{background:"#0D9488",color:"#FFF",border:"none",borderRadius:4,padding:"3px 8px",fontSize:9,cursor:"pointer",fontWeight:600}}>Show</button>
                                     </td>
                                   </tr>
-                                );
-                              })
+                                )}
+                              </>
                             )}
                           </tbody>
                         </table>
@@ -3357,6 +3488,18 @@ export default function BankDashboard({ supabase, userId, encryptionKey }: BankD
                 <div><label style={labelSt}>Address</label><input style={inputSt} value={form.address||""} onChange={e=>setForm({...form,address:e.target.value})} /></div>
                 <div style={{gridColumn:"span 2"}}><label style={labelSt}>Details</label><input style={inputSt} value={form.detail||""} onChange={e=>setForm({...form,detail:e.target.value})} /></div>
                 <div style={{gridColumn:"span 2"}}><label style={labelSt}>Next Action</label><input style={inputSt} value={form.nextAction||""} onChange={e=>setForm({...form,nextAction:e.target.value})} placeholder="Pending task for this account" /></div>
+                <div style={{gridColumn:"span 2",display:"flex",alignItems:"center",gap:10,padding:"10px 0",borderTop:"1px solid #30363D",marginTop:6}}>
+                  <label style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",fontSize:12,color:"#9CA3AF"}}>
+                    <input 
+                      type="checkbox" 
+                      checked={form.hidden || false} 
+                      onChange={e => setForm({...form, hidden: e.target.checked})}
+                      style={{width:16,height:16,accentColor:"#0D9488"}}
+                    />
+                    <span>Hide from default view</span>
+                  </label>
+                  <span style={{fontSize:10,color:"#6B7280"}}>(shown as "Other Accounts" aggregate)</span>
+                </div>
               </div>
             )}
 

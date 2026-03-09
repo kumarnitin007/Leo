@@ -16,6 +16,7 @@ import {
   GroupFinanceMessage,
   GroupMemberProfile,
   FDPayload,
+  AccountPayload,
   AlertPayload,
   DocPayload,
 } from '../../types/groupChat';
@@ -126,6 +127,48 @@ function FDCard({ fd }: { fd: FDPayload }) {
       <div style={{ fontSize: 11, color: '#6B7280', marginTop: 8, borderTop: '1px solid #D1FAE5', paddingTop: 8 }}>
         📅 Matures: <strong>{fmtDate(fd.maturityDate)}</strong>
       </div>
+    </div>
+  );
+}
+
+// ─── Account Card ─────────────────────────────────────────────────────────────
+function AccountCard({ account }: { account: AccountPayload }) {
+  const typeColor = account.type === 'FD' ? '#3B82F6' : account.type === 'Saving' ? '#10B981' : account.type === 'Credit Card' ? '#EF4444' : account.type === 'Loan' ? '#F59E0B' : '#8B5CF6';
+  const isNegative = Number(account.amount) < 0;
+  return (
+    <div style={{
+      background: '#EFF6FF',
+      border: '1px solid #BFDBFE',
+      borderLeft: `3px solid ${typeColor}`,
+      borderRadius: 10,
+      padding: '12px 14px',
+      marginTop: 8,
+      minWidth: 220,
+    }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
+        <div>
+          <div style={{ fontSize: 13, fontWeight: 800, color: '#1E40AF' }}>🏦 {account.bank}</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
+            <span style={{ background: `${typeColor}20`, color: typeColor, padding: '2px 6px', borderRadius: 4, fontSize: 10, fontWeight: 700 }}>{account.type}</span>
+          </div>
+        </div>
+        <div style={{ textAlign: 'right' }}>
+          <div style={{ fontSize: 16, fontWeight: 800, fontFamily: 'monospace', color: isNegative ? '#EF4444' : '#1E40AF' }}>{fmt(account.amount)}</div>
+          {account.roi && Number(account.roi) > 0 && (
+            <div style={{ fontSize: 10, color: '#10B981', fontWeight: 600 }}>{(Number(account.roi) * 100).toFixed(2)}%</div>
+          )}
+        </div>
+      </div>
+      {account.holders && (
+        <div style={{ fontSize: 11, color: '#6B7280', borderTop: '1px solid #DBEAFE', paddingTop: 6 }}>
+          👤 {account.holders}
+        </div>
+      )}
+      {account.accountNumber && (
+        <div style={{ fontSize: 10, color: '#9CA3AF', marginTop: 4, fontFamily: 'monospace' }}>
+          A/C: ****{account.accountNumber.slice(-4)}
+        </div>
+      )}
     </div>
   );
 }
@@ -290,6 +333,7 @@ function Message({ msg, showAvatar, showDay, sender, isMe }: MessageProps) {
           }}>
             {msg.text && <div>{msg.text}</div>}
             {msg.fd && <FDCard fd={msg.fd} />}
+            {msg.account && <AccountCard account={msg.account} />}
             {msg.alert && <AlertCard alert={msg.alert} />}
             {msg.doc && <DocCard doc={msg.doc} />}
           </div>
@@ -318,12 +362,13 @@ function Message({ msg, showAvatar, showDay, sender, isMe }: MessageProps) {
 // ─── Attach Picker ────────────────────────────────────────────────────────────
 interface AttachPickerProps {
   deposits: FDPayload[];
-  onAttach: (type: 'fd' | 'alert' | 'doc', data: FDPayload | AlertPayload | DocPayload) => void;
+  accounts: AccountPayload[];
+  onAttach: (type: 'fd' | 'account' | 'alert' | 'doc', data: FDPayload | AccountPayload | AlertPayload | DocPayload) => void;
   onClose: () => void;
 }
 
-function AttachPicker({ deposits, onAttach, onClose }: AttachPickerProps) {
-  const [tab, setTab] = useState<'fd' | 'alert' | 'doc'>('fd');
+function AttachPicker({ deposits, accounts, onAttach, onClose }: AttachPickerProps) {
+  const [tab, setTab] = useState<'fd' | 'account' | 'alert' | 'doc'>('fd');
   const upcomingFDs = deposits.filter(fd => {
     const d = daysLeft(fd.maturityDate);
     return d !== null && d <= 180;
@@ -370,8 +415,8 @@ function AttachPicker({ deposits, onAttach, onClose }: AttachPickerProps) {
           </button>
         </div>
 
-        <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
-          {([['fd', '🏦 Share FD'], ['alert', '🔔 Alert'], ['doc', '📄 Document']] as const).map(([id, label]) => (
+        <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
+          {([['fd', '🏦 FD'], ['account', '💳 Account'], ['alert', '🔔 Alert'], ['doc', '📄 Doc']] as const).map(([id, label]) => (
             <button
               key={id}
               onClick={() => setTab(id)}
@@ -380,8 +425,8 @@ function AttachPicker({ deposits, onAttach, onClose }: AttachPickerProps) {
                 color: tab === id ? '#FFF' : '#6B7280',
                 border: 'none',
                 borderRadius: 20,
-                padding: '7px 18px',
-                fontSize: 13,
+                padding: '7px 14px',
+                fontSize: 12,
                 fontWeight: 700,
                 cursor: 'pointer',
                 fontFamily: 'inherit',
@@ -428,6 +473,53 @@ function AttachPicker({ deposits, onAttach, onClose }: AttachPickerProps) {
                 </div>
               </div>
             ))}
+          </div>
+        )}
+
+        {tab === 'account' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 300, overflowY: 'auto' }}>
+            {accounts.length === 0 && (
+              <div style={{ color: '#9CA3AF', textAlign: 'center', padding: 32, fontSize: 13 }}>
+                No accounts found in your Bank Records
+              </div>
+            )}
+            {accounts.map((acc) => {
+              const typeColor = acc.type === 'FD' ? '#3B82F6' : acc.type === 'Saving' ? '#10B981' : acc.type === 'Credit Card' ? '#EF4444' : acc.type === 'Loan' ? '#F59E0B' : '#8B5CF6';
+              const isNegative = Number(acc.amount) < 0;
+              return (
+                <div
+                  key={acc.id}
+                  onClick={() => onAttach('account', acc)}
+                  style={{
+                    background: '#EFF6FF',
+                    border: '1px solid #BFDBFE',
+                    borderRadius: 12,
+                    padding: '12px 16px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    transition: 'background 0.15s',
+                  }}
+                >
+                  <div>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: '#1E40AF' }}>🏦 {acc.bank}</div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
+                      <span style={{ background: `${typeColor}20`, color: typeColor, padding: '2px 6px', borderRadius: 4, fontSize: 10, fontWeight: 700 }}>{acc.type}</span>
+                      {acc.holders && <span style={{ fontSize: 11, color: '#6B7280' }}>· {acc.holders}</span>}
+                    </div>
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <div style={{ fontSize: 14, fontWeight: 800, color: isNegative ? '#EF4444' : '#1E40AF', fontFamily: 'monospace' }}>
+                      {fmt(acc.amount)}
+                    </div>
+                    {acc.roi && Number(acc.roi) > 0 && (
+                      <div style={{ fontSize: 10, color: '#10B981' }}>{(Number(acc.roi) * 100).toFixed(2)}%</div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
 
@@ -636,14 +728,15 @@ export default function GroupFinanceChat({
   currentUser,
   members,
   userDeposits = [],
+  userAccounts = [],
   onBack,
 }: GroupFinanceChatProps) {
   const [messages, setMessages] = useState<GroupFinanceMessage[]>([]);
   const [inputText, setInputText] = useState('');
-  const [attachment, setAttachment] = useState<{ type: 'fd' | 'alert' | 'doc'; data: FDPayload | AlertPayload | DocPayload } | null>(null);
+  const [attachment, setAttachment] = useState<{ type: 'fd' | 'account' | 'alert' | 'doc'; data: FDPayload | AccountPayload | AlertPayload | DocPayload } | null>(null);
   const [showAttach, setShowAttach] = useState(false);
   const [showMembers, setShowMembers] = useState(false);
-  const [filter, setFilter] = useState<'all' | 'fd' | 'alert' | 'doc'>('all');
+  const [filter, setFilter] = useState<'all' | 'fd' | 'account' | 'alert' | 'doc'>('all');
   const [loading, setLoading] = useState(true);
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -673,6 +766,7 @@ export default function GroupFinanceChat({
       payload: payload as GroupFinanceMessage['payload'],
       created_at: row.created_at as string,
       fd: payload.fd as FDPayload | undefined,
+      account: payload.account as AccountPayload | undefined,
       alert: payload.alert as AlertPayload | undefined,
       doc: payload.doc as DocPayload | undefined,
     };
@@ -744,12 +838,15 @@ export default function GroupFinanceChat({
       text ||
       (attachment?.type === 'fd'
         ? 'Sharing FD details:'
-        : attachment?.type === 'alert'
-          ? 'Maturity alert for the group:'
-          : 'Sharing document:');
+        : attachment?.type === 'account'
+          ? 'Sharing account details:'
+          : attachment?.type === 'alert'
+            ? 'Maturity alert for the group:'
+            : 'Sharing document:');
 
     const payload: Record<string, unknown> = {};
     if (attachment?.type === 'fd') payload.fd = attachment.data;
+    if (attachment?.type === 'account') payload.account = attachment.data;
     if (attachment?.type === 'alert') payload.alert = attachment.data;
     if (attachment?.type === 'doc') payload.doc = attachment.data;
 
@@ -880,7 +977,7 @@ export default function GroupFinanceChat({
           flexShrink: 0,
         }}
       >
-        {([['all', '💬 All'], ['fd', '🏦 FDs'], ['alert', '🔔 Alerts'], ['doc', '📄 Docs']] as const).map(
+        {([['all', '💬 All'], ['fd', '🏦 FD'], ['account', '💳 A/C'], ['alert', '🔔 Alert'], ['doc', '📄 Doc']] as const).map(
           ([id, label]) => (
             <button
               key={id}
@@ -890,8 +987,8 @@ export default function GroupFinanceChat({
                 color: filter === id ? '#FFF' : '#6B7280',
                 border: 'none',
                 borderRadius: 20,
-                padding: '5px 16px',
-                fontSize: 12,
+                padding: '5px 12px',
+                fontSize: 11,
                 fontWeight: 700,
                 cursor: 'pointer',
                 whiteSpace: 'nowrap',
@@ -965,6 +1062,7 @@ export default function GroupFinanceChat({
         >
           <div style={{ flex: 1, fontSize: 13, color: '#065F46', fontWeight: 600 }}>
             {attachment.type === 'fd' && `🏦 ${(attachment.data as FDPayload).bank} — ${fmt((attachment.data as FDPayload).deposit)}`}
+            {attachment.type === 'account' && `💳 ${(attachment.data as AccountPayload).bank} — ${fmt((attachment.data as AccountPayload).amount)}`}
             {attachment.type === 'alert' && `🔔 ${(attachment.data as AlertPayload).title}`}
             {attachment.type === 'doc' && `📄 ${(attachment.data as DocPayload).name}`}
           </div>
@@ -1078,6 +1176,7 @@ export default function GroupFinanceChat({
       {showAttach && (
         <AttachPicker
           deposits={userDeposits}
+          accounts={userAccounts}
           onAttach={(type, data) => {
             setAttachment({ type, data });
             setShowAttach(false);
