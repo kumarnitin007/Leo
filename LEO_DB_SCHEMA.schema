@@ -1,0 +1,184 @@
+# Leo Database Schema
+
+**Purpose**: Single source of truth for all Supabase tables in Leo.  
+**Usage**: Reference before writing SQL migrations or TypeScript queries.
+
+---
+
+## Tables Overview
+
+| # | Acronym | Table Name | Description |
+|---|---------|------------|-------------|
+| **Auth & Users** ||||
+| 1 | MYSMK | `myday_safe_master_keys` | User master keys for Safe encryption (RSA) |
+| 2 | MYUL | `myday_user_levels` | User subscription/access levels |
+| **Safe (Encrypted)** ||||
+| 3 | MYEE | `myday_encrypted_entries` | Encrypted password/credential entries |
+| 4 | MYSSE | `myday_shared_safe_entries` | Shared password entries (group-based) |
+| 5 | MYDV | `myday_document_vaults` | Encrypted documents in Safe |
+| 6 | MYSSD | `myday_shared_safe_documents` | Shared documents (group-based) |
+| 7 | MYBR | `myday_bank_records` | Encrypted financial records (FDs, accounts, bills) |
+| 8 | MYGFM | `myday_group_finance_messages` | Group finance chat (FDs, alerts, docs) |
+| **Groups & Sharing** ||||
+| 9 | MYG | `myday_groups` | User-created sharing groups |
+| 10 | MYGM | `myday_group_members` | Group membership records |
+| 11 | MYGEK | `myday_group_encryption_keys` | RSA-encrypted group AES keys |
+| **My Lists (TODOs)** ||||
+| 12 | MYTG | `myday_todo_groups` | User-created TODO lists |
+| 13 | MYTI | `myday_todo_items` | Individual TODO items |
+| 14 | MYSTG | `myday_shared_todo_groups` | Shared TODO lists |
+| 15 | MYST | `myday_shared_todos` | Shared TODO items |
+| **Tasks & Routines** ||||
+| 16 | MYTSK | `myday_tasks` | Daily tasks/routines |
+| 17 | MYTC | `myday_task_completions` | Task completion records |
+| **Calendar & Events** ||||
+| 18 | MYE | `myday_events` | Calendar events |
+| 19 | MYSE | `myday_shared_events` | Shared calendar events |
+| 20 | MYNBD | `myday_notifybeforedays` | Notification preferences |
+| 21 | MYRD | `myday_reference_days` | Reference calendar (holidays) |
+| **Calendar Enrichments** ||||
+| 22 | MYCE | `myday_calendar_enrichments` | Rich holiday data (core) |
+| 23 | MYCF | `myday_calendar_facts` | Facts about holidays |
+| 24 | MYCS | `myday_calendar_statistics` | Statistics for holidays |
+| 25 | MYCTIP | `myday_calendar_tips` | Tips and reminders |
+| 26 | MYCTI | `myday_calendar_timeline_items` | Timeline/countdown items |
+| 27 | MYCQI | `myday_calendar_quick_ideas` | Quick activity ideas |
+| 28 | MYCER | `myday_calendar_external_resources` | External links |
+| 29 | MYCA | `myday_calendar_action_items` | Action buttons |
+| **Journal & Resolutions** ||||
+| 30 | MYJE | `myday_journal_entries` | Journal entries |
+| 31 | MYR | `myday_resolutions` | New Year resolutions |
+| **Lists & Items** ||||
+| 32 | MYI | `myday_items` | Multi-category items (Gift Cards, Warranty, Notes, Subscription) |
+| 33 | MYRT | `myday_routines` | User routines |
+| **Collaboration** ||||
+| 34 | MYEC | `myday_entry_comments` | Comments on shared entries |
+| 35 | MYCM | `myday_comment_mentions` | @mentions in comments |
+| 36 | MYCR | `myday_comment_reactions` | Emoji reactions |
+| 37 | MYCT | `myday_comment_templates` | Saved comment templates |
+| **Tags** ||||
+| 38 | MYTAGS | `myday_tags` | User tags and system categories |
+
+---
+
+## Quick Acronym Lookup
+
+| Acronym | Table |
+|---------|-------|
+| MYSMK | `myday_safe_master_keys` |
+| MYUL | `myday_user_levels` |
+| MYEE | `myday_encrypted_entries` |
+| MYSSE | `myday_shared_safe_entries` |
+| MYDV | `myday_document_vaults` |
+| MYSSD | `myday_shared_safe_documents` |
+| MYBR | `myday_bank_records` |
+| MYGFM | `myday_group_finance_messages` |
+| MYG | `myday_groups` |
+| MYGM | `myday_group_members` |
+| MYGEK | `myday_group_encryption_keys` |
+| MYTG | `myday_todo_groups` |
+| MYTI | `myday_todo_items` |
+| MYSTG | `myday_shared_todo_groups` |
+| MYST | `myday_shared_todos` |
+| MYTSK | `myday_tasks` |
+| MYTC | `myday_task_completions` |
+| MYE | `myday_events` |
+| MYSE | `myday_shared_events` |
+| MYNBD | `myday_notifybeforedays` |
+| MYRD | `myday_reference_days` |
+| MYCE | `myday_calendar_enrichments` |
+| MYCF | `myday_calendar_facts` |
+| MYCS | `myday_calendar_statistics` |
+| MYCTIP | `myday_calendar_tips` |
+| MYCTI | `myday_calendar_timeline_items` |
+| MYCQI | `myday_calendar_quick_ideas` |
+| MYCER | `myday_calendar_external_resources` |
+| MYCA | `myday_calendar_action_items` |
+| MYJE | `myday_journal_entries` |
+| MYR | `myday_resolutions` |
+| MYI | `myday_items` |
+| MYRT | `myday_routines` |
+| MYEC | `myday_entry_comments` |
+| MYCM | `myday_comment_mentions` |
+| MYCR | `myday_comment_reactions` |
+| MYCT | `myday_comment_templates` |
+| MYTAGS | `myday_tags` |
+
+---
+
+## Common Mistakes
+
+| ❌ Wrong | ✅ Correct |
+|----------|-----------|
+| `myday_todos` | `myday_todo_items` |
+| `myday_journals` | `myday_journal_entries` |
+| `myday_safe_entries` | `myday_encrypted_entries` |
+| `myday_safe_documents` | `myday_document_vaults` |
+| `myday_shared_documents` | `myday_shared_safe_documents` |
+| `myday_gift_cards` | `myday_items` with `category = 'Gift Card'` |
+| `myday_warranties` | `myday_items` with `category = 'Warranty'` |
+
+---
+
+## Multi-Category Table: `myday_items`
+
+This single table stores multiple item types via `category` field:
+- `category = 'Gift Card'`
+- `category = 'Warranty'`
+- `category = 'Notes'`
+- `category = 'Subscription'`
+
+---
+
+## Sharing Architecture
+
+### Safe Entities (Encrypted)
+| Entity | Main Table | Share Table | Encryption |
+|--------|------------|-------------|------------|
+| Password | `myday_encrypted_entries` | `myday_shared_safe_entries` | RSA + AES |
+| Document | `myday_document_vaults` | `myday_shared_safe_documents` | RSA + AES |
+
+**Flow**: Owner key → Group AES key → Member RSA public key
+
+### Non-Safe Entities (Plain)
+| Entity | Main Table | Share Table |
+|--------|------------|-------------|
+| TODO List | `myday_todo_groups` | `myday_shared_todo_groups` |
+| TODO Item | `myday_todo_items` | `myday_shared_todos` |
+| Event | `myday_events` | `myday_shared_events` |
+
+**Flow**: Share record → RLS policies → Group membership check
+
+---
+
+## Group System
+
+| Table | Purpose |
+|-------|---------|
+| `myday_groups` | Groups (Family, Work, etc.) |
+| `myday_group_members` | Membership with `role`, `display_name` |
+| `myday_group_encryption_keys` | Per-member encrypted AES keys |
+
+---
+
+## SQL Examples
+
+```sql
+-- ✅ CORRECT
+SELECT * FROM myday_todo_items;
+SELECT * FROM myday_journal_entries;
+SELECT * FROM myday_encrypted_entries;
+SELECT * FROM myday_items WHERE category = 'Gift Card';
+SELECT * FROM myday_group_finance_messages WHERE group_id = 'xxx';
+
+-- ❌ WRONG
+SELECT * FROM myday_todos;
+SELECT * FROM myday_journals;
+SELECT * FROM myday_safe_entries;
+SELECT * FROM myday_gift_cards;
+```
+
+---
+
+**Last Updated**: 2026-03-09  
+**Status**: ✅ VERIFIED

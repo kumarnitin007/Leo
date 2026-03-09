@@ -1,0 +1,43 @@
+---
+description: Keep LEO_DB_SCHEMA.md updated when database changes occur
+globs: ["**/*.sql", "**/migrations/**", "**/services/**Service.ts"]
+alwaysApply: false
+---
+
+# Database Schema Maintenance Rule
+
+## Required Actions
+
+When you:
+- Create a new Supabase table
+- Add SQL migrations
+- Modify table structure
+- Add new entity types
+
+**You MUST update `LEO_DB_SCHEMA.md`** in the project root:
+
+1. Add new table to "Tables Overview" section with:
+   - Sequential number
+   - Acronym (MY prefix + 2-4 letter code)
+   - Full table name (always `myday_` prefix)
+   - Brief description
+
+2. Add acronym to "Quick Acronym Lookup" section
+
+3. If adding sharing capability, update "Sharing Architecture" section
+
+4. Update "Last Updated" date at bottom
+
+## File Location
+`LEO_DB_SCHEMA.md` - Project root
+
+## Naming Conventions
+- Tables: `myday_[entity_name]` (e.g., `myday_group_finance_messages`)
+- Shared tables: `myday_shared_[entity_name]`
+- Acronyms: `MY` + abbreviation (e.g., MYGFM for group finance messages)
+
+## Reference Before Writing
+Always check `LEO_DB_SCHEMA.md` before:
+- Writing SQL migrations
+- Writing Supabase queries in TypeScript
+- Adding new database features

@@ -7,7 +7,7 @@
 We are adding a **Group Finance Chat** feature to Leo Planner.
 
 This is a family-oriented financial messaging screen that lives inside the existing
-**Groups** section of the app. Group members can send text messages, share FD deposit
+**Safe** section of the app. Group members can send text messages, share FD deposit
 cards from the Bank Records dashboard, send maturity alerts, and share documents —
 all within a specific group's context.
 
@@ -20,7 +20,7 @@ Your job is to wire it into the existing app correctly across all the steps belo
 ---
 
 ## TECH STACK (Leo Planner)
-
+- Use existing and let me know if anything is not aligned to current apps tect stack
 - React + TypeScript + Vite
 - Supabase (auth + database + realtime)
 - React Router (or hash-based routing — check `src/App.tsx`)
@@ -56,7 +56,18 @@ existing Groups implementation:
    - `src/types/index.ts`
 
 3. Find how Supabase group membership is queried — look for:
-   - `supabase.from('groups')` or `supabase.from('group_members')`
+   - `supabase.from('myday_groups')` or `supabase.from('myday_group_members')`
+
+| **Groups & Sharing** |
+| 8 | MYG | `myday_groups` | User-created groups for sharing |
+| 9 | MYGM | `myday_group_members` | Group membership records |
+| 10 | MYGEK | `myday_group_encryption_keys` | RSA-encrypted group keys |
+| **My Lists (TODO Groups & Items)** |
+| 11 | MYTG | `myday_todo_groups` | User-created TODO lists (Work, Cabos, etc.) |
+| 12 | MYTI | `myday_todo_items` | Individual TODO items ✅ |
+| 13 | MYSTG | `myday_shared_todo_groups` | Shared TODO lists (group-based) |
+| 14 | MYST | `myday_shared_todos` | Shared individual TODO items |
+
 
 4. Find how the Safe section renders sub-views — look for the pattern:
    ```tsx
@@ -71,6 +82,7 @@ Use those exact patterns when wiring GroupFinanceChat.
 
 ## STEP 3 — Create Supabase tables
 
+rename all tables to start with myday_ prefix as done for all tables in Leo app.
 Run this SQL in the Supabase SQL editor. Run each block separately.
 
 ### 3a — Messages table

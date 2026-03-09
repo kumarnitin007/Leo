@@ -10,12 +10,18 @@
 
 import React, { useState, useEffect } from 'react';
 import { useTheme } from '../contexts/ThemeContext';
+import { useAuth } from '../contexts/AuthContext';
 import {
   SharingGroup,
   GroupMember,
   GroupInvitation,
 } from '../types';
 import * as sharingService from '../services/sharingService';
+import getSupabaseClient from '../lib/supabase';
+import GroupFinanceChat from './groups/GroupFinanceChat';
+import { GroupMemberProfile, FDPayload } from '../types/groupChat';
+import { decryptData, CryptoKey } from '../utils/encryption';
+import { getEncryptionKey } from '../storage';
 
 interface GroupsManagerProps {
   onClose: () => void;
@@ -23,9 +29,12 @@ interface GroupsManagerProps {
 
 const GROUP_ICONS = ['👥', '👨‍👩‍👧‍👦', '🏠', '💼', '🎯', '💪', '🎨', '📚', '🎮', '✈️', '🌟', '❤️'];
 const GROUP_COLORS = ['#6366f1', '#8b5cf6', '#ec4899', '#ef4444', '#f97316', '#f59e0b', '#10b981', '#14b8a6', '#06b6d4', '#3b82f6'];
+const MEMBER_COLORS = ['#6366F1', '#10B981', '#F97316', '#8B5CF6', '#EF4444', '#F59E0B', '#06B6D4', '#EC4899'];
 
 const GroupsManager: React.FC<GroupsManagerProps> = ({ onClose }) => {
   const { theme } = useTheme();
+  const { user } = useAuth();
+  const supabase = getSupabaseClient();
   
   // Data state
   const [groups, setGroups] = useState<SharingGroup[]>([]);
@@ -35,6 +44,11 @@ const GroupsManager: React.FC<GroupsManagerProps> = ({ onClose }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [myDisplayName, setMyDisplayName] = useState<string | null>(null);
+  
+  // Finance Chat state
+  const [activeChatGroup, setActiveChatGroup] = useState<SharingGroup | null>(null);
+  const [chatMembers, setChatMembers] = useState<GroupMember[]>([]);
+  const [userBankDeposits, setUserBankDeposits] = useState<FDPayload[]>([]);
   
   // UI state
   const [activeTab, setActiveTab] = useState<'groups' | 'invitations'>('groups');
@@ -249,6 +263,77 @@ const GroupsManager: React.FC<GroupsManagerProps> = ({ onClose }) => {
     setGroupIcon(group.icon || '👥');
     setGroupColor(group.color || '#6366f1');
     setShowCreateModal(true);
+  };
+
+  // Fetch user's bank deposits for Finance Chat
+  useEffect(() => {
+    async function fetchDeposits() {
+      if (!user?.id || !supabase) return;
+      try {
+        const { data } = await supabase
+          .from('myday_bank_records')
+          .select('data')
+          .eq('user_id', user.id)
+          .maybeSingle();
+
+        if (data?.data) {
+          const encryptionKey = await getEncryptionKey();
+          if (encryptionKey) {
+            try {
+              const { encrypted, iv } = JSON.parse(data.data);
+              const decrypted = await decryptData(encrypted, iv, encryptionKey);
+              const parsed = JSON.parse(decrypted);
+              if (parsed.deposits) {
+                setUserBankDeposits(parsed.deposits.map((d: Record<string, unknown>, idx: number) => ({
+                  id: d.depositId || `dep-${idx}`,
+                  bank: d.bank || '',
+                  type: d.type || 'FD',
+                  deposit: d.deposit || 0,
+                  maturityDate: d.maturityDate || '',
+                  roi: d.roi || 0,
+                  maturityAmt: d.maturityAmt || 0,
+                  currency: d.currency || 'INR',
+                })));
+              }
+            } catch {
+              console.log('[GroupsManager] Could not decrypt bank records');
+            }
+          }
+        }
+      } catch (err) {
+        console.error('[GroupsManager] Failed to fetch deposits:', err);
+      }
+    }
+    fetchDeposits();
+  }, [user?.id, supabase]);
+
+  // Helper to map GroupMember to GroupMemberProfile for chat
+  const mapMemberToProfile = (member: GroupMember, index: number): GroupMemberProfile => {
+    const name = member.displayName || 'Member';
+    return {
+      id: member.userId,
+      name,
+      role: member.role === 'owner' ? 'owner' : member.role === 'admin' ? 'admin' : 'member',
+      avatar: name.slice(0, 2).toUpperCase(),
+      color: MEMBER_COLORS[index % MEMBER_COLORS.length],
+    };
+  };
+
+  // Open Finance Chat for a group
+  const openFinanceChat = async (group: SharingGroup) => {
+    try {
+      const membersData = await sharingService.getGroupMembers(group.id);
+      setChatMembers(membersData);
+      setActiveChatGroup(group);
+    } catch (err) {
+      console.error('Failed to load group members for chat:', err);
+      setError('Failed to open chat');
+    }
+  };
+
+  const closeFinanceChat = () => {
+    setActiveChatGroup(null);
+    setChatMembers([]);
   };
 
   if (loading) {
@@ -578,6 +663,24 @@ const GroupsManager: React.FC<GroupsManagerProps> = ({ onClose }) => {
 
                           {/* Actions */}
                           <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                openFinanceChat(group);
+                              }}
+                              style={{
+                                padding: '0.5rem 1rem',
+                                background: 'linear-gradient(135deg, #0D9488, #0F766E)',
+                                color: '#fff',
+                                border: 'none',
+                                borderRadius: '0.5rem',
+                                cursor: 'pointer',
+                                fontSize: '0.85rem',
+                                fontWeight: 600,
+                              }}
+                            >
+                              💬 Finance Chat
+                            </button>
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -1126,6 +1229,32 @@ const GroupsManager: React.FC<GroupsManagerProps> = ({ onClose }) => {
           to { opacity: 1; transform: translateY(0); }
         }
       `}</style>
+
+      {/* Finance Chat Overlay */}
+      {activeChatGroup && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          zIndex: 1200,
+          background: '#F0FDFA',
+          display: 'flex',
+          flexDirection: 'column',
+        }}>
+          <GroupFinanceChat
+            groupId={activeChatGroup.id}
+            groupName={activeChatGroup.name}
+            groupIcon={activeChatGroup.icon}
+            groupColor={activeChatGroup.color}
+            currentUser={{
+              id: user?.id || '',
+              name: myDisplayName || user?.email?.split('@')[0] || 'You',
+            }}
+            members={chatMembers.map(mapMemberToProfile)}
+            userDeposits={userBankDeposits}
+            onBack={closeFinanceChat}
+          />
+        </div>
+      )}
     </div>
   );
 };
