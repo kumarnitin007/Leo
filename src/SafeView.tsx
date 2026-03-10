@@ -18,6 +18,7 @@ import {
   getSafeEntriesCount,
   getEncryptionKey,
   getSafeEntries,
+  resetSafe,
   getSafeTags,
   initializeSafeCategories,
   getDocumentVaults
@@ -903,14 +904,35 @@ const SafeView: React.FC = () => {
     const demoSafePassword = localStorage.getItem('myday-demo-safe-password') || null;
 
     return (
-      <SafeLockScreen
-        entryCount={entryCount}
-        onUnlock={handleUnlock}
-        isUnlocking={isUnlocking}
-        isDemoUser={isDemoUser}
-        demoSafePassword={demoSafePassword}
-        onOpenChangePassword={() => setShowChangePassword(true)}
-      />
+      <>
+        <SafeLockScreen
+          entryCount={entryCount}
+          onUnlock={handleUnlock}
+          isUnlocking={isUnlocking}
+          isDemoUser={isDemoUser}
+          demoSafePassword={demoSafePassword}
+          onOpenChangePassword={() => setShowChangePassword(true)}
+          onResetSafe={async () => {
+            const result = await resetSafe();
+            if (result.success) {
+              alert(`Safe has been reset. Deleted: ${result.deletedCounts.entries || 0} entries, ${result.deletedCounts.documents || 0} documents, ${result.deletedCounts.bankRecords || 0} bank records.`);
+              // Reload the page to reset all state and show master password setup
+              window.location.reload();
+            } else {
+              alert('Failed to reset Safe. Please try again.');
+            }
+          }}
+        />
+        {/* Change Password Modal - also rendered on lock screen */}
+        {showChangePassword && (
+          <ChangeMasterPasswordModal
+            onClose={() => setShowChangePassword(false)}
+            onSuccess={async () => {
+              await loadEntries();
+            }}
+          />
+        )}
+      </>
     );
   }
 
@@ -1267,38 +1289,12 @@ const SafeView: React.FC = () => {
                 )
               ) : activeTab === 'financial' ? (
                 /* Financial Tab - Bank Dashboard with Group Chat access */
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', width: '100%' }}>
-                  <div style={{ 
-                    display: 'flex', 
-                    justifyContent: 'flex-end', 
-                    padding: '0.25rem 0.5rem',
-                  }}>
-                    <button
-                      onClick={() => setShowGroupsChat(true)}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '0.5rem',
-                        padding: '0.5rem 1rem',
-                        background: 'linear-gradient(135deg, #0D9488, #0F766E)',
-                        color: '#fff',
-                        border: 'none',
-                        borderRadius: '0.5rem',
-                        cursor: 'pointer',
-                        fontSize: '0.85rem',
-                        fontWeight: 600,
-                        boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-                      }}
-                    >
-                      💬 Group Finance Chat
-                    </button>
-                  </div>
-                  <BankDashboard 
-                    supabase={getSupabaseClient()} 
-                    userId={user?.id} 
-                    encryptionKey={encryptionKey!}
-                  />
-                </div>
+                <BankDashboard 
+                  supabase={getSupabaseClient()} 
+                  userId={user?.id} 
+                  encryptionKey={encryptionKey!}
+                  onOpenGroupChat={() => setShowGroupsChat(true)}
+                />
               ) : (
                 /* Documents Tab with Filter Sidebar */
                 isMobile && showMobileDocFilters && !showDocumentForm && !editingDocument ? (

@@ -25,6 +25,7 @@ interface BankDashboardProps {
   supabase?: SupabaseClient;
   userId?: string;
   encryptionKey?: CryptoKey;
+  onOpenGroupChat?: () => void;
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -151,7 +152,7 @@ const inputSt: React.CSSProperties = { background:"#0D1117", border:"1px solid #
 const labelSt: React.CSSProperties = { fontSize:11, color:"#9CA3AF", fontWeight:600, display:"block", marginBottom:4, textTransform:"uppercase", letterSpacing:0.5 };
 
 // ─── Main Component ──────────────────────────────────────────────────────────
-export default function BankDashboard({ supabase, userId, encryptionKey }: BankDashboardProps) {
+export default function BankDashboard({ supabase, userId, encryptionKey, onOpenGroupChat }: BankDashboardProps) {
   const [deposits, setDeposits] = useState<Deposit[]>([]);
   const [accounts, setAccounts] = useState<BankAccount[]>([]);
   const [bills, setBills] = useState<Bill[]>([]);
@@ -1322,7 +1323,10 @@ export default function BankDashboard({ supabase, userId, encryptionKey }: BankD
             <div style={{fontSize:isMobile?13:15,fontWeight:700,color:"#F9FAFB"}}>{isMobile ? "Bank" : "Bank Records"}</div>
             {savedMsg && <span style={{color:"#34D399",fontSize:11,fontWeight:600}}>✓</span>}
           </div>
-          <div style={{display:"flex",gap:6}}>
+          <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+            {onOpenGroupChat && (
+              <button onClick={onOpenGroupChat} style={{background:"linear-gradient(135deg, #0D9488, #0F766E)",color:"#fff",border:"none",borderRadius:6,padding:"6px 10px",fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}} title="Open Group Chat">💬{!isMobile && " Group Chat"}</button>
+            )}
             <button onClick={handleExportTemplate} style={{background:"#21262D",color:"#A78BFA",border:"1px solid #30363D",borderRadius:6,padding:"6px 10px",fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}} title="Download Template Excel">📥{!isMobile && " Template"}</button>
             <button onClick={()=>fileRef.current?.click()} style={{background:"#238636",color:"#fff",border:"none",borderRadius:6,padding:"6px 10px",fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}} title="Import Excel">📂{!isMobile && " Import"}</button>
             <input ref={fileRef} type="file" accept=".xlsx,.xls" style={{display:"none"}} onChange={e=>{if(e.target.files?.[0])handleExcel(e.target.files[0]);e.target.value="";}} />

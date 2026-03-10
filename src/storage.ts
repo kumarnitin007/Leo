@@ -2889,6 +2889,63 @@ export const hasMasterPassword = async (): Promise<boolean> => {
 };
 
 /**
+ * Reset Safe - DESTRUCTIVE: Deletes all Safe data for the user
+ * Use when user forgets master password and wants to start fresh
+ */
+export const resetSafe = async (): Promise<{ success: boolean; deletedCounts: Record<string, number> }> => {
+  const { client, userId } = await requireAuth();
+  const deletedCounts: Record<string, number> = {};
+
+  try {
+    // Delete safe entries
+    const { data: entriesData } = await client
+      .from('myday_safe_entries')
+      .delete()
+      .eq('user_id', userId)
+      .select('id');
+    deletedCounts.entries = entriesData?.length || 0;
+
+    // Delete document vaults
+    const { data: docsData } = await client
+      .from('myday_document_vaults')
+      .delete()
+      .eq('user_id', userId)
+      .select('id');
+    deletedCounts.documents = docsData?.length || 0;
+
+    // Delete bank records
+    const { data: bankData } = await client
+      .from('myday_bank_records')
+      .delete()
+      .eq('user_id', userId)
+      .select('id');
+    deletedCounts.bankRecords = bankData?.length || 0;
+
+    // Delete safe tags
+    const { data: tagsData } = await client
+      .from('myday_safe_tags')
+      .delete()
+      .eq('user_id', userId)
+      .select('id');
+    deletedCounts.tags = tagsData?.length || 0;
+
+    // Delete master key (last, so other deletes complete first)
+    const { data: keyData } = await client
+      .from('myday_safe_master_keys')
+      .delete()
+      .eq('user_id', userId)
+      .select('id');
+    deletedCounts.masterKey = keyData?.length || 0;
+
+    console.log('[Safe] Reset complete. Deleted:', deletedCounts);
+    return { success: true, deletedCounts };
+  } catch (error) {
+    console.error('[Safe] Error resetting safe:', error);
+    return { success: false, deletedCounts };
+  }
+};
+
+/**
  * Set master password (first time setup)
  * Also generates RSA key pair for asymmetric encryption
  */

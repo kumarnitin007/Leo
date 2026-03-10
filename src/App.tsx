@@ -39,6 +39,7 @@ import SettingsModal from './components/SettingsModal';
 import PWAInstallPrompt from './components/PWAInstallPrompt';
 import OnboardingFlow from './components/OnboardingFlow';
 import AuthModal from './components/AuthModal';
+import FeaturesPage from './components/FeaturesPage';
 import MobileBottomNav from './components/MobileBottomNav';
 import MobileBottomSheet from './components/MobileBottomSheet';
 import MobileContextHeader from './components/MobileContextHeader';
@@ -66,6 +67,7 @@ const AppContent: React.FC = () => {
   const [showSettings, setShowSettings] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false); // Disabled - go directly to login
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const [showFeaturesPage, setShowFeaturesPage] = useState(false);
   const [showTimerModal, setShowTimerModal] = useState(false);
   const [showGiftCardsModal, setShowGiftCardsModal] = useState(false);
   const [showMilestonesModal, setShowMilestonesModal] = useState(false);
@@ -596,14 +598,30 @@ const AppContent: React.FC = () => {
       <SettingsModal show={showSettings} onClose={() => setShowSettings(false)} />
       
       {/* Authentication Modal */}
-      {showAuthModal && (
+      {showAuthModal && !showFeaturesPage && (
         <AuthModal
           onClose={() => setShowAuthModal(false)}
           onSuccess={() => {
             setShowAuthModal(false);
             setKey(prev => prev + 1);
           }}
+          onShowFeatures={() => {
+            setShowAuthModal(false);
+            setShowFeaturesPage(true);
+          }}
         />
+      )}
+
+      {/* Features Page */}
+      {showFeaturesPage && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 9999 }}>
+          <FeaturesPage
+            onBackToLogin={() => {
+              setShowFeaturesPage(false);
+              setShowAuthModal(true);
+            }}
+          />
+        </div>
       )}
       
       {/* PWA Install Prompt */}

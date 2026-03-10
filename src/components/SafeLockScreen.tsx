@@ -10,16 +10,19 @@ interface SafeLockScreenProps {
   entryCount: number;
   onUnlock: (password: string) => void;
   isUnlocking: boolean;
-  // Optional: when user is a demo user, show a demo-unlock button
   isDemoUser?: boolean;
   demoSafePassword?: string | null;
   onOpenChangePassword?: () => void;
+  onResetSafe?: () => Promise<void>;
 }
 
-const SafeLockScreen: React.FC<SafeLockScreenProps> = ({ entryCount, onUnlock, isUnlocking, isDemoUser, demoSafePassword, onOpenChangePassword }) => {
+const SafeLockScreen: React.FC<SafeLockScreenProps> = ({ entryCount, onUnlock, isUnlocking, isDemoUser, demoSafePassword, onOpenChangePassword, onResetSafe }) => {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [resetConfirmText, setResetConfirmText] = useState('');
+  const [isResetting, setIsResetting] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -162,6 +165,25 @@ const SafeLockScreen: React.FC<SafeLockScreenProps> = ({ entryCount, onUnlock, i
         </button>
       </div>
 
+      {/* Forgot Password link */}
+      {onResetSafe && (
+        <button
+          type="button"
+          onClick={() => setShowResetConfirm(true)}
+          style={{
+            marginTop: '1rem',
+            background: 'none',
+            border: 'none',
+            color: '#ef4444',
+            fontSize: '0.85rem',
+            cursor: 'pointer',
+            textDecoration: 'underline',
+          }}
+        >
+          Forgot Password? Reset Safe
+        </button>
+      )}
+
       <p style={{ 
         margin: '1.5rem 0 0 0', 
         fontSize: '0.875rem', 
@@ -170,6 +192,113 @@ const SafeLockScreen: React.FC<SafeLockScreenProps> = ({ entryCount, onUnlock, i
       }}>
         Auto-locks after 15 minutes of inactivity or when you switch tabs
       </p>
+
+      {/* Reset Confirmation Modal */}
+      {showResetConfirm && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          background: 'rgba(0,0,0,0.6)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000,
+        }}>
+          <div style={{
+            background: '#fff',
+            borderRadius: '1rem',
+            padding: '2rem',
+            maxWidth: '450px',
+            width: '90%',
+            textAlign: 'center',
+          }}>
+            <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>⚠️</div>
+            <h2 style={{ margin: '0 0 1rem 0', color: '#dc2626' }}>Reset Safe?</h2>
+            <p style={{ margin: '0 0 1rem 0', color: '#374151', lineHeight: 1.6 }}>
+              This will <strong>permanently delete</strong> all your Safe data:
+            </p>
+            <ul style={{ 
+              textAlign: 'left', 
+              margin: '0 0 1.5rem 0', 
+              padding: '0 0 0 1.5rem',
+              color: '#6b7280',
+              lineHeight: 1.8,
+            }}>
+              <li>All saved passwords & logins</li>
+              <li>All secure notes</li>
+              <li>All bank records & deposits</li>
+              <li>All documents in vault</li>
+            </ul>
+            <p style={{ margin: '0 0 1rem 0', color: '#374151', fontWeight: 600 }}>
+              Type <span style={{ color: '#dc2626', fontFamily: 'monospace' }}>RESET</span> to confirm:
+            </p>
+            <input
+              type="text"
+              value={resetConfirmText}
+              onChange={(e) => setResetConfirmText(e.target.value.toUpperCase())}
+              placeholder="Type RESET"
+              style={{
+                width: '100%',
+                padding: '0.75rem',
+                border: '2px solid #fca5a5',
+                borderRadius: '0.5rem',
+                fontSize: '1rem',
+                textAlign: 'center',
+                fontFamily: 'monospace',
+                marginBottom: '1rem',
+                boxSizing: 'border-box',
+              }}
+            />
+            <div style={{ display: 'flex', gap: '0.75rem' }}>
+              <button
+                onClick={() => {
+                  setShowResetConfirm(false);
+                  setResetConfirmText('');
+                }}
+                style={{
+                  flex: 1,
+                  padding: '0.75rem',
+                  background: '#f3f4f6',
+                  color: '#374151',
+                  border: 'none',
+                  borderRadius: '0.5rem',
+                  fontSize: '1rem',
+                  cursor: 'pointer',
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  if (resetConfirmText !== 'RESET') return;
+                  setIsResetting(true);
+                  try {
+                    await onResetSafe?.();
+                    setShowResetConfirm(false);
+                    setResetConfirmText('');
+                  } finally {
+                    setIsResetting(false);
+                  }
+                }}
+                disabled={resetConfirmText !== 'RESET' || isResetting}
+                style={{
+                  flex: 1,
+                  padding: '0.75rem',
+                  background: resetConfirmText === 'RESET' ? '#dc2626' : '#fca5a5',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: '0.5rem',
+                  fontSize: '1rem',
+                  cursor: resetConfirmText === 'RESET' ? 'pointer' : 'not-allowed',
+                  fontWeight: 600,
+                }}
+              >
+                {isResetting ? 'Resetting...' : 'Delete All & Reset'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
