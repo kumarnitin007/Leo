@@ -41,6 +41,7 @@ import SharedWithMeView from './components/SharedWithMeView';
 import SafeFilterSidebar, { SafeFilter } from './components/SafeFilterSidebar';
 import DocumentFilterSidebar, { DocumentFilter } from './components/DocumentFilterSidebar';
 import GroupsManager from './components/GroupsManager';
+import GroupChatHub from './components/groups/GroupChatHub';
 import * as sharingService from './services/sharingService';
 import getSupabaseClient from './lib/supabase';
 import { loadUserGroupKeys } from './services/groupEncryptionService';
@@ -90,6 +91,7 @@ const SafeView: React.FC = () => {
   const [showSafeTags, setShowSafeTags] = useState(false);
   const [showChangePassword, setShowChangePassword] = useState(false);
   const [showGroupsChat, setShowGroupsChat] = useState(false);
+  const [showGroupsManager, setShowGroupsManager] = useState(false);
   const [activeTab, setActiveTab] = useState<'entries' | 'documents' | 'financial'>('financial');
   const [showDocumentForm, setShowDocumentForm] = useState(false);
   const [editingDocument, setEditingDocument] = useState<DocumentVault | null>(null);
@@ -1485,8 +1487,39 @@ const SafeView: React.FC = () => {
         />
       )}
 
-      {/* Groups Finance Chat Modal - opened from Safe with encryption key for secure data access */}
-      {showGroupsChat && (
+      {/* Group Chat Hub - Chat-first interface */}
+      {showGroupsChat && encryptionKey && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          background: 'rgba(0,0,0,0.5)',
+          zIndex: 1000,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}>
+          <div style={{
+            background: '#fff',
+            borderRadius: '1rem',
+            width: '95%',
+            maxWidth: '1000px',
+            height: '90vh',
+            overflow: 'hidden',
+          }}>
+            <GroupChatHub 
+              encryptionKey={encryptionKey}
+              onClose={() => setShowGroupsChat(false)}
+              onOpenGroupsManager={() => {
+                setShowGroupsChat(false);
+                setShowGroupsManager(true);
+              }}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Groups Manager - Full group management */}
+      {showGroupsManager && (
         <div style={{
           position: 'fixed',
           inset: 0,
@@ -1505,7 +1538,10 @@ const SafeView: React.FC = () => {
             overflow: 'hidden',
           }}>
             <GroupsManager 
-              onClose={() => setShowGroupsChat(false)} 
+              onClose={() => {
+                setShowGroupsManager(false);
+                setShowGroupsChat(true);
+              }} 
               encryptionKey={encryptionKey}
             />
           </div>

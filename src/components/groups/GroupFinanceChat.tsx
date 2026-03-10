@@ -22,13 +22,22 @@ import {
 } from '../../types/groupChat';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-function fmt(n: number | string | null | undefined): string {
+const CURRENCY_SYMBOLS: Record<string, string> = {
+  INR: '₹', USD: '$', EUR: '€', GBP: '£', JPY: '¥', AUD: 'A$', CAD: 'C$', SGD: 'S$', AED: 'د.إ', CHF: 'Fr'
+};
+
+function fmt(n: number | string | null | undefined, currency?: string): string {
   if (n == null || n === '') return '—';
   const v = Number(n);
   if (isNaN(v)) return '—';
-  if (v >= 10000000) return '₹' + (v / 10000000).toFixed(2) + ' Cr';
-  if (v >= 100000) return '₹' + (v / 100000).toFixed(2) + ' L';
-  return '₹' + v.toLocaleString('en-IN');
+  const sym = CURRENCY_SYMBOLS[currency || 'INR'] || currency || '₹';
+  const isINR = !currency || currency === 'INR';
+  if (isINR) {
+    if (v >= 10000000) return sym + (v / 10000000).toFixed(2) + ' Cr';
+    if (v >= 100000) return sym + (v / 100000).toFixed(2) + ' L';
+    return sym + v.toLocaleString('en-IN');
+  }
+  return sym + v.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
 }
 
 function fmtDate(str: string | null | undefined): string {
@@ -114,8 +123,8 @@ function FDCard({ fd }: { fd: FDPayload }) {
       </div>
       <div style={{ display: 'flex', gap: 14 }}>
         {[
-          ['INVESTED', fmt(fd.deposit), '#374151'],
-          ['AT MATURITY', fmt(fd.maturityAmt), '#10B981'],
+          ['INVESTED', fmt(fd.deposit, fd.currency), '#374151'],
+          ['AT MATURITY', fmt(fd.maturityAmt, fd.currency), '#10B981'],
           ['ROI', (Number(fd.roi) * 100).toFixed(2) + '%', '#6366F1'],
         ].map(([l, v, c]) => (
           <div key={l}>
@@ -153,7 +162,7 @@ function AccountCard({ account }: { account: AccountPayload }) {
           </div>
         </div>
         <div style={{ textAlign: 'right' }}>
-          <div style={{ fontSize: 16, fontWeight: 800, fontFamily: 'monospace', color: isNegative ? '#EF4444' : '#1E40AF' }}>{fmt(account.amount)}</div>
+          <div style={{ fontSize: 16, fontWeight: 800, fontFamily: 'monospace', color: isNegative ? '#EF4444' : '#1E40AF' }}>{fmt(account.amount, account.currency)}</div>
           {account.roi && Number(account.roi) > 0 && (
             <div style={{ fontSize: 10, color: '#10B981', fontWeight: 600 }}>{(Number(account.roi) * 100).toFixed(2)}%</div>
           )}
@@ -467,7 +476,7 @@ function AttachPicker({ deposits, accounts, onAttach, onClose }: AttachPickerPro
                 </div>
                 <div style={{ textAlign: 'right' }}>
                   <div style={{ fontSize: 13, fontWeight: 800, color: '#10B981', fontFamily: 'monospace' }}>
-                    {fmt(fd.maturityAmt)}
+                    {fmt(fd.maturityAmt, fd.currency)}
                   </div>
                   <div style={{ fontSize: 11, color: '#9CA3AF' }}>{(Number(fd.roi) * 100).toFixed(2)}% pa</div>
                 </div>
@@ -511,7 +520,7 @@ function AttachPicker({ deposits, accounts, onAttach, onClose }: AttachPickerPro
                   </div>
                   <div style={{ textAlign: 'right' }}>
                     <div style={{ fontSize: 14, fontWeight: 800, color: isNegative ? '#EF4444' : '#1E40AF', fontFamily: 'monospace' }}>
-                      {fmt(acc.amount)}
+                      {fmt(acc.amount, acc.currency)}
                     </div>
                     {acc.roi && Number(acc.roi) > 0 && (
                       <div style={{ fontSize: 10, color: '#10B981' }}>{(Number(acc.roi) * 100).toFixed(2)}%</div>
@@ -559,7 +568,7 @@ function AttachPicker({ deposits, accounts, onAttach, onClose }: AttachPickerPro
                   <div>
                     <div style={{ fontSize: 14, fontWeight: 700, color: '#1F2937' }}>🔔 {fd.bank}</div>
                     <div style={{ fontSize: 12, color: '#6B7280' }}>
-                      Due: {fmtDate(fd.maturityDate)} · {fmt(fd.maturityAmt)}
+                      Due: {fmtDate(fd.maturityDate)} · {fmt(fd.maturityAmt, fd.currency)}
                     </div>
                   </div>
                   <div style={{
@@ -1061,8 +1070,8 @@ export default function GroupFinanceChat({
           }}
         >
           <div style={{ flex: 1, fontSize: 13, color: '#065F46', fontWeight: 600 }}>
-            {attachment.type === 'fd' && `🏦 ${(attachment.data as FDPayload).bank} — ${fmt((attachment.data as FDPayload).deposit)}`}
-            {attachment.type === 'account' && `💳 ${(attachment.data as AccountPayload).bank} — ${fmt((attachment.data as AccountPayload).amount)}`}
+            {attachment.type === 'fd' && `🏦 ${(attachment.data as FDPayload).bank} — ${fmt((attachment.data as FDPayload).deposit, (attachment.data as FDPayload).currency)}`}
+            {attachment.type === 'account' && `💳 ${(attachment.data as AccountPayload).bank} — ${fmt((attachment.data as AccountPayload).amount, (attachment.data as AccountPayload).currency)}`}
             {attachment.type === 'alert' && `🔔 ${(attachment.data as AlertPayload).title}`}
             {attachment.type === 'doc' && `📄 ${(attachment.data as DocPayload).name}`}
           </div>

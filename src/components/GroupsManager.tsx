@@ -681,27 +681,27 @@ const GroupsManager: React.FC<GroupsManagerProps> = ({ onClose, encryptionKey })
 
                           {/* Actions */}
                           <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                openFinanceChat(group);
-                              }}
-                              style={{
-                                padding: '0.5rem 1rem',
-                                background: hasSecureAccess 
-                                  ? 'linear-gradient(135deg, #0D9488, #0F766E)' 
-                                  : 'linear-gradient(135deg, #6B7280, #4B5563)',
-                                color: '#fff',
-                                border: 'none',
-                                borderRadius: '0.5rem',
-                                cursor: 'pointer',
-                                fontSize: '0.85rem',
-                                fontWeight: 600,
-                              }}
-                              title={hasSecureAccess ? 'Chat with FD & Account sharing' : 'Chat only (open from Safe for FD/Account sharing)'}
-                            >
-                              💬 {hasSecureAccess ? 'Finance Chat' : 'Group Chat'}
-                            </button>
+                            {hasSecureAccess && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  openFinanceChat(group);
+                                }}
+                                style={{
+                                  padding: '0.5rem 1rem',
+                                  background: 'linear-gradient(135deg, #0D9488, #0F766E)',
+                                  color: '#fff',
+                                  border: 'none',
+                                  borderRadius: '0.5rem',
+                                  cursor: 'pointer',
+                                  fontSize: '0.85rem',
+                                  fontWeight: 600,
+                                }}
+                                title="Open Group Chat"
+                              >
+                                💬 Chat
+                              </button>
+                            )}
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -1252,7 +1252,7 @@ const GroupsManager: React.FC<GroupsManagerProps> = ({ onClose, encryptionKey })
       `}</style>
 
       {/* Finance Chat Overlay */}
-      {activeChatGroup && (
+      {activeChatGroup && hasSecureAccess && (
         <div style={{
           position: 'fixed',
           inset: 0,
