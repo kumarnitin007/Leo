@@ -21,6 +21,8 @@ import { Deposit, BankAccount, Bill, ActionItem, BankRecordsData, SavingsGoal, C
 import { updateFinancialAlertsCache, FinancialAlertsSummary } from './FinancialAlertsWidget';
 import { CryptoKey, encryptData, decryptData } from '../utils/encryption';
 import { useTheme } from '../contexts/ThemeContext';
+import PendingFinancialImportsModal, { AccountUpdate } from './PendingFinancialImportsModal';
+import { getPendingImportCount, approveFinancialImport } from '../services/pendingFinancialImports';
 
 interface BankDashboardProps {
   supabase?: SupabaseClient;
@@ -202,6 +204,8 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
   const [tab, setTab] = useState("overview");
   const [loading, setLoading] = useState(true);
   const [savedMsg, setSavedMsg] = useState(false);
+  const [pendingImportsCount, setPendingImportsCount] = useState(0);
+  const [showPendingImportsModal, setShowPendingImportsModal] = useState(false);
   const [modal, setModal] = useState<{type: string; mode: string; idx?: number} | null>(null);
   const [form, setForm] = useState<any>({});
   const [filterBank, setFilterBank] = useState("All");
@@ -262,6 +266,59 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
   useEffect(() => {
     loadData();
   }, [supabase, userId, encryptionKey]);
+
+  // ── Pending Financial Imports ───────────────────────────────────────────────
+  useEffect(() => {
+    setPendingImportsCount(getPendingImportCount());
+  }, [showPendingImportsModal]);
+
+  const handleApplyFinancialImport = async (importId: string, updates: AccountUpdate[]) => {
+    const newAccounts = [...accounts];
+    const newDeposits = [...deposits];
+    
+    updates.forEach(update => {
+      if (update.action === 'skip') return;
+      
+      if (update.action === 'create') {
+        if (update.type === 'account') {
+          newAccounts.push({
+            bank: update.accountName,
+            type: 'Investment',
+            holders: '',
+            amount: update.newBalance,
+            roi: 0,
+            online: 'Yes',
+            address: '',
+            detail: 'Imported from screenshot',
+            nextAction: '',
+            done: false,
+            currency: update.currency as Currency || 'USD'
+          });
+        }
+      } else if (update.action === 'update' && update.existingIndex !== undefined) {
+        if (update.type === 'account') {
+          newAccounts[update.existingIndex] = {
+            ...newAccounts[update.existingIndex],
+            amount: update.newBalance
+          };
+        } else if (update.type === 'deposit') {
+          newDeposits[update.existingIndex] = {
+            ...newDeposits[update.existingIndex],
+            deposit: update.newBalance
+          };
+        }
+      }
+    });
+    
+    setAccounts(newAccounts);
+    setDeposits(newDeposits);
+    approveFinancialImport(importId);
+    setPendingImportsCount(getPendingImportCount());
+    
+    // Auto-save after applying import
+    await saveData();
+    alert('✅ Financial import applied successfully!');
+  };
 
   async function loadData() {
     try {
@@ -1367,6 +1424,29 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
           <div style={{display:"flex",gap:isMobile?4:6,alignItems:"center"}}>
             {onOpenGroupChat && (
               <button onClick={onOpenGroupChat} style={{background:"rgba(255,255,255,0.2)",color:"#fff",border:"1px solid rgba(255,255,255,0.3)",borderRadius:6,padding:isMobile?"5px 8px":"6px 10px",fontSize:isMobile?10:11,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}} title="Open Group Chat">💬{!isMobile && " Chat"}</button>
+            )}
+            {pendingImportsCount > 0 && (
+              <button 
+                onClick={() => setShowPendingImportsModal(true)} 
+                style={{
+                  background:"#f59e0b",
+                  color:"#fff",
+                  border:"none",
+                  borderRadius:6,
+                  padding:isMobile?"5px 8px":"6px 10px",
+                  fontSize:isMobile?10:11,
+                  fontWeight:600,
+                  cursor:"pointer",
+                  fontFamily:"inherit",
+                  display:"flex",
+                  alignItems:"center",
+                  gap:4,
+                  animation:"pulse 2s infinite"
+                }} 
+                title={`${pendingImportsCount} pending import(s) from screenshots`}
+              >
+                📊 {pendingImportsCount}
+              </button>
             )}
             <button onClick={handleExportTemplate} style={{background:"rgba(255,255,255,0.15)",color:"white",border:"1px solid rgba(255,255,255,0.2)",borderRadius:6,padding:isMobile?"5px 8px":"6px 10px",fontSize:isMobile?10:11,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}} title="Download Template">📥</button>
             <button onClick={()=>fileRef.current?.click()} style={{background:"white",color:THEME.accent,border:"none",borderRadius:6,padding:isMobile?"5px 8px":"6px 10px",fontSize:isMobile?10:11,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}} title="Import Excel">📂</button>
@@ -3764,6 +3844,14 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
           </div>
         </>
       )}
+
+      {/* Pending Financial Imports Modal */}
+      <PendingFinancialImportsModal
+        show={showPendingImportsModal}
+        onClose={() => setShowPendingImportsModal(false)}
+        bankData={{ deposits, accounts, bills, actions, goals }}
+        onApplyImport={handleApplyFinancialImport}
+      />
     </div>
   );
 }

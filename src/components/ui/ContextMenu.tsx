@@ -70,7 +70,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
   const { theme } = useTheme();
   const [isOpen, setIsOpen] = useState(false);
   const [position, setPosition] = useState<Position>({ x: 0, y: 0 });
-  const longPressTimer = useRef<NodeJS.Timeout | null>(null);
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
   const openMenu = useCallback((x: number, y: number) => {

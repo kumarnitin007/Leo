@@ -72,7 +72,7 @@ export const useSafeSession = (options: UseSafeSessionOptions = {}): SafeSession
   });
 
   const [remainingTime, setRemainingTime] = useState<number | null>(null);
-  const checkIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const checkIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Update last activity timestamp
   const resetActivity = useCallback(() => {

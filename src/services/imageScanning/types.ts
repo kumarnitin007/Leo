@@ -14,7 +14,8 @@ export type ExtractedItemType =
   | 'gift-card'
   | 'meeting-notes'
   | 'workout-plan'
-  | 'prescription';
+  | 'prescription'
+  | 'financial-screenshot';
 
 export interface ExtractedItem {
   id: string;
@@ -23,7 +24,7 @@ export interface ExtractedItem {
   title: string;
   description?: string;
   data: Record<string, any>; // Type-specific data
-  suggestedDestination: 'event' | 'task' | 'todo' | 'journal' | 'safe' | 'gift-card' | 'resolution';
+  suggestedDestination: 'event' | 'task' | 'todo' | 'journal' | 'safe' | 'gift-card' | 'resolution' | 'financial-import';
   icon: string;
 }
 
@@ -94,6 +95,44 @@ export interface PrescriptionData {
   date?: string;
   refills?: number;
   warnings?: string[];
+}
+
+export interface FinancialScreenshotData {
+  source: 'robinhood' | 'fidelity' | 'schwab' | 'vanguard' | 'etrade' | 'zerodha' | 'groww' | 'coinbase' | 'unknown';
+  accounts: Array<{
+    name: string;
+    type: 'brokerage' | 'retirement' | 'savings' | 'checking' | 'crypto' | 'other';
+    balance: number;
+    currency: string;
+    holdings?: Array<{
+      symbol?: string;
+      name: string;
+      quantity?: number;
+      value: number;
+      change?: number;
+      changePercent?: number;
+    }>;
+  }>;
+  totalValue?: number;
+  screenshotDate: string;
+  confidence: number;
+}
+
+export interface PendingFinancialImport {
+  id: string;
+  createdAt: string;
+  imageBase64?: string;
+  extractedData: FinancialScreenshotData;
+  status: 'pending' | 'approved' | 'dismissed';
+  approvedAt?: string;
+  matchedAccounts?: Array<{
+    extractedName: string;
+    matchedBankIndex?: number;
+    matchedDepositIndex?: number;
+    action: 'update' | 'create' | 'skip';
+    newValue?: number;
+    oldValue?: number;
+  }>;
 }
 
 export interface ScanResult {

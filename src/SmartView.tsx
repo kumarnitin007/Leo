@@ -12,8 +12,9 @@ import ImageScanModal from './components/ImageScanModal';
 import SmartSuggestionsModal from './components/SmartSuggestionsModal';
 import { scanImageWithTesseract } from './services/imageScanning/tesseractService';
 import { scanImageWithOpenAI } from './services/imageScanning/openaiVisionService';
-import { ScanMode, ScanResult, ExtractedItem } from './services/imageScanning/types';
+import { ScanMode, ScanResult, ExtractedItem, FinancialScreenshotData } from './services/imageScanning/types';
 import { addTask, addEvent } from './storage';
+import { addPendingFinancialImport, getPendingImportCount } from './services/pendingFinancialImports';
 import { createTodoItem } from './services/todoService';
 import { getUserSettings, saveUserSettings } from './storage';
 import dbService from './services/voice/VoiceCommandDatabaseService';
@@ -148,6 +149,23 @@ const SmartView: React.FC<SmartViewProps> = ({ onNavigate }) => {
         case 'resolution':
           // Navigate to resolutions
           onNavigate('resolutions');
+          break;
+        case 'financial-import':
+          // Save as pending financial import - requires Safe approval
+          const financialData = item.data as FinancialScreenshotData;
+          if (financialData && financialData.accounts) {
+            const pendingImport = addPendingFinancialImport({
+              source: financialData.source || 'unknown',
+              accounts: financialData.accounts,
+              totalValue: financialData.totalValue,
+              screenshotDate: new Date().toISOString(),
+              confidence: item.confidence
+            });
+            const count = getPendingImportCount();
+            alert(`📊 Financial data detected!\n\nSource: ${financialData.source || 'Unknown'}\nAccounts found: ${financialData.accounts.length}\n\n⚠️ To update your records, go to:\nSafe → Financial → Pending Imports (${count})`);
+          } else {
+            alert('Could not extract financial data from this image. Try a clearer screenshot.');
+          }
           break;
       }
       

@@ -50,14 +50,23 @@ Possible types:
 - Meeting notes (extract: action items, attendees, notes)
 - Workout plan (extract: goal, exercises, target)
 - Prescription (extract: medicine name, dosage, frequency)
+- Financial screenshot - brokerage/investment app screenshot (Robinhood, Fidelity, Schwab, Vanguard, E*Trade, Zerodha, Groww, Coinbase, etc.)
+  Extract: source app name, accounts with names/types/balances, individual holdings with symbol/name/quantity/value/change
 
 Return a JSON array of objects with this structure:
 {
-  "type": "birthday|invitation|todo|receipt|gift-card|meeting-notes|workout-plan|prescription",
+  "type": "birthday|invitation|todo|receipt|gift-card|meeting-notes|workout-plan|prescription|financial-screenshot",
   "confidence": 0.0-1.0,
   "title": "Short title",
   "description": "Brief description",
   "data": { ...type-specific fields... }
+}
+
+For financial-screenshot type, data should be:
+{
+  "source": "robinhood|fidelity|schwab|vanguard|etrade|zerodha|groww|coinbase|unknown",
+  "accounts": [{ "name": "...", "type": "brokerage|retirement|savings|checking|crypto|other", "balance": number, "currency": "USD|INR|...", "holdings": [{ "symbol": "AAPL", "name": "Apple Inc", "quantity": 10, "value": 1500.00, "change": 25.50, "changePercent": 1.5 }] }],
+  "totalValue": number
 }
 
 If multiple items are found (e.g., birthday AND a task to buy a gift), return multiple objects.
@@ -128,8 +137,8 @@ IMPORTANT: Return ONLY valid JSON, no markdown, no explanations.`
   }
 }
 
-function getSuggestedDestination(type: string): 'event' | 'task' | 'todo' | 'journal' | 'safe' | 'gift-card' | 'resolution' {
-  const mapping: Record<string, 'event' | 'task' | 'todo' | 'journal' | 'safe' | 'gift-card' | 'resolution'> = {
+function getSuggestedDestination(type: string): 'event' | 'task' | 'todo' | 'journal' | 'safe' | 'gift-card' | 'resolution' | 'financial-import' {
+  const mapping: Record<string, 'event' | 'task' | 'todo' | 'journal' | 'safe' | 'gift-card' | 'resolution' | 'financial-import'> = {
     'birthday': 'event',
     'invitation': 'event',
     'todo': 'todo',
@@ -137,7 +146,8 @@ function getSuggestedDestination(type: string): 'event' | 'task' | 'todo' | 'jou
     'gift-card': 'gift-card',
     'meeting-notes': 'task',
     'workout-plan': 'resolution',
-    'prescription': 'safe'
+    'prescription': 'safe',
+    'financial-screenshot': 'financial-import'
   };
   return mapping[type] || 'task';
 }
@@ -151,7 +161,8 @@ function getIcon(type: string): string {
     'gift-card': '🎁',
     'meeting-notes': '📋',
     'workout-plan': '🏃',
-    'prescription': '💊'
+    'prescription': '💊',
+    'financial-screenshot': '📊'
   };
   return icons[type] || '📄';
 }
