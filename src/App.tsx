@@ -27,10 +27,7 @@ import ItemsView from './ItemsView';
 import SafeView from './SafeView';
 import TimerView from './TimerView';
 import ResolutionsView from './ResolutionsView';
-import FloatingTimerButton from './components/FloatingTimerButton';
-import FloatingGiftCardsButton from './components/FloatingGiftCardsButton';
-import FloatingMilestonesButton from './components/FloatingMilestonesButton';
-import FloatingPinnedButton from './components/FloatingPinnedButton';
+import SpeedDialFAB from './components/SpeedDialFAB';
 import PinnedModal from './components/PinnedModal';
 import GiftCardsModal from './components/GiftCardsModal';
 import MilestonesModal from './components/MilestonesModal';
@@ -632,17 +629,15 @@ const AppContent: React.FC = () => {
         <OnboardingFlow onComplete={handleOnboardingComplete} />
       )}
 
-      {/* Floating Timer Button */}
-      <FloatingTimerButton onClick={() => setShowTimerModal(true)} />
-
-      {/* Floating Gift Cards Button */}
-      <FloatingGiftCardsButton onClick={() => setShowGiftCardsModal(true)} />
-
-      {/* Floating Milestones Button */}
-      <FloatingMilestonesButton onClick={() => setShowMilestonesModal(true)} />
-
-  {/* Floating Pinned Button */}
-  <FloatingPinnedButton onClick={() => setShowPinnedModal(true)} />
+      {/* SpeedDial FAB - Consolidates Timer, Gift Cards, Milestones, Pinned */}
+      <SpeedDialFAB
+        actions={[
+          { id: 'timer', icon: '⏱️', label: 'Timer', onClick: () => setShowTimerModal(true) },
+          { id: 'giftcards', icon: '🎁', label: 'Gift Cards', onClick: () => setShowGiftCardsModal(true) },
+          { id: 'milestones', icon: '🎯', label: 'Milestones', onClick: () => setShowMilestonesModal(true) },
+          { id: 'pinned', icon: '📌', label: 'Pinned', onClick: () => setShowPinnedModal(true) },
+        ]}
+      />
 
       {/* Timer Modal */}
       {showTimerModal && (

@@ -12,7 +12,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Task, Event, AppData, UserVisibleDay } from './types';
 import { getTodayString, getTasksForToday, formatDate, getWeekBounds, getMonthBounds, shouldTaskShowToday } from './utils';
-import { loadData, loadDashboardData, completeTask, isTaskCompletedToday, getTaskSpilloversForDate, moveTaskToNextDay, getCompletionCountForPeriod, saveTaskOrder, loadTaskOrder, getUpcomingEvents, acknowledgeEvent, isEventAcknowledged } from './storage';
+import { loadData, loadDashboardData, completeTask, isTaskCompletedToday, getTaskSpilloversForDate, moveTaskToNextDay, getCompletionCountForPeriod, saveTaskOrder, loadTaskOrder, getUpcomingEvents, acknowledgeEvent, isEventAcknowledged, addTask, addEvent } from './storage';
+import QuickAddWidget from './components/QuickAddWidget';
 import { getUserVisibleDaysByRange } from './services/referenceCalendarStorage';
 import TaskActionModal from './TaskActionModal';
 import CountdownTimer from './components/CountdownTimer';
@@ -98,6 +99,40 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
     } catch (error) {
       console.error('Error saving dashboard layout:', error);
     }
+  };
+
+  // Quick Add handlers
+  const handleQuickAddTask = async (name: string, category?: string) => {
+    const newTask: Task = {
+      id: `task-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      name,
+      category: category || 'General',
+      weightage: 5,
+      frequency: 'daily',
+      createdAt: new Date().toISOString(),
+    };
+    await addTask(newTask);
+    await loadItems();
+  };
+
+  const handleQuickAddEvent = async (name: string, date: string, time?: string) => {
+    const isOneTime = date.length === 10;
+    const newEvent: Event = {
+      id: `event-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      name,
+      date: isOneTime ? date : date.substring(5),
+      frequency: isOneTime ? 'one-time' : 'yearly',
+      year: isOneTime ? parseInt(date.substring(0, 4)) : undefined,
+      notifyDaysBefore: 0,
+      priority: 5,
+      createdAt: new Date().toISOString(),
+    };
+    await addEvent(newEvent);
+    await loadItems();
+  };
+
+  const handleNavigateToFull = (type: 'task' | 'event') => {
+    onNavigate(type === 'task' ? 'configure' : 'events');
   };
 
   // Load observances only when expanded (lazy loading for faster initial page load)
@@ -1448,6 +1483,13 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
           )}
         </div>
       </div>
+
+      {/* Quick Add Widget - Reduces clicks for common actions */}
+      <QuickAddWidget
+        onAddTask={handleQuickAddTask}
+        onAddEvent={handleQuickAddEvent}
+        onNavigateToFull={handleNavigateToFull}
+      />
 
       {isReorderMode && (
         <div className="reorder-instructions" style={{ background: '#eff6ff', border: '2px solid #3b82f6', borderRadius: '12px', padding: '1rem', marginBottom: '1.5rem', textAlign: 'center' }}>

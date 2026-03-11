@@ -104,12 +104,15 @@ export interface JournalEntry {
 
 export type DashboardLayout = 'uniform' | 'grid-spans' | 'masonry';
 
+export type TemperatureUnit = 'celsius' | 'fahrenheit';
+
 export interface UserSettings {
   dashboardLayout: DashboardLayout;
   theme?: string;
   notifications?: boolean;
   aiScanEnabled?: boolean;
   aiScanWarningShown?: boolean;
+  temperatureUnit?: TemperatureUnit;
   location?: {
     zipCode?: string;
     city?: string;

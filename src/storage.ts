@@ -2889,95 +2889,134 @@ export const hasMasterPassword = async (): Promise<boolean> => {
 };
 
 /**
- * Reset Safe - DESTRUCTIVE: Deletes all Safe data for the user
- * Use when user forgets master password and wants to start fresh
+ * Reset Safe - COMPLETE RESET: Deletes ALL Safe data for the user
+ * Use when user forgets master password and wants to start completely fresh
  * 
- * Deletes:
+ * Deletes ALL Safe-related data:
  * - Safe entries (passwords, notes)
  * - Document vaults
  * - Bank records (FDs, accounts, bills)
  * - Safe tags
- * - Group encryption keys (user's copies - become useless without RSA key)
+ * - Group encryption keys (user's copies)
  * - Shared entries that user shared with groups
+ * - Shared documents that user shared
+ * - Group finance messages from user
+ * - Group memberships (user removed from ALL groups)
+ * - Groups the user owns (completely deleted)
  * - Master key (includes RSA key pair)
  * 
- * Does NOT delete:
- * - Group memberships (user stays in groups, can request new keys)
- * - Groups the user owns (would orphan other members)
+ * This is a COMPLETE reset - user starts fresh with no group affiliations.
  */
 export const resetSafe = async (): Promise<{ success: boolean; deletedCounts: Record<string, number> }> => {
   const { client, userId } = await requireAuth();
   const deletedCounts: Record<string, number> = {};
 
   try {
-    // Delete safe entries (encrypted passwords/credentials)
+    console.log('[Safe] 🔄 Starting COMPLETE Safe reset for user:', userId);
+
+    // 1. Delete safe entries (encrypted passwords/credentials)
     const { data: entriesData } = await client
       .from('myday_encrypted_entries')
       .delete()
       .eq('user_id', userId)
       .select('id');
     deletedCounts.entries = entriesData?.length || 0;
+    console.log('[Safe] Deleted entries:', deletedCounts.entries);
 
-    // Delete document vaults
+    // 2. Delete document vaults
     const { data: docsData } = await client
       .from('myday_document_vaults')
       .delete()
       .eq('user_id', userId)
       .select('id');
     deletedCounts.documents = docsData?.length || 0;
+    console.log('[Safe] Deleted documents:', deletedCounts.documents);
 
-    // Delete bank records
+    // 3. Delete bank records
     const { data: bankData } = await client
       .from('myday_bank_records')
       .delete()
       .eq('user_id', userId)
       .select('id');
     deletedCounts.bankRecords = bankData?.length || 0;
+    console.log('[Safe] Deleted bank records:', deletedCounts.bankRecords);
 
-    // Delete user tags
+    // 4. Delete user tags
     const { data: tagsData } = await client
       .from('myday_tags')
       .delete()
       .eq('user_id', userId)
       .select('id');
     deletedCounts.tags = tagsData?.length || 0;
+    console.log('[Safe] Deleted tags:', deletedCounts.tags);
 
-    // Delete user's group encryption keys (encrypted with old RSA key, now useless)
-    const { data: groupKeysData } = await client
-      .from('myday_group_encryption_keys')
-      .delete()
-      .eq('user_id', userId)
-      .select('id');
-    deletedCounts.groupKeys = groupKeysData?.length || 0;
-
-    // Delete shared safe entries that this user shared (others can't decrypt without re-share)
+    // 5. Delete shared safe entries that this user shared
     const { data: sharedData } = await client
       .from('myday_shared_safe_entries')
       .delete()
       .eq('shared_by', userId)
       .select('id');
     deletedCounts.sharedEntries = sharedData?.length || 0;
+    console.log('[Safe] Deleted shared entries (shared_by):', deletedCounts.sharedEntries);
 
-    // Delete shared safe documents that this user shared
+    // 6. Delete shared safe documents that this user shared
     const { data: sharedDocsData } = await client
       .from('myday_shared_safe_documents')
       .delete()
       .eq('shared_by', userId)
       .select('id');
     deletedCounts.sharedDocuments = sharedDocsData?.length || 0;
+    console.log('[Safe] Deleted shared documents:', deletedCounts.sharedDocuments);
 
-    // Delete master key (last, so other deletes complete first)
+    // 7. Delete group finance messages from user
+    const { data: financeMessagesData } = await client
+      .from('myday_group_finance_messages')
+      .delete()
+      .eq('user_id', userId)
+      .select('id');
+    deletedCounts.financeMessages = financeMessagesData?.length || 0;
+    console.log('[Safe] Deleted finance messages:', deletedCounts.financeMessages);
+
+    // 8. Delete user's group encryption keys (encrypted with old RSA key, now useless)
+    const { data: groupKeysData } = await client
+      .from('myday_group_encryption_keys')
+      .delete()
+      .eq('user_id', userId)
+      .select('id');
+    deletedCounts.groupKeys = groupKeysData?.length || 0;
+    console.log('[Safe] Deleted group encryption keys:', deletedCounts.groupKeys);
+
+    // 9. Delete user's group memberships (remove user from ALL groups)
+    const { data: membershipsData } = await client
+      .from('myday_group_members')
+      .delete()
+      .eq('user_id', userId)
+      .select('id');
+    deletedCounts.groupMemberships = membershipsData?.length || 0;
+    console.log('[Safe] Deleted group memberships:', deletedCounts.groupMemberships);
+
+    // 10. Delete groups owned by this user (complete removal)
+    const { data: groupsData } = await client
+      .from('myday_groups')
+      .delete()
+      .eq('owner_id', userId)
+      .select('id');
+    deletedCounts.groupsOwned = groupsData?.length || 0;
+    console.log('[Safe] Deleted groups owned:', deletedCounts.groupsOwned);
+
+    // 11. Delete master key (LAST, so all other deletes complete first)
     const { data: keyData } = await client
       .from('myday_safe_master_keys')
       .delete()
       .eq('user_id', userId)
       .select('id');
     deletedCounts.masterKey = keyData?.length || 0;
+    console.log('[Safe] Deleted master key:', deletedCounts.masterKey);
 
-    console.log('[Safe] Reset complete. Deleted:', deletedCounts);
+    console.log('[Safe] ✅ COMPLETE Reset finished. Summary:', deletedCounts);
     return { success: true, deletedCounts };
   } catch (error) {
-    console.error('[Safe] Error resetting safe:', error);
+    console.error('[Safe] ❌ Error resetting safe:', error);
     return { success: false, deletedCounts };
   }
 };

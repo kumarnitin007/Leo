@@ -30,7 +30,7 @@ import Portal from './Portal';
 import { useTheme } from '../contexts/ThemeContext';
 import { useUser } from '../contexts/UserContext';
 import { avatars, AVATAR_CATEGORIES } from '../constants/avatars';
-import { DashboardLayout } from '../types';
+import { DashboardLayout, TemperatureUnit } from '../types';
 import { getUserSettings, saveUserSettings } from '../storage';
 import { getUserLevel, UserLevelAssignment } from '../services/userLevelService';
 
@@ -51,6 +51,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ show, onClose }) => {
   const [hoveredAvatar, setHoveredAvatar] = useState<string | null>(null);
   const [dashboardLayout, setDashboardLayout] = useState<DashboardLayout>('uniform');
   const [location, setLocation] = useState<{ zipCode?: string; city?: string; country?: string }>({});
+  const [temperatureUnit, setTemperatureUnit] = useState<TemperatureUnit | undefined>(undefined);
   const [userLevel, setUserLevel] = useState<UserLevelAssignment | null>(null);
 
   // Load settings from storage
@@ -62,6 +63,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ show, onClose }) => {
         console.log('📍 Location data:', settings.location);
         setDashboardLayout(settings.dashboardLayout);
         setLocation(settings.location || {});
+        setTemperatureUnit(settings.temperatureUnit);
         
         // Load user level
         const level = await getUserLevel();
@@ -83,7 +85,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ show, onClose }) => {
       console.log('📍 Location to save:', location);
       await setUsername(editingUsername);
       await setEmail(editingEmail);
-      await saveUserSettings({ dashboardLayout, location });
+      await saveUserSettings({ dashboardLayout, location, temperatureUnit });
       console.log('✅ Settings saved successfully!');
       onClose();
       // Note: Layout and theme changes apply immediately via context
@@ -441,6 +443,46 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ show, onClose }) => {
                 />
                 <small style={{ display: 'block', marginTop: '0.25rem', fontSize: '0.75rem', color: '#6b7280' }}>
                   Use 2-letter ISO country code (US, GB, CA, etc.)
+                </small>
+              </div>
+              
+              {/* Temperature Unit Toggle */}
+              <div style={{ marginTop: '1.5rem', paddingTop: '1rem', borderTop: '1px solid #fbbf24' }}>
+                <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, marginBottom: '0.5rem' }}>Temperature Unit</label>
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                  <button
+                    onClick={() => setTemperatureUnit('celsius')}
+                    style={{
+                      flex: 1,
+                      padding: '0.75rem',
+                      border: temperatureUnit === 'celsius' ? '2px solid #f59e0b' : '1px solid #d1d5db',
+                      borderRadius: '0.5rem',
+                      background: temperatureUnit === 'celsius' ? '#fef3c7' : 'white',
+                      cursor: 'pointer',
+                      fontWeight: temperatureUnit === 'celsius' ? 600 : 400,
+                      fontSize: '1rem'
+                    }}
+                  >
+                    °C Celsius
+                  </button>
+                  <button
+                    onClick={() => setTemperatureUnit('fahrenheit')}
+                    style={{
+                      flex: 1,
+                      padding: '0.75rem',
+                      border: temperatureUnit === 'fahrenheit' ? '2px solid #f59e0b' : '1px solid #d1d5db',
+                      borderRadius: '0.5rem',
+                      background: temperatureUnit === 'fahrenheit' ? '#fef3c7' : 'white',
+                      cursor: 'pointer',
+                      fontWeight: temperatureUnit === 'fahrenheit' ? 600 : 400,
+                      fontSize: '1rem'
+                    }}
+                  >
+                    °F Fahrenheit
+                  </button>
+                </div>
+                <small style={{ display: 'block', marginTop: '0.5rem', fontSize: '0.75rem', color: '#6b7280' }}>
+                  {!temperatureUnit ? 'Auto-detected from country (most countries use °C, US uses °F)' : 'Your preference is saved'}
                 </small>
               </div>
             </div>

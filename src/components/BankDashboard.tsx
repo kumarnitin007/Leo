@@ -14,12 +14,13 @@
  * - Encrypted storage via Supabase
  */
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { SupabaseClient } from '@supabase/supabase-js';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend, AreaChart, Area } from 'recharts';
 import { Deposit, BankAccount, Bill, ActionItem, BankRecordsData, SavingsGoal, Currency, DepositCategory } from '../types/bankRecords';
 import { updateFinancialAlertsCache, FinancialAlertsSummary } from './FinancialAlertsWidget';
 import { CryptoKey, encryptData, decryptData } from '../utils/encryption';
+import { useTheme } from '../contexts/ThemeContext';
 
 interface BankDashboardProps {
   supabase?: SupabaseClient;
@@ -116,13 +117,13 @@ function getBankColor(bank: string): string {
 
 function UrgencyBadge({ days }: { days: number | null }) {
   const bs = (bg: string, color: string) => ({ background:bg, color, padding:"2px 10px", borderRadius:20, fontSize:11, fontWeight:700, whiteSpace:"nowrap" as const });
-  if (days === null) return <span style={bs("#1F2937","#6B7280")}>No Date</span>;
-  if (days < 0)   return <span style={bs("#1F2937","#4B5563")}>Matured</span>;
-  if (days === 0) return <span style={bs("#7F1D1D","#FCA5A5")}>TODAY!</span>;
-  if (days <= 30) return <span style={bs("#7F1D1D","#FCA5A5")}>🔴 {days}d</span>;
-  if (days <= 90) return <span style={bs("#78350F","#FCD34D")}>🟡 {days}d</span>;
-  if (days <= 180) return <span style={bs("#064E3B","#6EE7B7")}>🟢 {days}d</span>;
-  return <span style={bs("#1E3A5F","#93C5FD")}>{days}d</span>;
+  if (days === null) return <span style={bs("#f3f4f6","#6b7280")}>No Date</span>;
+  if (days < 0)   return <span style={bs("#f3f4f6","#9ca3af")}>Matured</span>;
+  if (days === 0) return <span style={bs("#fef2f2","#dc2626")}>TODAY!</span>;
+  if (days <= 30) return <span style={bs("#fef2f2","#dc2626")}>🔴 {days}d</span>;
+  if (days <= 90) return <span style={bs("#fef9c3","#ca8a04")}>🟡 {days}d</span>;
+  if (days <= 180) return <span style={bs("#dcfce7","#16a34a")}>🟢 {days}d</span>;
+  return <span style={bs("#dbeafe","#2563eb")}>{days}d</span>;
 }
 
 const emptyDeposit: Deposit  = { bank:"", type:"Fixed Deposit", depositId:"", nominee:"", startDate:"", deposit:"", roi:"", maturityAmt:"", maturityDate:"", duration:"", maturityAction:"", done:false, currency:"INR", category:"General Savings", tdsPercent:"", autoRenewal:false, linkedAccount:"", notes:"" };
@@ -134,25 +135,65 @@ const emptyGoal: SavingsGoal = { id:"", name:"", targetAmount:0, currency:"INR",
 const CATEGORIES: DepositCategory[] = ['Emergency Fund', 'Retirement', 'Child Education', 'House/Property', 'Vehicle', 'Wedding', 'Travel', 'General Savings', 'Tax Saving', 'Other'];
 const CURRENCIES: Currency[] = ['INR', 'USD', 'EUR', 'GBP'];
 
-// Empty State Component
+// ─── Theme Helper - Uses CSS Variables from ThemeContext ─────────────────────
+// These CSS variables are set by ThemeContext based on user's selected theme
+const getThemeStyles = () => ({
+  bg: 'var(--color-background)',
+  cardBg: 'var(--color-card-bg)',
+  cardBgAlt: 'var(--color-card-bg-alt)',
+  border: 'var(--color-card-border)',
+  borderLight: 'var(--color-card-border)',
+  text: 'var(--color-text)',
+  textMuted: 'var(--color-text-muted)',
+  textLight: 'var(--color-text-light)',
+  accent: 'var(--color-primary)',
+  accentHover: 'var(--color-secondary)',
+  success: 'var(--color-success)',
+  warning: 'var(--color-warning)',
+  danger: 'var(--color-danger)',
+  headerBg: 'linear-gradient(135deg, var(--gradient-from) 0%, var(--gradient-via) 50%, var(--gradient-to) 100%)',
+});
+
+// Empty State Component - uses CSS variables for theming
 function EmptyState({ icon, title, description, action, onAction }: { icon: string; title: string; description: string; action?: string; onAction?: () => void }) {
   return (
-    <div style={{textAlign:"center",padding:"48px 24px",background:"#161B22",borderRadius:12,border:"1px solid #30363D"}}>
+    <div style={{textAlign:"center",padding:"48px 24px",background:'var(--color-card-bg-alt)',borderRadius:12,border:'1px solid var(--color-card-border)'}}>
       <div style={{fontSize:48,marginBottom:12,opacity:0.6}}>{icon}</div>
-      <div style={{fontSize:16,fontWeight:600,color:"#F0F6FC",marginBottom:6}}>{title}</div>
-      <div style={{fontSize:13,color:"#8B949E",marginBottom:action?16:0,maxWidth:280,margin:"0 auto"}}>{description}</div>
+      <div style={{fontSize:16,fontWeight:600,color:'var(--color-text)',marginBottom:6}}>{title}</div>
+      <div style={{fontSize:13,color:'var(--color-text-muted)',marginBottom:action?16:0,maxWidth:280,margin:"0 auto"}}>{description}</div>
       {action && onAction && (
-        <button onClick={onAction} style={{background:"#238636",color:"#fff",border:"none",borderRadius:6,padding:"8px 20px",fontSize:12,fontWeight:600,cursor:"pointer",marginTop:16}}>{action}</button>
+        <button onClick={onAction} style={{background:'var(--color-primary)',color:"#fff",border:"none",borderRadius:6,padding:"8px 20px",fontSize:12,fontWeight:600,cursor:"pointer",marginTop:16}}>{action}</button>
       )}
     </div>
   );
 }
 
-const inputSt: React.CSSProperties = { background:"#0D1117", border:"1px solid #374151", color:"#F9FAFB", borderRadius:8, padding:"8px 12px", fontSize:13, width:"100%", fontFamily:"inherit", outline:"none", boxSizing:"border-box", colorScheme:"dark" };
-const labelSt: React.CSSProperties = { fontSize:11, color:"#9CA3AF", fontWeight:600, display:"block", marginBottom:4, textTransform:"uppercase", letterSpacing:0.5 };
+const inputSt: React.CSSProperties = { background:'var(--color-card-bg)', border:'1px solid var(--color-card-border)', color:'var(--color-text)', borderRadius:8, padding:"8px 12px", fontSize:13, width:"100%", fontFamily:"inherit", outline:"none", boxSizing:"border-box" };
+const labelSt: React.CSSProperties = { fontSize:11, color:'var(--color-text-muted)', fontWeight:600, display:"block", marginBottom:4, textTransform:"uppercase", letterSpacing:0.5 };
 
 // ─── Main Component ──────────────────────────────────────────────────────────
 export default function BankDashboard({ supabase, userId, encryptionKey, onOpenGroupChat }: BankDashboardProps) {
+  // Get theme from context - respects user's theme selection
+  const { theme } = useTheme();
+  
+  // Create THEME object from user's selected theme (memoized for performance)
+  const THEME = useMemo(() => ({
+    bg: theme.colors.background,
+    cardBg: theme.colors.cardBg,
+    cardBgAlt: theme.colors.background,
+    border: theme.colors.cardBorder,
+    borderLight: theme.colors.cardBorder,
+    text: theme.colors.text,
+    textMuted: theme.colors.textLight,
+    textLight: theme.colors.textLight,
+    accent: theme.colors.primary,
+    accentHover: theme.colors.secondary,
+    success: theme.colors.success,
+    warning: theme.colors.warning,
+    danger: theme.colors.danger,
+    headerBg: `linear-gradient(135deg, ${theme.gradient.from} 0%, ${theme.gradient.via} 50%, ${theme.gradient.to} 100%)`,
+  }), [theme]);
+
   const [deposits, setDeposits] = useState<Deposit[]>([]);
   const [accounts, setAccounts] = useState<BankAccount[]>([]);
   const [bills, setBills] = useState<Bill[]>([]);
@@ -827,7 +868,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
         <style>
           body { font-family: 'Segoe UI', Arial, sans-serif; padding: 20px; color: #333; }
           h1 { color: #1a1a1a; border-bottom: 2px solid #3B82F6; padding-bottom: 10px; }
-          h2 { color: #374151; margin-top: 24px; }
+          h2 { color: ${THEME.border}; margin-top: 24px; }
           .summary { display: flex; gap: 20px; margin: 20px 0; }
           .summary-card { background: #f3f4f6; padding: 16px 20px; border-radius: 8px; border-left: 4px solid #3B82F6; }
           .summary-card.green { border-left-color: #10B981; }
@@ -1299,51 +1340,51 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
   }
 
   return (
-    <div style={{minHeight:"100vh",background:"#0D1117",color:"#F9FAFB",fontFamily:"'Sora','Segoe UI',sans-serif",paddingBottom:isMobile?110:48,margin:isMobile?"-0.5rem":"0",width:isMobile?"calc(100% + 1rem)":"auto"}}>
+    <div style={{minHeight:"100vh",background:THEME.bg,color:THEME.text,fontFamily:"'Sora','Segoe UI',sans-serif",paddingBottom:isMobile?110:48,margin:isMobile?"-0.5rem":"0",width:isMobile?"calc(100% + 1rem)":"auto"}}>
       {/* Setup Banner */}
       {showSetupBanner && (
-        <div style={{background:"linear-gradient(90deg,#7F1D1D,#991B1B)",border:"1px solid #DC2626",padding:"12px 20px",margin:"16px",borderRadius:12,display:"flex",alignItems:"center",gap:12}}>
+        <div style={{background:"linear-gradient(90deg,#fef2f2,#fee2e2)",border:"1px solid #fecaca",padding:"12px 20px",margin:"16px",borderRadius:12,display:"flex",alignItems:"center",gap:12}}>
           <span style={{fontSize:24}}>⚠️</span>
           <div style={{flex:1}}>
-            <strong style={{color:"#FCA5A5",display:"block",marginBottom:4}}>Database Connection Issue</strong>
-            <div style={{color:"#FCA5A5",fontSize:13}}>
-              Unable to connect to database. Run <code style={{background:"rgba(0,0,0,0.3)",padding:"2px 6px",borderRadius:4}}>supabase-bank-records.sql</code> in Supabase SQL Editor if not done already.
+            <strong style={{color:"#dc2626",display:"block",marginBottom:4}}>Database Connection Issue</strong>
+            <div style={{color:"#991b1b",fontSize:13}}>
+              Unable to connect to database. Run <code style={{background:"rgba(220,38,38,0.1)",padding:"2px 6px",borderRadius:4}}>supabase-bank-records.sql</code> in Supabase SQL Editor if not done already.
             </div>
           </div>
-          <button onClick={()=>setShowSetupBanner(false)} style={{background:"rgba(255,255,255,0.2)",border:"none",color:"#FCA5A5",padding:"4px 12px",borderRadius:6,cursor:"pointer",fontSize:20}}>✕</button>
+          <button onClick={()=>setShowSetupBanner(false)} style={{background:"rgba(220,38,38,0.1)",border:"none",color:"#dc2626",padding:"4px 12px",borderRadius:6,cursor:"pointer",fontSize:20}}>✕</button>
         </div>
       )}
 
       {/* Header - Bank Records title and buttons */}
-      <div style={{background:"#161B22",borderBottom:"1px solid #21262D",padding:isMobile?"8px 10px":"12px 16px"}}>
+      <div style={{background:THEME.headerBg,borderBottom:`1px solid ${THEME.border}`,padding:isMobile?"8px 10px":"12px 16px"}}>
         {/* Title Row */}
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8}}>
           <div style={{display:"flex",alignItems:"center",gap:isMobile?4:10,flexShrink:0}}>
             <span style={{fontSize:isMobile?16:22}}>🦁</span>
-            {!isMobile && <div style={{fontSize:15,fontWeight:700,color:"#F9FAFB"}}>Bank Records</div>}
-            {savedMsg && <span style={{color:"#34D399",fontSize:11,fontWeight:600}}>✓</span>}
+            {!isMobile && <div style={{fontSize:15,fontWeight:700,color:"white"}}>Bank Records</div>}
+            {savedMsg && <span style={{color:"#d1fae5",fontSize:11,fontWeight:600}}>✓</span>}
           </div>
           <div style={{display:"flex",gap:isMobile?4:6,alignItems:"center"}}>
             {onOpenGroupChat && (
-              <button onClick={onOpenGroupChat} style={{background:"linear-gradient(135deg, #0D9488, #0F766E)",color:"#fff",border:"none",borderRadius:6,padding:isMobile?"5px 8px":"6px 10px",fontSize:isMobile?10:11,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}} title="Open Group Chat">💬{!isMobile && " Chat"}</button>
+              <button onClick={onOpenGroupChat} style={{background:"rgba(255,255,255,0.2)",color:"#fff",border:"1px solid rgba(255,255,255,0.3)",borderRadius:6,padding:isMobile?"5px 8px":"6px 10px",fontSize:isMobile?10:11,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}} title="Open Group Chat">💬{!isMobile && " Chat"}</button>
             )}
-            <button onClick={handleExportTemplate} style={{background:"#21262D",color:"#A78BFA",border:"1px solid #30363D",borderRadius:6,padding:isMobile?"5px 8px":"6px 10px",fontSize:isMobile?10:11,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}} title="Download Template">📥</button>
-            <button onClick={()=>fileRef.current?.click()} style={{background:"#238636",color:"#fff",border:"none",borderRadius:6,padding:isMobile?"5px 8px":"6px 10px",fontSize:isMobile?10:11,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}} title="Import Excel">📂</button>
+            <button onClick={handleExportTemplate} style={{background:"rgba(255,255,255,0.15)",color:"white",border:"1px solid rgba(255,255,255,0.2)",borderRadius:6,padding:isMobile?"5px 8px":"6px 10px",fontSize:isMobile?10:11,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}} title="Download Template">📥</button>
+            <button onClick={()=>fileRef.current?.click()} style={{background:"white",color:THEME.accent,border:"none",borderRadius:6,padding:isMobile?"5px 8px":"6px 10px",fontSize:isMobile?10:11,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}} title="Import Excel">📂</button>
             <input ref={fileRef} type="file" accept=".xlsx,.xls" style={{display:"none"}} onChange={e=>{if(e.target.files?.[0])handleExcel(e.target.files[0]);e.target.value="";}} />
-            <button onClick={handleClearAll} style={{background:"#21262D",color:"#F85149",border:"1px solid #30363D",borderRadius:6,padding:isMobile?"5px 8px":"6px 10px",fontSize:isMobile?10:11,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}} title="Clear All">🗑</button>
+            <button onClick={handleClearAll} style={{background:"rgba(255,255,255,0.15)",color:"#fecaca",border:"1px solid rgba(255,255,255,0.2)",borderRadius:6,padding:isMobile?"5px 8px":"6px 10px",fontSize:isMobile?10:11,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}} title="Clear All">🗑</button>
           </div>
         </div>
         {/* Tabs - Desktop only (mobile uses bottom bar) */}
         {!isMobile && (
-          <div style={{display:"flex",gap:8,overflowX:"auto",paddingBottom:8,scrollbarWidth:"thin",scrollbarColor:"#30363D #161B22"}}>
+          <div style={{display:"flex",gap:8,overflowX:"auto",paddingBottom:8,marginTop:8}}>
             {allTabs.map(t=>(
               <button 
                 key={t.id} 
                 onClick={()=>setTab(t.id)} 
                 title={`Press ${t.key}`}
                 style={{
-                  background:tab===t.id?"#1F6FEB":"#21262D",
-                  color:tab===t.id?"#FFFFFF":"#8B949E",
+                  background:tab===t.id?"white":"rgba(255,255,255,0.15)",
+                  color:tab===t.id?THEME.accent:"rgba(255,255,255,0.9)",
                   border:"none",
                   padding:"7px 12px",
                   borderRadius:20,cursor:"pointer",
@@ -1369,17 +1410,17 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
             {isMobile ? (
               <>
                 {/* Mobile: Net Worth Hero Card */}
-                <div style={{background:"linear-gradient(135deg, #1E3A5F 0%, #0F172A 100%)",borderRadius:16,padding:"20px 16px",textAlign:"center"}}>
-                  <div style={{fontSize:11,color:"#94A3B8",fontWeight:500,letterSpacing:1,marginBottom:4}}>NET WORTH</div>
-                  <div style={{fontSize:32,fontWeight:800,color:"#F8FAFC",fontFamily:"monospace"}}>{fmt(netWorthConverted, targetCurrency)}</div>
+                <div style={{background:THEME.headerBg,borderRadius:16,padding:"20px 16px",textAlign:"center"}}>
+                  <div style={{fontSize:11,color:"rgba(255,255,255,0.8)",fontWeight:500,letterSpacing:1,marginBottom:4}}>NET WORTH</div>
+                  <div style={{fontSize:32,fontWeight:800,color:"white",fontFamily:"monospace"}}>{fmt(netWorthConverted, targetCurrency)}</div>
                   <div style={{display:"flex",justifyContent:"center",gap:12,marginTop:12}}>
                     {(['INR', 'USD'] as const).map(cur => (
                       <button
                         key={cur}
                         onClick={() => { setDisplayCurrency(cur); persist(deposits, accounts, bills, actions, goals, exchangeRates, cur); }}
                         style={{
-                          background: displayCurrency === cur ? '#1F6FEB' : 'rgba(255,255,255,0.1)',
-                          color: displayCurrency === cur ? '#FFF' : '#94A3B8',
+                          background: displayCurrency === cur ? 'white' : 'rgba(255,255,255,0.2)',
+                          color: displayCurrency === cur ? THEME.accent : 'rgba(255,255,255,0.9)',
                           border: 'none',
                           padding: '8px 16px',
                           borderRadius: 20,
@@ -1396,51 +1437,51 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
 
                 {/* Mobile: Quick Stats - 2x2 Grid with Large Touch Targets */}
                 <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
-                  <div onClick={() => setTab("deposits")} style={{background:"#0D1117",borderRadius:14,padding:"16px",border:"1px solid #1E3A5F",cursor:"pointer",textAlign:"center"}}>
+                  <div onClick={() => setTab("deposits")} style={{background:THEME.cardBg,borderRadius:14,padding:"16px",border:`1px solid ${THEME.border}`,boxShadow:"0 1px 3px rgba(0,0,0,0.08)",cursor:"pointer",textAlign:"center"}}>
                     <div style={{fontSize:28,fontWeight:800,color:"#3B82F6"}}>{deposits.length}</div>
                     <div style={{fontSize:11,color:"#6B7280",fontWeight:600,marginTop:4}}>Fixed Deposits</div>
                     <div style={{fontSize:12,color:"#3B82F6",fontFamily:"monospace",marginTop:6}}>{fmt(totalInvested, targetCurrency)}</div>
                   </div>
-                  <div onClick={() => setTab("accounts")} style={{background:"#0D1117",borderRadius:14,padding:"16px",border:"1px solid #065F46",cursor:"pointer",textAlign:"center"}}>
+                  <div onClick={() => setTab("accounts")} style={{background:THEME.cardBg,borderRadius:14,padding:"16px",border:`1px solid ${THEME.border}`,boxShadow:"0 1px 3px rgba(0,0,0,0.08)",cursor:"pointer",textAlign:"center"}}>
                     <div style={{fontSize:28,fontWeight:800,color:"#10B981"}}>{accounts.length}</div>
                     <div style={{fontSize:11,color:"#6B7280",fontWeight:600,marginTop:4}}>Accounts</div>
                     <div style={{fontSize:12,color:"#10B981",fontFamily:"monospace",marginTop:6}}>{fmt(sumConverted(accounts), targetCurrency)}</div>
                   </div>
-                  <div onClick={() => setTab("bills")} style={{background:"#0D1117",borderRadius:14,padding:"16px",border:`1px solid ${bills.filter(b=>!b.done).length > 0 ? '#92400E' : '#374151'}`,cursor:"pointer",textAlign:"center"}}>
+                  <div onClick={() => setTab("bills")} style={{background:THEME.cardBg,borderRadius:14,padding:"16px",border:`1px solid ${bills.filter(b=>!b.done).length > 0 ? '#92400E' : THEME.border}`,cursor:"pointer",textAlign:"center"}}>
                     <div style={{fontSize:28,fontWeight:800,color:bills.filter(b=>!b.done).length > 0 ? "#F59E0B" : "#6B7280"}}>{bills.filter(b=>!b.done).length}</div>
                     <div style={{fontSize:11,color:"#6B7280",fontWeight:600,marginTop:4}}>Bills Due</div>
                     <div style={{fontSize:12,color:"#F59E0B",fontFamily:"monospace",marginTop:6}}>{fmt(bills.filter(b=>!b.done).reduce((s,b)=>s+(Number(b.amount)||0),0), targetCurrency)}</div>
                   </div>
-                  <div style={{background:"#0D1117",borderRadius:14,padding:"16px",border:`1px solid ${upcoming30Days.length > 0 ? '#7F1D1D' : '#374151'}`,textAlign:"center"}}>
+                  <div style={{background:THEME.cardBg,borderRadius:14,padding:"16px",border:`1px solid ${upcoming30Days.length > 0 ? '#7F1D1D' : THEME.border}`,textAlign:"center"}}>
                     <div style={{fontSize:28,fontWeight:800,color:upcoming30Days.length > 0 ? "#EF4444" : "#6B7280"}}>{upcoming30Days.length}</div>
                     <div style={{fontSize:11,color:"#6B7280",fontWeight:600,marginTop:4}}>Maturing Soon</div>
-                    <div style={{fontSize:10,color:"#9CA3AF",marginTop:6}}>Next 30 days</div>
+                    <div style={{fontSize:10,color:THEME.textLight,marginTop:6}}>Next 30 days</div>
                   </div>
                 </div>
 
                 {/* Mobile: Upcoming Maturities - Swipeable Cards */}
                 {upcoming30Days.length > 0 && (
-                  <div style={{background:"#0D1117",borderRadius:14,padding:"14px",border:"1px solid #7F1D1D"}}>
+                  <div style={{background:THEME.cardBg,borderRadius:14,padding:"14px",border:"1px solid #7F1D1D"}}>
                     <div style={{fontSize:12,fontWeight:700,color:"#EF4444",marginBottom:12,display:"flex",alignItems:"center",gap:6}}>
                       <span>⚡</span> Maturing Soon
                     </div>
                     <div style={{display:"flex",flexDirection:"column",gap:10}}>
                       {upcoming30Days.slice(0, 3).map((d, i) => {
                         return (
-                          <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"12px",background:"#161B22",borderRadius:10,borderLeft:`3px solid ${d.days <= 7 ? '#EF4444' : '#F59E0B'}`}}>
+                          <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"12px",background:THEME.cardBgAlt,borderRadius:10,borderLeft:`3px solid ${d.days <= 7 ? '#EF4444' : '#F59E0B'}`}}>
                             <div>
-                              <div style={{fontSize:13,fontWeight:600,color:"#F0F6FC"}}>{d.bank}</div>
-                              <div style={{fontSize:11,color:"#9CA3AF"}}>{fmtDate(d.date)}</div>
+                              <div style={{fontSize:13,fontWeight:600,color:THEME.text}}>{d.bank}</div>
+                              <div style={{fontSize:11,color:THEME.textLight}}>{fmtDate(d.date)}</div>
                             </div>
                             <div style={{textAlign:"right"}}>
-                              <div style={{fontSize:14,fontWeight:700,fontFamily:"monospace",color:"#3FB950"}}>{fmt(d.amount)}</div>
+                              <div style={{fontSize:14,fontWeight:700,fontFamily:"monospace",color:THEME.accent}}>{fmt(d.amount)}</div>
                               <div style={{fontSize:10,color:d.days <= 7 ? '#EF4444' : '#F59E0B',fontWeight:600}}>{d.days}d left</div>
                             </div>
                           </div>
                         );
                       })}
                       {upcoming30Days.length > 3 && (
-                        <button onClick={() => setTab("deposits")} style={{background:"#21262D",color:"#58A6FF",border:"none",borderRadius:8,padding:"10px",fontSize:12,fontWeight:600}}>
+                        <button onClick={() => setTab("deposits")} style={{background:THEME.cardBgAlt,color:"#2563eb",border:"none",borderRadius:8,padding:"10px",fontSize:12,fontWeight:600}}>
                           View all {upcoming30Days.length} →
                         </button>
                       )}
@@ -1450,19 +1491,19 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
 
                 {/* Mobile: Pending Bills */}
                 {bills.filter(b => !b.done).length > 0 && (
-                  <div style={{background:"#0D1117",borderRadius:14,padding:"14px",border:"1px solid #92400E"}}>
+                  <div style={{background:THEME.cardBg,borderRadius:14,padding:"14px",border:"1px solid #92400E"}}>
                     <div style={{fontSize:12,fontWeight:700,color:"#F59E0B",marginBottom:12,display:"flex",alignItems:"center",gap:6}}>
                       <span>📋</span> Pending Bills
                     </div>
                     <div style={{display:"flex",flexDirection:"column",gap:8}}>
                       {bills.filter(b => !b.done).slice(0, 3).map((b, i) => (
-                        <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 12px",background:"#161B22",borderRadius:10}}>
-                          <div style={{fontSize:13,fontWeight:600,color:"#F0F6FC"}}>{b.name}</div>
+                        <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 12px",background:THEME.cardBgAlt,borderRadius:10}}>
+                          <div style={{fontSize:13,fontWeight:600,color:THEME.text}}>{b.name}</div>
                           <div style={{display:"flex",alignItems:"center",gap:10}}>
                             <span style={{fontSize:13,fontWeight:700,fontFamily:"monospace",color:"#F59E0B"}}>{fmt(b.amount)}</span>
                             <button 
                               onClick={() => toggleDone("bill", bills.indexOf(b))}
-                              style={{background:"#238636",color:"#fff",border:"none",borderRadius:6,padding:"6px 10px",fontSize:11,fontWeight:600}}
+                              style={{background:THEME.accent,color:"#fff",border:"none",borderRadius:6,padding:"6px 10px",fontSize:11,fontWeight:600}}
                             >✓</button>
                           </div>
                         </div>
@@ -1472,8 +1513,8 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                 )}
 
                 {/* Mobile: Portfolio Breakdown */}
-                <div style={{background:"#161B22",borderRadius:14,padding:"14px"}}>
-                  <div style={{fontSize:12,fontWeight:700,color:"#9CA3AF",marginBottom:12}}>Portfolio by Type</div>
+                <div style={{background:THEME.cardBgAlt,borderRadius:14,padding:"14px"}}>
+                  <div style={{fontSize:12,fontWeight:700,color:THEME.textLight,marginBottom:12}}>Portfolio by Type</div>
                   {(() => {
                     const types = ['FD', 'Saving', 'Credit Card', 'Loan', 'Other'];
                     const typeColors: Record<string, string> = { FD: '#3B82F6', Saving: '#10B981', 'Credit Card': '#EF4444', Loan: '#F59E0B', Other: '#8B5CF6' };
@@ -1489,8 +1530,8 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                         {typeAmounts.map(t => (
                           <div key={t.type} style={{display:"flex",alignItems:"center",gap:10}}>
                             <div style={{width:10,height:10,borderRadius:3,background:typeColors[t.type] || '#8B5CF6',flexShrink:0}} />
-                            <div style={{flex:1,fontSize:12,color:"#C9D1D9"}}>{t.type}</div>
-                            <div style={{fontSize:13,fontFamily:"monospace",fontWeight:600,color:t.amount < 0 ? "#EF4444" : "#F0F6FC"}}>{fmt(t.amount, targetCurrency)}</div>
+                            <div style={{flex:1,fontSize:12,color:THEME.text}}>{t.type}</div>
+                            <div style={{fontSize:13,fontFamily:"monospace",fontWeight:600,color:t.amount < 0 ? "#EF4444" : THEME.text}}>{fmt(t.amount, targetCurrency)}</div>
                           </div>
                         ))}
                       </div>
@@ -1502,15 +1543,15 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
             /* ═══ DESKTOP OVERVIEW ═══ */
             <>
             {/* Currency Toggle Bar */}
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",background:"#0D1117",borderRadius:10,padding:"8px 14px",border:"1px solid #1F2937",flexWrap:"wrap",gap:8}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",background:THEME.cardBg,borderRadius:10,padding:"8px 14px",border:`1px solid ${THEME.border}`,flexWrap:"wrap",gap:8}}>
               <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
                 <span style={{fontSize:10,color:"#6B7280",fontWeight:600}}>VIEW:</span>
                 <div style={{display:"flex",gap:4}}>
                   <button
                     onClick={() => { setDisplayCurrency('ORIGINAL'); persist(deposits, accounts, bills, actions, goals, exchangeRates, 'ORIGINAL'); }}
                     style={{
-                      background: displayCurrency === 'ORIGINAL' ? '#1F6FEB' : '#21262D',
-                      color: displayCurrency === 'ORIGINAL' ? '#FFFFFF' : '#8B949E',
+                      background: displayCurrency === 'ORIGINAL' ? THEME.accent : THEME.cardBgAlt,
+                      color: displayCurrency === 'ORIGINAL' ? '#FFFFFF' : THEME.textMuted,
                       border: 'none',
                       padding: '4px 10px',
                       borderRadius: 6,
@@ -1526,8 +1567,8 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                       key={cur}
                       onClick={() => { setDisplayCurrency(cur); persist(deposits, accounts, bills, actions, goals, exchangeRates, cur); }}
                       style={{
-                        background: displayCurrency === cur ? '#1F6FEB' : '#21262D',
-                        color: displayCurrency === cur ? '#FFFFFF' : '#8B949E',
+                        background: displayCurrency === cur ? THEME.accent : THEME.cardBgAlt,
+                        color: displayCurrency === cur ? '#FFFFFF' : THEME.textMuted,
                         border: 'none',
                         padding: '4px 10px',
                         borderRadius: 6,
@@ -1543,7 +1584,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
               </div>
               <button
                 onClick={() => setShowRatesModal(true)}
-                style={{background:"#21262D",color:"#8B949E",border:"none",padding:"4px 10px",borderRadius:6,fontSize:10,fontWeight:600,cursor:"pointer",display:"flex",alignItems:"center",gap:4}}
+                style={{background:THEME.cardBgAlt,color:THEME.textMuted,border:"none",padding:"4px 10px",borderRadius:6,fontSize:10,fontWeight:600,cursor:"pointer",display:"flex",alignItems:"center",gap:4}}
               >
                 ⚙️ Rates
               </button>
@@ -1551,20 +1592,20 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
             
             {/* Quick Stats Row */}
             <div style={{display:"grid",gridTemplateColumns:"repeat(4, 1fr)",gap:8}}>
-              <div style={{background:"#0D1117",borderRadius:10,padding:"10px 8px",textAlign:"center",border:"1px solid #1F2937"}}>
+              <div style={{background:THEME.cardBg,borderRadius:10,padding:"10px 8px",textAlign:"center",border:`1px solid ${THEME.border}`}}>
                 <div style={{fontSize:20,fontWeight:800,color:"#3B82F6"}}>{deposits.length}</div>
                 <div style={{fontSize:9,color:"#6B7280",textTransform:"uppercase",fontWeight:600}}>Deposits</div>
               </div>
-              <div style={{background:"#0D1117",borderRadius:10,padding:"10px 8px",textAlign:"center",border:"1px solid #1F2937"}}>
+              <div style={{background:THEME.cardBg,borderRadius:10,padding:"10px 8px",textAlign:"center",border:`1px solid ${THEME.border}`}}>
                 <div style={{fontSize:20,fontWeight:800,color:"#10B981"}}>{accounts.length}</div>
                 <div style={{fontSize:9,color:"#6B7280",textTransform:"uppercase",fontWeight:600}}>Accounts</div>
               </div>
-              <div style={{background:"#0D1117",borderRadius:10,padding:"10px 8px",textAlign:"center",border:"1px solid #1F2937"}}>
+              <div style={{background:THEME.cardBg,borderRadius:10,padding:"10px 8px",textAlign:"center",border:`1px solid ${THEME.border}`}}>
                 <div style={{fontSize:20,fontWeight:800,color:"#F59E0B"}}>{bills.filter(b=>!b.done).length}</div>
                 <div style={{fontSize:9,color:"#6B7280",textTransform:"uppercase",fontWeight:600}}>Bills Due</div>
               </div>
-              <div style={{background:"#0D1117",borderRadius:10,padding:"10px 8px",textAlign:"center",border:"1px solid #1F2937"}}>
-                <div style={{fontSize:20,fontWeight:800,color:upcoming30Days.length>0?"#EF4444":"#4B5563"}}>{upcoming30Days.length}</div>
+              <div style={{background:THEME.cardBg,borderRadius:10,padding:"10px 8px",textAlign:"center",border:`1px solid ${THEME.border}`}}>
+                <div style={{fontSize:20,fontWeight:800,color:upcoming30Days.length>0?"#EF4444":THEME.textMuted}}>{upcoming30Days.length}</div>
                 <div style={{fontSize:9,color:"#6B7280",textTransform:"uppercase",fontWeight:600}}>Actions</div>
               </div>
             </div>
@@ -1589,7 +1630,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                   {/* Header with Total */}
                   <div style={{padding:"16px 18px",borderBottom:"1px solid #334155",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
                     <div>
-                      <div style={{fontSize:11,color:"#94A3B8",fontWeight:500,letterSpacing:"0.5px"}}>TOTAL PORTFOLIO ({displayCurrency === 'ORIGINAL' ? 'Mixed → INR' : targetCurrency})</div>
+                      <div style={{fontSize:11,color:THEME.textMuted,fontWeight:500,letterSpacing:"0.5px"}}>TOTAL PORTFOLIO ({displayCurrency === 'ORIGINAL' ? 'Mixed → INR' : targetCurrency})</div>
                       <div style={{fontSize:26,fontWeight:800,color:"#F8FAFC",fontFamily:"monospace",marginTop:4}}>{fmt(accountTotal, targetCurrency)}</div>
                     </div>
                     <div style={{textAlign:"right"}}>
@@ -1622,7 +1663,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                       <div key={seg.label} style={{background:"#0F172A",padding:"12px 14px",textAlign:"center"}}>
                         <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:6,marginBottom:6}}>
                           <div style={{width:8,height:8,borderRadius:2,background:seg.color}}/>
-                          <span style={{fontSize:10,color:"#94A3B8",fontWeight:500,textTransform:"uppercase",letterSpacing:"0.3px"}}>{seg.label}</span>
+                          <span style={{fontSize:10,color:THEME.textMuted,fontWeight:500,textTransform:"uppercase",letterSpacing:"0.3px"}}>{seg.label}</span>
                         </div>
                         <div style={{fontSize:16,fontWeight:700,color:"#F8FAFC",fontFamily:"monospace"}}>{fmt(seg.amount, targetCurrency)}</div>
                         <div style={{fontSize:10,color:seg.color,fontWeight:600,marginTop:2}}>{seg.pct.toFixed(1)}%</div>
@@ -1635,7 +1676,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
 
             {/* Next 30 Days - Collapsible */}
             {upcoming30Days.length > 0 && (
-              <div style={{background:"#0D1117",borderRadius:12,border:"1px solid #1F2937",overflow:"hidden"}}>
+              <div style={{background:THEME.cardBg,borderRadius:12,border:`1px solid ${THEME.border}`,overflow:"hidden"}}>
                 <button 
                   onClick={()=>setShow30Days(!show30Days)} 
                   style={{width:"100%",padding:"10px 14px",background:"transparent",border:"none",cursor:"pointer",display:"flex",justifyContent:"space-between",alignItems:"center"}}
@@ -1644,7 +1685,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                     <span style={{fontSize:10,color:"#6B7280",transition:"transform 0.2s",transform:show30Days?"rotate(90deg)":"rotate(0deg)"}}>▶</span>
                     <span style={{fontSize:11,fontWeight:700,color:"#F59E0B",textTransform:"uppercase"}}>⚡ Next 30 Days</span>
                   </div>
-                  <div style={{fontSize:10,color:"#6B7280",background:"#21262D",padding:"2px 8px",borderRadius:10}}>{upcoming30Days.length}</div>
+                  <div style={{fontSize:10,color:"#6B7280",background:THEME.cardBgAlt,padding:"2px 8px",borderRadius:10}}>{upcoming30Days.length}</div>
                 </button>
                 {show30Days && (
                   <div style={{maxHeight:220,overflowY:"auto",borderTop:"1px solid #1F2937"}}>
@@ -1658,7 +1699,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                           {item.type==="maturity"?"💰":item.type==="bill"?"📋":item.type==="account"?"🏦":"⚡"}
                         </div>
                         <div style={{flex:1,minWidth:0}}>
-                          <div style={{fontSize:12,fontWeight:600,color:"#F9FAFB",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{item.title}</div>
+                          <div style={{fontSize:12,fontWeight:600,color:THEME.text,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{item.title}</div>
                           <div style={{fontSize:10,color:"#6B7280"}}>{item.bank}{item.bank && item.amount ? " · " : ""}{item.amount ? fmt(Number(item.amount)) : ""}</div>
                         </div>
                         <div style={{textAlign:"right"}}>
@@ -1674,7 +1715,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                       </div>
                     ))}
                     {upcoming30Days.length > 5 && (
-                      <div style={{padding:"8px 14px",textAlign:"center",fontSize:11,color:"#6B7280",background:"#161B22"}}>
+                      <div style={{padding:"8px 14px",textAlign:"center",fontSize:11,color:"#6B7280",background:THEME.cardBgAlt}}>
                         +{upcoming30Days.length - 5} more actions
                       </div>
                     )}
@@ -1684,7 +1725,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
             )}
             
             {upcoming30Days.length === 0 && (
-              <div style={{background:"#0D1117",borderRadius:12,padding:"16px",textAlign:"center",border:"1px solid #1F2937"}}>
+              <div style={{background:THEME.cardBg,borderRadius:12,padding:"16px",textAlign:"center",border:`1px solid ${THEME.border}`}}>
                 <div style={{fontSize:24,marginBottom:6}}>✅</div>
                 <div style={{fontSize:12,color:"#10B981",fontWeight:600}}>All Clear!</div>
                 <div style={{fontSize:11,color:"#6B7280"}}>No actions needed in the next 30 days</div>
@@ -1694,13 +1735,13 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
             {/* FD Projections - Matching Professional Style */}
             <div style={{background:"linear-gradient(135deg, #0F172A 0%, #1E293B 100%)",borderRadius:16,border:"1px solid #334155",overflow:"hidden"}}>
               <div style={{padding:"12px 18px",borderBottom:"1px solid #334155"}}>
-                <div style={{fontSize:11,color:"#94A3B8",fontWeight:500,letterSpacing:"0.5px"}}>FD PROJECTIONS (1 YEAR) - {displayCurrency === 'ORIGINAL' ? 'Mixed → INR' : targetCurrency}</div>
+                <div style={{fontSize:11,color:THEME.textMuted,fontWeight:500,letterSpacing:"0.5px"}}>FD PROJECTIONS (1 YEAR) - {displayCurrency === 'ORIGINAL' ? 'Mixed → INR' : targetCurrency}</div>
               </div>
               <div style={{display:"grid",gridTemplateColumns:"repeat(3, 1fr)",gap:1,background:"#334155"}}>
                 <div style={{background:"#0F172A",padding:"14px 16px",textAlign:"center"}}>
                   <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:6,marginBottom:6}}>
                     <div style={{width:8,height:8,borderRadius:2,background:"#3B82F6"}}/>
-                    <span style={{fontSize:10,color:"#94A3B8",fontWeight:500,textTransform:"uppercase",letterSpacing:"0.3px"}}>Invested</span>
+                    <span style={{fontSize:10,color:THEME.textMuted,fontWeight:500,textTransform:"uppercase",letterSpacing:"0.3px"}}>Invested</span>
                   </div>
                   <div style={{fontSize:18,fontWeight:700,color:"#F8FAFC",fontFamily:"monospace"}}>{fmt(totalInvested, targetCurrency)}</div>
                   <div style={{fontSize:10,color:"#64748B",marginTop:4}}>{accounts.filter(a=>a.type==="FD").length} FDs</div>
@@ -1708,7 +1749,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                 <div style={{background:"#0F172A",padding:"14px 16px",textAlign:"center"}}>
                   <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:6,marginBottom:6}}>
                     <div style={{width:8,height:8,borderRadius:2,background:"#10B981"}}/>
-                    <span style={{fontSize:10,color:"#94A3B8",fontWeight:500,textTransform:"uppercase",letterSpacing:"0.3px"}}>Maturity</span>
+                    <span style={{fontSize:10,color:THEME.textMuted,fontWeight:500,textTransform:"uppercase",letterSpacing:"0.3px"}}>Maturity</span>
                   </div>
                   <div style={{fontSize:18,fontWeight:700,color:"#F8FAFC",fontFamily:"monospace"}}>{fmt(totalMaturity, targetCurrency)}</div>
                   <div style={{fontSize:10,color:"#64748B",marginTop:4}}>projected value</div>
@@ -1716,7 +1757,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                 <div style={{background:"#0F172A",padding:"14px 16px",textAlign:"center"}}>
                   <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:6,marginBottom:6}}>
                     <div style={{width:8,height:8,borderRadius:2,background:"#F59E0B"}}/>
-                    <span style={{fontSize:10,color:"#94A3B8",fontWeight:500,textTransform:"uppercase",letterSpacing:"0.3px"}}>Est. Gain</span>
+                    <span style={{fontSize:10,color:THEME.textMuted,fontWeight:500,textTransform:"uppercase",letterSpacing:"0.3px"}}>Est. Gain</span>
                   </div>
                   <div style={{fontSize:18,fontWeight:700,color:"#10B981",fontFamily:"monospace"}}>{fmt(totalMaturity-totalInvested, targetCurrency)}</div>
                   <div style={{fontSize:10,color:"#10B981",fontWeight:600,marginTop:4}}>{totalInvested?`+${(((totalMaturity-totalInvested)/totalInvested)*100).toFixed(1)}%`:""}</div>
@@ -1738,16 +1779,16 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
               });
               
               return (
-                <div style={{background:"#0D1117",borderRadius:12,border:"1px solid #1F2937",overflow:"hidden"}}>
+                <div style={{background:THEME.cardBg,borderRadius:12,border:`1px solid ${THEME.border}`,overflow:"hidden"}}>
                   <button 
                     onClick={() => setExpandedBanks(prev => prev.has('_networth') ? new Set([...prev].filter(k => k !== '_networth')) : new Set([...prev, '_networth']))}
                     style={{width:"100%",padding:"10px 14px",background:"transparent",border:"none",cursor:"pointer",display:"flex",justifyContent:"space-between",alignItems:"center"}}
                   >
                     <div style={{display:"flex",alignItems:"center",gap:8}}>
                       <span style={{fontSize:10,color:"#6B7280",transition:"transform 0.2s",transform:expandedBanks.has('_networth')?"rotate(90deg)":"rotate(0deg)"}}>▶</span>
-                      <span style={{fontSize:11,fontWeight:700,color:"#9CA3AF",textTransform:"uppercase"}}>💎 Net Worth ({displayCurrency === 'ORIGINAL' ? 'Mixed → INR' : targetCurrency})</span>
+                      <span style={{fontSize:11,fontWeight:700,color:THEME.textLight,textTransform:"uppercase"}}>💎 Net Worth ({displayCurrency === 'ORIGINAL' ? 'Mixed → INR' : targetCurrency})</span>
                     </div>
-                    <span style={{fontSize:12,color:"#F9FAFB",fontFamily:"monospace",fontWeight:700}}>{fmt(netWorth, targetCurrency)}</span>
+                    <span style={{fontSize:12,color:THEME.text,fontFamily:"monospace",fontWeight:700}}>{fmt(netWorth, targetCurrency)}</span>
                   </button>
                   {expandedBanks.has('_networth') && (
                     <div style={{borderTop:"1px solid #1F2937",padding:14,display:"flex",flexDirection:"column",gap:12}}>
@@ -1771,7 +1812,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                       
                       {/* By Account Type */}
                       <div>
-                        <div style={{fontSize:11,fontWeight:700,color:"#8B949E",marginBottom:8}}>📊 By Account Type</div>
+                        <div style={{fontSize:11,fontWeight:700,color:THEME.textMuted,marginBottom:8}}>📊 By Account Type</div>
                         <div style={{display:"flex",flexDirection:"column",gap:6}}>
                           {Object.entries(byType).sort((a,b) => b[1] - a[1]).map(([type, amt]) => {
                             const isNegative = amt < 0;
@@ -1790,10 +1831,10 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                               <div key={type} style={{display:"flex",alignItems:"center",gap:10}}>
                                 <div style={{flex:1}}>
                                   <div style={{display:"flex",justifyContent:"space-between",marginBottom:3}}>
-                                    <span style={{fontSize:11,color:"#C9D1D9"}}>{type} {isNegative && <span style={{fontSize:9,color:"#EF4444"}}>(Liability)</span>}</span>
-                                    <span style={{fontSize:11,color:isNegative ? "#EF4444" : "#F0F6FC",fontWeight:600,fontFamily:"monospace"}}>{fmt(amt, targetCurrency)}</span>
+                                    <span style={{fontSize:11,color:THEME.text}}>{type} {isNegative && <span style={{fontSize:9,color:"#EF4444"}}>(Liability)</span>}</span>
+                                    <span style={{fontSize:11,color:isNegative ? "#EF4444" : THEME.text,fontWeight:600,fontFamily:"monospace"}}>{fmt(amt, targetCurrency)}</span>
                                   </div>
-                                  <div style={{background:"#21262D",borderRadius:3,height:5,overflow:"hidden"}}>
+                                  <div style={{background:THEME.cardBgAlt,borderRadius:3,height:5,overflow:"hidden"}}>
                                     <div style={{width:`${Math.min(barPct, 100)}%`,height:"100%",background:typeColor,borderRadius:3}}/>
                                   </div>
                                 </div>
@@ -1806,15 +1847,15 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                       
                       {/* Bank Concentration */}
                       <div>
-                        <div style={{fontSize:11,fontWeight:700,color:"#8B949E",marginBottom:8}}>🏦 Bank Concentration</div>
+                        <div style={{fontSize:11,fontWeight:700,color:THEME.textMuted,marginBottom:8}}>🏦 Bank Concentration</div>
                         <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"repeat(4, 1fr)",gap:6}}>
                           {Object.entries(byBank).sort((a,b) => b[1] - a[1]).slice(0, 8).map(([bank, amt]) => {
                             const isNegative = amt < 0;
                             const pctOfNetWorth = netWorth !== 0 ? ((amt / netWorth) * 100) : 0;
                             return (
-                              <div key={bank} style={{background:"#161B22",borderRadius:6,padding:8,borderLeft:`2px solid ${isNegative ? "#EF4444" : getBankColor(bank)}`}}>
-                                <div style={{fontSize:10,color:"#8B949E",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{bank}</div>
-                                <div style={{fontSize:12,fontWeight:700,color:isNegative ? "#EF4444" : "#F0F6FC",fontFamily:"monospace"}}>{fmt(amt, targetCurrency)}</div>
+                              <div key={bank} style={{background:THEME.cardBgAlt,borderRadius:6,padding:8,borderLeft:`2px solid ${isNegative ? "#EF4444" : getBankColor(bank)}`}}>
+                                <div style={{fontSize:10,color:THEME.textMuted,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{bank}</div>
+                                <div style={{fontSize:12,fontWeight:700,color:isNegative ? "#EF4444" : THEME.text,fontFamily:"monospace"}}>{fmt(amt, targetCurrency)}</div>
                                 <div style={{fontSize:9,color:isNegative ? "#EF4444" : getBankColor(bank)}}>{pctOfNetWorth.toFixed(0)}%</div>
                               </div>
                             );
@@ -1836,20 +1877,20 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
         {tab === "charts" && (
           <div style={{display:"flex",flexDirection:"column",gap:20}}>
             {/* ROI Comparison */}
-            <div style={{background:"#1C1C2E",borderRadius:14,padding:22}}>
+            <div style={{background:THEME.cardBgAlt,borderRadius:14,padding:22}}>
               <div style={{fontSize:14,fontWeight:700,color:"#E5E7EB",marginBottom:4}}>📊 ROI Comparison</div>
-              <div style={{fontSize:12,color:"#4B5563",marginBottom:16}}>Average interest rates by bank</div>
+              <div style={{fontSize:12,color:THEME.textMuted,marginBottom:16}}>Average interest rates by bank</div>
               {roiData.length === 0 ? (
-                <div style={{color:"#4B5563",padding:20,textAlign:"center"}}>No data</div>
+                <div style={{color:THEME.textMuted,padding:20,textAlign:"center"}}>No data</div>
               ) : (
                 <ResponsiveContainer width="100%" height={250}>
                   <BarChart data={roiData} barSize={36}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#1F2937" />
-                    <XAxis dataKey="bank" tick={{fill:"#9CA3AF",fontSize:11}} axisLine={false} tickLine={false} />
+                    <XAxis dataKey="bank" tick={{fill:THEME.textLight,fontSize:11}} axisLine={false} tickLine={false} />
                     <YAxis tick={{fill:"#6B7280",fontSize:11}} axisLine={false} tickLine={false} tickFormatter={v => v + "%"} />
                     <Tooltip 
                       formatter={(v: any) => `${v}%`}
-                      contentStyle={{background:"#1C1C2E",border:"1px solid #374151",borderRadius:8,fontSize:12}} 
+                      contentStyle={{background:THEME.cardBgAlt,border:"1px solid ${THEME.border}",borderRadius:8,fontSize:12}} 
                     />
                     <Bar dataKey="roi" name="ROI" radius={[6, 6, 0, 0]}>
                       {roiData.map((e, i) => <Cell key={i} fill={e.color} />)}
@@ -1860,11 +1901,11 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
             </div>
 
             {/* Maturity Cash Flow */}
-            <div style={{background:"#1C1C2E",borderRadius:14,padding:22}}>
+            <div style={{background:THEME.cardBgAlt,borderRadius:14,padding:22}}>
               <div style={{fontSize:14,fontWeight:700,color:"#E5E7EB",marginBottom:4}}>📉 Maturity Cash Flow (Lakhs)</div>
-              <div style={{fontSize:12,color:"#4B5563",marginBottom:16}}>When money becomes available month by month</div>
+              <div style={{fontSize:12,color:THEME.textMuted,marginBottom:16}}>When money becomes available month by month</div>
               {areaData.length === 0 ? (
-                <div style={{color:"#4B5563",padding:20,textAlign:"center"}}>No maturity dates</div>
+                <div style={{color:THEME.textMuted,padding:20,textAlign:"center"}}>No maturity dates</div>
               ) : (
                 <ResponsiveContainer width="100%" height={200}>
                   <AreaChart data={areaData}>
@@ -1875,11 +1916,11 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                       </linearGradient>
                     </defs>
                     <CartesianGrid strokeDasharray="3 3" stroke="#1F2937" />
-                    <XAxis dataKey="month" tick={{fill:"#9CA3AF",fontSize:11}} axisLine={false} tickLine={false} />
+                    <XAxis dataKey="month" tick={{fill:THEME.textLight,fontSize:11}} axisLine={false} tickLine={false} />
                     <YAxis tick={{fill:"#6B7280",fontSize:11}} axisLine={false} tickLine={false} tickFormatter={v => v + "L"} />
                     <Tooltip 
                       formatter={(v: any) => `₹${v}L`}
-                      contentStyle={{background:"#1C1C2E",border:"1px solid #374151",borderRadius:8,fontSize:12}} 
+                      contentStyle={{background:THEME.cardBgAlt,border:"1px solid ${THEME.border}",borderRadius:8,fontSize:12}} 
                     />
                     <Area type="monotone" dataKey="amt" stroke="#10B981" strokeWidth={2} fill="url(#colorAmt)" />
                   </AreaChart>
@@ -1888,22 +1929,22 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
             </div>
 
             {/* Bank Comparison: Invested vs Maturity */}
-            <div style={{background:"#1C1C2E",borderRadius:14,padding:22}}>
+            <div style={{background:THEME.cardBgAlt,borderRadius:14,padding:22}}>
               <div style={{fontSize:14,fontWeight:700,color:"#E5E7EB",marginBottom:4}}>💰 Invested vs Maturity</div>
-              <div style={{fontSize:12,color:"#4B5563",marginBottom:16}}>Compare principal and maturity amounts by bank</div>
+              <div style={{fontSize:12,color:THEME.textMuted,marginBottom:16}}>Compare principal and maturity amounts by bank</div>
               {bankCompareData.length === 0 ? (
-                <div style={{color:"#4B5563",padding:20,textAlign:"center"}}>No data</div>
+                <div style={{color:THEME.textMuted,padding:20,textAlign:"center"}}>No data</div>
               ) : (
                 <ResponsiveContainer width="100%" height={280}>
                   <BarChart data={bankCompareData} barGap={4} barSize={22}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#1F2937" />
-                    <XAxis dataKey="bank" tick={{fill:"#9CA3AF",fontSize:11}} axisLine={false} tickLine={false} />
+                    <XAxis dataKey="bank" tick={{fill:THEME.textLight,fontSize:11}} axisLine={false} tickLine={false} />
                     <YAxis tick={{fill:"#6B7280",fontSize:11}} axisLine={false} tickLine={false} tickFormatter={v => v + "L"} />
                     <Tooltip 
                       formatter={(v: any) => `₹${v}L`}
-                      contentStyle={{background:"#1C1C2E",border:"1px solid #374151",borderRadius:8,fontSize:12}} 
+                      contentStyle={{background:THEME.cardBgAlt,border:"1px solid ${THEME.border}",borderRadius:8,fontSize:12}} 
                     />
-                    <Legend wrapperStyle={{fontSize:12,color:"#9CA3AF"}} />
+                    <Legend wrapperStyle={{fontSize:12,color:THEME.textLight}} />
                     <Bar dataKey="invested" name="Invested" fill="#3B82F6" radius={[4, 4, 0, 0]} opacity={0.7} />
                     <Bar dataKey="maturity" name="At Maturity" fill="#10B981" radius={[4, 4, 0, 0]} />
                   </BarChart>
@@ -1919,54 +1960,54 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
             <div style={{display:"flex",gap:12,alignItems:"center",marginBottom:18,flexWrap:"wrap"}}>
               <div style={{fontSize:14,fontWeight:700,color:"#E5E7EB"}}>📅 Maturity Timeline</div>
               <div style={{marginLeft:"auto",display:"flex",gap:10,alignItems:"center"}}>
-                <label style={{display:"flex",alignItems:"center",gap:6,cursor:"pointer",fontSize:12,color:"#9CA3AF"}}>
+                <label style={{display:"flex",alignItems:"center",gap:6,cursor:"pointer",fontSize:12,color:THEME.textLight}}>
                   <input type="checkbox" checked={showDone} onChange={e => setShowDone(e.target.checked)} style={{accentColor:"#3B82F6"}} />
                   Show completed
                 </label>
               </div>
             </div>
 
-            <div style={{background:"#1C1C2E",borderRadius:16,padding:24,position:"relative"}}>
+            <div style={{background:THEME.cardBgAlt,borderRadius:16,padding:24,position:"relative"}}>
               <div style={{position:"absolute",left:130,top:24,bottom:24,width:2,background:"#1F2937",zIndex:0}} />
-              {sortedDeps.length === 0 && <div style={{textAlign:"center",padding:40,color:"#4B5563"}}>No deposits to show</div>}
+              {sortedDeps.length === 0 && <div style={{textAlign:"center",padding:40,color:THEME.textMuted}}>No deposits to show</div>}
               {sortedDeps.filter(d => showDone || !d.done).map((d, i) => {
                 const origIdx = deposits.indexOf(d);
                 const days = daysUntil(d.maturityDate);
                 const isPast = days !== null && days < 0;
                 const isDone = d.done;
                 const color = getBankColor(d.bank);
-                const dotColor = isDone ? "#34D399" : isPast ? "#374151" : color;
+                const dotColor = isDone ? "#34D399" : isPast ? THEME.border : color;
                 const rowBg = isDone ? "rgba(52,211,153,0.05)" : isPast ? "rgba(55,65,81,0.1)" : days != null && days <= 90 ? "rgba(239,68,68,0.06)" : "transparent";
                 
                 return (
                   <div key={i} style={{display:"flex",gap:16,marginBottom:14,opacity:isDone ? 0.5 : isPast ? 0.45 : 1,position:"relative",zIndex:1,transition:"opacity 0.3s"}}>
                     <div style={{width:116,textAlign:"right",flexShrink:0,paddingTop:10}}>
-                      <div style={{fontSize:12,fontWeight:700,color:isDone ? "#34D399" : isPast ? "#4B5563" : "#9CA3AF"}}>
+                      <div style={{fontSize:12,fontWeight:700,color:isDone ? "#34D399" : isPast ? THEME.textMuted : THEME.textLight}}>
                         {d.maturityDate ? new Date(d.maturityDate).toLocaleDateString("en-IN", { month: "short", year: "numeric" }) : "—"}
                       </div>
-                      <div style={{fontSize:13,fontWeight:800,color:isDone ? "#34D399" : isPast ? "#4B5563" : "#F9FAFB"}}>
+                      <div style={{fontSize:13,fontWeight:800,color:isDone ? "#34D399" : isPast ? THEME.textMuted : "#F9FAFB"}}>
                         {d.maturityDate ? new Date(d.maturityDate).getDate() : ""}
                       </div>
                     </div>
                     <div style={{display:"flex",alignItems:"flex-start",paddingTop:12,flexShrink:0}}>
                       <div style={{width:14,height:14,borderRadius:"50%",background:dotColor,border:`2px solid ${dotColor}`,boxShadow:isDone ? `0 0 10px #34D39960` : isPast ? "none" : `0 0 8px ${color}50`,transition:"all 0.3s"}} />
                     </div>
-                    <div style={{flex:1,background:rowBg,border:`1px solid ${isDone ? "#064E3B" : isPast ? "#1F2937" : days != null && days <= 90 ? "#7F1D1D" : "#1F2937"}`,borderRadius:14,padding:"12px 16px",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:10,transition:"all 0.3s"}}>
+                    <div style={{flex:1,background:rowBg,border:`1px solid ${isDone ? "#dcfce7" : isPast ? "#1F2937" : days != null && days <= 90 ? "#fecaca" : "#1F2937"}`,borderRadius:14,padding:"12px 16px",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:10,transition:"all 0.3s"}}>
                       <div style={{flex:1}}>
                         <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
                           <span style={{fontWeight:800,color:isDone ? "#6EE7B7" : "#F3F4F6",fontSize:14,textDecoration:isDone ? "line-through" : "none"}}>{d.bank}</span>
-                          <span style={{fontSize:11,color:"#6B7280",background:"#0D1117",padding:"2px 8px",borderRadius:20}}>{d.type}</span>
+                          <span style={{fontSize:11,color:"#6B7280",background:THEME.cardBg,padding:"2px 8px",borderRadius:20}}>{d.type}</span>
                           {isDone && <span style={{fontSize:11,color:"#34D399",fontWeight:700}}>✓ Done</span>}
                         </div>
                         <div style={{fontSize:12,color:"#6B7280",marginTop:4}}>{d.nominee} {d.roi ? `· ${(Number(d.roi) * 100).toFixed(2)}% pa` : ""} {d.duration ? `· ${d.duration}` : ""}</div>
-                        {d.maturityAction && <div style={{fontSize:11,color:"#4B5563",marginTop:3,fontStyle:"italic"}}>{d.maturityAction}</div>}
-                        {d.depositId && <div style={{fontSize:10,color:"#374151",marginTop:2,fontFamily:"monospace"}}>{d.depositId}</div>}
+                        {d.maturityAction && <div style={{fontSize:11,color:THEME.textMuted,marginTop:3,fontStyle:"italic"}}>{d.maturityAction}</div>}
+                        {d.depositId && <div style={{fontSize:10,color:THEME.border,marginTop:2,fontFamily:"monospace"}}>{d.depositId}</div>}
                       </div>
                       <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:6}}>
                         <div style={{fontFamily:"monospace",fontWeight:800,fontSize:15,color:isDone ? "#6B7280" : isPast ? "#6B7280" : "#10B981"}}>{fmt(d.maturityAmt || d.deposit)}</div>
                         {!isDone && <UrgencyBadge days={days} />}
                         <div style={{display:"flex",gap:6}}>
-                          <button onClick={() => toggleDone("deposit", origIdx)} style={{background:isDone ? "#064E3B" : "#1C1C2E",color:isDone ? "#34D399" : "#9CA3AF",border:`1px solid ${isDone ? "#065F46" : "#374151"}`,borderRadius:7,padding:"3px 10px",fontSize:11,cursor:"pointer",fontFamily:"inherit",fontWeight:700}}>{isDone ? "↩ Undo" : "✓ Done"}</button>
+                          <button onClick={() => toggleDone("deposit", origIdx)} style={{background:isDone ? "#dcfce7" : THEME.cardBgAlt,color:isDone ? "#34D399" : THEME.textLight,border:`1px solid ${isDone ? "#16a34a" : THEME.border}`,borderRadius:7,padding:"3px 10px",fontSize:11,cursor:"pointer",fontFamily:"inherit",fontWeight:700}}>{isDone ? "↩ Undo" : "✓ Done"}</button>
                           <button onClick={() => openEdit("deposit", origIdx)} style={{background:"#1D4ED820",color:"#60A5FA",border:"1px solid #1D4ED840",borderRadius:7,padding:"3px 8px",fontSize:11,cursor:"pointer",fontFamily:"inherit"}}>✏️</button>
                         </div>
                       </div>
@@ -1984,10 +2025,10 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:18,flexWrap:"wrap",gap:10}}>
               <div>
                 <div style={{fontSize:14,fontWeight:700,color:"#E5E7EB"}}>⚡ Action Items</div>
-                <div style={{fontSize:12,color:"#4B5563",marginTop:2}}>Track renewals, visits, calls</div>
+                <div style={{fontSize:12,color:THEME.textMuted,marginTop:2}}>Track renewals, visits, calls</div>
               </div>
               <div style={{display:"flex",gap:10}}>
-                <label style={{display:"flex",alignItems:"center",gap:6,cursor:"pointer",fontSize:12,color:"#9CA3AF"}}>
+                <label style={{display:"flex",alignItems:"center",gap:6,cursor:"pointer",fontSize:12,color:THEME.textLight}}>
                   <input type="checkbox" checked={showDone} onChange={e => setShowDone(e.target.checked)} style={{accentColor:"#3B82F6"}} />
                   Show completed
                 </label>
@@ -1996,7 +2037,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
             </div>
 
             {actions.filter(a => showDone || !a.done).length === 0 ? (
-              <div style={{background:"#1C1C2E",borderRadius:12,padding:32,textAlign:"center",color:"#4B5563",border:"1px dashed #374151"}}>
+              <div style={{background:THEME.cardBgAlt,borderRadius:12,padding:32,textAlign:"center",color:THEME.textMuted,border:"1px dashed ${THEME.border}"}}>
                 No action items yet. Click "+ Add Action" to create one.
               </div>
             ) : (
@@ -2005,15 +2046,15 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                   const origIdx = actions.indexOf(a);
                   const days = daysUntil(a.date);
                   return (
-                    <div key={i} style={{background:"#1C1C2E",border:"1px solid #374151",borderRadius:12,padding:"14px 16px",opacity:a.done ? 0.6 : 1}}>
+                    <div key={i} style={{background:THEME.cardBgAlt,border:"1px solid ${THEME.border}",borderRadius:12,padding:"14px 16px",opacity:a.done ? 0.6 : 1}}>
                       <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:8}}>
                         <div style={{fontWeight:700,color:a.done ? "#6B7280" : "#F3F4F6",fontSize:14,textDecoration:a.done ? "line-through" : "none",flex:1}}>{a.title}</div>
-                        <button onClick={() => toggleDone("action", origIdx)} style={{background:a.done ? "#064E3B" : "#1C1C2E",color:a.done ? "#34D399" : "#6B7280",border:`1px solid ${a.done ? "#065F46" : "#374151"}`,borderRadius:6,padding:"2px 8px",fontSize:10,cursor:"pointer",fontWeight:700}}>{a.done ? "↩" : "✓"}</button>
+                        <button onClick={() => toggleDone("action", origIdx)} style={{background:a.done ? "#dcfce7" : THEME.cardBgAlt,color:a.done ? "#34D399" : "#6B7280",border:`1px solid ${a.done ? "#16a34a" : THEME.border}`,borderRadius:6,padding:"2px 8px",fontSize:10,cursor:"pointer",fontWeight:700}}>{a.done ? "↩" : "✓"}</button>
                       </div>
                       {a.bank && <div style={{fontSize:12,color:getBankColor(a.bank),fontWeight:600,marginBottom:4}}>🏦 {a.bank}</div>}
-                      {a.note && <div style={{fontSize:12,color:"#9CA3AF",marginBottom:6}}>{a.note}</div>}
+                      {a.note && <div style={{fontSize:12,color:THEME.textLight,marginBottom:6}}>{a.note}</div>}
                       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:8}}>
-                        {a.date && <div style={{fontSize:12,color:"#9CA3AF"}}>{fmtDate(a.date)}</div>}
+                        {a.date && <div style={{fontSize:12,color:THEME.textLight}}>{fmtDate(a.date)}</div>}
                         {days != null && !a.done && <UrgencyBadge days={days} />}
                         <div style={{display:"flex",gap:6,marginLeft:"auto"}}>
                           <button onClick={() => openEdit("action", origIdx)} style={{background:"#1D4ED820",color:"#60A5FA",border:"1px solid #1D4ED840",borderRadius:7,padding:"3px 8px",fontSize:11,cursor:"pointer"}}>✏️</button>
@@ -2062,12 +2103,12 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                   {/* Mobile: Summary Header */}
                   <div style={{background:"linear-gradient(135deg, #1E3A5F 0%, #0F172A 100%)",borderRadius:14,padding:"16px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
                     <div>
-                      <div style={{fontSize:10,color:"#94A3B8",fontWeight:500}}>TOTAL INVESTED</div>
+                      <div style={{fontSize:10,color:THEME.textMuted,fontWeight:500}}>TOTAL INVESTED</div>
                       <div style={{fontSize:22,fontWeight:800,color:"#F8FAFC",fontFamily:"monospace"}}>{fmt(filtered.reduce((s, d) => s + (Number(d.deposit) || 0), 0))}</div>
                     </div>
                     <div style={{textAlign:"right"}}>
-                      <div style={{fontSize:10,color:"#94A3B8",fontWeight:500}}>MATURITY</div>
-                      <div style={{fontSize:22,fontWeight:800,color:"#3FB950",fontFamily:"monospace"}}>{fmt(filtered.reduce((s, d) => s + (Number(d.maturityAmt) || Number(d.deposit) || 0), 0))}</div>
+                      <div style={{fontSize:10,color:THEME.textMuted,fontWeight:500}}>MATURITY</div>
+                      <div style={{fontSize:22,fontWeight:800,color:THEME.accent,fontFamily:"monospace"}}>{fmt(filtered.reduce((s, d) => s + (Number(d.maturityAmt) || Number(d.deposit) || 0), 0))}</div>
                     </div>
                   </div>
                   
@@ -2076,9 +2117,9 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                   
                   {/* Mobile: Bank Filter Pills */}
                   <div style={{display:"flex",gap:6,overflowX:"auto",paddingBottom:4,WebkitOverflowScrolling:"touch"}}>
-                    <button onClick={() => setFilterBank("All")} style={{background:filterBank === "All" ? "#3B82F6" : "#21262D",color:filterBank === "All" ? "#FFF" : "#8B949E",border:"none",borderRadius:20,padding:"8px 14px",fontSize:12,fontWeight:600,flexShrink:0}}>All ({deposits.length})</button>
+                    <button onClick={() => setFilterBank("All")} style={{background:filterBank === "All" ? "#3B82F6" : THEME.cardBgAlt,color:filterBank === "All" ? "#FFF" : THEME.textMuted,border:"none",borderRadius:20,padding:"8px 14px",fontSize:12,fontWeight:600,flexShrink:0}}>All ({deposits.length})</button>
                     {depBankNames.map(b => (
-                      <button key={b} onClick={() => setFilterBank(b)} style={{background:filterBank === b ? getBankColor(b) : "#21262D",color:filterBank === b ? "#FFF" : "#8B949E",border:"none",borderRadius:20,padding:"8px 14px",fontSize:12,fontWeight:600,flexShrink:0,display:"flex",alignItems:"center",gap:4}}>
+                      <button key={b} onClick={() => setFilterBank(b)} style={{background:filterBank === b ? getBankColor(b) : THEME.cardBgAlt,color:filterBank === b ? "#FFF" : THEME.textMuted,border:"none",borderRadius:20,padding:"8px 14px",fontSize:12,fontWeight:600,flexShrink:0,display:"flex",alignItems:"center",gap:4}}>
                         <div style={{width:8,height:8,borderRadius:"50%",background:getBankColor(b)}} />
                         {b} ({groupedDeps[b]?.deps.length || 0})
                       </button>
@@ -2099,7 +2140,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                           <div 
                             key={idx} 
                             style={{
-                              background:"#161B22",
+                              background:THEME.cardBgAlt,
                               borderRadius:14,
                               borderLeft:`4px solid ${color}`,
                               padding:"14px",
@@ -2108,13 +2149,13 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                           >
                             <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:10}}>
                               <div>
-                                <div style={{fontSize:15,fontWeight:700,color:"#F0F6FC"}}>{d.bank}</div>
+                                <div style={{fontSize:15,fontWeight:700,color:THEME.text}}>{d.bank}</div>
                                 <div style={{fontSize:11,color:"#6B7280",marginTop:2}}>{d.type || "FD"} {d.depositId && `• ${d.depositId}`}</div>
                               </div>
                               {days !== null && !d.done && (
                                 <div style={{
-                                  background: urgency === "urgent" ? "#7F1D1D" : urgency === "soon" ? "#92400E" : urgency === "expired" ? "#374151" : "#0D1117",
-                                  color: urgency === "urgent" ? "#FCA5A5" : urgency === "soon" ? "#FCD34D" : urgency === "expired" ? "#9CA3AF" : "#6B7280",
+                                  background: urgency === "urgent" ? "#fef2f2" : urgency === "soon" ? "#fef9c3" : urgency === "expired" ? "#f3f4f6" : THEME.cardBgAlt,
+                                  color: urgency === "urgent" ? "#dc2626" : urgency === "soon" ? "#ca8a04" : urgency === "expired" ? THEME.textLight : THEME.textMuted,
                                   padding:"4px 10px",
                                   borderRadius:20,
                                   fontSize:11,
@@ -2129,21 +2170,21 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                             <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-end"}}>
                               <div>
                                 <div style={{fontSize:11,color:"#6B7280"}}>Invested</div>
-                                <div style={{fontSize:18,fontWeight:700,fontFamily:"monospace",color:"#F0F6FC"}}>{fmt(d.deposit)}</div>
-                                {d.roi && <div style={{fontSize:11,color:"#3FB950",marginTop:2}}>{(Number(d.roi) * 100).toFixed(2)}% pa</div>}
+                                <div style={{fontSize:18,fontWeight:700,fontFamily:"monospace",color:THEME.text}}>{fmt(d.deposit)}</div>
+                                {d.roi && <div style={{fontSize:11,color:THEME.accent,marginTop:2}}>{(Number(d.roi) * 100).toFixed(2)}% pa</div>}
                               </div>
                               <div style={{textAlign:"right"}}>
                                 <div style={{fontSize:11,color:"#6B7280"}}>Maturity</div>
-                                <div style={{fontSize:18,fontWeight:700,fontFamily:"monospace",color:"#3FB950"}}>{fmt(d.maturityAmt || d.deposit)}</div>
-                                <div style={{fontSize:10,color:"#9CA3AF",marginTop:2}}>{fmtDate(d.maturityDate)}</div>
+                                <div style={{fontSize:18,fontWeight:700,fontFamily:"monospace",color:THEME.accent}}>{fmt(d.maturityAmt || d.deposit)}</div>
+                                <div style={{fontSize:10,color:THEME.textLight,marginTop:2}}>{fmtDate(d.maturityDate)}</div>
                               </div>
                             </div>
                             
                             {/* Mobile: Action Buttons */}
-                            <div style={{display:"flex",gap:8,marginTop:12,paddingTop:12,borderTop:"1px solid #21262D"}}>
+                            <div style={{display:"flex",gap:8,marginTop:12,paddingTop:12,borderTop:`1px solid ${THEME.border}`}}>
                               <button 
                                 onClick={() => toggleDone("deposit", origIdx)} 
-                                style={{flex:1,background:d.done ? "#064E3B" : "#21262D",color:d.done ? "#34D399" : "#9CA3AF",border:"none",borderRadius:8,padding:"10px",fontSize:12,fontWeight:600}}
+                                style={{flex:1,background:d.done ? "#dcfce7" : THEME.cardBgAlt,color:d.done ? "#34D399" : THEME.textLight,border:"none",borderRadius:8,padding:"10px",fontSize:12,fontWeight:600}}
                               >
                                 {d.done ? "↩ Undo" : "✓ Mark Done"}
                               </button>
@@ -2166,10 +2207,10 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
               /* ═══ DESKTOP DEPOSITS VIEW ═══ */
               <>
               {/* Search & Filter - Sticky on scroll */}
-              <div style={{position:"sticky",top:0,zIndex:10,background:"#0D1117",padding:"12px 0",marginBottom:8}}>
+              <div style={{position:"sticky",top:0,zIndex:10,background:THEME.cardBg,padding:"12px 0",marginBottom:8}}>
                 <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
                   {/* View Mode Toggle */}
-                  <div style={{display:"flex",gap:1,background:"#0D1117",borderRadius:6,padding:2,border:"1px solid #30363D"}}>
+                  <div style={{display:"flex",gap:1,background:THEME.cardBg,borderRadius:6,padding:2,border:`1px solid ${THEME.border}`}}>
                     <button
                       onClick={() => setDepositsViewMode('cards')}
                       style={{background:depositsViewMode === 'cards' ? '#238636' : 'transparent',color:depositsViewMode === 'cards' ? '#FFF' : '#6B7280',border:'none',padding:'4px 10px',borderRadius:4,fontSize:10,fontWeight:600,cursor:'pointer'}}
@@ -2194,9 +2235,9 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                   </div>
                   <input placeholder="🔍 Search..." value={search} onChange={e => setSearch(e.target.value)} style={{...inputSt,flex:isMobile?1:"none",width:isMobile?"auto":180,minWidth:120}} />
                   <div style={{display:"flex",gap:4,flexWrap:"wrap",flex:isMobile?undefined:1}}>
-                    <button onClick={() => setFilterBank("All")} style={{background:filterBank === "All" ? "#3B82F6" : "#21262D",color:filterBank === "All" ? "#FFF" : "#8B949E",border:"none",borderRadius:16,padding:"5px 10px",fontSize:10,fontWeight:600,cursor:"pointer"}}>All</button>
+                    <button onClick={() => setFilterBank("All")} style={{background:filterBank === "All" ? "#3B82F6" : THEME.cardBgAlt,color:filterBank === "All" ? "#FFF" : THEME.textMuted,border:"none",borderRadius:16,padding:"5px 10px",fontSize:10,fontWeight:600,cursor:"pointer"}}>All</button>
                     {banks.map(b => (
-                      <button key={b} onClick={() => setFilterBank(b)} style={{background:filterBank === b ? getBankColor(b) : "#21262D",color:filterBank === b ? "#FFF" : "#8B949E",border:"none",borderRadius:16,padding:"5px 10px",fontSize:10,fontWeight:600,cursor:"pointer"}}>{b}</button>
+                      <button key={b} onClick={() => setFilterBank(b)} style={{background:filterBank === b ? getBankColor(b) : THEME.cardBgAlt,color:filterBank === b ? "#FFF" : THEME.textMuted,border:"none",borderRadius:16,padding:"5px 10px",fontSize:10,fontWeight:600,cursor:"pointer"}}>{b}</button>
                     ))}
                   </div>
                   <button 
@@ -2204,27 +2245,27 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                       const allKeys = depBankNames.map(b => `dep_${b}`);
                       setExpandedBanks(prev => allExpanded ? new Set([...prev].filter(k => !k.startsWith('dep_'))) : new Set([...prev, ...allKeys]));
                     }}
-                    style={{background:"#21262D",color:"#8B949E",border:"1px solid #30363D",borderRadius:6,padding:"5px 10px",fontSize:10,fontWeight:600,cursor:"pointer"}}
+                    style={{background:THEME.cardBgAlt,color:THEME.textMuted,border:`1px solid ${THEME.border}`,borderRadius:6,padding:"5px 10px",fontSize:10,fontWeight:600,cursor:"pointer"}}
                   >
                     {allExpanded ? "Collapse" : "Expand"}
                   </button>
-                  {!isMobile && <button onClick={() => openAdd("deposit")} style={{marginLeft:"auto",background:"#238636",color:"#fff",border:"none",borderRadius:6,padding:"6px 14px",fontSize:11,fontWeight:600,cursor:"pointer"}}>+ Add</button>}
+                  {!isMobile && <button onClick={() => openAdd("deposit")} style={{marginLeft:"auto",background:THEME.accent,color:"#fff",border:"none",borderRadius:6,padding:"6px 14px",fontSize:11,fontWeight:600,cursor:"pointer"}}>+ Add</button>}
                 </div>
               </div>
 
               {/* ═══ GROUPED GRID VIEW - By Bank ═══ */}
               {depositsViewMode === 'grouped' && (
-              <div style={{background:"#161B22",borderRadius:12,overflow:"hidden",border:"1px solid #30363D"}}>
-                <div style={{overflowX:"auto",scrollbarWidth:"thin",scrollbarColor:"#30363D #161B22"}}>
+              <div style={{background:THEME.cardBgAlt,borderRadius:12,overflow:"hidden",border:`1px solid ${THEME.border}`}}>
+                <div style={{overflowX:"auto",scrollbarWidth:"thin",scrollbarColor:`${THEME.border} ${THEME.bg}`}}>
                   <table style={{width:"100%",borderCollapse:"collapse",fontSize:11}}>
-                    <thead><tr style={{background:"#0D1117",borderBottom:"1px solid #21262D"}}>
+                    <thead><tr style={{background:THEME.cardBg,borderBottom:`1px solid ${THEME.border}`}}>
                       {["Bank/ID","Type","Nominee","Invested","ROI","Maturity ₹","Start","Maturity","Duration","Action",""].map(h => (
-                        <th key={h} style={{padding:"8px 10px",textAlign:"left",color:"#8B949E",fontWeight:600,fontSize:10,whiteSpace:"nowrap"}}>{h}</th>
+                        <th key={h} style={{padding:"8px 10px",textAlign:"left",color:THEME.textMuted,fontWeight:600,fontSize:10,whiteSpace:"nowrap"}}>{h}</th>
                       ))}
                     </tr></thead>
                     <tbody>
                       {filtered.length === 0 ? (
-                        <tr><td colSpan={11} style={{padding:32,textAlign:"center",color:"#8B949E"}}>No deposits found</td></tr>
+                        <tr><td colSpan={11} style={{padding:32,textAlign:"center",color:THEME.textMuted}}>No deposits found</td></tr>
                       ) : (
                         depBankNames.map(bankName => {
                           const { deps: bankDeps, indices } = groupedDeps[bankName];
@@ -2243,39 +2284,39 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                               {/* Bank Header Row - Clickable - Shows details if single row or common fields */}
                               <tr 
                                 onClick={() => toggleDepBank(bankName)}
-                                style={{background:`${color}15`,cursor:"pointer",borderBottom:"1px solid #21262D"}}
+                                style={{background:`${color}15`,cursor:"pointer",borderBottom:`1px solid ${THEME.border}`}}
                               >
                                 <td style={{padding:"8px 10px"}}>
                                   <div style={{display:"flex",alignItems:"center",gap:8}}>
                                     <span style={{fontSize:10,color:"#6B7280",transition:"transform 0.2s",transform:isExpanded?"rotate(90deg)":"rotate(0deg)"}}>▶</span>
                                     <div style={{width:10,height:10,borderRadius:"50%",background:color}} />
-                                    <span style={{fontWeight:700,color:"#F0F6FC",fontSize:12}}>{bankName}</span>
+                                    <span style={{fontWeight:700,color:THEME.text,fontSize:12}}>{bankName}</span>
                                     <span style={{color:"#6B7280",fontSize:10}}>({bankDeps.length} FD{bankDeps.length > 1 ? "s" : ""})</span>
                                   </div>
                                   {isSingleRow && singleDep?.depositId && <div style={{fontSize:9,color:"#484F58",fontFamily:"monospace",marginLeft:30}}>{singleDep.depositId}</div>}
                                 </td>
-                                <td style={{padding:"8px 10px",color:"#9CA3AF",fontSize:10}}>{isSingleRow ? (singleDep?.type || "FD") : (commonType || "—")}</td>
-                                <td style={{padding:"8px 10px",color:"#C9D1D9",fontSize:10}}>{isSingleRow ? (singleDep?.nominee || "—") : (commonNominee || (bankDeps.length > 1 ? "Various" : "—"))}</td>
-                                <td style={{padding:"8px 10px",fontFamily:"monospace",fontWeight:700,color:"#F0F6FC",fontSize:11}}>{fmt(totalDeposited)}</td>
-                                <td style={{padding:"8px 10px",fontFamily:"monospace",color:"#3FB950",fontWeight:600,fontSize:10}}>{isSingleRow && singleDep?.roi ? (Number(singleDep.roi) * 100).toFixed(2) + "%" : "—"}</td>
-                                <td style={{padding:"8px 10px",fontFamily:"monospace",fontWeight:700,color:"#3FB950",fontSize:11}}>{fmt(totalMaturityAmt)}</td>
-                                <td style={{padding:"8px 10px",color:"#9CA3AF",whiteSpace:"nowrap",fontSize:10}}>{isSingleRow ? fmtDate(singleDep?.startDate) : "—"}</td>
+                                <td style={{padding:"8px 10px",color:THEME.textLight,fontSize:10}}>{isSingleRow ? (singleDep?.type || "FD") : (commonType || "—")}</td>
+                                <td style={{padding:"8px 10px",color:THEME.text,fontSize:10}}>{isSingleRow ? (singleDep?.nominee || "—") : (commonNominee || (bankDeps.length > 1 ? "Various" : "—"))}</td>
+                                <td style={{padding:"8px 10px",fontFamily:"monospace",fontWeight:700,color:THEME.text,fontSize:11}}>{fmt(totalDeposited)}</td>
+                                <td style={{padding:"8px 10px",fontFamily:"monospace",color:THEME.accent,fontWeight:600,fontSize:10}}>{isSingleRow && singleDep?.roi ? (Number(singleDep.roi) * 100).toFixed(2) + "%" : "—"}</td>
+                                <td style={{padding:"8px 10px",fontFamily:"monospace",fontWeight:700,color:THEME.accent,fontSize:11}}>{fmt(totalMaturityAmt)}</td>
+                                <td style={{padding:"8px 10px",color:THEME.textLight,whiteSpace:"nowrap",fontSize:10}}>{isSingleRow ? fmtDate(singleDep?.startDate) : "—"}</td>
                                 <td style={{padding:"8px 10px",whiteSpace:"nowrap"}}>
                                   {isSingleRow ? (
                                     <div style={{display:"flex",alignItems:"center",gap:4}}>
-                                      <span style={{color:"#C9D1D9",fontSize:10}}>{fmtDate(singleDep?.maturityDate)}</span>
+                                      <span style={{color:THEME.text,fontSize:10}}>{fmtDate(singleDep?.maturityDate)}</span>
                                       <UrgencyBadge days={daysUntil(singleDep?.maturityDate)} />
                                     </div>
                                   ) : "—"}
                                 </td>
                                 <td style={{padding:"8px 10px",color:"#6B7280",fontSize:9}}>{isSingleRow ? (singleDep?.duration || "—") : "—"}</td>
-                                <td style={{padding:"8px 10px",color:"#9CA3AF",fontSize:9,maxWidth:80,overflow:"hidden",textOverflow:"ellipsis"}}>{isSingleRow ? (singleDep?.maturityAction || "—") : "—"}</td>
+                                <td style={{padding:"8px 10px",color:THEME.textLight,fontSize:9,maxWidth:80,overflow:"hidden",textOverflow:"ellipsis"}}>{isSingleRow ? (singleDep?.maturityAction || "—") : "—"}</td>
                                 <td style={{padding:"8px 10px",whiteSpace:"nowrap"}}>
                                   {isSingleRow && (
                                     <>
-                                      <button onClick={(e) => { e.stopPropagation(); toggleDone("deposit", indices[0]); }} style={{background:singleDep?.done ? "#238636" : "#21262D",color:singleDep?.done ? "#fff" : "#8B949E",border:"none",borderRadius:4,padding:"2px 6px",fontSize:9,cursor:"pointer",marginRight:3,fontWeight:600}}>{singleDep?.done ? "↩" : "✓"}</button>
-                                      <button onClick={(e) => { e.stopPropagation(); openEdit("deposit", indices[0]); }} style={{background:"#21262D",color:"#58A6FF",border:"none",borderRadius:4,padding:"2px 6px",fontSize:9,cursor:"pointer",marginRight:3}}>✏️</button>
-                                      <button onClick={(e) => { e.stopPropagation(); deleteRow("deposit", indices[0]); }} style={{background:"#21262D",color:"#F85149",border:"none",borderRadius:4,padding:"2px 6px",fontSize:9,cursor:"pointer"}}>🗑</button>
+                                      <button onClick={(e) => { e.stopPropagation(); toggleDone("deposit", indices[0]); }} style={{background:singleDep?.done ? "#238636" : THEME.cardBgAlt,color:singleDep?.done ? "#fff" : THEME.textMuted,border:"none",borderRadius:4,padding:"2px 6px",fontSize:9,cursor:"pointer",marginRight:3,fontWeight:600}}>{singleDep?.done ? "↩" : "✓"}</button>
+                                      <button onClick={(e) => { e.stopPropagation(); openEdit("deposit", indices[0]); }} style={{background:THEME.cardBgAlt,color:"#2563eb",border:"none",borderRadius:4,padding:"2px 6px",fontSize:9,cursor:"pointer",marginRight:3}}>✏️</button>
+                                      <button onClick={(e) => { e.stopPropagation(); deleteRow("deposit", indices[0]); }} style={{background:THEME.cardBgAlt,color:"#F85149",border:"none",borderRadius:4,padding:"2px 6px",fontSize:9,cursor:"pointer"}}>🗑</button>
                                     </>
                                   )}
                                 </td>
@@ -2286,28 +2327,28 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                                 const origIdx = indices[j];
                                 const days = daysUntil(d.maturityDate);
                                 return (
-                                  <tr key={`${bankName}-${j}`} style={{borderBottom:"1px solid #21262D",background:d.done ? "rgba(46,160,67,0.05)" : days != null && days < 0 ? "rgba(110,118,129,0.1)" : days != null && days <= 90 ? "rgba(248,81,73,0.05)" : "transparent",opacity:d.done ? 0.6 : 1}}>
+                                  <tr key={`${bankName}-${j}`} style={{borderBottom:`1px solid ${THEME.border}`,background:d.done ? "rgba(46,160,67,0.05)" : days != null && days < 0 ? "rgba(110,118,129,0.1)" : days != null && days <= 90 ? "rgba(248,81,73,0.05)" : "transparent",opacity:d.done ? 0.6 : 1}}>
                                     <td style={{padding:"8px 10px",paddingLeft:32}}>
                                       <div style={{fontSize:9,color:"#484F58",fontFamily:"monospace"}}>{d.depositId || "—"}</div>
                                     </td>
-                                    <td style={{padding:"8px 10px",color:"#9CA3AF",fontSize:10}}>{d.type || "FD"}</td>
-                                    <td style={{padding:"8px 10px",color:"#C9D1D9",fontSize:10}}>{d.nominee || "—"}</td>
-                                    <td style={{padding:"8px 10px",fontFamily:"monospace",fontWeight:600,color:"#F0F6FC",fontSize:11}}>{fmt(d.deposit)}</td>
-                                    <td style={{padding:"8px 10px",fontFamily:"monospace",color:"#3FB950",fontWeight:600,fontSize:10}}>{d.roi ? (Number(d.roi) * 100).toFixed(2) + "%" : "—"}</td>
-                                    <td style={{padding:"8px 10px",fontFamily:"monospace",fontWeight:600,color:"#3FB950",fontSize:11}}>{fmt(d.maturityAmt || d.deposit)}</td>
-                                    <td style={{padding:"8px 10px",color:"#9CA3AF",whiteSpace:"nowrap",fontSize:10}}>{fmtDate(d.startDate)}</td>
+                                    <td style={{padding:"8px 10px",color:THEME.textLight,fontSize:10}}>{d.type || "FD"}</td>
+                                    <td style={{padding:"8px 10px",color:THEME.text,fontSize:10}}>{d.nominee || "—"}</td>
+                                    <td style={{padding:"8px 10px",fontFamily:"monospace",fontWeight:600,color:THEME.text,fontSize:11}}>{fmt(d.deposit)}</td>
+                                    <td style={{padding:"8px 10px",fontFamily:"monospace",color:THEME.accent,fontWeight:600,fontSize:10}}>{d.roi ? (Number(d.roi) * 100).toFixed(2) + "%" : "—"}</td>
+                                    <td style={{padding:"8px 10px",fontFamily:"monospace",fontWeight:600,color:THEME.accent,fontSize:11}}>{fmt(d.maturityAmt || d.deposit)}</td>
+                                    <td style={{padding:"8px 10px",color:THEME.textLight,whiteSpace:"nowrap",fontSize:10}}>{fmtDate(d.startDate)}</td>
                                     <td style={{padding:"8px 10px",whiteSpace:"nowrap"}}>
                                       <div style={{display:"flex",alignItems:"center",gap:4}}>
-                                        <span style={{color:"#C9D1D9",fontSize:10}}>{fmtDate(d.maturityDate)}</span>
+                                        <span style={{color:THEME.text,fontSize:10}}>{fmtDate(d.maturityDate)}</span>
                                         <UrgencyBadge days={days} />
                                       </div>
                                     </td>
                                     <td style={{padding:"8px 10px",color:"#6B7280",fontSize:9}}>{d.duration || "—"}</td>
-                                    <td style={{padding:"8px 10px",color:"#9CA3AF",fontSize:9,maxWidth:80,overflow:"hidden",textOverflow:"ellipsis"}} title={d.maturityAction}>{d.maturityAction || "—"}</td>
+                                    <td style={{padding:"8px 10px",color:THEME.textLight,fontSize:9,maxWidth:80,overflow:"hidden",textOverflow:"ellipsis"}} title={d.maturityAction}>{d.maturityAction || "—"}</td>
                                     <td style={{padding:"8px 10px",whiteSpace:"nowrap"}}>
-                                      <button onClick={() => toggleDone("deposit", origIdx)} style={{background:d.done ? "#238636" : "#21262D",color:d.done ? "#fff" : "#8B949E",border:"none",borderRadius:4,padding:"2px 6px",fontSize:9,cursor:"pointer",marginRight:3,fontWeight:600}}>{d.done ? "↩" : "✓"}</button>
-                                      <button onClick={() => openEdit("deposit", origIdx)} style={{background:"#21262D",color:"#58A6FF",border:"none",borderRadius:4,padding:"2px 6px",fontSize:9,cursor:"pointer",marginRight:3}}>✏️</button>
-                                      <button onClick={() => deleteRow("deposit", origIdx)} style={{background:"#21262D",color:"#F85149",border:"none",borderRadius:4,padding:"2px 6px",fontSize:9,cursor:"pointer"}}>🗑</button>
+                                      <button onClick={() => toggleDone("deposit", origIdx)} style={{background:d.done ? "#238636" : THEME.cardBgAlt,color:d.done ? "#fff" : THEME.textMuted,border:"none",borderRadius:4,padding:"2px 6px",fontSize:9,cursor:"pointer",marginRight:3,fontWeight:600}}>{d.done ? "↩" : "✓"}</button>
+                                      <button onClick={() => openEdit("deposit", origIdx)} style={{background:THEME.cardBgAlt,color:"#2563eb",border:"none",borderRadius:4,padding:"2px 6px",fontSize:9,cursor:"pointer",marginRight:3}}>✏️</button>
+                                      <button onClick={() => deleteRow("deposit", origIdx)} style={{background:THEME.cardBgAlt,color:"#F85149",border:"none",borderRadius:4,padding:"2px 6px",fontSize:9,cursor:"pointer"}}>🗑</button>
                                     </td>
                                   </tr>
                                 );
@@ -2324,49 +2365,49 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
 
               {/* ═══ FLAT GRID VIEW - All Rows ═══ */}
               {depositsViewMode === 'flat' && (
-              <div style={{background:"#161B22",borderRadius:12,overflow:"hidden",border:"1px solid #30363D"}}>
-                <div style={{overflowX:"auto",scrollbarWidth:"thin",scrollbarColor:"#30363D #161B22"}}>
+              <div style={{background:THEME.cardBgAlt,borderRadius:12,overflow:"hidden",border:`1px solid ${THEME.border}`}}>
+                <div style={{overflowX:"auto",scrollbarWidth:"thin",scrollbarColor:`${THEME.border} ${THEME.bg}`}}>
                   <table style={{width:"100%",borderCollapse:"collapse",fontSize:11}}>
-                    <thead><tr style={{background:"#0D1117",borderBottom:"1px solid #21262D"}}>
+                    <thead><tr style={{background:THEME.cardBg,borderBottom:`1px solid ${THEME.border}`}}>
                       {["Bank","ID","Type","Nominee","Invested","ROI","Maturity ₹","Start","Maturity","Duration","Action",""].map(h => (
-                        <th key={h} style={{padding:"8px 10px",textAlign:"left",color:"#8B949E",fontWeight:600,fontSize:10,whiteSpace:"nowrap"}}>{h}</th>
+                        <th key={h} style={{padding:"8px 10px",textAlign:"left",color:THEME.textMuted,fontWeight:600,fontSize:10,whiteSpace:"nowrap"}}>{h}</th>
                       ))}
                     </tr></thead>
                     <tbody>
                       {filtered.length === 0 ? (
-                        <tr><td colSpan={12} style={{padding:32,textAlign:"center",color:"#8B949E"}}>No deposits found</td></tr>
+                        <tr><td colSpan={12} style={{padding:32,textAlign:"center",color:THEME.textMuted}}>No deposits found</td></tr>
                       ) : (
                         filtered.map((d, idx) => {
                           const origIdx = deposits.indexOf(d);
                           const days = daysUntil(d.maturityDate);
                           const color = getBankColor(d.bank);
                           return (
-                            <tr key={idx} style={{borderBottom:"1px solid #21262D",background:d.done ? "rgba(46,160,67,0.05)" : days != null && days < 0 ? "rgba(110,118,129,0.1)" : days != null && days <= 90 ? "rgba(248,81,73,0.05)" : "transparent",opacity:d.done ? 0.6 : 1}}>
+                            <tr key={idx} style={{borderBottom:`1px solid ${THEME.border}`,background:d.done ? "rgba(46,160,67,0.05)" : days != null && days < 0 ? "rgba(110,118,129,0.1)" : days != null && days <= 90 ? "rgba(248,81,73,0.05)" : "transparent",opacity:d.done ? 0.6 : 1}}>
                               <td style={{padding:"8px 10px"}}>
                                 <div style={{display:"flex",alignItems:"center",gap:6}}>
                                   <div style={{width:8,height:8,borderRadius:"50%",background:color}} />
-                                  <span style={{fontWeight:600,color:"#F0F6FC",fontSize:11}}>{d.bank}</span>
+                                  <span style={{fontWeight:600,color:THEME.text,fontSize:11}}>{d.bank}</span>
                                 </div>
                               </td>
                               <td style={{padding:"8px 10px",fontSize:9,color:"#484F58",fontFamily:"monospace"}}>{d.depositId || "—"}</td>
-                              <td style={{padding:"8px 10px",color:"#9CA3AF",fontSize:10}}>{d.type || "FD"}</td>
-                              <td style={{padding:"8px 10px",color:"#C9D1D9",fontSize:10}}>{d.nominee || "—"}</td>
-                              <td style={{padding:"8px 10px",fontFamily:"monospace",fontWeight:600,color:"#F0F6FC",fontSize:11}}>{fmt(d.deposit)}</td>
-                              <td style={{padding:"8px 10px",fontFamily:"monospace",color:"#3FB950",fontWeight:600,fontSize:10}}>{d.roi ? (Number(d.roi) * 100).toFixed(2) + "%" : "—"}</td>
-                              <td style={{padding:"8px 10px",fontFamily:"monospace",fontWeight:600,color:"#3FB950",fontSize:11}}>{fmt(d.maturityAmt || d.deposit)}</td>
-                              <td style={{padding:"8px 10px",color:"#9CA3AF",whiteSpace:"nowrap",fontSize:10}}>{fmtDate(d.startDate)}</td>
+                              <td style={{padding:"8px 10px",color:THEME.textLight,fontSize:10}}>{d.type || "FD"}</td>
+                              <td style={{padding:"8px 10px",color:THEME.text,fontSize:10}}>{d.nominee || "—"}</td>
+                              <td style={{padding:"8px 10px",fontFamily:"monospace",fontWeight:600,color:THEME.text,fontSize:11}}>{fmt(d.deposit)}</td>
+                              <td style={{padding:"8px 10px",fontFamily:"monospace",color:THEME.accent,fontWeight:600,fontSize:10}}>{d.roi ? (Number(d.roi) * 100).toFixed(2) + "%" : "—"}</td>
+                              <td style={{padding:"8px 10px",fontFamily:"monospace",fontWeight:600,color:THEME.accent,fontSize:11}}>{fmt(d.maturityAmt || d.deposit)}</td>
+                              <td style={{padding:"8px 10px",color:THEME.textLight,whiteSpace:"nowrap",fontSize:10}}>{fmtDate(d.startDate)}</td>
                               <td style={{padding:"8px 10px",whiteSpace:"nowrap"}}>
                                 <div style={{display:"flex",alignItems:"center",gap:4}}>
-                                  <span style={{color:"#C9D1D9",fontSize:10}}>{fmtDate(d.maturityDate)}</span>
+                                  <span style={{color:THEME.text,fontSize:10}}>{fmtDate(d.maturityDate)}</span>
                                   <UrgencyBadge days={days} />
                                 </div>
                               </td>
                               <td style={{padding:"8px 10px",color:"#6B7280",fontSize:9}}>{d.duration || "—"}</td>
-                              <td style={{padding:"8px 10px",color:"#9CA3AF",fontSize:9,maxWidth:80,overflow:"hidden",textOverflow:"ellipsis"}} title={d.maturityAction}>{d.maturityAction || "—"}</td>
+                              <td style={{padding:"8px 10px",color:THEME.textLight,fontSize:9,maxWidth:80,overflow:"hidden",textOverflow:"ellipsis"}} title={d.maturityAction}>{d.maturityAction || "—"}</td>
                               <td style={{padding:"8px 10px",whiteSpace:"nowrap"}}>
-                                <button onClick={() => toggleDone("deposit", origIdx)} style={{background:d.done ? "#238636" : "#21262D",color:d.done ? "#fff" : "#8B949E",border:"none",borderRadius:4,padding:"2px 6px",fontSize:9,cursor:"pointer",marginRight:3,fontWeight:600}}>{d.done ? "↩" : "✓"}</button>
-                                <button onClick={() => openEdit("deposit", origIdx)} style={{background:"#21262D",color:"#58A6FF",border:"none",borderRadius:4,padding:"2px 6px",fontSize:9,cursor:"pointer",marginRight:3}}>✏️</button>
-                                <button onClick={() => deleteRow("deposit", origIdx)} style={{background:"#21262D",color:"#F85149",border:"none",borderRadius:4,padding:"2px 6px",fontSize:9,cursor:"pointer"}}>🗑</button>
+                                <button onClick={() => toggleDone("deposit", origIdx)} style={{background:d.done ? "#238636" : THEME.cardBgAlt,color:d.done ? "#fff" : THEME.textMuted,border:"none",borderRadius:4,padding:"2px 6px",fontSize:9,cursor:"pointer",marginRight:3,fontWeight:600}}>{d.done ? "↩" : "✓"}</button>
+                                <button onClick={() => openEdit("deposit", origIdx)} style={{background:THEME.cardBgAlt,color:"#2563eb",border:"none",borderRadius:4,padding:"2px 6px",fontSize:9,cursor:"pointer",marginRight:3}}>✏️</button>
+                                <button onClick={() => deleteRow("deposit", origIdx)} style={{background:THEME.cardBgAlt,color:"#F85149",border:"none",borderRadius:4,padding:"2px 6px",fontSize:9,cursor:"pointer"}}>🗑</button>
                               </td>
                             </tr>
                           );
@@ -2382,7 +2423,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
               {depositsViewMode === 'cards' && (
                 <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(340px,1fr))",gap:12,alignItems:"start"}}>
                   {filtered.length === 0 ? (
-                    <div style={{gridColumn:"1/-1",padding:32,textAlign:"center",color:"#8B949E"}}>No deposits found</div>
+                    <div style={{gridColumn:"1/-1",padding:32,textAlign:"center",color:THEME.textMuted}}>No deposits found</div>
                   ) : (
                     depBankNames.map(bankName => {
                       const { deps: bankDeps, indices } = groupedDeps[bankName];
@@ -2402,7 +2443,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                       };
                       
                       return (
-                        <div key={bankName} style={{background:"#1C1C2E",borderRadius:12,border:`1px solid ${color}30`,borderLeft:`3px solid ${color}`,overflow:"hidden"}}>
+                        <div key={bankName} style={{background:THEME.cardBgAlt,borderRadius:12,border:`1px solid ${color}30`,borderLeft:`3px solid ${color}`,overflow:"hidden"}}>
                           {/* Bank Header - Clickable */}
                           <div 
                             onClick={toggleCardBank}
@@ -2412,12 +2453,12 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                               <span style={{fontSize:10,color:"#6B7280",transition:"transform 0.2s",transform:isExpanded?"rotate(90deg)":"rotate(0deg)"}}>▶</span>
                               <div>
                                 <div style={{fontSize:14,fontWeight:700,color:"#F3F4F6"}}>{bankName}</div>
-                                <div style={{fontSize:10,color:"#9CA3AF"}}>{bankDeps.length} FD{bankDeps.length > 1 ? "s" : ""}</div>
+                                <div style={{fontSize:10,color:THEME.textLight}}>{bankDeps.length} FD{bankDeps.length > 1 ? "s" : ""}</div>
                               </div>
                             </div>
                             <div style={{textAlign:"right"}}>
-                              <div style={{fontSize:12,fontWeight:600,fontFamily:"monospace",color:"#9CA3AF"}}>Inv: {fmt(totalDeposited)}</div>
-                              <div style={{fontSize:14,fontWeight:800,fontFamily:"monospace",color:"#3FB950"}}>Mat: {fmt(totalMaturityAmt)}</div>
+                              <div style={{fontSize:12,fontWeight:600,fontFamily:"monospace",color:THEME.textLight}}>Inv: {fmt(totalDeposited)}</div>
+                              <div style={{fontSize:14,fontWeight:800,fontFamily:"monospace",color:THEME.accent}}>Mat: {fmt(totalMaturityAmt)}</div>
                             </div>
                           </div>
                           
@@ -2429,7 +2470,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                                 const days = daysUntil(d.maturityDate);
                                 const urgency = days === null ? "none" : days < 0 ? "expired" : days <= 7 ? "urgent" : days <= 30 ? "soon" : days <= 90 ? "warning" : "none";
                                 return (
-                                  <div key={j} style={{padding:"10px 14px",borderBottom:j < bankDeps.length - 1 ? "1px solid #21262D" : "none",background:d.done ? "rgba(46,160,67,0.05)" : urgency === "expired" ? "rgba(110,118,129,0.1)" : urgency === "urgent" ? "rgba(248,81,73,0.05)" : "transparent",opacity:d.done ? 0.6 : 1}}>
+                                  <div key={j} style={{padding:"10px 14px",borderBottom:j < bankDeps.length - 1 ? `1px solid ${THEME.border}` : "none",background:d.done ? "rgba(46,160,67,0.05)" : urgency === "expired" ? "rgba(110,118,129,0.1)" : urgency === "urgent" ? "rgba(248,81,73,0.05)" : "transparent",opacity:d.done ? 0.6 : 1}}>
                                     <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
                                       <div style={{flex:1}}>
                                         <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
@@ -2441,18 +2482,18 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                                         <div style={{display:"flex",alignItems:"baseline",gap:12,marginTop:6,flexWrap:"wrap"}}>
                                           <div>
                                             <span style={{fontSize:9,color:"#6B7280"}}>Invested</span>
-                                            <div style={{fontSize:13,fontWeight:700,fontFamily:"monospace",color:"#F0F6FC"}}>{fmt(d.deposit)}</div>
+                                            <div style={{fontSize:13,fontWeight:700,fontFamily:"monospace",color:THEME.text}}>{fmt(d.deposit)}</div>
                                           </div>
                                           <div>
                                             <span style={{fontSize:9,color:"#6B7280"}}>ROI</span>
-                                            <div style={{fontSize:11,fontWeight:600,fontFamily:"monospace",color:"#3FB950"}}>{d.roi ? (Number(d.roi) * 100).toFixed(2) + "%" : "—"}</div>
+                                            <div style={{fontSize:11,fontWeight:600,fontFamily:"monospace",color:THEME.accent}}>{d.roi ? (Number(d.roi) * 100).toFixed(2) + "%" : "—"}</div>
                                           </div>
                                           <div>
                                             <span style={{fontSize:9,color:"#6B7280"}}>Maturity</span>
-                                            <div style={{fontSize:13,fontWeight:700,fontFamily:"monospace",color:"#3FB950"}}>{fmt(d.maturityAmt || d.deposit)}</div>
+                                            <div style={{fontSize:13,fontWeight:700,fontFamily:"monospace",color:THEME.accent}}>{fmt(d.maturityAmt || d.deposit)}</div>
                                           </div>
                                         </div>
-                                        <div style={{display:"flex",gap:12,marginTop:6,fontSize:10,color:"#9CA3AF"}}>
+                                        <div style={{display:"flex",gap:12,marginTop:6,fontSize:10,color:THEME.textLight}}>
                                           <span>{fmtDate(d.startDate)} → {fmtDate(d.maturityDate)}</span>
                                           {d.duration && <span style={{color:"#6B7280"}}>{d.duration}</span>}
                                           <UrgencyBadge days={days} />
@@ -2460,7 +2501,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                                         {d.maturityAction && <div style={{fontSize:10,color:"#F59E0B",marginTop:4}}>⚡ {d.maturityAction}</div>}
                                       </div>
                                       <div style={{display:"flex",gap:4,flexShrink:0}}>
-                                        <button onClick={(e) => { e.stopPropagation(); toggleDone("deposit", origIdx); }} style={{background:d.done ? "#064E3B" : "#1C1C2E",color:d.done ? "#34D399" : "#6B7280",border:`1px solid ${d.done ? "#065F46" : "#374151"}`,borderRadius:5,padding:"2px 6px",fontSize:10,cursor:"pointer",fontWeight:700}}>{d.done ? "↩" : "✓"}</button>
+                                        <button onClick={(e) => { e.stopPropagation(); toggleDone("deposit", origIdx); }} style={{background:d.done ? "#dcfce7" : THEME.cardBgAlt,color:d.done ? "#34D399" : "#6B7280",border:`1px solid ${d.done ? "#16a34a" : THEME.border}`,borderRadius:5,padding:"2px 6px",fontSize:10,cursor:"pointer",fontWeight:700}}>{d.done ? "↩" : "✓"}</button>
                                         <button onClick={(e) => { e.stopPropagation(); openEdit("deposit", origIdx); }} style={{background:"#1D4ED820",color:"#60A5FA",border:"1px solid #1D4ED840",borderRadius:5,padding:"2px 5px",fontSize:10,cursor:"pointer"}}>✏️</button>
                                         <button onClick={(e) => { e.stopPropagation(); deleteRow("deposit", origIdx); }} style={{background:"#7F1D1D20",color:"#FCA5A5",border:"1px solid #7F1D1D40",borderRadius:5,padding:"2px 5px",fontSize:10,cursor:"pointer"}}>🗑</button>
                                       </div>
@@ -2479,15 +2520,15 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
 
               {/* Summary Footer */}
               <div style={{display:"flex",justifyContent:isMobile?"center":"flex-end",gap:8,marginTop:12,flexWrap:"wrap"}}>
-                <div style={{background:"#161B22",borderRadius:8,padding:"8px 14px",border:"1px solid #30363D",fontSize:11}}>Invested: <strong style={{fontFamily:"monospace",color:"#F0F6FC"}}>{fmt(filtered.reduce((s, d) => s + (Number(d.deposit) || 0), 0))}</strong></div>
-                <div style={{background:"#161B22",borderRadius:8,padding:"8px 14px",border:"1px solid #30363D",fontSize:11}}>Maturity: <strong style={{fontFamily:"monospace",color:"#3FB950"}}>{fmt(filtered.reduce((s, d) => s + (Number(d.maturityAmt) || Number(d.deposit) || 0), 0))}</strong></div>
+                <div style={{background:THEME.cardBgAlt,borderRadius:8,padding:"8px 14px",border:`1px solid ${THEME.border}`,fontSize:11}}>Invested: <strong style={{fontFamily:"monospace",color:THEME.text}}>{fmt(filtered.reduce((s, d) => s + (Number(d.deposit) || 0), 0))}</strong></div>
+                <div style={{background:THEME.cardBgAlt,borderRadius:8,padding:"8px 14px",border:`1px solid ${THEME.border}`,fontSize:11}}>Maturity: <strong style={{fontFamily:"monospace",color:THEME.accent}}>{fmt(filtered.reduce((s, d) => s + (Number(d.maturityAmt) || Number(d.deposit) || 0), 0))}</strong></div>
               </div>
 
               {/* By Bank Chart - Below data */}
-              <div style={{background:"#0D1117",borderRadius:12,border:"1px solid #1F2937",padding:14,marginTop:16}}>
-                <div style={{fontSize:12,fontWeight:700,color:"#9CA3AF",marginBottom:10}}>🏦 Deposits by Bank</div>
+              <div style={{background:THEME.cardBg,borderRadius:12,border:`1px solid ${THEME.border}`,padding:14,marginTop:16}}>
+                <div style={{fontSize:12,fontWeight:700,color:THEME.textLight,marginBottom:10}}>🏦 Deposits by Bank</div>
                 {typePieData.length === 0 ? (
-                  <div style={{color:"#4B5563",padding:20,textAlign:"center"}}>No data</div>
+                  <div style={{color:THEME.textMuted,padding:20,textAlign:"center"}}>No data</div>
                 ) : (
                   <>
                     <ResponsiveContainer width="100%" height={160}>
@@ -2506,13 +2547,13 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                         </Pie>
                         <Tooltip 
                           formatter={(v: any) => fmt(v)} 
-                          contentStyle={{background:"#1C1C2E",border:"1px solid #374151",borderRadius:8,fontSize:12}} 
+                          contentStyle={{background:THEME.cardBgAlt,border:"1px solid ${THEME.border}",borderRadius:8,fontSize:12}} 
                         />
                       </PieChart>
                     </ResponsiveContainer>
                     <button 
                       onClick={() => setShowLegend(prev => prev.has('dep_type') ? new Set([...prev].filter(k => k !== 'dep_type')) : new Set([...prev, 'dep_type']))}
-                      style={{marginTop:6,background:"#21262D",border:"1px solid #30363D",color:"#9CA3AF",padding:"4px 12px",borderRadius:6,fontSize:11,cursor:"pointer",display:"flex",alignItems:"center",gap:6}}
+                      style={{marginTop:6,background:THEME.cardBgAlt,border:`1px solid ${THEME.border}`,color:THEME.textLight,padding:"4px 12px",borderRadius:6,fontSize:11,cursor:"pointer",display:"flex",alignItems:"center",gap:6}}
                     >
                       <span style={{fontSize:10,transition:"transform 0.2s",transform:showLegend.has('dep_type')?"rotate(90deg)":"rotate(0deg)"}}>▶</span>
                       Legend ({typePieData.length})
@@ -2520,7 +2561,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                     {showLegend.has('dep_type') && (
                       <div style={{display:"flex",flexWrap:"wrap",gap:6,marginTop:8}}>
                         {typePieData.map((e, i) => (
-                          <div key={i} style={{display:"flex",alignItems:"center",gap:4,fontSize:11,background:"#161B22",padding:"3px 8px",borderRadius:12}}>
+                          <div key={i} style={{display:"flex",alignItems:"center",gap:4,fontSize:11,background:THEME.cardBgAlt,padding:"3px 8px",borderRadius:12}}>
                             <div style={{width:8,height:8,borderRadius:"50%",background:e.color}} />
                             <span style={{color:"#D1D5DB"}}>{e.name}</span>
                             <span style={{color:e.color,fontWeight:600}}>{fmt(e.value)}</span>
@@ -2608,7 +2649,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                   <div style={{background:"linear-gradient(135deg, #065F46 0%, #0F172A 100%)",borderRadius:14,padding:"16px"}}>
                     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
                       <div>
-                        <div style={{fontSize:10,color:"#94A3B8",fontWeight:500}}>NET BALANCE {!showAllAccounts && hiddenCount > 0 && `(${visibleAccounts.length} active)`}</div>
+                        <div style={{fontSize:10,color:THEME.textMuted,fontWeight:500}}>NET BALANCE {!showAllAccounts && hiddenCount > 0 && `(${visibleAccounts.length} active)`}</div>
                         <div style={{fontSize:24,fontWeight:800,color:"#F8FAFC",fontFamily:"monospace"}}>{fmt(sumConverted(visibleAccounts), targetCurrency)}</div>
                       </div>
                       <div style={{display:"flex",gap:6}}>
@@ -2679,9 +2720,9 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                               onClick={() => toggleBank(bankName)}
                               style={{
                                 width: "100%",
-                                background: isExpanded ? `${color}15` : "#161B22",
-                                color: "#F0F6FC",
-                                border: `1px solid ${isExpanded ? color : "#30363D"}`,
+                                background: isExpanded ? `${color}10` : THEME.cardBg,
+                                color: THEME.text,
+                                border: `1px solid ${isExpanded ? color : THEME.border}`,
                                 borderLeft: `4px solid ${color}`,
                                 borderRadius: isExpanded ? "10px 10px 0 0" : 10,
                                 padding: "14px 16px",
@@ -2701,12 +2742,12 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                                   <div style={{fontSize:11,color:"#6B7280",fontWeight:500}}>{bankAccounts.length} account{bankAccounts.length > 1 ? "s" : ""}</div>
                                 </div>
                               </div>
-                              <div style={{fontSize:16,fontFamily:"monospace",fontWeight:700,color:"#F0F6FC"}}>{fmt(total, headerCurrency)}</div>
+                              <div style={{fontSize:16,fontFamily:"monospace",fontWeight:700,color:THEME.text}}>{fmt(total, headerCurrency)}</div>
                             </button>
                             
                             {/* Expanded Accounts for this Bank */}
                             {isExpanded && (
-                              <div style={{background:"#0D1117",borderLeft:`4px solid ${color}`,borderRight:`1px solid ${color}`,borderBottom:`1px solid ${color}`,borderRadius:"0 0 10px 10px",padding:"8px"}}>
+                              <div style={{background:THEME.cardBg,borderLeft:`4px solid ${color}`,borderRight:`1px solid ${color}`,borderBottom:`1px solid ${color}`,borderRadius:"0 0 10px 10px",padding:"8px"}}>
                                 {bankAccounts.map((acc, j) => {
                                   const origIdx = indices[j];
                                   const typeColor = acc.type === "FD" ? "#3B82F6" : acc.type === "Saving" ? "#10B981" : acc.type === "Credit Card" ? "#EF4444" : acc.type === "Loan" ? "#F59E0B" : "#8B5CF6";
@@ -2717,7 +2758,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                                     <div 
                                       key={j}
                                       style={{
-                                        background:"#161B22",
+                                        background:THEME.cardBgAlt,
                                         borderRadius:10,
                                         padding:"12px",
                                         marginBottom: j < bankAccounts.length - 1 ? 8 : 0,
@@ -2730,13 +2771,13 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                                             <span style={{background:`${typeColor}20`,color:typeColor,padding:"2px 6px",borderRadius:4,fontSize:10,fontWeight:700}}>{acc.type}</span>
                                             {acc.online === "Yes" && <span style={{fontSize:9,color:"#34D399"}}>🌐</span>}
                                             {acc.done && <span style={{fontSize:9,color:"#34D399"}}>✓</span>}
-                                            {acc.hidden && <span style={{background:"#374151",color:"#9CA3AF",padding:"2px 6px",borderRadius:4,fontSize:9,fontWeight:600}}>Hidden</span>}
+                                            {acc.hidden && <span style={{background:THEME.border,color:THEME.textLight,padding:"2px 6px",borderRadius:4,fontSize:9,fontWeight:600}}>Hidden</span>}
                                           </div>
-                                          {acc.holders && <div style={{fontSize:11,color:"#9CA3AF"}}>👤 {acc.holders}</div>}
+                                          {acc.holders && <div style={{fontSize:11,color:THEME.textLight}}>👤 {acc.holders}</div>}
                                         </div>
                                         <div style={{textAlign:"right"}}>
-                                          <div style={{fontSize:18,fontWeight:800,fontFamily:"monospace",color:isNegative ? "#EF4444" : "#F0F6FC"}}>{fmt(acc.amount, accCurrency)}</div>
-                                          {acc.roi && <div style={{fontSize:10,color:"#3FB950"}}>{(Number(acc.roi) * 100).toFixed(2)}%</div>}
+                                          <div style={{fontSize:18,fontWeight:800,fontFamily:"monospace",color:isNegative ? "#EF4444" : THEME.text}}>{fmt(acc.amount, accCurrency)}</div>
+                                          {acc.roi && <div style={{fontSize:10,color:THEME.accent}}>{(Number(acc.roi) * 100).toFixed(2)}%</div>}
                                         </div>
                                       </div>
                                       
@@ -2747,10 +2788,10 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                                       )}
                                       
                                       {/* Mobile: Action Buttons */}
-                                      <div style={{display:"flex",gap:6,marginTop:10,paddingTop:10,borderTop:"1px solid #21262D"}}>
+                                      <div style={{display:"flex",gap:6,marginTop:10,paddingTop:10,borderTop:`1px solid ${THEME.border}`}}>
                                         <button 
                                           onClick={(e) => { e.stopPropagation(); toggleDone("account", origIdx); }} 
-                                          style={{flex:1,background:acc.done ? "#064E3B" : "#21262D",color:acc.done ? "#34D399" : "#9CA3AF",border:"none",borderRadius:6,padding:"8px",fontSize:11,fontWeight:600}}
+                                          style={{flex:1,background:acc.done ? "#dcfce7" : THEME.cardBgAlt,color:acc.done ? "#34D399" : THEME.textLight,border:"none",borderRadius:6,padding:"8px",fontSize:11,fontWeight:600}}
                                         >
                                           {acc.done ? "↩ Undo" : "✓ Done"}
                                         </button>
@@ -2780,7 +2821,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                             style={{
                               width: "100%",
                               background: "#1E293B",
-                              color: "#94A3B8",
+                              color: THEME.textMuted,
                               border: "1px dashed #475569",
                               borderRadius: 10,
                               padding: "14px 16px",
@@ -2813,7 +2854,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14,flexWrap:"wrap",gap:8}}>
                 <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
                   {/* View Mode Toggle */}
-                  <div style={{display:"flex",gap:1,background:"#0D1117",borderRadius:6,padding:2,border:"1px solid #30363D"}}>
+                  <div style={{display:"flex",gap:1,background:THEME.cardBg,borderRadius:6,padding:2,border:`1px solid ${THEME.border}`}}>
                     <button
                       onClick={() => setAccountsViewMode('cards')}
                       style={{background:accountsViewMode === 'cards' ? '#238636' : 'transparent',color:accountsViewMode === 'cards' ? '#FFF' : '#6B7280',border:'none',padding:'4px 10px',borderRadius:4,fontSize:10,fontWeight:600,cursor:'pointer'}}
@@ -2839,7 +2880,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                   {accountsViewMode === 'cards' && (
                     <button 
                       onClick={() => setExpandedBanks(expandedBanks.size === bankNames.length ? new Set() : new Set(bankNames))}
-                      style={{background:"#21262D",color:"#8B949E",border:"1px solid #30363D",borderRadius:6,padding:"5px 12px",fontSize:11,fontWeight:600,cursor:"pointer"}}
+                      style={{background:THEME.cardBgAlt,color:THEME.textMuted,border:`1px solid ${THEME.border}`,borderRadius:6,padding:"5px 12px",fontSize:11,fontWeight:600,cursor:"pointer"}}
                     >
                       {expandedBanks.size === bankNames.length ? "Collapse All" : "Expand All"}
                     </button>
@@ -2848,7 +2889,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                     <button
                       onClick={() => { setDisplayCurrency('ORIGINAL'); persist(deposits, accounts, bills, actions, goals, exchangeRates, 'ORIGINAL'); }}
                       style={{
-                        background: displayCurrency === 'ORIGINAL' ? '#1F6FEB' : '#21262D',
+                        background: displayCurrency === 'ORIGINAL' ? THEME.accent : THEME.cardBgAlt,
                         color: displayCurrency === 'ORIGINAL' ? '#FFFFFF' : '#6B7280',
                         border: 'none',
                         padding: '4px 8px',
@@ -2865,7 +2906,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                         key={cur}
                         onClick={() => { setDisplayCurrency(cur); persist(deposits, accounts, bills, actions, goals, exchangeRates, cur); }}
                         style={{
-                          background: displayCurrency === cur ? '#1F6FEB' : '#21262D',
+                          background: displayCurrency === cur ? THEME.accent : THEME.cardBgAlt,
                           color: displayCurrency === cur ? '#FFFFFF' : '#6B7280',
                           border: 'none',
                           padding: '4px 8px',
@@ -2881,7 +2922,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                   </div>
                   <button
                     onClick={() => setShowRatesModal(true)}
-                    style={{background:"#161B22",color:"#6B7280",border:"1px solid #30363D",borderRadius:4,padding:"3px 8px",fontSize:9,cursor:"pointer",display:"flex",alignItems:"center",gap:4}}
+                    style={{background:THEME.cardBgAlt,color:"#6B7280",border:`1px solid ${THEME.border}`,borderRadius:4,padding:"3px 8px",fontSize:9,cursor:"pointer",display:"flex",alignItems:"center",gap:4}}
                     title="Edit exchange rates"
                   >
                     <span>$1=₹{exchangeRates.USD}</span>
@@ -2891,9 +2932,9 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                     <button
                       onClick={() => setShowAllAccounts(!showAllAccounts)}
                       style={{
-                        background: showAllAccounts ? '#0D9488' : '#21262D',
-                        color: showAllAccounts ? '#FFF' : '#8B949E',
-                        border: '1px solid #30363D',
+                        background: showAllAccounts ? '#0D9488' : THEME.cardBgAlt,
+                        color: showAllAccounts ? '#FFF' : THEME.textMuted,
+                        border: `1px solid ${THEME.border}`,
                         padding: '4px 12px',
                         borderRadius: 6,
                         fontSize: 10,
@@ -2914,20 +2955,20 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
               {visibleAccounts.length === 0 && hiddenCount === 0 ? (
                 <EmptyState icon="🏦" title="No Bank Accounts" description="Add your bank accounts to track balances and pending actions" action="+ Add Account" onAction={() => openAdd("account")} />
               ) : visibleAccounts.length === 0 && !showAllAccounts ? (
-                <div style={{textAlign:"center",padding:40,background:"#161B22",borderRadius:12,border:"1px solid #30363D"}}>
-                  <div style={{fontSize:14,color:"#9CA3AF",marginBottom:12}}>All {hiddenCount} account{hiddenCount > 1 ? "s are" : " is"} hidden</div>
+                <div style={{textAlign:"center",padding:40,background:THEME.cardBgAlt,borderRadius:12,border:`1px solid ${THEME.border}`}}>
+                  <div style={{fontSize:14,color:THEME.textLight,marginBottom:12}}>All {hiddenCount} account{hiddenCount > 1 ? "s are" : " is"} hidden</div>
                   <button onClick={() => setShowAllAccounts(true)} style={{background:"#0D9488",color:"#FFF",border:"none",padding:"8px 20px",borderRadius:8,fontSize:12,fontWeight:600,cursor:"pointer"}}>Show All Accounts</button>
                 </div>
               ) : (
                 <>
                   {/* ═══ GROUPED GRID VIEW - By Bank ═══ */}
                   {accountsViewMode === 'grouped' && (
-                    <div style={{background:"#161B22",borderRadius:12,overflow:"hidden",border:"1px solid #30363D",marginBottom:16}}>
-                      <div style={{overflowX:"auto",scrollbarWidth:"thin",scrollbarColor:"#30363D #161B22"}}>
+                    <div style={{background:THEME.cardBgAlt,borderRadius:12,overflow:"hidden",border:`1px solid ${THEME.border}`,marginBottom:16}}>
+                      <div style={{overflowX:"auto",scrollbarWidth:"thin",scrollbarColor:`${THEME.border} ${THEME.bg}`}}>
                         <table style={{width:"100%",borderCollapse:"collapse",fontSize:11}}>
-                          <thead><tr style={{background:"#0D1117",borderBottom:"1px solid #21262D"}}>
+                          <thead><tr style={{background:THEME.cardBg,borderBottom:`1px solid ${THEME.border}`}}>
                             {["Bank","Type","Holders","Amount","Currency","ROI","A/C Number","IFSC","Branch","Online","Address","Details","Action",""].map(h => (
-                              <th key={h} style={{padding:"8px 10px",textAlign:"left",color:"#8B949E",fontWeight:600,fontSize:10,whiteSpace:"nowrap"}}>{h}</th>
+                              <th key={h} style={{padding:"8px 10px",textAlign:"left",color:THEME.textMuted,fontWeight:600,fontSize:10,whiteSpace:"nowrap"}}>{h}</th>
                             ))}
                           </tr></thead>
                           <tbody>
@@ -2960,13 +3001,13 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                                   {/* Bank Header Row - Clickable - Shows details if single row or common fields */}
                                   <tr 
                                     onClick={toggleGridBank}
-                                    style={{background:`${color}15`,cursor:"pointer",borderBottom:"1px solid #21262D"}}
+                                    style={{background:`${color}15`,cursor:"pointer",borderBottom:`1px solid ${THEME.border}`}}
                                   >
                                     <td style={{padding:"8px 10px"}}>
                                       <div style={{display:"flex",alignItems:"center",gap:8}}>
                                         <span style={{fontSize:10,color:"#6B7280",transition:"transform 0.2s",transform:isExpanded?"rotate(90deg)":"rotate(0deg)"}}>▶</span>
                                         <div style={{width:10,height:10,borderRadius:"50%",background:color}} />
-                                        <span style={{fontWeight:700,color:"#F0F6FC",fontSize:12}}>{bankName}</span>
+                                        <span style={{fontWeight:700,color:THEME.text,fontSize:12}}>{bankName}</span>
                                         <span style={{color:"#6B7280",fontSize:10}}>({bankAccounts.length} acc{bankAccounts.length > 1 ? "s" : ""})</span>
                                         {isMixedCurrency && displayCurrency === 'ORIGINAL' && <span style={{fontSize:9,color:"#6B7280"}}>🌐 ({Array.from(currencies).join('+')})</span>}
                                       </div>
@@ -2974,25 +3015,25 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                                     <td style={{padding:"8px 10px"}}>
                                       {isSingleRow ? (
                                         <span style={{background:`${singleTypeColor}20`,color:singleTypeColor,padding:"2px 6px",borderRadius:4,fontSize:9,fontWeight:700}}>{singleAcc?.type || "—"}</span>
-                                      ) : (commonType ? <span style={{color:"#9CA3AF",fontSize:10}}>{commonType}</span> : "—")}
+                                      ) : (commonType ? <span style={{color:THEME.textLight,fontSize:10}}>{commonType}</span> : "—")}
                                     </td>
-                                    <td style={{padding:"8px 10px",color:"#C9D1D9",fontSize:10,maxWidth:100,overflow:"hidden",textOverflow:"ellipsis"}}>{isSingleRow ? (singleAcc?.holders || "—") : (commonHolders || (bankAccounts.length > 1 ? "Various" : "—"))}</td>
-                                    <td style={{padding:"8px 10px",fontFamily:"monospace",fontWeight:700,color:"#F0F6FC",fontSize:11}}>{fmt(totalBalance, isSingleRow ? singleAccCurrency : headerCurrency)}</td>
-                                    <td style={{padding:"8px 10px",color:"#9CA3AF",fontSize:9}}>{isSingleRow ? singleAccCurrency : (isMixedCurrency ? "Mixed" : headerCurrency)}</td>
-                                    <td style={{padding:"8px 10px",fontFamily:"monospace",color:"#3FB950",fontWeight:600,fontSize:10}}>{isSingleRow && singleAcc?.roi ? (Number(singleAcc.roi) * 100).toFixed(2) + "%" : "—"}</td>
-                                    <td style={{padding:"8px 10px",color:"#9CA3AF",fontSize:9,fontFamily:"monospace"}}>{isSingleRow ? (singleAcc?.accountNumber || "—") : "—"}</td>
-                                    <td style={{padding:"8px 10px",color:"#9CA3AF",fontSize:9,fontFamily:"monospace"}}>{isSingleRow ? (singleAcc?.ifscCode || "—") : "—"}</td>
-                                    <td style={{padding:"8px 10px",color:"#9CA3AF",fontSize:9,maxWidth:80,overflow:"hidden",textOverflow:"ellipsis"}}>{isSingleRow ? (singleAcc?.branch || "—") : "—"}</td>
-                                    <td style={{padding:"8px 10px"}}>{isSingleRow && singleAcc?.online && <span style={{fontSize:9,color:singleAcc.online === "Yes" ? "#34D399" : "#6B7280",background:singleAcc.online === "Yes" ? "#064E3B30" : "#37415140",padding:"2px 4px",borderRadius:3}}>{singleAcc.online === "Yes" ? "🌐" : "—"}</span>}</td>
+                                    <td style={{padding:"8px 10px",color:THEME.text,fontSize:10,maxWidth:100,overflow:"hidden",textOverflow:"ellipsis"}}>{isSingleRow ? (singleAcc?.holders || "—") : (commonHolders || (bankAccounts.length > 1 ? "Various" : "—"))}</td>
+                                    <td style={{padding:"8px 10px",fontFamily:"monospace",fontWeight:700,color:THEME.text,fontSize:11}}>{fmt(totalBalance, isSingleRow ? singleAccCurrency : headerCurrency)}</td>
+                                    <td style={{padding:"8px 10px",color:THEME.textLight,fontSize:9}}>{isSingleRow ? singleAccCurrency : (isMixedCurrency ? "Mixed" : headerCurrency)}</td>
+                                    <td style={{padding:"8px 10px",fontFamily:"monospace",color:THEME.accent,fontWeight:600,fontSize:10}}>{isSingleRow && singleAcc?.roi ? (Number(singleAcc.roi) * 100).toFixed(2) + "%" : "—"}</td>
+                                    <td style={{padding:"8px 10px",color:THEME.textLight,fontSize:9,fontFamily:"monospace"}}>{isSingleRow ? (singleAcc?.accountNumber || "—") : "—"}</td>
+                                    <td style={{padding:"8px 10px",color:THEME.textLight,fontSize:9,fontFamily:"monospace"}}>{isSingleRow ? (singleAcc?.ifscCode || "—") : "—"}</td>
+                                    <td style={{padding:"8px 10px",color:THEME.textLight,fontSize:9,maxWidth:80,overflow:"hidden",textOverflow:"ellipsis"}}>{isSingleRow ? (singleAcc?.branch || "—") : "—"}</td>
+                                    <td style={{padding:"8px 10px"}}>{isSingleRow && singleAcc?.online && <span style={{fontSize:9,color:singleAcc.online === "Yes" ? "#34D399" : "#6B7280",background:singleAcc.online === "Yes" ? "#064E3B30" : "${THEME.border}40",padding:"2px 4px",borderRadius:3}}>{singleAcc.online === "Yes" ? "🌐" : "—"}</span>}</td>
                                     <td style={{padding:"8px 10px",color:"#6B7280",fontSize:9,maxWidth:80,overflow:"hidden",textOverflow:"ellipsis"}}>{isSingleRow ? (singleAcc?.address || "—") : "—"}</td>
-                                    <td style={{padding:"8px 10px",color:"#9CA3AF",fontSize:9,maxWidth:80,overflow:"hidden",textOverflow:"ellipsis"}}>{isSingleRow ? (singleAcc?.detail || "—") : "—"}</td>
+                                    <td style={{padding:"8px 10px",color:THEME.textLight,fontSize:9,maxWidth:80,overflow:"hidden",textOverflow:"ellipsis"}}>{isSingleRow ? (singleAcc?.detail || "—") : "—"}</td>
                                     <td style={{padding:"8px 10px",color:isSingleRow && singleAcc?.nextAction && !singleAcc.done ? "#F59E0B" : "#6B7280",fontSize:9,maxWidth:80,overflow:"hidden",textOverflow:"ellipsis",fontWeight:isSingleRow && singleAcc?.nextAction && !singleAcc.done ? 600 : 400}}>{isSingleRow ? (singleAcc?.nextAction ? (singleAcc.done ? "✓ " : "⚡ ") + singleAcc.nextAction : "—") : "—"}</td>
                                     <td style={{padding:"8px 10px",whiteSpace:"nowrap"}}>
                                       {isSingleRow && (
                                         <>
-                                          <button onClick={(e) => { e.stopPropagation(); toggleDone("account", indices[0]); }} style={{background:singleAcc?.done ? "#238636" : "#21262D",color:singleAcc?.done ? "#fff" : "#8B949E",border:"none",borderRadius:4,padding:"2px 6px",fontSize:9,cursor:"pointer",marginRight:3,fontWeight:600}}>{singleAcc?.done ? "↩" : "✓"}</button>
-                                          <button onClick={(e) => { e.stopPropagation(); openEdit("account", indices[0]); }} style={{background:"#21262D",color:"#58A6FF",border:"none",borderRadius:4,padding:"2px 6px",fontSize:9,cursor:"pointer",marginRight:3}}>✏️</button>
-                                          <button onClick={(e) => { e.stopPropagation(); deleteRow("account", indices[0]); }} style={{background:"#21262D",color:"#F85149",border:"none",borderRadius:4,padding:"2px 6px",fontSize:9,cursor:"pointer"}}>🗑</button>
+                                          <button onClick={(e) => { e.stopPropagation(); toggleDone("account", indices[0]); }} style={{background:singleAcc?.done ? "#238636" : THEME.cardBgAlt,color:singleAcc?.done ? "#fff" : THEME.textMuted,border:"none",borderRadius:4,padding:"2px 6px",fontSize:9,cursor:"pointer",marginRight:3,fontWeight:600}}>{singleAcc?.done ? "↩" : "✓"}</button>
+                                          <button onClick={(e) => { e.stopPropagation(); openEdit("account", indices[0]); }} style={{background:THEME.cardBgAlt,color:"#2563eb",border:"none",borderRadius:4,padding:"2px 6px",fontSize:9,cursor:"pointer",marginRight:3}}>✏️</button>
+                                          <button onClick={(e) => { e.stopPropagation(); deleteRow("account", indices[0]); }} style={{background:THEME.cardBgAlt,color:"#F85149",border:"none",borderRadius:4,padding:"2px 6px",fontSize:9,cursor:"pointer"}}>🗑</button>
                                         </>
                                       )}
                                     </td>
@@ -3004,28 +3045,28 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                                     const typeColor = acc.type === "FD" ? "#3B82F6" : acc.type === "Saving" ? "#10B981" : acc.type === "Credit Card" ? "#EF4444" : acc.type === "Loan" ? "#F59E0B" : "#8B5CF6";
                                     const accCurrency = (acc.currency || 'INR') as Currency;
                                     return (
-                                      <tr key={`${bankName}-${j}`} style={{borderBottom:"1px solid #21262D",background:acc.done ? "rgba(46,160,67,0.05)" : "transparent",opacity:acc.done ? 0.6 : 1}}>
+                                      <tr key={`${bankName}-${j}`} style={{borderBottom:`1px solid ${THEME.border}`,background:acc.done ? "rgba(46,160,67,0.05)" : "transparent",opacity:acc.done ? 0.6 : 1}}>
                                         <td style={{padding:"8px 10px",paddingLeft:32,color:"#6B7280",fontSize:10}}>—</td>
                                         <td style={{padding:"8px 10px"}}>
                                           <span style={{background:`${typeColor}20`,color:typeColor,padding:"2px 6px",borderRadius:4,fontSize:9,fontWeight:700}}>{acc.type || "—"}</span>
                                         </td>
-                                        <td style={{padding:"8px 10px",color:"#C9D1D9",fontSize:10,maxWidth:100,overflow:"hidden",textOverflow:"ellipsis"}} title={acc.holders}>{acc.holders || "—"}</td>
-                                        <td style={{padding:"8px 10px",fontFamily:"monospace",fontWeight:600,color:acc.done ? "#6B7280" : "#F0F6FC",fontSize:11}}>{fmt(acc.amount, accCurrency)}</td>
-                                        <td style={{padding:"8px 10px",color:"#9CA3AF",fontSize:9}}>{accCurrency}</td>
-                                        <td style={{padding:"8px 10px",fontFamily:"monospace",color:"#3FB950",fontWeight:600,fontSize:10}}>{acc.roi ? (Number(acc.roi) * 100).toFixed(2) + "%" : "—"}</td>
-                                        <td style={{padding:"8px 10px",color:"#9CA3AF",fontSize:9,fontFamily:"monospace"}}>{acc.accountNumber || "—"}</td>
-                                        <td style={{padding:"8px 10px",color:"#9CA3AF",fontSize:9,fontFamily:"monospace"}}>{acc.ifscCode || "—"}</td>
-                                        <td style={{padding:"8px 10px",color:"#9CA3AF",fontSize:9,maxWidth:80,overflow:"hidden",textOverflow:"ellipsis"}} title={acc.branch}>{acc.branch || "—"}</td>
+                                        <td style={{padding:"8px 10px",color:THEME.text,fontSize:10,maxWidth:100,overflow:"hidden",textOverflow:"ellipsis"}} title={acc.holders}>{acc.holders || "—"}</td>
+                                        <td style={{padding:"8px 10px",fontFamily:"monospace",fontWeight:600,color:acc.done ? "#6B7280" : THEME.text,fontSize:11}}>{fmt(acc.amount, accCurrency)}</td>
+                                        <td style={{padding:"8px 10px",color:THEME.textLight,fontSize:9}}>{accCurrency}</td>
+                                        <td style={{padding:"8px 10px",fontFamily:"monospace",color:THEME.accent,fontWeight:600,fontSize:10}}>{acc.roi ? (Number(acc.roi) * 100).toFixed(2) + "%" : "—"}</td>
+                                        <td style={{padding:"8px 10px",color:THEME.textLight,fontSize:9,fontFamily:"monospace"}}>{acc.accountNumber || "—"}</td>
+                                        <td style={{padding:"8px 10px",color:THEME.textLight,fontSize:9,fontFamily:"monospace"}}>{acc.ifscCode || "—"}</td>
+                                        <td style={{padding:"8px 10px",color:THEME.textLight,fontSize:9,maxWidth:80,overflow:"hidden",textOverflow:"ellipsis"}} title={acc.branch}>{acc.branch || "—"}</td>
                                         <td style={{padding:"8px 10px"}}>
-                                          {acc.online && <span style={{fontSize:9,color:acc.online === "Yes" ? "#34D399" : "#6B7280",background:acc.online === "Yes" ? "#064E3B30" : "#37415140",padding:"2px 4px",borderRadius:3}}>{acc.online === "Yes" ? "🌐" : "—"}</span>}
+                                          {acc.online && <span style={{fontSize:9,color:acc.online === "Yes" ? "#34D399" : "#6B7280",background:acc.online === "Yes" ? "#064E3B30" : "${THEME.border}40",padding:"2px 4px",borderRadius:3}}>{acc.online === "Yes" ? "🌐" : "—"}</span>}
                                         </td>
                                         <td style={{padding:"8px 10px",color:"#6B7280",fontSize:9,maxWidth:80,overflow:"hidden",textOverflow:"ellipsis"}} title={acc.address}>{acc.address || "—"}</td>
-                                        <td style={{padding:"8px 10px",color:"#9CA3AF",fontSize:9,maxWidth:80,overflow:"hidden",textOverflow:"ellipsis"}} title={acc.detail}>{acc.detail || "—"}</td>
+                                        <td style={{padding:"8px 10px",color:THEME.textLight,fontSize:9,maxWidth:80,overflow:"hidden",textOverflow:"ellipsis"}} title={acc.detail}>{acc.detail || "—"}</td>
                                         <td style={{padding:"8px 10px",color:acc.nextAction && !acc.done ? "#F59E0B" : "#6B7280",fontSize:9,maxWidth:80,overflow:"hidden",textOverflow:"ellipsis",fontWeight:acc.nextAction && !acc.done ? 600 : 400}} title={acc.nextAction}>{acc.nextAction ? (acc.done ? "✓ " : "⚡ ") + acc.nextAction : "—"}</td>
                                         <td style={{padding:"8px 10px",whiteSpace:"nowrap"}}>
-                                          <button onClick={(e) => { e.stopPropagation(); toggleDone("account", origIdx); }} style={{background:acc.done ? "#238636" : "#21262D",color:acc.done ? "#fff" : "#8B949E",border:"none",borderRadius:4,padding:"2px 6px",fontSize:9,cursor:"pointer",marginRight:3,fontWeight:600}}>{acc.done ? "↩" : "✓"}</button>
-                                          <button onClick={(e) => { e.stopPropagation(); openEdit("account", origIdx); }} style={{background:"#21262D",color:"#58A6FF",border:"none",borderRadius:4,padding:"2px 6px",fontSize:9,cursor:"pointer",marginRight:3}}>✏️</button>
-                                          <button onClick={(e) => { e.stopPropagation(); deleteRow("account", origIdx); }} style={{background:"#21262D",color:"#F85149",border:"none",borderRadius:4,padding:"2px 6px",fontSize:9,cursor:"pointer"}}>🗑</button>
+                                          <button onClick={(e) => { e.stopPropagation(); toggleDone("account", origIdx); }} style={{background:acc.done ? "#238636" : THEME.cardBgAlt,color:acc.done ? "#fff" : THEME.textMuted,border:"none",borderRadius:4,padding:"2px 6px",fontSize:9,cursor:"pointer",marginRight:3,fontWeight:600}}>{acc.done ? "↩" : "✓"}</button>
+                                          <button onClick={(e) => { e.stopPropagation(); openEdit("account", origIdx); }} style={{background:THEME.cardBgAlt,color:"#2563eb",border:"none",borderRadius:4,padding:"2px 6px",fontSize:9,cursor:"pointer",marginRight:3}}>✏️</button>
+                                          <button onClick={(e) => { e.stopPropagation(); deleteRow("account", origIdx); }} style={{background:THEME.cardBgAlt,color:"#F85149",border:"none",borderRadius:4,padding:"2px 6px",fontSize:9,cursor:"pointer"}}>🗑</button>
                                         </td>
                                       </tr>
                                     );
@@ -3041,17 +3082,17 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                   
                   {/* ═══ FLAT GRID VIEW - All Rows ═══ */}
                   {accountsViewMode === 'flat' && (
-                    <div style={{background:"#161B22",borderRadius:12,overflow:"hidden",border:"1px solid #30363D",marginBottom:16}}>
-                      <div style={{overflowX:"auto",scrollbarWidth:"thin",scrollbarColor:"#30363D #161B22"}}>
+                    <div style={{background:THEME.cardBgAlt,borderRadius:12,overflow:"hidden",border:`1px solid ${THEME.border}`,marginBottom:16}}>
+                      <div style={{overflowX:"auto",scrollbarWidth:"thin",scrollbarColor:`${THEME.border} ${THEME.bg}`}}>
                         <table style={{width:"100%",borderCollapse:"collapse",fontSize:11}}>
-                          <thead><tr style={{background:"#0D1117",borderBottom:"1px solid #21262D"}}>
+                          <thead><tr style={{background:THEME.cardBg,borderBottom:`1px solid ${THEME.border}`}}>
                             {["Bank","Type","Holders","Amount","Currency","ROI","A/C Number","IFSC","Branch","Online","Address","Details","Action",""].map(h => (
-                              <th key={h} style={{padding:"8px 10px",textAlign:"left",color:"#8B949E",fontWeight:600,fontSize:10,whiteSpace:"nowrap"}}>{h}</th>
+                              <th key={h} style={{padding:"8px 10px",textAlign:"left",color:THEME.textMuted,fontWeight:600,fontSize:10,whiteSpace:"nowrap"}}>{h}</th>
                             ))}
                           </tr></thead>
                           <tbody>
                             {visibleAccounts.length === 0 ? (
-                              <tr><td colSpan={14} style={{padding:32,textAlign:"center",color:"#8B949E"}}>No accounts found</td></tr>
+                              <tr><td colSpan={14} style={{padding:32,textAlign:"center",color:THEME.textMuted}}>No accounts found</td></tr>
                             ) : (
                               <>
                                 {visibleAccounts.map((acc) => {
@@ -3060,46 +3101,46 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                                   const typeColor = acc.type === "FD" ? "#3B82F6" : acc.type === "Saving" ? "#10B981" : acc.type === "Credit Card" ? "#EF4444" : acc.type === "Loan" ? "#F59E0B" : "#8B5CF6";
                                   const accCurrency = (acc.currency || 'INR') as Currency;
                                   return (
-                                    <tr key={idx} style={{borderBottom:"1px solid #21262D",background:acc.done ? "rgba(46,160,67,0.05)" : acc.hidden ? "rgba(100,116,139,0.05)" : "transparent",opacity:acc.done ? 0.6 : 1}}>
+                                    <tr key={idx} style={{borderBottom:`1px solid ${THEME.border}`,background:acc.done ? "rgba(46,160,67,0.05)" : acc.hidden ? "rgba(100,116,139,0.05)" : "transparent",opacity:acc.done ? 0.6 : 1}}>
                                       <td style={{padding:"8px 10px"}}>
                                         <div style={{display:"flex",alignItems:"center",gap:6}}>
                                           <div style={{width:8,height:8,borderRadius:"50%",background:color}} />
-                                          <span style={{fontWeight:600,color:"#F0F6FC",fontSize:11}}>{acc.bank}</span>
-                                          {acc.hidden && <span style={{background:"#374151",color:"#9CA3AF",padding:"1px 4px",borderRadius:3,fontSize:8,fontWeight:600}}>Hidden</span>}
+                                          <span style={{fontWeight:600,color:THEME.text,fontSize:11}}>{acc.bank}</span>
+                                          {acc.hidden && <span style={{background:THEME.border,color:THEME.textLight,padding:"1px 4px",borderRadius:3,fontSize:8,fontWeight:600}}>Hidden</span>}
                                         </div>
                                       </td>
                                       <td style={{padding:"8px 10px"}}>
                                         <span style={{background:`${typeColor}20`,color:typeColor,padding:"2px 6px",borderRadius:4,fontSize:9,fontWeight:700}}>{acc.type || "—"}</span>
                                       </td>
-                                      <td style={{padding:"8px 10px",color:"#C9D1D9",fontSize:10,maxWidth:100,overflow:"hidden",textOverflow:"ellipsis"}} title={acc.holders}>{acc.holders || "—"}</td>
-                                      <td style={{padding:"8px 10px",fontFamily:"monospace",fontWeight:600,color:acc.done ? "#6B7280" : "#F0F6FC",fontSize:11}}>{fmt(acc.amount, accCurrency)}</td>
-                                      <td style={{padding:"8px 10px",color:"#9CA3AF",fontSize:9}}>{accCurrency}</td>
-                                      <td style={{padding:"8px 10px",fontFamily:"monospace",color:"#3FB950",fontWeight:600,fontSize:10}}>{acc.roi ? (Number(acc.roi) * 100).toFixed(2) + "%" : "—"}</td>
-                                      <td style={{padding:"8px 10px",color:"#9CA3AF",fontSize:9,fontFamily:"monospace"}}>{acc.accountNumber || "—"}</td>
-                                      <td style={{padding:"8px 10px",color:"#9CA3AF",fontSize:9,fontFamily:"monospace"}}>{acc.ifscCode || "—"}</td>
-                                      <td style={{padding:"8px 10px",color:"#9CA3AF",fontSize:9,maxWidth:80,overflow:"hidden",textOverflow:"ellipsis"}} title={acc.branch}>{acc.branch || "—"}</td>
+                                      <td style={{padding:"8px 10px",color:THEME.text,fontSize:10,maxWidth:100,overflow:"hidden",textOverflow:"ellipsis"}} title={acc.holders}>{acc.holders || "—"}</td>
+                                      <td style={{padding:"8px 10px",fontFamily:"monospace",fontWeight:600,color:acc.done ? "#6B7280" : THEME.text,fontSize:11}}>{fmt(acc.amount, accCurrency)}</td>
+                                      <td style={{padding:"8px 10px",color:THEME.textLight,fontSize:9}}>{accCurrency}</td>
+                                      <td style={{padding:"8px 10px",fontFamily:"monospace",color:THEME.accent,fontWeight:600,fontSize:10}}>{acc.roi ? (Number(acc.roi) * 100).toFixed(2) + "%" : "—"}</td>
+                                      <td style={{padding:"8px 10px",color:THEME.textLight,fontSize:9,fontFamily:"monospace"}}>{acc.accountNumber || "—"}</td>
+                                      <td style={{padding:"8px 10px",color:THEME.textLight,fontSize:9,fontFamily:"monospace"}}>{acc.ifscCode || "—"}</td>
+                                      <td style={{padding:"8px 10px",color:THEME.textLight,fontSize:9,maxWidth:80,overflow:"hidden",textOverflow:"ellipsis"}} title={acc.branch}>{acc.branch || "—"}</td>
                                       <td style={{padding:"8px 10px"}}>
-                                        {acc.online && <span style={{fontSize:9,color:acc.online === "Yes" ? "#34D399" : "#6B7280",background:acc.online === "Yes" ? "#064E3B30" : "#37415140",padding:"2px 4px",borderRadius:3}}>{acc.online === "Yes" ? "🌐" : "—"}</span>}
+                                        {acc.online && <span style={{fontSize:9,color:acc.online === "Yes" ? "#34D399" : "#6B7280",background:acc.online === "Yes" ? "#064E3B30" : "${THEME.border}40",padding:"2px 4px",borderRadius:3}}>{acc.online === "Yes" ? "🌐" : "—"}</span>}
                                       </td>
                                       <td style={{padding:"8px 10px",color:"#6B7280",fontSize:9,maxWidth:80,overflow:"hidden",textOverflow:"ellipsis"}} title={acc.address}>{acc.address || "—"}</td>
-                                      <td style={{padding:"8px 10px",color:"#9CA3AF",fontSize:9,maxWidth:80,overflow:"hidden",textOverflow:"ellipsis"}} title={acc.detail}>{acc.detail || "—"}</td>
+                                      <td style={{padding:"8px 10px",color:THEME.textLight,fontSize:9,maxWidth:80,overflow:"hidden",textOverflow:"ellipsis"}} title={acc.detail}>{acc.detail || "—"}</td>
                                       <td style={{padding:"8px 10px",color:acc.nextAction && !acc.done ? "#F59E0B" : "#6B7280",fontSize:9,maxWidth:80,overflow:"hidden",textOverflow:"ellipsis",fontWeight:acc.nextAction && !acc.done ? 600 : 400}} title={acc.nextAction}>{acc.nextAction ? (acc.done ? "✓ " : "⚡ ") + acc.nextAction : "—"}</td>
                                       <td style={{padding:"8px 10px",whiteSpace:"nowrap"}}>
-                                        <button onClick={() => toggleDone("account", idx)} style={{background:acc.done ? "#238636" : "#21262D",color:acc.done ? "#fff" : "#8B949E",border:"none",borderRadius:4,padding:"2px 6px",fontSize:9,cursor:"pointer",marginRight:3,fontWeight:600}}>{acc.done ? "↩" : "✓"}</button>
-                                        <button onClick={() => openEdit("account", idx)} style={{background:"#21262D",color:"#58A6FF",border:"none",borderRadius:4,padding:"2px 6px",fontSize:9,cursor:"pointer",marginRight:3}}>✏️</button>
-                                        <button onClick={() => deleteRow("account", idx)} style={{background:"#21262D",color:"#F85149",border:"none",borderRadius:4,padding:"2px 6px",fontSize:9,cursor:"pointer"}}>🗑</button>
+                                        <button onClick={() => toggleDone("account", idx)} style={{background:acc.done ? "#238636" : THEME.cardBgAlt,color:acc.done ? "#fff" : THEME.textMuted,border:"none",borderRadius:4,padding:"2px 6px",fontSize:9,cursor:"pointer",marginRight:3,fontWeight:600}}>{acc.done ? "↩" : "✓"}</button>
+                                        <button onClick={() => openEdit("account", idx)} style={{background:THEME.cardBgAlt,color:"#2563eb",border:"none",borderRadius:4,padding:"2px 6px",fontSize:9,cursor:"pointer",marginRight:3}}>✏️</button>
+                                        <button onClick={() => deleteRow("account", idx)} style={{background:THEME.cardBgAlt,color:"#F85149",border:"none",borderRadius:4,padding:"2px 6px",fontSize:9,cursor:"pointer"}}>🗑</button>
                                       </td>
                                     </tr>
                                   );
                                 })}
                                 {/* Aggregated Hidden Row */}
                                 {!showAllAccounts && hiddenCount > 0 && (
-                                  <tr style={{borderBottom:"1px solid #21262D",background:"#1E293B",cursor:"pointer"}} onClick={() => setShowAllAccounts(true)}>
+                                  <tr style={{borderBottom:`1px solid ${THEME.border}`,background:"#1E293B",cursor:"pointer"}} onClick={() => setShowAllAccounts(true)}>
                                     <td colSpan={3} style={{padding:"12px 10px"}}>
                                       <div style={{display:"flex",alignItems:"center",gap:8}}>
                                         <div style={{width:8,height:8,borderRadius:"50%",background:"#475569"}} />
-                                        <span style={{fontWeight:600,color:"#94A3B8",fontSize:11}}>Other Accounts</span>
-                                        <span style={{background:"#374151",color:"#9CA3AF",padding:"2px 6px",borderRadius:4,fontSize:9,fontWeight:600}}>{hiddenCount} hidden</span>
+                                        <span style={{fontWeight:600,color:THEME.textMuted,fontSize:11}}>Other Accounts</span>
+                                        <span style={{background:THEME.border,color:THEME.textLight,padding:"2px 6px",borderRadius:4,fontSize:9,fontWeight:600}}>{hiddenCount} hidden</span>
                                       </div>
                                     </td>
                                     <td style={{padding:"12px 10px",fontFamily:"monospace",fontWeight:600,color:"#64748B",fontSize:11}}>{fmt(hiddenTotal, targetCurrency)}</td>
@@ -3130,7 +3171,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                       const headerCurrency = displayCurrency === 'ORIGINAL' ? dominantCurrency : displayCurrency;
                       
                       return (
-                        <div key={bankName} style={{background:"#1C1C2E",borderRadius:12,border:`1px solid ${color}30`,borderLeft:`3px solid ${color}`,overflow:"hidden"}}>
+                        <div key={bankName} style={{background:THEME.cardBgAlt,borderRadius:12,border:`1px solid ${color}30`,borderLeft:`3px solid ${color}`,overflow:"hidden"}}>
                           {/* Bank Header - Clickable */}
                           <div 
                             onClick={() => toggleBank(bankName)}
@@ -3140,11 +3181,11 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                               <span style={{fontSize:10,color:"#6B7280",transition:"transform 0.2s",transform:isExpanded?"rotate(90deg)":"rotate(0deg)"}}>▶</span>
                               <div>
                                 <div style={{fontSize:14,fontWeight:700,color:"#F3F4F6"}}>{bankName}</div>
-                                <div style={{fontSize:10,color:"#9CA3AF"}}>{bankAccounts.length} account{bankAccounts.length > 1 ? "s" : ""}{hasActions ? " · ⚡ Actions" : ""}{isMixedCurrency && displayCurrency === 'ORIGINAL' ? " · 🌐 Mixed" : ""}</div>
+                                <div style={{fontSize:10,color:THEME.textLight}}>{bankAccounts.length} account{bankAccounts.length > 1 ? "s" : ""}{hasActions ? " · ⚡ Actions" : ""}{isMixedCurrency && displayCurrency === 'ORIGINAL' ? " · 🌐 Mixed" : ""}</div>
                               </div>
                             </div>
                             <div style={{textAlign:"right"}}>
-                              <div style={{fontSize:15,fontWeight:800,fontFamily:"monospace",color:"#F9FAFB"}}>{fmt(totalBalance, headerCurrency)}</div>
+                              <div style={{fontSize:15,fontWeight:800,fontFamily:"monospace",color:THEME.text}}>{fmt(totalBalance, headerCurrency)}</div>
                               {isMixedCurrency && displayCurrency === 'ORIGINAL' && <div style={{fontSize:9,color:"#6B7280"}}>({Array.from(currencies).join('+')})</div>}
                             </div>
                           </div>
@@ -3156,28 +3197,28 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                                 const originalIndex = indices[j];
                                 const typeColor = acc.type === "FD" ? "#3B82F6" : acc.type === "Saving" ? "#10B981" : acc.type === "Credit Card" ? "#EF4444" : "#8B5CF6";
                                 return (
-                                  <div key={j} style={{padding:"10px 14px",borderBottom:j < bankAccounts.length - 1 ? "1px solid #21262D" : "none",opacity:acc.done ? 0.55 : 1}}>
+                                  <div key={j} style={{padding:"10px 14px",borderBottom:j < bankAccounts.length - 1 ? `1px solid ${THEME.border}` : "none",opacity:acc.done ? 0.55 : 1}}>
                                     <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
                                       <div style={{flex:1}}>
                                         <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
                                           <span style={{background:`${typeColor}20`,color:typeColor,padding:"2px 8px",borderRadius:4,fontSize:10,fontWeight:700}}>{acc.type}</span>
-                                          {acc.online && <span style={{fontSize:9,color:acc.online === "Yes" ? "#34D399" : "#6B7280",background:acc.online === "Yes" ? "#064E3B30" : "#37415140",padding:"2px 6px",borderRadius:4}}>🌐 {acc.online}</span>}
+                                          {acc.online && <span style={{fontSize:9,color:acc.online === "Yes" ? "#34D399" : "#6B7280",background:acc.online === "Yes" ? "#064E3B30" : "${THEME.border}40",padding:"2px 6px",borderRadius:4}}>🌐 {acc.online}</span>}
                                           {acc.done && <span style={{fontSize:9,color:"#6B7280"}}>✓ Done</span>}
                                         </div>
-                                        {acc.holders && <div style={{fontSize:11,color:"#C9D1D9",marginTop:4}}>👤 {acc.holders}</div>}
+                                        {acc.holders && <div style={{fontSize:11,color:THEME.text,marginTop:4}}>👤 {acc.holders}</div>}
                                         <div style={{display:"flex",alignItems:"baseline",gap:8,marginTop:4,flexWrap:"wrap"}}>
                                           {acc.amount && <span style={{fontSize:14,fontWeight:700,fontFamily:"monospace",color:acc.done ? "#6B7280" : "#F9FAFB"}}>{fmt(acc.amount, (acc.currency || 'INR') as Currency)}</span>}
                                           {acc.roi && <span style={{fontSize:11,color:"#34D399",fontFamily:"monospace"}}>{(Number(acc.roi) * 100).toFixed(2)}% pa</span>}
                                         </div>
                                         {acc.address && <div style={{fontSize:10,color:"#6B7280",marginTop:3}}>📍 {acc.address}</div>}
-                                        {acc.detail && <div style={{fontSize:10,color:"#9CA3AF",marginTop:2}}>📝 {acc.detail}</div>}
+                                        {acc.detail && <div style={{fontSize:10,color:THEME.textLight,marginTop:2}}>📝 {acc.detail}</div>}
                                         {acc.accountNumber && <div style={{fontSize:9,color:"#484F58",marginTop:2,fontFamily:"monospace"}}>A/C: {acc.accountNumber}</div>}
                                         {acc.ifscCode && <div style={{fontSize:9,color:"#484F58",fontFamily:"monospace"}}>IFSC: {acc.ifscCode}</div>}
                                         {acc.branch && <div style={{fontSize:9,color:"#484F58"}}>Branch: {acc.branch}</div>}
                                         {acc.nextAction && !acc.done && <div style={{fontSize:11,color:"#F59E0B",marginTop:4,fontWeight:600}}>⚡ {acc.nextAction}</div>}
                                       </div>
                                       <div style={{display:"flex",gap:4,flexShrink:0}}>
-                                        <button onClick={(e) => { e.stopPropagation(); toggleDone("account", originalIndex); }} style={{background:acc.done ? "#064E3B" : "#1C1C2E",color:acc.done ? "#34D399" : "#6B7280",border:`1px solid ${acc.done ? "#065F46" : "#374151"}`,borderRadius:5,padding:"2px 6px",fontSize:10,cursor:"pointer",fontWeight:700}}>{acc.done ? "↩" : "✓"}</button>
+                                        <button onClick={(e) => { e.stopPropagation(); toggleDone("account", originalIndex); }} style={{background:acc.done ? "#dcfce7" : THEME.cardBgAlt,color:acc.done ? "#34D399" : "#6B7280",border:`1px solid ${acc.done ? "#16a34a" : THEME.border}`,borderRadius:5,padding:"2px 6px",fontSize:10,cursor:"pointer",fontWeight:700}}>{acc.done ? "↩" : "✓"}</button>
                                         <button onClick={(e) => { e.stopPropagation(); openEdit("account", originalIndex); }} style={{background:"#1D4ED820",color:"#60A5FA",border:"1px solid #1D4ED840",borderRadius:5,padding:"2px 5px",fontSize:10,cursor:"pointer"}}>✏️</button>
                                         <button onClick={(e) => { e.stopPropagation(); deleteRow("account", originalIndex); }} style={{background:"#7F1D1D20",color:"#FCA5A5",border:"1px solid #7F1D1D40",borderRadius:5,padding:"2px 5px",fontSize:10,cursor:"pointer"}}>🗑</button>
                                       </div>
@@ -3194,16 +3235,16 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                   )}
                   
                   {/* Bank Summary - Collapsible */}
-                  <div style={{marginTop:16,background:"#0D1117",borderRadius:12,border:"1px solid #1F2937",overflow:"hidden"}}>
+                  <div style={{marginTop:16,background:THEME.cardBg,borderRadius:12,border:`1px solid ${THEME.border}`,overflow:"hidden"}}>
                     <button 
                       onClick={() => setExpandedBanks(prev => prev.has('_summary') ? new Set([...prev].filter(k => k !== '_summary')) : new Set([...prev, '_summary']))}
                       style={{width:"100%",padding:"10px 14px",background:"transparent",border:"none",cursor:"pointer",display:"flex",justifyContent:"space-between",alignItems:"center"}}
                     >
                       <div style={{display:"flex",alignItems:"center",gap:8}}>
                         <span style={{fontSize:10,color:"#6B7280",transition:"transform 0.2s",transform:expandedBanks.has('_summary')?"rotate(90deg)":"rotate(0deg)"}}>▶</span>
-                        <span style={{fontSize:11,fontWeight:700,color:"#9CA3AF",textTransform:"uppercase"}}>📊 Bank-wise Summary</span>
+                        <span style={{fontSize:11,fontWeight:700,color:THEME.textLight,textTransform:"uppercase"}}>📊 Bank-wise Summary</span>
                       </div>
-                      <div style={{fontSize:12,color:"#F9FAFB",fontFamily:"monospace",fontWeight:700}}>{fmt(sumConverted(accounts), displayCurrency === 'ORIGINAL' ? 'INR' : displayCurrency)}</div>
+                      <div style={{fontSize:12,color:THEME.text,fontFamily:"monospace",fontWeight:700}}>{fmt(sumConverted(accounts), displayCurrency === 'ORIGINAL' ? 'INR' : displayCurrency)}</div>
                     </button>
                     {expandedBanks.has('_summary') && (
                       <div style={{borderTop:"1px solid #1F2937",padding:"10px 14px"}}>
@@ -3216,8 +3257,8 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                             return (
                               <div key={bankName} style={{display:"flex",alignItems:"center",gap:10}}>
                                 <div style={{width:10,height:10,borderRadius:"50%",background:getBankColor(bankName),flexShrink:0}} />
-                                <span style={{flex:1,fontSize:12,color:"#C9D1D9"}}>{bankName}</span>
-                                <span style={{fontSize:12,fontFamily:"monospace",fontWeight:700,color:"#F9FAFB"}}>{fmt(total, summaryCurrency)}</span>
+                                <span style={{flex:1,fontSize:12,color:THEME.text}}>{bankName}</span>
+                                <span style={{fontSize:12,fontFamily:"monospace",fontWeight:700,color:THEME.text}}>{fmt(total, summaryCurrency)}</span>
                                 <span style={{fontSize:10,color:"#6B7280",minWidth:40,textAlign:"right"}}>{pct.toFixed(0)}%</span>
                               </div>
                             );
@@ -3231,10 +3272,10 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                   </div>
                   
                   {/* Investment by Bank Chart */}
-                  <div style={{marginTop:16,background:"#0D1117",borderRadius:12,border:"1px solid #1F2937",padding:14}}>
-                    <div style={{fontSize:12,fontWeight:700,color:"#9CA3AF",marginBottom:10}}>🏦 Investment by Bank</div>
+                  <div style={{marginTop:16,background:THEME.cardBg,borderRadius:12,border:`1px solid ${THEME.border}`,padding:14}}>
+                    <div style={{fontSize:12,fontWeight:700,color:THEME.textLight,marginBottom:10}}>🏦 Investment by Bank</div>
                     {pieData.length === 0 ? (
-                      <div style={{color:"#4B5563",padding:20,textAlign:"center"}}>No data</div>
+                      <div style={{color:THEME.textMuted,padding:20,textAlign:"center"}}>No data</div>
                     ) : (
                       <>
                         <ResponsiveContainer width="100%" height={180}>
@@ -3254,13 +3295,13 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                             </Pie>
                             <Tooltip 
                               formatter={(v: any) => fmt(v)} 
-                              contentStyle={{background:"#1C1C2E",border:"1px solid #374151",borderRadius:8,fontSize:12}} 
+                              contentStyle={{background:THEME.cardBgAlt,border:"1px solid ${THEME.border}",borderRadius:8,fontSize:12}} 
                             />
                           </PieChart>
                         </ResponsiveContainer>
                         <button 
                           onClick={() => setShowLegend(prev => prev.has('bank') ? new Set([...prev].filter(k => k !== 'bank')) : new Set([...prev, 'bank']))}
-                          style={{marginTop:8,background:"#21262D",border:"1px solid #30363D",color:"#9CA3AF",padding:"4px 12px",borderRadius:6,fontSize:11,cursor:"pointer",display:"flex",alignItems:"center",gap:6}}
+                          style={{marginTop:8,background:THEME.cardBgAlt,border:`1px solid ${THEME.border}`,color:THEME.textLight,padding:"4px 12px",borderRadius:6,fontSize:11,cursor:"pointer",display:"flex",alignItems:"center",gap:6}}
                         >
                           <span style={{fontSize:10,transition:"transform 0.2s",transform:showLegend.has('bank')?"rotate(90deg)":"rotate(0deg)"}}>▶</span>
                           Legend ({pieData.length})
@@ -3268,7 +3309,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                         {showLegend.has('bank') && (
                           <div style={{display:"flex",flexWrap:"wrap",gap:6,marginTop:8}}>
                             {pieData.map((e, i) => (
-                              <div key={i} style={{display:"flex",alignItems:"center",gap:4,fontSize:11,background:"#161B22",padding:"3px 8px",borderRadius:12}}>
+                              <div key={i} style={{display:"flex",alignItems:"center",gap:4,fontSize:11,background:THEME.cardBgAlt,padding:"3px 8px",borderRadius:12}}>
                                 <div style={{width:8,height:8,borderRadius:"50%",background:e.color}} />
                                 <span style={{color:"#D1D5DB"}}>{e.name}</span>
                                 <span style={{color:e.color,fontWeight:600}}>{fmt(e.value)}</span>
@@ -3296,11 +3337,11 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                 {/* Mobile: Summary Header */}
                 <div style={{background:"linear-gradient(135deg, #92400E 0%, #0F172A 100%)",borderRadius:14,padding:"16px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
                   <div>
-                    <div style={{fontSize:10,color:"#94A3B8",fontWeight:500}}>PENDING BILLS</div>
+                    <div style={{fontSize:10,color:THEME.textMuted,fontWeight:500}}>PENDING BILLS</div>
                     <div style={{fontSize:28,fontWeight:800,color:"#F8FAFC"}}>{bills.filter(b => !b.done).length}</div>
                   </div>
                   <div style={{textAlign:"right"}}>
-                    <div style={{fontSize:10,color:"#94A3B8",fontWeight:500}}>TOTAL DUE</div>
+                    <div style={{fontSize:10,color:THEME.textMuted,fontWeight:500}}>TOTAL DUE</div>
                     <div style={{fontSize:20,fontWeight:800,color:"#F59E0B",fontFamily:"monospace"}}>{fmt(bills.filter(b => !b.done).reduce((s, b) => s + (Number(b.amount) || 0), 0))}</div>
                   </div>
                 </div>
@@ -3309,13 +3350,13 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                 <div style={{display:"flex",gap:8}}>
                   <button 
                     onClick={() => setShowDone(false)}
-                    style={{flex:1,background:!showDone ? "#F59E0B" : "#21262D",color:!showDone ? "#000" : "#9CA3AF",border:"none",borderRadius:10,padding:"10px",fontSize:13,fontWeight:600}}
+                    style={{flex:1,background:!showDone ? "#F59E0B" : THEME.cardBgAlt,color:!showDone ? "#000" : THEME.textLight,border:"none",borderRadius:10,padding:"10px",fontSize:13,fontWeight:600}}
                   >
                     Pending ({bills.filter(b => !b.done).length})
                   </button>
                   <button 
                     onClick={() => setShowDone(true)}
-                    style={{flex:1,background:showDone ? "#10B981" : "#21262D",color:showDone ? "#FFF" : "#9CA3AF",border:"none",borderRadius:10,padding:"10px",fontSize:13,fontWeight:600}}
+                    style={{flex:1,background:showDone ? "#10B981" : THEME.cardBgAlt,color:showDone ? "#FFF" : THEME.textLight,border:"none",borderRadius:10,padding:"10px",fontSize:13,fontWeight:600}}
                   >
                     Paid ({bills.filter(b => b.done).length})
                   </button>
@@ -3332,7 +3373,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                         <div 
                           key={i}
                           style={{
-                            background:"#161B22",
+                            background:THEME.cardBgAlt,
                             borderRadius:14,
                             padding:"14px",
                             borderLeft:`4px solid ${bill.done ? "#10B981" : "#F59E0B"}`,
@@ -3341,7 +3382,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                         >
                           <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:8}}>
                             <div style={{flex:1}}>
-                              <div style={{fontSize:15,fontWeight:700,color:bill.done ? "#6B7280" : "#F0F6FC",textDecoration:bill.done ? "line-through" : "none"}}>{bill.name}</div>
+                              <div style={{fontSize:15,fontWeight:700,color:bill.done ? "#6B7280" : THEME.text,textDecoration:bill.done ? "line-through" : "none"}}>{bill.name}</div>
                               <div style={{fontSize:12,color:"#6B7280",marginTop:4}}>{bill.freq}</div>
                             </div>
                             {bill.amount && (
@@ -3350,14 +3391,14 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                           </div>
                           
                           {bill.due && (
-                            <div style={{fontSize:12,color:"#9CA3AF",marginBottom:10}}>Due: {bill.due}</div>
+                            <div style={{fontSize:12,color:THEME.textLight,marginBottom:10}}>Due: {bill.due}</div>
                           )}
                           
                           {/* Mobile: Action Buttons */}
-                          <div style={{display:"flex",gap:8,paddingTop:10,borderTop:"1px solid #21262D"}}>
+                          <div style={{display:"flex",gap:8,paddingTop:10,borderTop:`1px solid ${THEME.border}`}}>
                             <button 
                               onClick={() => toggleDone("bill", origIdx)} 
-                              style={{flex:1,background:bill.done ? "#064E3B" : "#F59E0B20",color:bill.done ? "#34D399" : "#F59E0B",border:"none",borderRadius:8,padding:"10px",fontSize:12,fontWeight:600}}
+                              style={{flex:1,background:bill.done ? "#dcfce7" : "#F59E0B20",color:bill.done ? "#34D399" : "#F59E0B",border:"none",borderRadius:8,padding:"10px",fontSize:12,fontWeight:600}}
                             >
                               {bill.done ? "↩ Unpaid" : "✓ Mark Paid"}
                             </button>
@@ -3392,13 +3433,13 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
             ) : (
               <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(260px,1fr))",gap:12}}>
                 {bills.map((bill, i) => (
-                  <div key={i} style={{background:"#1C1C2E",borderRadius:12,padding:16,border:"1px solid #374151",opacity:bill.done ? 0.55 : 1}}>
+                  <div key={i} style={{background:THEME.cardBgAlt,borderRadius:12,padding:16,border:"1px solid ${THEME.border}",opacity:bill.done ? 0.55 : 1}}>
                     <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:8}}>
                       <div style={{fontWeight:700,color:bill.done ? "#6B7280" : "#F3F4F6",fontSize:14,textDecoration:bill.done ? "line-through" : "none",flex:1}}>{bill.name}</div>
-                      <button onClick={() => toggleDone("bill", i)} style={{background:bill.done ? "#064E3B" : "#1C1C2E",color:bill.done ? "#34D399" : "#6B7280",border:`1px solid ${bill.done ? "#065F46" : "#374151"}`,borderRadius:6,padding:"2px 8px",fontSize:10,cursor:"pointer",fontWeight:700}}>{bill.done ? "↩" : "✓"}</button>
+                      <button onClick={() => toggleDone("bill", i)} style={{background:bill.done ? "#dcfce7" : THEME.cardBgAlt,color:bill.done ? "#34D399" : "#6B7280",border:`1px solid ${bill.done ? "#16a34a" : THEME.border}`,borderRadius:6,padding:"2px 8px",fontSize:10,cursor:"pointer",fontWeight:700}}>{bill.done ? "↩" : "✓"}</button>
                     </div>
-                    {bill.amount && <div style={{fontSize:15,fontWeight:800,fontFamily:"monospace",color:"#F9FAFB",marginBottom:4}}>{fmt(bill.amount)}</div>}
-                    <div style={{fontSize:11,color:"#9CA3AF",marginBottom:6}}>{bill.freq} · Due: {bill.due || "—"}</div>
+                    {bill.amount && <div style={{fontSize:15,fontWeight:800,fontFamily:"monospace",color:THEME.text,marginBottom:4}}>{fmt(bill.amount)}</div>}
+                    <div style={{fontSize:11,color:THEME.textLight,marginBottom:6}}>{bill.freq} · Due: {bill.due || "—"}</div>
                     <div style={{display:"flex",gap:6,marginTop:8}}>
                       <button onClick={() => openEdit("bill", i)} style={{background:"#1D4ED820",color:"#60A5FA",border:"1px solid #1D4ED840",borderRadius:7,padding:"3px 8px",fontSize:11,cursor:"pointer"}}>✏️</button>
                       <button onClick={() => deleteRow("bill", i)} style={{background:"#7F1D1D20",color:"#FCA5A5",border:"1px solid #7F1D1D40",borderRadius:7,padding:"3px 8px",fontSize:11,cursor:"pointer"}}>🗑</button>
@@ -3450,10 +3491,10 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
       {/* Modal for Add/Edit */}
       {modal && (
         <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.85)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:1000,padding:16}}>
-          <div style={{background:"#1C1C2E",borderRadius:20,padding:28,width:"100%",maxWidth:520,maxHeight:"90vh",overflowY:"auto",border:"1px solid #374151"}}>
+          <div style={{background:THEME.cardBgAlt,borderRadius:20,padding:28,width:"100%",maxWidth:520,maxHeight:"90vh",overflowY:"auto",border:"1px solid ${THEME.border}"}}>
             <div style={{display:"flex",justifyContent:"space-between",marginBottom:22}}>
               <div style={{fontSize:17,fontWeight:800}}>{modal.mode==="add"?"Add":"Edit"} {modal.type}</div>
-              <button onClick={()=>setModal(null)} style={{background:"#374151",color:"#9CA3AF",border:"none",borderRadius:8,padding:"3px 12px",cursor:"pointer"}}>✕</button>
+              <button onClick={()=>setModal(null)} style={{background:THEME.border,color:THEME.textLight,border:"none",borderRadius:8,padding:"3px 12px",cursor:"pointer"}}>✕</button>
             </div>
             
             {/* Deposit Form */}
@@ -3491,8 +3532,8 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                 <div><label style={labelSt}>Address</label><input style={inputSt} value={form.address||""} onChange={e=>setForm({...form,address:e.target.value})} /></div>
                 <div style={{gridColumn:"span 2"}}><label style={labelSt}>Details</label><input style={inputSt} value={form.detail||""} onChange={e=>setForm({...form,detail:e.target.value})} /></div>
                 <div style={{gridColumn:"span 2"}}><label style={labelSt}>Next Action</label><input style={inputSt} value={form.nextAction||""} onChange={e=>setForm({...form,nextAction:e.target.value})} placeholder="Pending task for this account" /></div>
-                <div style={{gridColumn:"span 2",display:"flex",alignItems:"center",gap:10,padding:"10px 0",borderTop:"1px solid #30363D",marginTop:6}}>
-                  <label style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",fontSize:12,color:"#9CA3AF"}}>
+                <div style={{gridColumn:"span 2",display:"flex",alignItems:"center",gap:10,padding:"10px 0",borderTop:`1px solid ${THEME.border}`,marginTop:6}}>
+                  <label style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",fontSize:12,color:THEME.textLight}}>
                     <input 
                       type="checkbox" 
                       checked={form.hidden || false} 
@@ -3544,7 +3585,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
             )}
 
             <div style={{display:"flex",gap:12,marginTop:22,justifyContent:"flex-end"}}>
-              <button onClick={()=>setModal(null)} style={{background:"#374151",color:"#9CA3AF",border:"none",borderRadius:10,padding:"9px 18px",cursor:"pointer"}}>Cancel</button>
+              <button onClick={()=>setModal(null)} style={{background:THEME.border,color:THEME.textLight,border:"none",borderRadius:10,padding:"9px 18px",cursor:"pointer"}}>Cancel</button>
               <button onClick={saveModal} style={{background:"linear-gradient(135deg,#1D4ED8,#2563EB)",color:"#fff",border:"none",borderRadius:10,padding:"9px 22px",cursor:"pointer"}}>Save</button>
             </div>
           </div>
@@ -3554,48 +3595,48 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
       {/* Exchange Rates Modal */}
       {showRatesModal && (
         <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.85)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:1001,padding:16}}>
-          <div style={{background:"#1C1C2E",borderRadius:20,padding:28,width:"100%",maxWidth:400,border:"1px solid #374151"}}>
+          <div style={{background:THEME.cardBgAlt,borderRadius:20,padding:28,width:"100%",maxWidth:400,border:"1px solid ${THEME.border}"}}>
             <div style={{display:"flex",justifyContent:"space-between",marginBottom:22}}>
-              <div style={{fontSize:17,fontWeight:800,color:"#F9FAFB"}}>Exchange Rates (to INR)</div>
-              <button onClick={()=>setShowRatesModal(false)} style={{background:"#374151",color:"#9CA3AF",border:"none",borderRadius:8,padding:"3px 12px",cursor:"pointer"}}>✕</button>
+              <div style={{fontSize:17,fontWeight:800,color:THEME.text}}>Exchange Rates (to INR)</div>
+              <button onClick={()=>setShowRatesModal(false)} style={{background:THEME.border,color:THEME.textLight,border:"none",borderRadius:8,padding:"3px 12px",cursor:"pointer"}}>✕</button>
             </div>
-            <div style={{fontSize:11,color:"#9CA3AF",marginBottom:16}}>
+            <div style={{fontSize:11,color:THEME.textLight,marginBottom:16}}>
               Set exchange rates for currency conversion. These rates define how many INR equals 1 unit of foreign currency.
             </div>
             <div style={{display:"flex",flexDirection:"column",gap:14}}>
               <div>
-                <label style={{fontSize:11,color:"#9CA3AF",display:"block",marginBottom:4}}>1 USD = ₹</label>
+                <label style={{fontSize:11,color:THEME.textLight,display:"block",marginBottom:4}}>1 USD = ₹</label>
                 <input 
                   type="number" 
                   step="0.01"
                   value={exchangeRates.USD} 
                   onChange={e => setExchangeRates({...exchangeRates, USD: Number(e.target.value) || 83})}
-                  style={{width:"100%",background:"#21262D",border:"1px solid #30363D",borderRadius:8,padding:"10px 12px",color:"#F0F6FC",fontSize:14}}
+                  style={{width:"100%",background:THEME.cardBgAlt,border:`1px solid ${THEME.border}`,borderRadius:8,padding:"10px 12px",color:THEME.text,fontSize:14}}
                 />
               </div>
               <div>
-                <label style={{fontSize:11,color:"#9CA3AF",display:"block",marginBottom:4}}>1 EUR = ₹</label>
+                <label style={{fontSize:11,color:THEME.textLight,display:"block",marginBottom:4}}>1 EUR = ₹</label>
                 <input 
                   type="number"
                   step="0.01" 
                   value={exchangeRates.EUR} 
                   onChange={e => setExchangeRates({...exchangeRates, EUR: Number(e.target.value) || 90})}
-                  style={{width:"100%",background:"#21262D",border:"1px solid #30363D",borderRadius:8,padding:"10px 12px",color:"#F0F6FC",fontSize:14}}
+                  style={{width:"100%",background:THEME.cardBgAlt,border:`1px solid ${THEME.border}`,borderRadius:8,padding:"10px 12px",color:THEME.text,fontSize:14}}
                 />
               </div>
               <div>
-                <label style={{fontSize:11,color:"#9CA3AF",display:"block",marginBottom:4}}>1 GBP = ₹</label>
+                <label style={{fontSize:11,color:THEME.textLight,display:"block",marginBottom:4}}>1 GBP = ₹</label>
                 <input 
                   type="number"
                   step="0.01" 
                   value={exchangeRates.GBP} 
                   onChange={e => setExchangeRates({...exchangeRates, GBP: Number(e.target.value) || 105})}
-                  style={{width:"100%",background:"#21262D",border:"1px solid #30363D",borderRadius:8,padding:"10px 12px",color:"#F0F6FC",fontSize:14}}
+                  style={{width:"100%",background:THEME.cardBgAlt,border:`1px solid ${THEME.border}`,borderRadius:8,padding:"10px 12px",color:THEME.text,fontSize:14}}
                 />
               </div>
             </div>
             <div style={{display:"flex",gap:12,marginTop:22,justifyContent:"flex-end"}}>
-              <button onClick={()=>setShowRatesModal(false)} style={{background:"#374151",color:"#9CA3AF",border:"none",borderRadius:10,padding:"9px 18px",cursor:"pointer"}}>Cancel</button>
+              <button onClick={()=>setShowRatesModal(false)} style={{background:THEME.border,color:THEME.textLight,border:"none",borderRadius:10,padding:"9px 18px",cursor:"pointer"}}>Cancel</button>
               <button 
                 onClick={() => { persist(deposits, accounts, bills, actions, goals, exchangeRates, displayCurrency); setShowRatesModal(false); }}
                 style={{background:"linear-gradient(135deg,#1D4ED8,#2563EB)",color:"#fff",border:"none",borderRadius:10,padding:"9px 22px",cursor:"pointer"}}
@@ -3647,7 +3688,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                     width:"100%",
                     padding:"12px 18px",
                     background: tab === t.id ? "#EFF6FF" : "transparent",
-                    color: tab === t.id ? "#3B82F6" : "#374151",
+                    color: tab === t.id ? "#3B82F6" : THEME.border,
                     border:"none",
                     borderBottom:"1px solid #f3f4f6",
                     fontSize:13,

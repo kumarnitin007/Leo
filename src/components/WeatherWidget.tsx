@@ -8,6 +8,14 @@
 
 import React, { useState, useEffect } from 'react';
 import { getUserSettings } from '../storage';
+import type { TemperatureUnit } from '../types';
+
+const FAHRENHEIT_COUNTRIES = ['US', 'BS', 'KY', 'LR', 'PW', 'FM', 'MH'];
+
+const getDefaultTempUnit = (country?: string): TemperatureUnit => {
+  if (!country) return 'fahrenheit';
+  return FAHRENHEIT_COUNTRIES.includes(country.toUpperCase()) ? 'fahrenheit' : 'celsius';
+};
 
 interface WeatherData {
   current: {
@@ -39,23 +47,43 @@ const WeatherWidget: React.FC = () => {
   const [weatherData, setWeatherData] = useState<WeatherData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [location, setLocation] = useState<{ zipCode?: string; city?: string; country?: string } | null>(null);
+  const [tempUnit, setTempUnit] = useState<TemperatureUnit>('fahrenheit');
+  const [displayUnit, setDisplayUnit] = useState<TemperatureUnit>('fahrenheit');
 
-  // Load location from settings (only if user is signed in)
+  const tempSymbol = displayUnit === 'celsius' ? '°C' : '°F';
+
+  const convertTemp = (temp: number): number => {
+    if (tempUnit === displayUnit) return Math.round(temp);
+    if (tempUnit === 'fahrenheit' && displayUnit === 'celsius') {
+      return Math.round((temp - 32) * 5 / 9);
+    }
+    return Math.round(temp * 9 / 5 + 32);
+  };
+
+  const toggleDisplayUnit = () => {
+    setDisplayUnit(prev => prev === 'celsius' ? 'fahrenheit' : 'celsius');
+  };
+
+  // Load location and temperature unit from settings (only if user is signed in)
   useEffect(() => {
-    const loadLocation = async () => {
+    const loadSettings = async () => {
       try {
         const settings = await getUserSettings();
         if (settings.location && (settings.location.zipCode || settings.location.city)) {
           setLocation(settings.location);
+          // Use explicit setting, or auto-detect from country
+          const unit = settings.temperatureUnit || getDefaultTempUnit(settings.location.country);
+          setTempUnit(unit);
+          setDisplayUnit(unit);
         }
       } catch (error: any) {
         // Silently ignore auth errors (user not signed in yet)
         if (!error?.message?.includes('User must be signed in')) {
-          console.error('Error loading location:', error);
+          console.error('Error loading settings:', error);
         }
       }
     };
-    loadLocation();
+    loadSettings();
   }, []);
 
   // Fetch weather data when expanded
@@ -94,7 +122,8 @@ const WeatherWidget: React.FC = () => {
       }
 
       // Fetch 5-day forecast (3-hour intervals) - free tier
-      const forecastUrl = `https://api.openweathermap.org/data/2.5/forecast?${query}&appid=${API_KEY}&units=imperial`;
+      const units = tempUnit === 'celsius' ? 'metric' : 'imperial';
+      const forecastUrl = `https://api.openweathermap.org/data/2.5/forecast?${query}&appid=${API_KEY}&units=${units}`;
       const forecastResponse = await fetch(forecastUrl);
       
       if (!forecastResponse.ok) {
@@ -271,18 +300,39 @@ const WeatherWidget: React.FC = () => {
                 marginBottom: '1.5rem',
                 padding: '1rem',
                 background: 'linear-gradient(135deg, #e0f7fa 0%, #b2ebf2 100%)',
-                borderRadius: '8px'
+                borderRadius: '8px',
+                position: 'relative'
               }}>
                 <img src={weatherData.current.icon} alt={weatherData.current.description} style={{ width: '64px', height: '64px' }} />
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: '2rem', fontWeight: 'bold' }}>{weatherData.current.temp}°F</div>
+                  <div style={{ fontSize: '2rem', fontWeight: 'bold' }}>{convertTemp(weatherData.current.temp)}{tempSymbol}</div>
                   <div style={{ fontSize: '0.875rem', color: '#6b7280' }}>
-                    Feels like {weatherData.current.feelsLike}°F • {weatherData.current.humidity}% humidity
+                    Feels like {convertTemp(weatherData.current.feelsLike)}{tempSymbol} • {weatherData.current.humidity}% humidity
                   </div>
                   <div style={{ fontSize: '0.9rem', textTransform: 'capitalize', marginTop: '0.25rem' }}>
                     {weatherData.current.description}
                   </div>
                 </div>
+                {/* Quick °C/°F toggle */}
+                <button
+                  onClick={toggleDisplayUnit}
+                  title={`Switch to ${displayUnit === 'celsius' ? 'Fahrenheit' : 'Celsius'}`}
+                  style={{
+                    position: 'absolute',
+                    top: '0.5rem',
+                    right: '0.5rem',
+                    padding: '0.25rem 0.5rem',
+                    fontSize: '0.75rem',
+                    fontWeight: 600,
+                    border: '1px solid #0097a7',
+                    borderRadius: '4px',
+                    background: 'white',
+                    color: '#0097a7',
+                    cursor: 'pointer'
+                  }}
+                >
+                  {displayUnit === 'celsius' ? '°F' : '°C'}
+                </button>
               </div>
 
               {/* Hourly Forecast - Horizontal Scroll */}
@@ -309,7 +359,7 @@ const WeatherWidget: React.FC = () => {
                     >
                       <div style={{ fontSize: '0.75rem', color: '#6b7280', marginBottom: '0.5rem' }}>{hour.time}</div>
                       <img src={hour.icon} alt={hour.description} style={{ width: '40px', height: '40px', margin: '0 auto 0.5rem' }} />
-                      <div style={{ fontSize: '1rem', fontWeight: 600 }}>{hour.temp}°</div>
+                      <div style={{ fontSize: '1rem', fontWeight: 600 }}>{convertTemp(hour.temp)}°</div>
                     </div>
                   ))}
                 </div>
@@ -342,8 +392,8 @@ const WeatherWidget: React.FC = () => {
                       </div>
                       <div style={{ fontSize: '0.7rem', color: '#9ca3af', marginBottom: '0.5rem' }}>{day.date}</div>
                       <img src={day.icon} alt={day.description} style={{ width: '40px', height: '40px', margin: '0 auto 0.5rem' }} />
-                      <div style={{ fontSize: '0.875rem', fontWeight: 600 }}>{day.high}°</div>
-                      <div style={{ fontSize: '0.75rem', color: '#6b7280' }}>{day.low}°</div>
+                      <div style={{ fontSize: '0.875rem', fontWeight: 600 }}>{convertTemp(day.high)}°</div>
+                      <div style={{ fontSize: '0.75rem', color: '#6b7280' }}>{convertTemp(day.low)}°</div>
                     </div>
                   ))}
                 </div>
