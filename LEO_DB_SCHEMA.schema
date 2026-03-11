@@ -114,7 +114,9 @@
 | `myday_journals` | `myday_journal_entries` |
 | `myday_safe_entries` | `myday_encrypted_entries` |
 | `myday_safe_documents` | `myday_document_vaults` |
+| `myday_shared_entries` | `myday_shared_safe_entries` |
 | `myday_shared_documents` | `myday_shared_safe_documents` |
+| `myday_safe_tags` | `myday_tags` |
 | `myday_gift_cards` | `myday_items` with `category = 'Gift Card'` |
 | `myday_warranties` | `myday_items` with `category = 'Warranty'` |
 
@@ -158,6 +160,32 @@ This single table stores multiple item types via `category` field:
 | `myday_groups` | Groups (Family, Work, etc.) |
 | `myday_group_members` | Membership with `role`, `display_name` |
 | `myday_group_encryption_keys` | Per-member encrypted AES keys |
+| `myday_group_finance_messages` | Group chat messages (text, FD, account, alert, doc) |
+
+---
+
+## Reset Safe - Data Cleanup
+
+When user resets Safe (forgets master password), these tables must be cleaned:
+
+| Table | What to Delete | Why |
+|-------|---------------|-----|
+| `myday_encrypted_entries` | `user_id = X` | User's passwords/credentials |
+| `myday_document_vaults` | `user_id = X` | User's documents |
+| `myday_bank_records` | `user_id = X` | User's financial data |
+| `myday_tags` | `user_id = X` | User's tags |
+| `myday_group_encryption_keys` | `user_id = X` | **CRITICAL**: Old keys encrypted with old RSA, now useless |
+| `myday_shared_safe_entries` | `shared_by = X` | Entries user shared (undecryptable) |
+| `myday_shared_safe_documents` | `shared_by = X` | Docs user shared (undecryptable) |
+| `myday_safe_master_keys` | `user_id = X` | Master key + RSA key pair |
+
+**DO NOT DELETE**:
+- `myday_groups` - User may still own groups
+- `myday_group_members` - User stays in groups, can request new keys
+
+**Warning**: After reset, user's `myday_group_encryption_keys` entries become orphaned 
+(encrypted with old RSA public key). These MUST be deleted or decryption will fail with 
+`OperationError`.
 
 ---
 
@@ -182,3 +210,13 @@ SELECT * FROM myday_gift_cards;
 
 **Last Updated**: 2026-03-09  
 **Status**: ✅ VERIFIED
+
+---
+
+## Changelog
+
+| Date | Change |
+|------|--------|
+| 2026-03-09 | Added Reset Safe cleanup section |
+| 2026-03-09 | Added common mistakes: `myday_shared_entries`, `myday_safe_tags` |
+| 2026-03-09 | Added `myday_group_finance_messages` to Group System |

@@ -2891,15 +2891,28 @@ export const hasMasterPassword = async (): Promise<boolean> => {
 /**
  * Reset Safe - DESTRUCTIVE: Deletes all Safe data for the user
  * Use when user forgets master password and wants to start fresh
+ * 
+ * Deletes:
+ * - Safe entries (passwords, notes)
+ * - Document vaults
+ * - Bank records (FDs, accounts, bills)
+ * - Safe tags
+ * - Group encryption keys (user's copies - become useless without RSA key)
+ * - Shared entries that user shared with groups
+ * - Master key (includes RSA key pair)
+ * 
+ * Does NOT delete:
+ * - Group memberships (user stays in groups, can request new keys)
+ * - Groups the user owns (would orphan other members)
  */
 export const resetSafe = async (): Promise<{ success: boolean; deletedCounts: Record<string, number> }> => {
   const { client, userId } = await requireAuth();
   const deletedCounts: Record<string, number> = {};
 
   try {
-    // Delete safe entries
+    // Delete safe entries (encrypted passwords/credentials)
     const { data: entriesData } = await client
-      .from('myday_safe_entries')
+      .from('myday_encrypted_entries')
       .delete()
       .eq('user_id', userId)
       .select('id');
@@ -2921,13 +2934,37 @@ export const resetSafe = async (): Promise<{ success: boolean; deletedCounts: Re
       .select('id');
     deletedCounts.bankRecords = bankData?.length || 0;
 
-    // Delete safe tags
+    // Delete user tags
     const { data: tagsData } = await client
-      .from('myday_safe_tags')
+      .from('myday_tags')
       .delete()
       .eq('user_id', userId)
       .select('id');
     deletedCounts.tags = tagsData?.length || 0;
+
+    // Delete user's group encryption keys (encrypted with old RSA key, now useless)
+    const { data: groupKeysData } = await client
+      .from('myday_group_encryption_keys')
+      .delete()
+      .eq('user_id', userId)
+      .select('id');
+    deletedCounts.groupKeys = groupKeysData?.length || 0;
+
+    // Delete shared safe entries that this user shared (others can't decrypt without re-share)
+    const { data: sharedData } = await client
+      .from('myday_shared_safe_entries')
+      .delete()
+      .eq('shared_by', userId)
+      .select('id');
+    deletedCounts.sharedEntries = sharedData?.length || 0;
+
+    // Delete shared safe documents that this user shared
+    const { data: sharedDocsData } = await client
+      .from('myday_shared_safe_documents')
+      .delete()
+      .eq('shared_by', userId)
+      .select('id');
+    deletedCounts.sharedDocuments = sharedDocsData?.length || 0;
 
     // Delete master key (last, so other deletes complete first)
     const { data: keyData } = await client

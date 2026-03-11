@@ -12,7 +12,20 @@ GENERAL BEHAVIOR
 - Do NOT analyze or infer other files, folders, or project structure unless explicitly asked.
 - Avoid repository-wide or architectural analysis.
 - Do not perform “gut checks” or design reviews unless explicitly requested.
-- refer file LEO_DB_SCHEMA.schema to check current database entities or check directly in Supabase DB.
+DATABASE RULES (STRICT - MUST FOLLOW)
+- BEFORE writing ANY database query, migration, or table reference:
+  1. READ the file LEO_DB_SCHEMA.schema FIRST
+  2. VERIFY the exact table name from the schema
+  3. CITE the correct table name in your response
+- NEVER guess or assume table names based on patterns
+- If table name is not in schema, ASK the user or check Supabase directly
+- Common mistakes to AVOID:
+  - ❌ myday_safe_entries → ✅ myday_encrypted_entries
+  - ❌ myday_shared_entries → ✅ myday_shared_safe_entries  
+  - ❌ myday_shared_documents → ✅ myday_shared_safe_documents
+  - ❌ myday_safe_tags → ✅ myday_tags
+- Failure to follow this process is unacceptable
+
 OUTPUT
 - Prefer code diffs or updated code blocks.
 - Make the smallest change necessary to satisfy the request.

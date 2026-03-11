@@ -1299,7 +1299,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
   }
 
   return (
-    <div style={{minHeight:"100vh",background:"#0D1117",color:"#F9FAFB",fontFamily:"'Sora','Segoe UI',sans-serif",paddingBottom:isMobile?120:48,margin:isMobile?"-0.5rem":"0",width:isMobile?"calc(100% + 1rem)":"auto"}}>
+    <div style={{minHeight:"100vh",background:"#0D1117",color:"#F9FAFB",fontFamily:"'Sora','Segoe UI',sans-serif",paddingBottom:isMobile?110:48,margin:isMobile?"-0.5rem":"0",width:isMobile?"calc(100% + 1rem)":"auto"}}>
       {/* Setup Banner */}
       {showSetupBanner && (
         <div style={{background:"linear-gradient(90deg,#7F1D1D,#991B1B)",border:"1px solid #DC2626",padding:"12px 20px",margin:"16px",borderRadius:12,display:"flex",alignItems:"center",gap:12}}>
@@ -1315,23 +1315,22 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
       )}
 
       {/* Header - Bank Records title and buttons */}
-      <div style={{background:"#161B22",borderBottom:"1px solid #21262D",padding:isMobile?"10px 12px":"12px 16px"}}>
+      <div style={{background:"#161B22",borderBottom:"1px solid #21262D",padding:isMobile?"8px 10px":"12px 16px"}}>
         {/* Title Row */}
-        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:isMobile?8:12}}>
-          <div style={{display:"flex",alignItems:"center",gap:isMobile?6:10}}>
-            <span style={{fontSize:isMobile?18:22}}>🦁</span>
-            <div style={{fontSize:isMobile?13:15,fontWeight:700,color:"#F9FAFB"}}>{isMobile ? "Bank" : "Bank Records"}</div>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8}}>
+          <div style={{display:"flex",alignItems:"center",gap:isMobile?4:10,flexShrink:0}}>
+            <span style={{fontSize:isMobile?16:22}}>🦁</span>
+            {!isMobile && <div style={{fontSize:15,fontWeight:700,color:"#F9FAFB"}}>Bank Records</div>}
             {savedMsg && <span style={{color:"#34D399",fontSize:11,fontWeight:600}}>✓</span>}
           </div>
-          <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+          <div style={{display:"flex",gap:isMobile?4:6,alignItems:"center"}}>
             {onOpenGroupChat && (
-              <button onClick={onOpenGroupChat} style={{background:"linear-gradient(135deg, #0D9488, #0F766E)",color:"#fff",border:"none",borderRadius:6,padding:"6px 10px",fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}} title="Open Group Chat">💬{!isMobile && " Group Chat"}</button>
+              <button onClick={onOpenGroupChat} style={{background:"linear-gradient(135deg, #0D9488, #0F766E)",color:"#fff",border:"none",borderRadius:6,padding:isMobile?"5px 8px":"6px 10px",fontSize:isMobile?10:11,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}} title="Open Group Chat">💬{!isMobile && " Chat"}</button>
             )}
-            <button onClick={handleExportTemplate} style={{background:"#21262D",color:"#A78BFA",border:"1px solid #30363D",borderRadius:6,padding:"6px 10px",fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}} title="Download Template Excel">📥{!isMobile && " Template"}</button>
-            <button onClick={()=>fileRef.current?.click()} style={{background:"#238636",color:"#fff",border:"none",borderRadius:6,padding:"6px 10px",fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}} title="Import Excel">📂{!isMobile && " Import"}</button>
+            <button onClick={handleExportTemplate} style={{background:"#21262D",color:"#A78BFA",border:"1px solid #30363D",borderRadius:6,padding:isMobile?"5px 8px":"6px 10px",fontSize:isMobile?10:11,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}} title="Download Template">📥</button>
+            <button onClick={()=>fileRef.current?.click()} style={{background:"#238636",color:"#fff",border:"none",borderRadius:6,padding:isMobile?"5px 8px":"6px 10px",fontSize:isMobile?10:11,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}} title="Import Excel">📂</button>
             <input ref={fileRef} type="file" accept=".xlsx,.xls" style={{display:"none"}} onChange={e=>{if(e.target.files?.[0])handleExcel(e.target.files[0]);e.target.value="";}} />
-            <button onClick={handleExportPDF} style={{background:"#21262D",color:"#58A6FF",border:"1px solid #30363D",borderRadius:6,padding:"6px 10px",fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}} title="Export PDF">📄{!isMobile && " PDF"}</button>
-            <button onClick={handleClearAll} style={{background:"#21262D",color:"#F85149",border:"1px solid #30363D",borderRadius:6,padding:"6px 10px",fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}} title="Clear All">🗑</button>
+            <button onClick={handleClearAll} style={{background:"#21262D",color:"#F85149",border:"1px solid #30363D",borderRadius:6,padding:isMobile?"5px 8px":"6px 10px",fontSize:isMobile?10:11,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}} title="Clear All">🗑</button>
           </div>
         </div>
         {/* Tabs - Desktop only (mobile uses bottom bar) */}
@@ -1361,7 +1360,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
         )}
       </div>
 
-      <div style={{padding:isMobile?"8px 6px":"22px 28px",paddingBottom:isMobile?140:28}}>
+      <div style={{padding:isMobile?"8px 6px":"22px 28px",paddingBottom:isMobile?125:28}}>
         {/* Tab Content */}
         {tab==="overview" && (
           <div style={{display:"flex",flexDirection:"column",gap:isMobile?12:16}}>
@@ -3424,7 +3423,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
           }}
           style={{
             position: "fixed",
-            bottom: 130,
+            bottom: 120,
             right: 16,
             width: 56,
             height: 56,
@@ -3628,12 +3627,12 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
           {showMoreMenu && (
             <div style={{
               position:"fixed",
-              bottom:115,
+              bottom:105,
               right:12,
-              background:"#1C1C2E",
+              background:"#fff",
               borderRadius:12,
-              border:"1px solid #30363D",
-              boxShadow:"0 4px 20px rgba(0,0,0,0.4)",
+              border:"1px solid #e5e7eb",
+              boxShadow:"0 4px 20px rgba(0,0,0,0.15)",
               zIndex:999,
               overflow:"hidden"
             }}>
@@ -3646,35 +3645,36 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                     alignItems:"center",
                     gap:10,
                     width:"100%",
-                    padding:"14px 20px",
-                    background: tab === t.id ? "#1F6FEB" : "transparent",
-                    color: tab === t.id ? "#FFF" : "#C9D1D9",
+                    padding:"12px 18px",
+                    background: tab === t.id ? "#EFF6FF" : "transparent",
+                    color: tab === t.id ? "#3B82F6" : "#374151",
                     border:"none",
-                    borderBottom:"1px solid #30363D",
-                    fontSize:14,
-                    fontWeight:600,
-                    textAlign:"left"
+                    borderBottom:"1px solid #f3f4f6",
+                    fontSize:13,
+                    fontWeight: tab === t.id ? 600 : 500,
+                    textAlign:"left",
+                    cursor:"pointer"
                   }}
                 >
-                  <span style={{fontSize:18}}>{t.icon}</span>
+                  <span style={{fontSize:16}}>{t.icon}</span>
                   <span>{t.label}</span>
                 </button>
               ))}
             </div>
           )}
           
-          {/* Bottom Tab Bar - positioned above main app navigation */}
+          {/* Bottom Tab Bar - sits directly above main app navigation */}
           <div style={{
             position:"fixed",
-            bottom:60,
+            bottom:52,
             left:0,
             right:0,
-            background:"linear-gradient(180deg, #161B22 0%, #0D1117 100%)",
-            borderTop:"1px solid #30363D",
+            background:"#fff",
+            borderTop:"1px solid #e5e7eb",
             display:"flex",
             justifyContent:"space-around",
             alignItems:"center",
-            padding:"6px 4px 8px",
+            padding:"4px 0 6px",
             zIndex:200
           }}>
             {mainTabs.map(t => {
@@ -3687,17 +3687,17 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                     display:"flex",
                     flexDirection:"column",
                     alignItems:"center",
-                    gap:2,
+                    gap:1,
                     background:"transparent",
                     border:"none",
-                    padding:"4px 8px",
+                    padding:"2px 6px",
                     color: isActive ? "#3B82F6" : "#6B7280",
-                    minWidth:60
+                    minWidth:50,
+                    cursor:"pointer"
                   }}
                 >
-                  <span style={{fontSize:20}}>{t.icon}</span>
-                  <span style={{fontSize:10,fontWeight:isActive ? 700 : 500}}>{t.label}</span>
-                  {isActive && <div style={{width:4,height:4,borderRadius:"50%",background:"#3B82F6",marginTop:2}} />}
+                  <span style={{fontSize:18}}>{t.icon}</span>
+                  <span style={{fontSize:9,fontWeight:isActive ? 600 : 400}}>{t.label}</span>
                 </button>
               );
             })}
@@ -3708,17 +3708,17 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                 display:"flex",
                 flexDirection:"column",
                 alignItems:"center",
-                gap:2,
+                gap:1,
                 background:"transparent",
                 border:"none",
-                padding:"4px 8px",
+                padding:"2px 6px",
                 color: moreTabs.some(t => t.id === tab) ? "#3B82F6" : "#6B7280",
-                minWidth:60
+                minWidth:50,
+                cursor:"pointer"
               }}
             >
-              <span style={{fontSize:20}}>•••</span>
-              <span style={{fontSize:10,fontWeight: moreTabs.some(t => t.id === tab) ? 700 : 500}}>More</span>
-              {moreTabs.some(t => t.id === tab) && <div style={{width:4,height:4,borderRadius:"50%",background:"#3B82F6",marginTop:2}} />}
+              <span style={{fontSize:18}}>•••</span>
+              <span style={{fontSize:9,fontWeight: moreTabs.some(t => t.id === tab) ? 600 : 400}}>More</span>
             </button>
           </div>
         </>
