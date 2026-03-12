@@ -31,7 +31,7 @@ interface PendingFinancialImportsModalProps {
 
 export interface AccountUpdate {
   type: 'account' | 'deposit';
-  action: 'update' | 'create';
+  action: 'update' | 'create' | 'skip';
   existingIndex?: number;
   newBalance: number;
   accountName: string;
@@ -44,7 +44,8 @@ const PendingFinancialImportsModal: React.FC<PendingFinancialImportsModalProps> 
   bankData,
   onApplyImport
 }) => {
-  const { colors } = useTheme();
+  const { theme } = useTheme();
+  const colors = theme.colors;
   const [pendingImports, setPendingImports] = useState<PendingFinancialImport[]>([]);
   const [selectedImport, setSelectedImport] = useState<PendingFinancialImport | null>(null);
   const [accountUpdates, setAccountUpdates] = useState<Map<string, AccountUpdate>>(new Map());

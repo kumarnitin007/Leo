@@ -10,6 +10,8 @@
 
 import { PendingFinancialImport, FinancialScreenshotData } from './imageScanning/types';
 
+export type { PendingFinancialImport, FinancialScreenshotData };
+
 const STORAGE_KEY = 'leo_pending_financial_imports';
 
 export const getPendingFinancialImports = (): PendingFinancialImport[] => {

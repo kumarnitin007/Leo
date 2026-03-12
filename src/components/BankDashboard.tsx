@@ -316,7 +316,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
     setPendingImportsCount(getPendingImportCount());
     
     // Auto-save after applying import
-    await saveData();
+    await persist(newDeposits, newAccounts, bills, actions, goals);
     alert('✅ Financial import applied successfully!');
   };
 
