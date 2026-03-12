@@ -48,6 +48,7 @@ import * as sharingService from './services/sharingService';
 import getSupabaseClient from './lib/supabase';
 import { loadUserGroupKeys } from './services/groupEncryptionService';
 import { decryptData } from './utils/encryption';
+import { getPendingImportCount } from './services/pendingFinancialImports';
 
 const AUTO_LOCK_TIMEOUT = 15 * 60 * 1000; // 15 minutes in milliseconds
 const LOCK_WARNING_TIME = 60 * 1000; // 1 minute before lock
@@ -109,6 +110,17 @@ const SafeView: React.FC = () => {
   const [showMobileFilters, setShowMobileFilters] = useState(true); // Mobile: show filters first
   const [showMobileDocFilters, setShowMobileDocFilters] = useState(true); // Mobile: show doc filters first
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  const [pendingImportsCount, setPendingImportsCount] = useState(0);
+  
+  // Check for pending financial imports
+  React.useEffect(() => {
+    const checkPendingImports = () => {
+      setPendingImportsCount(getPendingImportCount());
+    };
+    checkPendingImports();
+    const interval = setInterval(checkPendingImports, 5000);
+    return () => clearInterval(interval);
+  }, []);
   
   // Track window resize for mobile detection
   React.useEffect(() => {
@@ -1125,11 +1137,31 @@ const SafeView: React.FC = () => {
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
-            gap: '0.25rem'
+            gap: '0.25rem',
+            position: 'relative'
           }}
         >
           <span style={{ fontSize: '1.25rem' }}>🏦</span>
           <span>Financial</span>
+          {pendingImportsCount > 0 && (
+            <span style={{
+              position: 'absolute',
+              top: '-4px',
+              right: '-4px',
+              background: '#f59e0b',
+              color: 'white',
+              fontSize: '0.65rem',
+              fontWeight: 700,
+              padding: '2px 6px',
+              borderRadius: '10px',
+              minWidth: '18px',
+              textAlign: 'center',
+              boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+              animation: 'pulse 2s infinite'
+            }}>
+              {pendingImportsCount}
+            </span>
+          )}
         </button>
       </div>
 

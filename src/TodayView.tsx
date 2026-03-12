@@ -2626,91 +2626,104 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
 
       {/* Mobile Action Buttons - shown only on mobile after weather */}
       <div className="mobile-action-buttons" style={{
-        display: 'none', // Hidden by default, shown via CSS on mobile
-        flexWrap: 'nowrap',
-        gap: '0.5rem',
-        marginTop: '1.5rem',
-        padding: '1rem',
-        background: 'rgba(255,255,255,0.9)',
-        borderRadius: '0.75rem',
-        justifyContent: 'flex-start',
-        overflowX: 'auto'
+        display: 'none',
+        flexWrap: 'wrap',
+        gap: '0.625rem',
+        marginTop: '1rem',
+        padding: '0.875rem',
+        background: 'white',
+        borderRadius: '1rem',
+        justifyContent: 'center',
+        boxShadow: '0 2px 12px rgba(0,0,0,0.08)'
       }}>
         <button
           onClick={() => setViewMode(viewMode === 'dashboard' ? 'monthly' : 'dashboard')}
-          className="btn-secondary"
-          style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', padding: '0.5rem 0.75rem', fontSize: '0.85rem', flexShrink: 0 }}
+          style={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: '0.375rem', 
+            padding: '0.625rem 1rem', 
+            fontSize: '0.8rem',
+            fontWeight: 600,
+            background: 'white',
+            color: '#374151',
+            border: '1.5px solid #e5e7eb',
+            borderRadius: '2rem',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
+            cursor: 'pointer',
+            transition: 'all 0.15s ease'
+          }}
         >
-          <span>{viewMode === 'dashboard' ? '📅' : '🏠'}</span>
+          <span style={{ fontSize: '1rem' }}>{viewMode === 'dashboard' ? '📅' : '🏠'}</span>
           <span>{viewMode === 'dashboard' ? 'Monthly' : 'Dashboard'}</span>
         </button>
         <button 
           onClick={() => setShowProgressAndReview(true)}
-          className="btn-secondary"
-          style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', padding: '0.5rem 0.75rem', fontSize: '0.85rem', flexShrink: 0 }}
+          style={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: '0.375rem', 
+            padding: '0.625rem 1rem', 
+            fontSize: '0.8rem',
+            fontWeight: 600,
+            background: 'white',
+            color: '#374151',
+            border: '1.5px solid #e5e7eb',
+            borderRadius: '2rem',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
+            cursor: 'pointer',
+            transition: 'all 0.15s ease'
+          }}
         >
-          <span>📊</span>
+          <span style={{ fontSize: '1rem' }}>📊</span>
           <span>Progress</span>
         </button>
         <button
           onClick={async () => {
-            // Load AI insights on-demand
             await loadAIInsights();
             const prompt = await buildOpenAIPrompt();
             setOpenAIPromptText(prompt);
             setShowOpenAIPrompt(true);
           }}
-          className="btn-secondary"
           style={{ 
             display: 'flex', 
             alignItems: 'center', 
             gap: '0.375rem',
-            padding: '0.5rem 0.75rem',
-            fontSize: '0.85rem',
+            padding: '0.625rem 1rem',
+            fontSize: '0.8rem',
+            fontWeight: 600,
             background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
             color: 'white',
             border: 'none',
-            flexShrink: 0
+            borderRadius: '2rem',
+            boxShadow: '0 2px 8px rgba(102, 126, 234, 0.35)',
+            cursor: 'pointer',
+            transition: 'all 0.15s ease'
           }}
         >
-          <span>🤖</span>
+          <span style={{ fontSize: '1rem' }}>🤖</span>
           <span>AI</span>
-          {aiInsight && <span>💡</span>}
-        </button>
-        <button 
-          onClick={() => setIsReorderMode(!isReorderMode)}
-          className="btn-secondary"
-          style={{ 
-            background: isReorderMode ? '#667eea' : 'white',
-            color: isReorderMode ? 'white' : '#667eea',
-            border: '2px solid #667eea',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.375rem',
-            padding: '0.5rem 0.75rem',
-            fontSize: '0.85rem',
-            flexShrink: 0
-          }}
-        >
-          <span>{isReorderMode ? '✓' : '↕️'}</span>
-          <span>Reorder</span>
+          {aiInsight && <span style={{ marginLeft: '0.125rem' }}>💡</span>}
         </button>
         <button 
           onClick={() => setShowBulkHoldModal(true)}
-          className="btn-secondary"
           style={{ 
             display: 'flex',
             alignItems: 'center',
             gap: '0.375rem',
-            padding: '0.5rem 0.75rem',
-            fontSize: '0.85rem',
+            padding: '0.625rem 1rem',
+            fontSize: '0.8rem',
+            fontWeight: 600,
             background: 'white',
             color: '#f97316',
-            border: '2px solid #f97316',
-            flexShrink: 0
+            border: '1.5px solid #f97316',
+            borderRadius: '2rem',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
+            cursor: 'pointer',
+            transition: 'all 0.15s ease'
           }}
         >
-          <span>⏸️</span>
+          <span style={{ fontSize: '1rem' }}>⏸️</span>
           <span>Hold</span>
         </button>
       </div>

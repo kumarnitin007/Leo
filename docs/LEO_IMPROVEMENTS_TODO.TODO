@@ -16,10 +16,10 @@
 | UX - Polish | 3 | 0 | 0 | 3 |
 | Bugs / Fixes | 3 | 0 | 0 | 3 |
 | New Features | 2 | 0 | 0 | 2 |
-| Code Refactoring | 10 | 4 | 0 | 6 |
+| Code Refactoring | 21 | 3 | 0 | 16 | (2 deferred)
 | Performance | 10 | 0 | 0 | 10 |
 | Security | 10 | 0 | 0 | 10 |
-| **TOTAL** | **58** | **5** | **0** | **53** |
+| **TOTAL** | **69** | **4** | **0** | **63** | (2 deferred)
 
 ---
 
@@ -652,14 +652,144 @@
 
 ## 🔧 Code Refactoring (Additional)
 
-### CR-002: Split storage.ts into Modules
-- **Status**: ⬜ Pending
+### CR-002: Split storage.ts into Modules (Parent Task)
+- **Status**: ✅ Completed (Partial)
+- **Completed**: 2026-03-11
 - **Priority**: 🔴 Critical
-- **Files**: `src/storage.ts` (4,118 lines)
-- **Issue**: Single file contains 96+ exports handling all database operations. Maintenance nightmare.
-- **Solution**: Split into domain-specific modules: `storage/tasks.ts`, `storage/events.ts`, `storage/safe.ts`, `storage/settings.ts`
+- **Files**: `src/storage.ts` → `src/storage/` (9 modules created)
+- **Notes**: Extracted tasks, events, items, journal, routines, tags, settings, dashboard, core. Safe/demo modules deferred due to complex dependencies.
+- **Issue**: Single file contains all database operations. Maintenance nightmare.
+- **Solution**: Split into domain-specific modules with incremental migration
 - **Completed Date**: -
-- **Notes**: Create barrel file `storage/index.ts`
+- **Notes**: Broken into 12 sub-tasks below. Each sub-task extracts one module and updates imports.
+
+### CR-002a: Extract storage/core.ts
+- **Status**: ✅ Completed
+- **Priority**: 🔴 Critical
+- **Files**: `src/storage/core.ts`
+- **Issue**: Helper functions, cache, and auth utilities needed by all other modules
+- **Solution**: Extract generateUUID, VoiceFields, mapVoiceFields, cache functions, requireAuth
+- **Completed Date**: 2026-03-12
+- **Notes**: Foundation module - no external dependencies
+
+### CR-002b: Extract storage/tasks.ts
+- **Status**: ✅ Completed
+- **Completed**: 2026-03-11
+- **Notes**: Extracted getTasks, addTask, updateTask, deleteTask, completeTask, uncompleteTask, getCompletions, getTaskHistory. Created storage/index.ts for re-exports.
+- **Priority**: 🟡 Medium
+- **Files**: `src/storage/tasks.ts` (~150 lines)
+- **Issue**: Task CRUD operations (getTasks, addTask, updateTask, deleteTask, completeTask)
+- **Solution**: Extract lines 117-392 (TASKS + TASK COMPLETIONS sections)
+- **Completed Date**: -
+- **Notes**: Depends on core.ts
+
+### CR-002c: Extract storage/events.ts
+- **Status**: ✅ Completed
+- **Completed**: 2026-03-11
+- **Notes**: Extracted getEvents, addEvent, updateEvent, deleteEvent, and generateEventReminders helper.
+- **Priority**: 🟡 Medium
+- **Files**: `src/storage/events.ts` (~245 lines)
+- **Issue**: Event CRUD operations
+- **Solution**: Extract lines 393-637 (EVENTS section) + lines 3911-end (HOLIDAY IMPORT)
+- **Completed Date**: -
+- **Notes**: Depends on core.ts
+
+### CR-002d: Extract storage/items.ts
+- **Status**: ✅ Completed
+- **Completed**: 2026-03-11
+- **Notes**: Extracted getItems, addItem, updateItem, deleteItem, getExpiringItems. Replaced `any` with `Record<string, unknown>`.
+- **Priority**: 🟡 Medium
+- **Files**: `src/storage/items.ts` (~190 lines)
+- **Issue**: Item CRUD operations
+- **Solution**: Extract lines 638-829 (ITEMS section)
+- **Completed Date**: -
+- **Notes**: Depends on core.ts
+
+### CR-002e: Extract storage/journal.ts
+- **Status**: ✅ Completed
+- **Completed**: 2026-03-11
+- **Notes**: Extracted getJournalEntries, saveJournalEntry, updateJournalEntry, deleteJournalEntry, getJournalEntryByDate.
+- **Priority**: 🟡 Medium
+- **Files**: `src/storage/journal.ts` (~125 lines)
+- **Issue**: Journal entry operations
+- **Solution**: Extract lines 830-956 (JOURNAL ENTRIES section)
+- **Completed Date**: -
+- **Notes**: Depends on core.ts
+
+### CR-002f: Extract storage/routines.ts
+- **Status**: ✅ Completed
+- **Completed**: 2026-03-11
+- **Notes**: Extracted getRoutines, saveRoutine, deleteRoutine, addRoutine, updateRoutine, initializeDefaultRoutines.
+- **Priority**: 🟡 Medium
+- **Files**: `src/storage/routines.ts` (~170 lines)
+- **Issue**: Routine operations
+- **Solution**: Extract lines 957-1124 (ROUTINES section)
+- **Completed Date**: -
+- **Notes**: Depends on core.ts
+
+### CR-002g: Extract storage/tags.ts
+- **Status**: ✅ Completed
+- **Completed**: 2026-03-11
+- **Notes**: Extracted getTags, getTagsForSection, saveTag, deleteTag, addTag, updateTag.
+- **Priority**: 🟡 Medium
+- **Files**: `src/storage/tags.ts` (~155 lines)
+- **Issue**: Tag operations
+- **Solution**: Extract lines 1125-1278 (TAGS section)
+- **Completed Date**: -
+- **Notes**: Depends on core.ts
+
+### CR-002h: Extract storage/settings.ts
+- **Status**: ✅ Completed
+- **Completed**: 2026-03-11
+- **Notes**: Extracted user settings, dashboard layout, onboarding, and task order functions.
+- **Priority**: 🟡 Medium
+- **Files**: `src/storage/settings.ts` (~480 lines)
+- **Issue**: User settings, onboarding, profile
+- **Solution**: Extract lines 1279-1876 (USER SETTINGS, ONBOARDING, USER PROFILE, CLEAR LOCAL STORAGE)
+- **Completed Date**: -
+- **Notes**: Depends on core.ts
+
+### CR-002i: Extract storage/dashboard.ts
+- **Status**: ✅ Completed
+- **Completed**: 2026-03-11
+- **Notes**: Extracted loadData, loadDashboardData, getCompletionsForDateRange, and helper functions.
+- **Priority**: 🟡 Medium
+- **Files**: `src/storage/dashboard.ts` (~370 lines)
+- **Issue**: Dashboard loading and view helpers
+- **Solution**: Extract lines 1412-1820 (DATA OPERATIONS, OPTIMIZED DASHBOARD LOADING, HELPER FUNCTIONS FOR VIEWS)
+- **Completed Date**: -
+- **Notes**: Depends on core.ts, tasks.ts, events.ts - more complex dependencies
+
+### CR-002j: Extract storage/safe.ts
+- **Status**: ⏸️ Deferred
+- **Notes**: Safe section has complex encryption/sharing dependencies. Keeping in main storage.ts for now to avoid breaking changes.
+- **Priority**: 🟡 Medium
+- **Files**: `src/storage/safe.ts` (~860 lines)
+- **Issue**: Safe section and document vault
+- **Solution**: Extract lines 2792-3910 (SAFE SECTION FUNCTIONS, DOCUMENT VAULT)
+- **Completed Date**: -
+- **Notes**: High complexity - many encryption operations
+
+### CR-002k: Extract storage/demo.ts
+- **Status**: ⏸️ Deferred
+- **Notes**: Demo/sample data functions depend on Safe encryption functions. Keeping in main storage.ts.
+- **Priority**: 🟡 Medium
+- **Files**: `src/storage/demo.ts` (~915 lines)
+- **Issue**: Sample/demo data generation
+- **Solution**: Extract lines 1877-2791 (SAMPLE DATA section)
+- **Completed Date**: -
+- **Notes**: Depends on all other modules - extract last
+
+### CR-002l: Create storage/index.ts and cleanup
+- **Status**: ✅ Completed
+- **Completed**: 2026-03-11
+- **Notes**: Created index.ts with re-exports from all extracted modules. Safe/demo modules deferred.
+- **Priority**: 🟡 Medium
+- **Files**: `src/storage/index.ts`, `src/storage.ts` (delete)
+- **Issue**: Create barrel file re-exporting all modules
+- **Solution**: Create index.ts with all exports, update all imports across codebase, delete old storage.ts
+- **Completed Date**: -
+- **Notes**: Final step - run typecheck before and after
 
 ### CR-003: Eliminate `any` Type Usage
 - **Status**: ⬜ Pending
@@ -794,3 +924,12 @@
 | 2026-03-12 | PERF-010 | Added useMemo/useCallback imports to ConfigureView and MonthlyView | AI |
 | 2026-03-12 | BUG-003 | Fixed Quick Add "More Options" - handleNavigate now handles view aliases | AI |
 | 2026-03-12 | FEAT-002 | Added context hints (keywords + financial checkbox) to image scan flow | AI |
+| 2026-03-11 | CR-002b | Extracted tasks module (CRUD + completions) to storage/tasks.ts | AI |
+| 2026-03-11 | CR-002c | Extracted events module (CRUD + reminders) to storage/events.ts | AI |
+| 2026-03-11 | CR-002d | Extracted items module (CRUD + expiring items) to storage/items.ts | AI |
+| 2026-03-11 | CR-002e | Extracted journal module (CRUD + by-date lookup) to storage/journal.ts | AI |
+| 2026-03-11 | CR-002f | Extracted routines module (CRUD + defaults) to storage/routines.ts | AI |
+| 2026-03-11 | CR-002g | Extracted tags module (CRUD + section filtering) to storage/tags.ts | AI |
+| 2026-03-11 | CR-002h | Extracted settings module (user settings, onboarding, task order) to storage/settings.ts | AI |
+| 2026-03-11 | CR-002i | Extracted dashboard module (loadData, loadDashboardData, helpers) to storage/dashboard.ts | AI |
+| 2026-03-11 | CR-002 | Completed storage.ts modularization: 9 modules created, Safe/demo deferred | AI |
