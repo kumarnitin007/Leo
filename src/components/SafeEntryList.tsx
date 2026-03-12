@@ -1,8 +1,173 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, memo } from 'react';
+import { useDebounce } from '../hooks/useDebounce';
 import { SafeEntry, Tag } from '../types';
 import { CryptoKey } from '../utils/encryption';
 import { deleteSafeEntriesByTag, deleteSafeEntry } from '../storage';
 import { getUnresolvedCommentCount } from '../services/commentService';
+
+interface SafeEntryCardProps {
+  entry: SafeEntry;
+  tags: Tag[];
+  selectedIds: string[];
+  commentCount: number;
+  onEntrySelect: (entry: SafeEntry) => void;
+  onShare?: (entry: SafeEntry) => void;
+  onSelectToggle: (id: string, selected: boolean) => void;
+  getCategoryName: (id: string | undefined) => string;
+  getExpiringDays: (entry: SafeEntry) => number | null;
+  isExpiringSoon: (entry: SafeEntry) => boolean;
+  formatTimeAgo: (timestamp: string) => string;
+}
+
+const SafeEntryCard = memo(function SafeEntryCard({
+  entry,
+  tags,
+  selectedIds,
+  commentCount,
+  onEntrySelect,
+  onShare,
+  onSelectToggle,
+  getCategoryName,
+  getExpiringDays,
+  isExpiringSoon,
+  formatTimeAgo,
+}: SafeEntryCardProps) {
+  const categoryName = getCategoryName(entry.categoryTagId);
+  const categoryTag = tags.find(t => t.id === entry.categoryTagId);
+  const expiringDays = getExpiringDays(entry);
+  const isExpiring = isExpiringSoon(entry);
+  const isSelected = selectedIds.includes(entry.id);
+
+  return (
+    <div 
+      style={{ 
+        position: 'relative', 
+        backgroundColor: entry.isShared && entry.sharedBy 
+          ? 'rgba(236, 253, 245, 0.95)'
+          : entry.isShared 
+          ? 'rgba(238, 242, 255, 0.95)'
+          : 'rgba(255,255,255,0.95)', 
+        borderRadius: '8px', 
+        padding: '1.25rem', 
+        cursor: 'pointer', 
+        boxShadow: '0 2px 4px rgba(0,0,0,0.08)',
+        border: entry.isShared && entry.sharedBy 
+          ? '2px solid #10b981'
+          : entry.isShared 
+          ? '2px solid #6366f1'
+          : 'none'
+      }} 
+      onClick={() => onEntrySelect(entry)}
+    >
+      {entry.isShared && (
+        <div style={{
+          position: 'absolute',
+          top: '-8px',
+          right: '12px',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '4px',
+          alignItems: 'flex-end',
+        }}>
+          <div style={{
+            background: entry.sharedBy ? '#10b981' : '#6366f1',
+            color: 'white',
+            fontSize: '0.65rem',
+            fontWeight: 600,
+            padding: '2px 8px',
+            borderRadius: '4px',
+          }}>
+            {entry.sharedBy ? `🔗 Shared by ${entry.sharedBy}` : '📤 Shared with others'}
+          </div>
+          {entry.lastUpdatedAt && entry.lastUpdatedBy && (
+            <div style={{
+              background: '#3b82f6',
+              color: 'white',
+              fontSize: '0.6rem',
+              fontWeight: 500,
+              padding: '2px 6px',
+              borderRadius: '3px',
+            }}>
+              ✏️ Updated {formatTimeAgo(entry.lastUpdatedAt)} by {entry.lastUpdatedBy}
+            </div>
+          )}
+        </div>
+      )}
+      <label style={{ position: 'absolute', bottom: '8px', right: '8px' }} onClick={e => e.stopPropagation()}>
+        <input 
+          type="checkbox" 
+          checked={isSelected} 
+          onChange={e => { e.stopPropagation(); onSelectToggle(entry.id, e.target.checked); }} 
+        />
+      </label>
+
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '0.75rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flex: 1 }}>
+          <h3 style={{ margin: 0, fontSize: '1.1rem' }}>{entry.title}</h3>
+          {commentCount > 0 && (
+            <span style={{
+              background: '#3b82f6',
+              color: 'white',
+              fontSize: '0.65rem',
+              fontWeight: 600,
+              padding: '2px 6px',
+              borderRadius: '10px',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '2px',
+            }}>
+              💬 {commentCount}
+            </span>
+          )}
+        </div>
+        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+          {onShare && !entry.isShared && (
+            <button
+              onClick={(e) => { e.stopPropagation(); onShare(entry); }}
+              style={{
+                background: 'none',
+                border: 'none',
+                cursor: 'pointer',
+                padding: '0.25rem',
+                fontSize: '1rem',
+                opacity: 0.7,
+                transition: 'opacity 0.2s'
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
+              onMouseLeave={(e) => e.currentTarget.style.opacity = '0.7'}
+              title="Share this entry"
+            >
+              🔗
+            </button>
+          )}
+          {entry.isFavorite && <span>⭐</span>}
+        </div>
+      </div>
+
+      {entry.url && <p style={{ margin: '0 0 0.5rem 0', color: '#3b82f6', wordBreak: 'break-all' }}>🔗 {entry.url}</p>}
+
+      <div style={{ display: 'inline-block', padding: '0.25rem 0.75rem', backgroundColor: categoryTag?.color || '#667eea', color: 'white', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 600, marginBottom: '0.5rem' }}>{categoryName}</div>
+
+      {entry.tags && entry.tags.length > 0 && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '0.5rem' }}>
+          {entry.tags.map(tagId => {
+            const tag = tags.find(t => t.id === tagId && !t.isSystemCategory);
+            if (!tag) return null;
+            return (
+              <div key={tagId} style={{ padding: '0.25rem 0.75rem', backgroundColor: tag.color || '#667eea', color: 'white', borderRadius: '6px', fontSize: '0.75rem' }}>{tag.name}</div>
+            );
+          })}
+        </div>
+      )}
+
+      {isExpiring && expiringDays !== null && (
+        <div style={{ display: 'inline-block', padding: '0.25rem 0.75rem', backgroundColor: expiringDays <= 7 ? '#ef4444' : '#f59e0b', color: 'white', borderRadius: '6px', fontSize: '0.75rem' }}>⏰ Expires in {expiringDays} {expiringDays === 1 ? 'day' : 'days'}</div>
+      )}
+
+      <p style={{ marginTop: '0.75rem', fontSize: '0.75rem', color: '#6b7280' }}>Updated {new Date(entry.updatedAt).toLocaleDateString()}</p>
+    </div>
+  );
+});
 
 // Helper to format "X mins ago" timestamp
 function formatTimeAgo(isoTimestamp: string): string {
@@ -45,6 +210,7 @@ const SafeEntryList: React.FC<SafeEntryListProps> = ({
   onShare
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
+  const debouncedSearchQuery = useDebounce(searchQuery, 300);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
@@ -60,33 +226,40 @@ const SafeEntryList: React.FC<SafeEntryListProps> = ({
   // comment counts
   const [commentCounts, setCommentCounts] = useState<Record<string, number>>({});
   
-  // Load comment counts for entries
+  // Load comment counts for entries (PERF-003: Fixed N+1 query - now uses parallel fetching)
   useEffect(() => {
     const loadCommentCounts = async () => {
-      const counts: Record<string, number> = {};
-      for (const entry of entries) {
-        try {
-          const count = await getUnresolvedCommentCount(entry.id, 'safe_entry');
-          if (count > 0) {
-            counts[entry.id] = count;
+      if (entries.length === 0) return;
+      
+      // Fetch all comment counts in parallel instead of sequentially
+      const results = await Promise.all(
+        entries.map(async (entry) => {
+          try {
+            const count = await getUnresolvedCommentCount(entry.id, 'safe_entry');
+            return { id: entry.id, count };
+          } catch {
+            return { id: entry.id, count: 0 };
           }
-        } catch (err) {
-          // Ignore errors (table might not exist yet)
+        })
+      );
+      
+      const counts: Record<string, number> = {};
+      results.forEach(({ id, count }) => {
+        if (count > 0) {
+          counts[id] = count;
         }
-      }
+      });
       setCommentCounts(counts);
     };
     
-    if (entries.length > 0) {
-      loadCommentCounts();
-    }
+    loadCommentCounts();
   }, [entries]);
 
   const filteredEntries = useMemo(() => {
     let filtered = [...entries];
 
-    if (searchQuery) {
-      const q = searchQuery.toLowerCase();
+    if (debouncedSearchQuery) {
+      const q = debouncedSearchQuery.toLowerCase();
       filtered = filtered.filter(e => e.title.toLowerCase().includes(q) || (e.url && e.url.toLowerCase().includes(q)));
     }
 
@@ -121,7 +294,7 @@ const SafeEntryList: React.FC<SafeEntryListProps> = ({
     });
 
     return filtered;
-  }, [entries, searchQuery, selectedCategory, selectedTag, showFavoritesOnly, sortBy]);
+  }, [entries, debouncedSearchQuery, selectedCategory, selectedTag, showFavoritesOnly, sortBy]);
 
   const entriesWithSelectedTag = useMemo(() => {
     if (!selectedTag) return [] as SafeEntry[];
@@ -257,142 +430,25 @@ const SafeEntryList: React.FC<SafeEntryListProps> = ({
         </div>
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '1rem' }}>
-          {filteredEntries.map(entry => {
-            const categoryName = getCategoryName(entry.categoryTagId);
-            const categoryTag = tags.find(t => t.id === entry.categoryTagId);
-            const expiringDays = getExpiringDays(entry);
-            const isExpiring = isExpiringSoon(entry);
-
-            return (
-              <div 
-                key={entry.id} 
-                style={{ 
-                  position: 'relative', 
-                  backgroundColor: entry.isShared && entry.sharedBy 
-                    ? 'rgba(236, 253, 245, 0.95)' // Green tint for "shared with me"
-                    : entry.isShared 
-                    ? 'rgba(238, 242, 255, 0.95)' // Purple/indigo tint for "shared by me"
-                    : 'rgba(255,255,255,0.95)', 
-                  borderRadius: '8px', 
-                  padding: '1.25rem', 
-                  cursor: 'pointer', 
-                  boxShadow: '0 2px 4px rgba(0,0,0,0.08)',
-                  border: entry.isShared && entry.sharedBy 
-                    ? '2px solid #10b981' // Green border for "shared with me"
-                    : entry.isShared 
-                    ? '2px solid #6366f1' // Purple border for "shared by me"
-                    : 'none'
-                }} 
-                onClick={() => onEntrySelect(entry)}
-              >
-                {entry.isShared && (
-                  <div style={{
-                    position: 'absolute',
-                    top: '-8px',
-                    right: '12px',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '4px',
-                    alignItems: 'flex-end',
-                  }}>
-                    <div style={{
-                      background: entry.sharedBy ? '#10b981' : '#6366f1',
-                      color: 'white',
-                      fontSize: '0.65rem',
-                      fontWeight: 600,
-                      padding: '2px 8px',
-                      borderRadius: '4px',
-                    }}>
-                      {entry.sharedBy ? `🔗 Shared by ${entry.sharedBy}` : '📤 Shared with others'}
-                    </div>
-                    {entry.lastUpdatedAt && entry.lastUpdatedBy && (
-                      <div style={{
-                        background: '#3b82f6',
-                        color: 'white',
-                        fontSize: '0.6rem',
-                        fontWeight: 500,
-                        padding: '2px 6px',
-                        borderRadius: '3px',
-                      }}>
-                        ✏️ Updated {formatTimeAgo(entry.lastUpdatedAt)} by {entry.lastUpdatedBy}
-                      </div>
-                    )}
-                  </div>
-                )}
-                <label style={{ position: 'absolute', bottom: '8px', right: '8px' }} onClick={e => e.stopPropagation()}>
-                  <input type="checkbox" checked={selectedIds.includes(entry.id)} onChange={e => { e.stopPropagation(); if (e.target.checked) setSelectedIds(prev => [...prev, entry.id]); else setSelectedIds(prev => prev.filter(id => id !== entry.id)); }} />
-                </label>
-
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '0.75rem' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flex: 1 }}>
-                    <h3 style={{ margin: 0, fontSize: '1.1rem' }}>{entry.title}</h3>
-                    {commentCounts[entry.id] > 0 && (
-                      <span style={{
-                        background: '#3b82f6',
-                        color: 'white',
-                        fontSize: '0.65rem',
-                        fontWeight: 600,
-                        padding: '2px 6px',
-                        borderRadius: '10px',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '2px',
-                      }}>
-                        💬 {commentCounts[entry.id]}
-                      </span>
-                    )}
-                  </div>
-                  <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                    {onShare && !entry.isShared && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onShare(entry);
-                        }}
-                        style={{
-                          background: 'none',
-                          border: 'none',
-                          cursor: 'pointer',
-                          padding: '0.25rem',
-                          fontSize: '1rem',
-                          opacity: 0.7,
-                          transition: 'opacity 0.2s'
-                        }}
-                        onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
-                        onMouseLeave={(e) => e.currentTarget.style.opacity = '0.7'}
-                        title="Share this entry"
-                      >
-                        🔗
-                      </button>
-                    )}
-                    {entry.isFavorite && <span>⭐</span>}
-                  </div>
-                </div>
-
-                {entry.url && <p style={{ margin: '0 0 0.5rem 0', color: '#3b82f6', wordBreak: 'break-all' }}>🔗 {entry.url}</p>}
-
-                <div style={{ display: 'inline-block', padding: '0.25rem 0.75rem', backgroundColor: categoryTag?.color || '#667eea', color: 'white', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 600, marginBottom: '0.5rem' }}>{categoryName}</div>
-
-                {entry.tags && entry.tags.length > 0 && (
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '0.5rem' }}>
-                    {entry.tags.map(tagId => {
-                      const tag = tags.find(t => t.id === tagId && !t.isSystemCategory);
-                      if (!tag) return null;
-                      return (
-                        <div key={tagId} style={{ padding: '0.25rem 0.75rem', backgroundColor: tag.color || '#667eea', color: 'white', borderRadius: '6px', fontSize: '0.75rem' }}>{tag.name}</div>
-                      );
-                    })}
-                  </div>
-                )}
-
-                {isExpiring && expiringDays !== null && (
-                  <div style={{ display: 'inline-block', padding: '0.25rem 0.75rem', backgroundColor: expiringDays <= 7 ? '#ef4444' : '#f59e0b', color: 'white', borderRadius: '6px', fontSize: '0.75rem' }}>⏰ Expires in {expiringDays} {expiringDays === 1 ? 'day' : 'days'}</div>
-                )}
-
-                <p style={{ marginTop: '0.75rem', fontSize: '0.75rem', color: '#6b7280' }}>Updated {new Date(entry.updatedAt).toLocaleDateString()}</p>
-              </div>
-            );
-          })}
+          {filteredEntries.map(entry => (
+            <SafeEntryCard
+              key={entry.id}
+              entry={entry}
+              tags={tags}
+              selectedIds={selectedIds}
+              commentCount={commentCounts[entry.id] || 0}
+              onEntrySelect={onEntrySelect}
+              onShare={onShare}
+              onSelectToggle={(id, selected) => {
+                if (selected) setSelectedIds(prev => [...prev, id]);
+                else setSelectedIds(prev => prev.filter(i => i !== id));
+              }}
+              getCategoryName={getCategoryName}
+              getExpiringDays={getExpiringDays}
+              isExpiringSoon={isExpiringSoon}
+              formatTimeAgo={formatTimeAgo}
+            />
+          ))}
         </div>
       )}
 

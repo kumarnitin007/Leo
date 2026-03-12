@@ -9,7 +9,7 @@
  * - Entry list and management
  */
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, Suspense, lazy } from 'react';
 import { useAuth } from './contexts/AuthContext';
 import { 
   hasMasterPassword, 
@@ -36,8 +36,10 @@ import SafeTags from './components/SafeTags';
 import SafeDocumentVault from './components/SafeDocumentVault';
 import SafeDocumentVaultForm from './components/SafeDocumentVaultForm';
 import ShareEntryModal from './components/ShareEntryModal';
-import BankDashboard from './components/BankDashboard';
 import SharedWithMeView from './components/SharedWithMeView';
+
+// Lazy load BankDashboard (PERF-002: heavy Recharts dependency ~200KB)
+const BankDashboard = lazy(() => import('./components/BankDashboard'));
 import SafeFilterSidebar, { SafeFilter } from './components/SafeFilterSidebar';
 import DocumentFilterSidebar, { DocumentFilter } from './components/DocumentFilterSidebar';
 import GroupsManager from './components/GroupsManager';
@@ -1291,12 +1293,21 @@ const SafeView: React.FC = () => {
                 )
               ) : activeTab === 'financial' ? (
                 /* Financial Tab - Bank Dashboard with Group Chat access */
-                <BankDashboard 
-                  supabase={getSupabaseClient()} 
-                  userId={user?.id} 
-                  encryptionKey={encryptionKey!}
-                  onOpenGroupChat={() => setShowGroupsChat(true)}
-                />
+                <Suspense fallback={
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '200px', color: '#6b7280' }}>
+                    <div style={{ textAlign: 'center' }}>
+                      <div style={{ fontSize: '1.5rem', marginBottom: '0.5rem' }}>💰</div>
+                      <div>Loading Financial Dashboard...</div>
+                    </div>
+                  </div>
+                }>
+                  <BankDashboard 
+                    supabase={getSupabaseClient()} 
+                    userId={user?.id} 
+                    encryptionKey={encryptionKey!}
+                    onOpenGroupChat={() => setShowGroupsChat(true)}
+                  />
+                </Suspense>
               ) : (
                 /* Documents Tab with Filter Sidebar */
                 isMobile && showMobileDocFilters && !showDocumentForm && !editingDocument ? (
@@ -1455,9 +1466,9 @@ const SafeView: React.FC = () => {
         <SharedWithMeView
           onClose={() => setShowSharedWithMe(false)}
           onCopyEntry={(entryId, entryType) => {
-            // TODO: Implement copy functionality
-            // This would decrypt the shared entry and create a copy in user's own safe
-            alert('Copy feature coming soon! You would need the sharer\'s encryption key to decrypt and copy.');
+            // FUTURE: Copy shared entry to user's own safe
+            // Requires: decrypt with sharer's key, re-encrypt with user's key
+            alert('Copy feature coming soon! This would decrypt and copy the entry to your personal safe.');
           }}
         />
       )}

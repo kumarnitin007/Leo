@@ -14,7 +14,7 @@ GENERAL BEHAVIOR
 - Do not perform “gut checks” or design reviews unless explicitly requested.
 DATABASE RULES (STRICT - MUST FOLLOW)
 - BEFORE writing ANY database query, migration, or table reference:
-  1. READ the file LEO_DB_SCHEMA.schema FIRST
+  1. READ the file docs/LEO_DB_SCHEMA.schema FIRST
   2. VERIFY the exact table name from the schema
   3. CITE the correct table name in your response
 - NEVER guess or assume table names based on patterns

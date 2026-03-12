@@ -8,7 +8,7 @@
 
 import React, { useState } from 'react';
 import VoiceCommandButton from './components/VoiceCommand/VoiceCommandButton';
-import ImageScanModal from './components/ImageScanModal';
+import ImageScanModal, { ScanContextHints } from './components/ImageScanModal';
 import SmartSuggestionsModal from './components/SmartSuggestionsModal';
 import { scanImageWithTesseract } from './services/imageScanning/tesseractService';
 import { scanImageWithOpenAI } from './services/imageScanning/openaiVisionService';
@@ -69,7 +69,7 @@ const SmartView: React.FC<SmartViewProps> = ({ onNavigate }) => {
     }
   };
 
-  const handleImageSelected = async (file: File, mode: ScanMode) => {
+  const handleImageSelected = async (file: File, mode: ScanMode, hints?: ScanContextHints) => {
     setIsScanning(true);
     setShowImageScanModal(false);
 
@@ -77,9 +77,18 @@ const SmartView: React.FC<SmartViewProps> = ({ onNavigate }) => {
       let result: ScanResult;
       
       if (mode === 'quick') {
-        result = await scanImageWithTesseract(file);
+        result = await scanImageWithTesseract(file, hints);
       } else {
-        result = await scanImageWithOpenAI(file);
+        result = await scanImageWithOpenAI(file, hints);
+      }
+      
+      // FEAT-002: If user indicated financial OR AI detected financial, ensure it routes correctly
+      if (hints?.isFinancial && result.items.length > 0) {
+        result.items = result.items.map(item => ({
+          ...item,
+          type: item.type === 'financial-screenshot' ? item.type : 'financial-screenshot',
+          suggestedDestination: 'financial-import'
+        }));
       }
 
       // Log scan to database

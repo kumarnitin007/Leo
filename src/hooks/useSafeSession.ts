@@ -10,6 +10,12 @@
  * - Manual lock always available
  * - Activity resets timeout (mouse move, keyboard, touch)
  * 
+ * SEC-009: Stay Unlocked Preference
+ * - Preference stored in localStorage (persists across sessions)
+ * - Only disables auto-lock timeout; session key is always in sessionStorage
+ * - User must still unlock Safe on new session (sessionStorage cleared)
+ * - Preference can be cleared via Settings or by toggling off
+ * 
  * Usage:
  * ```tsx
  * const { 

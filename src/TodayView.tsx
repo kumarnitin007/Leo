@@ -9,7 +9,7 @@
  * - Per-task missed count (shown in each card)
  */
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, memo, useCallback } from 'react';
 import { Task, Event, AppData, UserVisibleDay } from './types';
 import { getTodayString, getTasksForToday, formatDate, getWeekBounds, getMonthBounds, shouldTaskShowToday } from './utils';
 import { loadData, loadDashboardData, completeTask, isTaskCompletedToday, getTaskSpilloversForDate, moveTaskToNextDay, getCompletionCountForPeriod, saveTaskOrder, loadTaskOrder, getUpcomingEvents, acknowledgeEvent, isEventAcknowledged, addTask, addEvent } from './storage';

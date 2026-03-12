@@ -6,6 +6,7 @@
 
 import getSupabaseClient from '../lib/supabase';
 import { generateGroupKey, encryptGroupKeyForUser, decryptGroupKey } from '../utils/groupEncryption';
+import { encryptionLogger as log } from '../utils/logger';
 
 export interface GroupEncryptionKey {
   id: string;
@@ -31,7 +32,7 @@ export async function getOrCreateGroupKey(
   const supabase = getSupabaseClient();
   if (!supabase) throw new Error('Supabase not configured');
   
-  console.log(`[GroupEncryption] 🔑 Getting or creating group key for group: ${groupId}, user: ${userId}`);
+  log.debug(`🔑 Getting or creating group key for group: ${groupId}`);
   
   // Check if user already has group key
   const { data: existingKey, error } = await supabase
@@ -43,7 +44,7 @@ export async function getOrCreateGroupKey(
     .single();
 
   if (existingKey && !error) {
-    console.log(`[GroupEncryption] ✅ Found existing group key, decrypting with private key...`);
+    log.debug(` ✅ Found existing group key, decrypting with private key...`);
     // Get user's private key
     const { getPrivateKey } = await import('../storage');
     const privateKey = await getPrivateKey(masterKey);
@@ -53,7 +54,7 @@ export async function getOrCreateGroupKey(
     return await decryptGroupKeyFromRecipient(existingKey.encrypted_group_key, privateKey);
   }
 
-  console.log(`[GroupEncryption] 🆕 No existing key found, creating new group key...`);
+  log.debug(` 🆕 No existing key found, creating new group key...`);
   
   // Create new group key (happens when creating group)
   const groupKey = await generateGroupKey();
@@ -68,7 +69,7 @@ export async function getOrCreateGroupKey(
   const encryptedGroupKey = await encryptGroupKeyForRecipient(groupKey, userPublicKey);
 
   // Store in database
-  console.log(`[GroupEncryption] 💾 Storing group key for user...`);
+  log.debug(` 💾 Storing group key for user...`);
   const { error: insertError } = await supabase
     .from('myday_group_encryption_keys')
     .insert({
@@ -81,11 +82,11 @@ export async function getOrCreateGroupKey(
     });
 
   if (insertError) {
-    console.error(`[GroupEncryption] ❌ Failed to store group key:`, insertError);
+    log.error(` ❌ Failed to store group key:`, insertError);
     throw new Error(`Failed to store group key: ${insertError.message}`);
   }
 
-  console.log(`[GroupEncryption] ✅ Group key created and stored successfully`);
+  log.debug(` ✅ Group key created and stored successfully`);
   return groupKey;
 }
 
@@ -103,7 +104,7 @@ export async function addMemberToGroup(
   const supabase = getSupabaseClient();
   if (!supabase) throw new Error('Supabase not configured');
   
-  console.log(`[GroupEncryption] 🔑 Adding member ${newMemberUserId} to group ${groupId}...`);
+  log.debug(` 🔑 Adding member ${newMemberUserId} to group ${groupId}...`);
   
   // Get group key (decrypt with current user's master key)
   const groupKey = await getOrCreateGroupKey(groupId, currentUserId, currentUserMasterKey);
@@ -133,7 +134,7 @@ export async function addMemberToGroup(
     throw new Error(`Failed to add member to group: ${error.message}`);
   }
 
-  console.log(`[GroupEncryption] ✅ User ${newMemberUserId} added to group ${groupId} (sees all shares)`);
+  log.debug(` ✅ User ${newMemberUserId} added to group ${groupId} (sees all shares)`);
 }
 
 /**
@@ -160,7 +161,7 @@ export async function removeMemberFromGroup(
     throw new Error(`Failed to remove member from group: ${error.message}`);
   }
 
-  console.log(`✅ User ${userId} removed from group ${groupId}`);
+  log.debug(`✅ User removed from group ${groupId}`);
 }
 
 /**
@@ -172,7 +173,7 @@ export async function loadUserGroupKeys(
   userId: string,
   masterKey: CryptoKey
 ): Promise<Map<string, CryptoKey>> {
-  console.log('[GroupEncryption] 🔑 Loading group keys for user:', userId);
+  log.debug(' 🔑 Loading group keys for user:', userId);
   const supabase = getSupabaseClient();
   if (!supabase) throw new Error('Supabase not configured');
   
@@ -181,13 +182,13 @@ export async function loadUserGroupKeys(
   let privateKey: CryptoKey;
   try {
     privateKey = await getPrivateKey(masterKey);
-    console.log('[GroupEncryption] 🔓 User private key loaded');
+    log.debug(' 🔓 User private key loaded');
   } catch (err) {
-    console.error('[GroupEncryption] ❌ Failed to load private key:', err);
+    log.error(' ❌ Failed to load private key:', err);
     throw new Error('Failed to load private key. User may need to generate RSA keys.');
   }
   
-  console.log('[GroupEncryption] 📡 Querying myday_group_encryption_keys...');
+  log.debug(' 📡 Querying myday_group_encryption_keys...');
   const { data: keys, error } = await supabase
     .from('myday_group_encryption_keys')
     .select('group_id, encrypted_group_key')
@@ -195,20 +196,20 @@ export async function loadUserGroupKeys(
     .eq('is_active', true);
 
   if (error) {
-    console.error('[GroupEncryption] ❌ Query failed:', error);
+    log.error(' ❌ Query failed:', error);
     throw new Error(`Failed to load group keys: ${error.message}`);
   }
 
-  console.log(`[GroupEncryption] 📥 Found ${keys?.length || 0} group keys in database`);
+  log.debug(` 📥 Found ${keys?.length || 0} group keys in database`);
   if (keys && keys.length > 0) {
-    console.log('[GroupEncryption] 🔍 Group IDs:', keys.map(k => k.group_id));
+    log.debug(' 🔍 Group IDs:', keys.map(k => k.group_id));
   }
 
   const groupKeys = new Map<string, CryptoKey>();
   const { decryptGroupKeyFromRecipient } = await import('../utils/asymmetricEncryption');
 
   for (const key of keys || []) {
-    console.log(`[GroupEncryption] 🔓 Decrypting key for group: ${key.group_id}`);
+    log.debug(` 🔓 Decrypting key for group: ${key.group_id}`);
     try {
       // Decrypt group key with user's private key (RSA)
       const groupKey = await decryptGroupKeyFromRecipient(
@@ -216,13 +217,13 @@ export async function loadUserGroupKeys(
         privateKey
       );
       groupKeys.set(key.group_id, groupKey);
-      console.log(`[GroupEncryption] ✅ Successfully decrypted key for group: ${key.group_id}`);
+      log.debug(` ✅ Successfully decrypted key for group: ${key.group_id}`);
     } catch (err) {
-      console.error(`[GroupEncryption] ❌ Failed to decrypt key for group ${key.group_id}:`, err);
+      log.error(` ❌ Failed to decrypt key for group ${key.group_id}:`, err);
       // Skip this group key but continue with others
     }
   }
 
-  console.log(`[GroupEncryption] 🎉 Loaded ${groupKeys.size} group keys successfully`);
+  log.debug(` 🎉 Loaded ${groupKeys.size} group keys successfully`);
   return groupKeys;
 }

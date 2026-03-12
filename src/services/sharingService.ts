@@ -10,6 +10,7 @@
  */
 
 import getSupabaseClient from '../lib/supabase';
+import { sharingLogger as log } from '../utils/logger';
 import {
   SharingGroup,
   GroupMember,
@@ -517,7 +518,7 @@ export async function shareEntryWithGroupEncryption(
   groupKey: CryptoKey,
   mode: ShareMode = 'readonly'
 ): Promise<SharedSafeEntry> {
-  console.log('[SharingService] 🔐 shareEntryWithGroupEncryption called:', {
+  log.debug(' 🔐 shareEntryWithGroupEncryption called:', {
     entryId,
     entryTitle,
     entryCategory,
@@ -530,15 +531,15 @@ export async function shareEntryWithGroupEncryption(
   const supabase = getClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('Not authenticated');
-  console.log('[SharingService] 👤 User authenticated:', user.id);
+  log.debug(' 👤 User authenticated:', user.id);
 
   // Encrypt entry data with group key
-  console.log('[SharingService] 🔒 Encrypting entry data with group key...');
+  log.debug(' 🔒 Encrypting entry data with group key...');
   const { encrypted, iv } = await encryptData(
     JSON.stringify(entryData),
     groupKey
   );
-  console.log('[SharingService] ✅ Entry data encrypted:', {
+  log.debug(' ✅ Entry data encrypted:', {
     encryptedLength: encrypted.length,
     ivLength: iv.length
   });
@@ -546,7 +547,7 @@ export async function shareEntryWithGroupEncryption(
   const now = new Date().toISOString();
   const id = generateId();
 
-  console.log('[SharingService] 💾 Inserting into myday_shared_safe_entries...');
+  log.debug(' 💾 Inserting into myday_shared_safe_entries...');
   const { data, error } = await supabase
     .from('myday_shared_safe_entries')
     .insert({
@@ -566,11 +567,11 @@ export async function shareEntryWithGroupEncryption(
     .single();
 
   if (error) {
-    console.error('[SharingService] ❌ Insert failed:', error);
+    log.error(' ❌ Insert failed:', error);
     throw error;
   }
   
-  console.log('[SharingService] ✅ Share created successfully:', data.id);
+  log.debug(' ✅ Share created successfully:', data.id);
 
   return {
     id: data.id,
@@ -686,7 +687,7 @@ export async function getEntriesSharedWithMe(): Promise<SharedSafeEntry[]> {
 
   // Return shared entries with title stored in the share record
   return (data || []).map(row => {
-    console.log('[SharingService] 📦 Shared entry category:', row.entry_category);
+    log.debug(' 📦 Shared entry category:', row.entry_category);
     return {
       id: row.id,
       safeEntryId: row.safe_entry_id,
@@ -1156,7 +1157,7 @@ export async function shareTodoGroup(
   const now = new Date().toISOString();
   const id = generateId();
 
-  console.log('[shareTodoGroup] Attempting to share:', {
+  log.debug('[shareTodoGroup] Attempting to share:', {
     id,
     todoGroupId,
     groupId,
@@ -1179,7 +1180,7 @@ export async function shareTodoGroup(
     .single();
 
   if (error) {
-    console.error('[shareTodoGroup] Error:', error);
+    log.error('[shareTodoGroup] Error:', error);
     throw new Error(`Failed to share TODO group: ${error.message}`);
   }
 
@@ -1250,7 +1251,7 @@ export async function getTodoGroupsSharedWithMe(): Promise<SharedTodoGroup[]> {
     .order('shared_at', { ascending: false });
 
   if (error) {
-    console.error('[getTodoGroupsSharedWithMe] Error:', error);
+    log.error('[getTodoGroupsSharedWithMe] Error:', error);
     throw error;
   }
 

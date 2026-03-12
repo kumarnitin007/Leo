@@ -303,7 +303,7 @@ const WeatherWidget: React.FC = () => {
                 borderRadius: '8px',
                 position: 'relative'
               }}>
-                <img src={weatherData.current.icon} alt={weatherData.current.description} style={{ width: '64px', height: '64px' }} />
+                <img src={weatherData.current.icon} alt={weatherData.current.description} loading="lazy" style={{ width: '64px', height: '64px' }} />
                 <div style={{ flex: 1 }}>
                   <div style={{ fontSize: '2rem', fontWeight: 'bold' }}>{convertTemp(weatherData.current.temp)}{tempSymbol}</div>
                   <div style={{ fontSize: '0.875rem', color: '#6b7280' }}>
@@ -358,7 +358,7 @@ const WeatherWidget: React.FC = () => {
                       }}
                     >
                       <div style={{ fontSize: '0.75rem', color: '#6b7280', marginBottom: '0.5rem' }}>{hour.time}</div>
-                      <img src={hour.icon} alt={hour.description} style={{ width: '40px', height: '40px', margin: '0 auto 0.5rem' }} />
+                      <img src={hour.icon} alt={hour.description} loading="lazy" style={{ width: '40px', height: '40px', margin: '0 auto 0.5rem' }} />
                       <div style={{ fontSize: '1rem', fontWeight: 600 }}>{convertTemp(hour.temp)}°</div>
                     </div>
                   ))}
@@ -391,7 +391,7 @@ const WeatherWidget: React.FC = () => {
                         {idx === 0 ? 'Today' : day.day}
                       </div>
                       <div style={{ fontSize: '0.7rem', color: '#9ca3af', marginBottom: '0.5rem' }}>{day.date}</div>
-                      <img src={day.icon} alt={day.description} style={{ width: '40px', height: '40px', margin: '0 auto 0.5rem' }} />
+                      <img src={day.icon} alt={day.description} loading="lazy" style={{ width: '40px', height: '40px', margin: '0 auto 0.5rem' }} />
                       <div style={{ fontSize: '0.875rem', fontWeight: 600 }}>{convertTemp(day.high)}°</div>
                       <div style={{ fontSize: '0.75rem', color: '#6b7280' }}>{convertTemp(day.low)}°</div>
                     </div>

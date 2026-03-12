@@ -31,6 +31,21 @@ interface BankDashboardProps {
   onOpenGroupChat?: () => void;
 }
 
+// ─── Constants ───────────────────────────────────────────────────────────────
+const MS_PER_DAY = 86400000;
+const EXCEL_EPOCH_OFFSET = 25569; // Days from 1/1/1900 to Unix epoch
+
+const URGENCY_THRESHOLDS = {
+  CRITICAL: 7,    // Days until maturity/due considered critical
+  WARNING: 30,    // Days until maturity/due considered warning
+  UPCOMING: 90,   // Days to show in upcoming section
+} as const;
+
+const CHART_COLORS = [
+  '#10b981', '#3b82f6', '#8b5cf6', '#f59e0b', '#ef4444', 
+  '#06b6d4', '#ec4899', '#84cc16', '#f97316', '#6366f1'
+];
+
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 const today = new Date();
 today.setHours(0,0,0,0);
@@ -40,7 +55,7 @@ function daysUntil(dateStr: string | null | undefined): number | null {
   const d = new Date(dateStr);
   if (isNaN(d.getTime())) return null;
   d.setHours(0,0,0,0);
-  return Math.round((d.getTime() - today.getTime()) / 86400000);
+  return Math.round((d.getTime() - today.getTime()) / MS_PER_DAY);
 }
 
 const CURRENCY_SYMBOLS: Record<Currency, string> = { INR: '₹', USD: '$', EUR: '€', GBP: '£' };
@@ -1022,7 +1037,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
     // Helper to convert date string to Excel serial number
     const dateToExcel = (dateStr: string) => {
       const d = new Date(dateStr);
-      return 25569 + d.getTime() / 86400000; // Excel epoch is 1/1/1900
+      return EXCEL_EPOCH_OFFSET + d.getTime() / MS_PER_DAY;
     };
     
     // Instructions sheet - Updated with ALL fields + Status column
@@ -1267,24 +1282,36 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
   const netWorthConverted = accounts.reduce((s, a) => 
     s + convertCurrency(Number(a.amount) || 0, (a.currency || 'INR') as Currency, targetCurrency, exchangeRates), 0);
   
-  // Deposits are ONLY for maturity tracking/alerts
-  const upcoming90 = deposits.filter(d=>{ const x=daysUntil(d.maturityDate); return x!=null&&x>=0&&x<=90&&!d.done; });
-  const sortedDeps = [...deposits].sort((a,b)=>new Date(a.maturityDate||"2099").getTime()-new Date(b.maturityDate||"2099").getTime());
+  // PERF-007: Memoize derived deposit data
+  const upcoming90 = useMemo(() => 
+    deposits.filter(d => { 
+      const x = daysUntil(d.maturityDate); 
+      return x != null && x >= 0 && x <= 90 && !d.done; 
+    }), [deposits]);
 
-  // Bank totals from deposits (for deposits tab only)
-  const bankTotals: Record<string, {deposited:number; maturity:number; count:number; avgRoi:number}> = {};
-  deposits.forEach(d=>{
-    if(!d.bank) return;
-    if(!bankTotals[d.bank]) bankTotals[d.bank]={deposited:0,maturity:0,count:0,avgRoi:0};
-    bankTotals[d.bank].deposited += Number(d.deposit)||0;
-    bankTotals[d.bank].maturity  += Number(d.maturityAmt)||Number(d.deposit)||0;
-    bankTotals[d.bank].count++;
-    bankTotals[d.bank].avgRoi += Number(d.roi)||0;
-  });
-  
-  Object.values(bankTotals).forEach(b => b.avgRoi = b.avgRoi / b.count);
+  const sortedDeps = useMemo(() => 
+    [...deposits].sort((a, b) => 
+      new Date(a.maturityDate || "2099").getTime() - new Date(b.maturityDate || "2099").getTime()
+    ), [deposits]);
 
-  const pieData = Object.entries(bankTotals).map(([name,v])=>({ name, value:v.deposited, color:getBankColor(name) }));
+  // PERF-007: Memoize bank totals computation
+  const bankTotals = useMemo(() => {
+    const totals: Record<string, {deposited: number; maturity: number; count: number; avgRoi: number}> = {};
+    deposits.forEach(d => {
+      if (!d.bank) return;
+      if (!totals[d.bank]) totals[d.bank] = {deposited: 0, maturity: 0, count: 0, avgRoi: 0};
+      totals[d.bank].deposited += Number(d.deposit) || 0;
+      totals[d.bank].maturity += Number(d.maturityAmt) || Number(d.deposit) || 0;
+      totals[d.bank].count++;
+      totals[d.bank].avgRoi += Number(d.roi) || 0;
+    });
+    Object.values(totals).forEach(b => b.avgRoi = b.avgRoi / b.count);
+    return totals;
+  }, [deposits]);
+
+  const pieData = useMemo(() => 
+    Object.entries(bankTotals).map(([name, v]) => ({ name, value: v.deposited, color: getBankColor(name) })),
+    [bankTotals]);
   
   const typePieData = (() => {
     const banks: Record<string, number> = {};
@@ -1706,22 +1733,22 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
               ];
               
               return (
-                <div style={{background:"linear-gradient(135deg, #0F172A 0%, #1E293B 100%)",borderRadius:16,border:"1px solid #334155",overflow:"hidden"}}>
+                <div style={{background:THEME.cardBg,borderRadius:16,border:`1px solid ${THEME.border}`,overflow:"hidden"}}>
                   {/* Header with Total */}
-                  <div style={{padding:"16px 18px",borderBottom:"1px solid #334155",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                  <div style={{padding:"16px 18px",borderBottom:`1px solid ${THEME.border}`,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
                     <div>
                       <div style={{fontSize:11,color:THEME.textMuted,fontWeight:500,letterSpacing:"0.5px"}}>TOTAL PORTFOLIO ({displayCurrency === 'ORIGINAL' ? 'Mixed → INR' : targetCurrency})</div>
-                      <div style={{fontSize:26,fontWeight:800,color:"#F8FAFC",fontFamily:"monospace",marginTop:4}}>{fmt(accountTotal, targetCurrency)}</div>
+                      <div style={{fontSize:26,fontWeight:800,color:THEME.text,fontFamily:"monospace",marginTop:4}}>{fmt(accountTotal, targetCurrency)}</div>
                     </div>
                     <div style={{textAlign:"right"}}>
-                      <div style={{fontSize:10,color:"#64748B"}}>{accounts.length} accounts</div>
+                      <div style={{fontSize:10,color:THEME.textMuted}}>{accounts.length} accounts</div>
                     </div>
                   </div>
                   
                   {/* Allocation Bar */}
                   {accountTotal > 0 && (
                     <div style={{padding:"0 18px"}}>
-                      <div style={{display:"flex",height:8,borderRadius:4,overflow:"hidden",background:"#1E293B"}}>
+                      <div style={{display:"flex",height:8,borderRadius:4,overflow:"hidden",background:THEME.cardBgAlt}}>
                         {segments.map((seg, i) => (
                           <div 
                             key={seg.label} 
@@ -1738,14 +1765,14 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                   )}
                   
                   {/* Breakdown Cards */}
-                  <div style={{display:"grid",gridTemplateColumns:`repeat(${segments.length}, 1fr)`,gap:1,background:"#334155",marginTop:12}}>
+                  <div style={{display:"grid",gridTemplateColumns:`repeat(${segments.length}, 1fr)`,gap:1,background:THEME.border,marginTop:12}}>
                     {segments.map((seg, i) => (
-                      <div key={seg.label} style={{background:"#0F172A",padding:"12px 14px",textAlign:"center"}}>
+                      <div key={seg.label} style={{background:THEME.cardBg,padding:"12px 14px",textAlign:"center"}}>
                         <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:6,marginBottom:6}}>
                           <div style={{width:8,height:8,borderRadius:2,background:seg.color}}/>
                           <span style={{fontSize:10,color:THEME.textMuted,fontWeight:500,textTransform:"uppercase",letterSpacing:"0.3px"}}>{seg.label}</span>
                         </div>
-                        <div style={{fontSize:16,fontWeight:700,color:"#F8FAFC",fontFamily:"monospace"}}>{fmt(seg.amount, targetCurrency)}</div>
+                        <div style={{fontSize:16,fontWeight:700,color:THEME.text,fontFamily:"monospace"}}>{fmt(seg.amount, targetCurrency)}</div>
                         <div style={{fontSize:10,color:seg.color,fontWeight:600,marginTop:2}}>{seg.pct.toFixed(1)}%</div>
                       </div>
                     ))}
@@ -1812,35 +1839,35 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
               </div>
             )}
 
-            {/* FD Projections - Matching Professional Style */}
-            <div style={{background:"linear-gradient(135deg, #0F172A 0%, #1E293B 100%)",borderRadius:16,border:"1px solid #334155",overflow:"hidden"}}>
-              <div style={{padding:"12px 18px",borderBottom:"1px solid #334155"}}>
+            {/* FD Projections - Theme Aligned */}
+            <div style={{background:THEME.cardBg,borderRadius:16,border:`1px solid ${THEME.border}`,overflow:"hidden"}}>
+              <div style={{padding:"12px 18px",borderBottom:`1px solid ${THEME.border}`}}>
                 <div style={{fontSize:11,color:THEME.textMuted,fontWeight:500,letterSpacing:"0.5px"}}>FD PROJECTIONS (1 YEAR) - {displayCurrency === 'ORIGINAL' ? 'Mixed → INR' : targetCurrency}</div>
               </div>
-              <div style={{display:"grid",gridTemplateColumns:"repeat(3, 1fr)",gap:1,background:"#334155"}}>
-                <div style={{background:"#0F172A",padding:"14px 16px",textAlign:"center"}}>
+              <div style={{display:"grid",gridTemplateColumns:"repeat(3, 1fr)",gap:1,background:THEME.border}}>
+                <div style={{background:THEME.cardBg,padding:"14px 16px",textAlign:"center"}}>
                   <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:6,marginBottom:6}}>
                     <div style={{width:8,height:8,borderRadius:2,background:"#3B82F6"}}/>
                     <span style={{fontSize:10,color:THEME.textMuted,fontWeight:500,textTransform:"uppercase",letterSpacing:"0.3px"}}>Invested</span>
                   </div>
-                  <div style={{fontSize:18,fontWeight:700,color:"#F8FAFC",fontFamily:"monospace"}}>{fmt(totalInvested, targetCurrency)}</div>
-                  <div style={{fontSize:10,color:"#64748B",marginTop:4}}>{accounts.filter(a=>a.type==="FD").length} FDs</div>
+                  <div style={{fontSize:18,fontWeight:700,color:THEME.text,fontFamily:"monospace"}}>{fmt(totalInvested, targetCurrency)}</div>
+                  <div style={{fontSize:10,color:THEME.textMuted,marginTop:4}}>{accounts.filter(a=>a.type==="FD").length} FDs</div>
                 </div>
-                <div style={{background:"#0F172A",padding:"14px 16px",textAlign:"center"}}>
+                <div style={{background:THEME.cardBg,padding:"14px 16px",textAlign:"center"}}>
                   <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:6,marginBottom:6}}>
                     <div style={{width:8,height:8,borderRadius:2,background:"#10B981"}}/>
                     <span style={{fontSize:10,color:THEME.textMuted,fontWeight:500,textTransform:"uppercase",letterSpacing:"0.3px"}}>Maturity</span>
                   </div>
-                  <div style={{fontSize:18,fontWeight:700,color:"#F8FAFC",fontFamily:"monospace"}}>{fmt(totalMaturity, targetCurrency)}</div>
-                  <div style={{fontSize:10,color:"#64748B",marginTop:4}}>projected value</div>
+                  <div style={{fontSize:18,fontWeight:700,color:THEME.text,fontFamily:"monospace"}}>{fmt(totalMaturity, targetCurrency)}</div>
+                  <div style={{fontSize:10,color:THEME.textMuted,marginTop:4}}>projected value</div>
                 </div>
-                <div style={{background:"#0F172A",padding:"14px 16px",textAlign:"center"}}>
+                <div style={{background:THEME.cardBg,padding:"14px 16px",textAlign:"center"}}>
                   <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:6,marginBottom:6}}>
                     <div style={{width:8,height:8,borderRadius:2,background:"#F59E0B"}}/>
                     <span style={{fontSize:10,color:THEME.textMuted,fontWeight:500,textTransform:"uppercase",letterSpacing:"0.3px"}}>Est. Gain</span>
                   </div>
-                  <div style={{fontSize:18,fontWeight:700,color:"#10B981",fontFamily:"monospace"}}>{fmt(totalMaturity-totalInvested, targetCurrency)}</div>
-                  <div style={{fontSize:10,color:"#10B981",fontWeight:600,marginTop:4}}>{totalInvested?`+${(((totalMaturity-totalInvested)/totalInvested)*100).toFixed(1)}%`:""}</div>
+                  <div style={{fontSize:18,fontWeight:700,color:THEME.success,fontFamily:"monospace"}}>{fmt(totalMaturity-totalInvested, targetCurrency)}</div>
+                  <div style={{fontSize:10,color:THEME.success,fontWeight:600,marginTop:4}}>{totalInvested?`+${(((totalMaturity-totalInvested)/totalInvested)*100).toFixed(1)}%`:""}</div>
                 </div>
               </div>
             </div>
@@ -2181,10 +2208,10 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
               {isMobile ? (
                 <div style={{display:"flex",flexDirection:"column",gap:12}}>
                   {/* Mobile: Summary Header */}
-                  <div style={{background:"linear-gradient(135deg, #1E3A5F 0%, #0F172A 100%)",borderRadius:14,padding:"16px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                  <div style={{background:THEME.headerBg,borderRadius:14,padding:"16px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
                     <div>
-                      <div style={{fontSize:10,color:THEME.textMuted,fontWeight:500}}>TOTAL INVESTED</div>
-                      <div style={{fontSize:22,fontWeight:800,color:"#F8FAFC",fontFamily:"monospace"}}>{fmt(filtered.reduce((s, d) => s + (Number(d.deposit) || 0), 0))}</div>
+                      <div style={{fontSize:10,color:"rgba(255,255,255,0.7)",fontWeight:500}}>TOTAL INVESTED</div>
+                      <div style={{fontSize:22,fontWeight:800,color:"#fff",fontFamily:"monospace"}}>{fmt(filtered.reduce((s, d) => s + (Number(d.deposit) || 0), 0))}</div>
                     </div>
                     <div style={{textAlign:"right"}}>
                       <div style={{fontSize:10,color:THEME.textMuted,fontWeight:500}}>MATURITY</div>
@@ -2726,11 +2753,11 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
               {isMobile ? (
                 <div style={{display:"flex",flexDirection:"column",gap:12}}>
                   {/* Mobile: Summary Header */}
-                  <div style={{background:"linear-gradient(135deg, #065F46 0%, #0F172A 100%)",borderRadius:14,padding:"16px"}}>
+                  <div style={{background:THEME.headerBg,borderRadius:14,padding:"16px"}}>
                     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
                       <div>
-                        <div style={{fontSize:10,color:THEME.textMuted,fontWeight:500}}>NET BALANCE {!showAllAccounts && hiddenCount > 0 && `(${visibleAccounts.length} active)`}</div>
-                        <div style={{fontSize:24,fontWeight:800,color:"#F8FAFC",fontFamily:"monospace"}}>{fmt(sumConverted(visibleAccounts), targetCurrency)}</div>
+                        <div style={{fontSize:10,color:"rgba(255,255,255,0.7)",fontWeight:500}}>NET BALANCE {!showAllAccounts && hiddenCount > 0 && `(${visibleAccounts.length} active)`}</div>
+                        <div style={{fontSize:24,fontWeight:800,color:"#fff",fontFamily:"monospace"}}>{fmt(sumConverted(visibleAccounts), targetCurrency)}</div>
                       </div>
                       <div style={{display:"flex",gap:6}}>
                         {(['INR', 'USD'] as const).map(cur => (
@@ -2900,9 +2927,9 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                             onClick={() => setShowAllAccounts(true)}
                             style={{
                               width: "100%",
-                              background: "#1E293B",
+                              background: THEME.cardBgAlt,
                               color: THEME.textMuted,
-                              border: "1px dashed #475569",
+                              border: `1px dashed ${THEME.border}`,
                               borderRadius: 10,
                               padding: "14px 16px",
                               fontSize: 14,
@@ -2915,13 +2942,13 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                             }}
                           >
                             <div style={{display:"flex",alignItems:"center",gap:10}}>
-                              <div style={{width:10,height:10,borderRadius:"50%",background:"#475569"}} />
+                              <div style={{width:10,height:10,borderRadius:"50%",background:THEME.border}} />
                               <div>
                                 <div>Other Accounts</div>
-                                <div style={{fontSize:11,color:"#64748B",fontWeight:500}}>{hiddenCount} hidden account{hiddenCount > 1 ? "s" : ""} · Tap to show</div>
+                                <div style={{fontSize:11,color:THEME.textMuted,fontWeight:500}}>{hiddenCount} hidden account{hiddenCount > 1 ? "s" : ""} · Tap to show</div>
                               </div>
                             </div>
-                            <div style={{fontSize:16,fontFamily:"monospace",fontWeight:700,color:"#64748B"}}>{fmt(hiddenTotal, targetCurrency)}</div>
+                            <div style={{fontSize:16,fontFamily:"monospace",fontWeight:700,color:THEME.textMuted}}>{fmt(hiddenTotal, targetCurrency)}</div>
                           </button>
                         </div>
                       )}
@@ -3215,18 +3242,18 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                                 })}
                                 {/* Aggregated Hidden Row */}
                                 {!showAllAccounts && hiddenCount > 0 && (
-                                  <tr style={{borderBottom:`1px solid ${THEME.border}`,background:"#1E293B",cursor:"pointer"}} onClick={() => setShowAllAccounts(true)}>
+                                  <tr style={{borderBottom:`1px solid ${THEME.border}`,background:THEME.cardBgAlt,cursor:"pointer"}} onClick={() => setShowAllAccounts(true)}>
                                     <td colSpan={3} style={{padding:"12px 10px"}}>
                                       <div style={{display:"flex",alignItems:"center",gap:8}}>
-                                        <div style={{width:8,height:8,borderRadius:"50%",background:"#475569"}} />
+                                        <div style={{width:8,height:8,borderRadius:"50%",background:THEME.border}} />
                                         <span style={{fontWeight:600,color:THEME.textMuted,fontSize:11}}>Other Accounts</span>
                                         <span style={{background:THEME.border,color:THEME.textLight,padding:"2px 6px",borderRadius:4,fontSize:9,fontWeight:600}}>{hiddenCount} hidden</span>
                                       </div>
                                     </td>
-                                    <td style={{padding:"12px 10px",fontFamily:"monospace",fontWeight:600,color:"#64748B",fontSize:11}}>{fmt(hiddenTotal, targetCurrency)}</td>
-                                    <td colSpan={9} style={{padding:"12px 10px",color:"#64748B",fontSize:10}}>Click to show all accounts</td>
+                                    <td style={{padding:"12px 10px",fontFamily:"monospace",fontWeight:600,color:THEME.textMuted,fontSize:11}}>{fmt(hiddenTotal, targetCurrency)}</td>
+                                    <td colSpan={9} style={{padding:"12px 10px",color:THEME.textMuted,fontSize:10}}>Click to show all accounts</td>
                                     <td style={{padding:"12px 10px"}}>
-                                      <button style={{background:"#0D9488",color:"#FFF",border:"none",borderRadius:4,padding:"3px 8px",fontSize:9,cursor:"pointer",fontWeight:600}}>Show</button>
+                                      <button style={{background:THEME.accent,color:"#FFF",border:"none",borderRadius:4,padding:"3px 8px",fontSize:9,cursor:"pointer",fontWeight:600}}>Show</button>
                                     </td>
                                   </tr>
                                 )}
@@ -3415,10 +3442,10 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
             {isMobile ? (
               <div style={{display:"flex",flexDirection:"column",gap:12}}>
                 {/* Mobile: Summary Header */}
-                <div style={{background:"linear-gradient(135deg, #92400E 0%, #0F172A 100%)",borderRadius:14,padding:"16px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                <div style={{background:THEME.headerBg,borderRadius:14,padding:"16px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
                   <div>
-                    <div style={{fontSize:10,color:THEME.textMuted,fontWeight:500}}>PENDING BILLS</div>
-                    <div style={{fontSize:28,fontWeight:800,color:"#F8FAFC"}}>{bills.filter(b => !b.done).length}</div>
+                    <div style={{fontSize:10,color:"rgba(255,255,255,0.7)",fontWeight:500}}>PENDING BILLS</div>
+                    <div style={{fontSize:28,fontWeight:800,color:"#fff"}}>{bills.filter(b => !b.done).length}</div>
                   </div>
                   <div style={{textAlign:"right"}}>
                     <div style={{fontSize:10,color:THEME.textMuted,fontWeight:500}}>TOTAL DUE</div>

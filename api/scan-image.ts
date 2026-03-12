@@ -1,4 +1,6 @@
 import { ExtractedItem } from '../src/services/imageScanning/types';
+import { applyRateLimit, RATE_LIMITS } from './utils/rateLimit';
+import { handleApiError, createErrorResponse } from './utils/errorHandler';
 
 // OpenAI GPT-4 Vision API endpoint
 // Expects: OPENAI_API_KEY in environment variables
@@ -9,18 +11,47 @@ export default async function handler(req: any, res: any) {
     return;
   }
 
+  // SEC-001: Apply rate limiting for image processing (expensive operation)
+  if (!applyRateLimit(req, res, RATE_LIMITS.imageProcessing)) {
+    return; // Response already sent by rate limiter
+  }
+
   const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 
   if (!OPENAI_API_KEY) {
-    res.status(500).json({ error: 'OpenAI API key not configured' });
+    res.status(500).json(createErrorResponse('CONFIG_ERROR', 'Image scanning not available'));
     return;
   }
 
   try {
-    const { image, mimeType } = req.body;
+    const { image, mimeType, hints } = req.body;
 
     if (!image) {
-      res.status(400).json({ error: 'No image provided' });
+      res.status(400).json(createErrorResponse('VALIDATION_ERROR', 'No image provided'));
+      return;
+    }
+    
+    // FEAT-002: Extract context hints
+    const keywords = hints?.keywords || '';
+    const isFinancial = hints?.isFinancial || false;
+    
+    // SEC-005: Validate image size (max 10MB base64 ~ 7.5MB raw)
+    if (image.length > 10 * 1024 * 1024) {
+      res.status(400).json(createErrorResponse('VALIDATION_ERROR', 'Image too large (max 10MB)'));
+      return;
+    }
+    
+    // Validate MIME type
+    const allowedMimeTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+    if (mimeType && !allowedMimeTypes.includes(mimeType)) {
+      res.status(400).json(createErrorResponse('VALIDATION_ERROR', 'Invalid image type'));
+      return;
+    }
+
+    // SEC-005: Validate base64 format (basic check for valid base64 characters)
+    const base64Regex = /^[A-Za-z0-9+/=]+$/;
+    if (!base64Regex.test(image)) {
+      res.status(400).json(createErrorResponse('VALIDATION_ERROR', 'Invalid image encoding'));
       return;
     }
 
@@ -40,6 +71,8 @@ export default async function handler(req: any, res: any) {
               {
                 type: 'text',
                 text: `Analyze this image and extract structured information. Identify what type of document/image this is and extract relevant data.
+${keywords ? `\nIMPORTANT CONTEXT from user: "${keywords}" - use this hint to help identify the source/content.` : ''}
+${isFinancial ? `\nIMPORTANT: User has indicated this is FINANCIAL INFORMATION - prioritize extracting financial/investment data.` : ''}
 
 Possible types:
 - Birthday card (extract: person name, date, message)
@@ -91,7 +124,7 @@ IMPORTANT: Return ONLY valid JSON, no markdown, no explanations.`
     if (!response.ok) {
       const error = await response.json();
       console.error('OpenAI API error:', error);
-      res.status(500).json({ error: 'OpenAI API request failed' });
+      res.status(500).json(createErrorResponse('EXTERNAL_API_ERROR', 'Image analysis failed'));
       return;
     }
 
@@ -99,7 +132,7 @@ IMPORTANT: Return ONLY valid JSON, no markdown, no explanations.`
     const content = data.choices?.[0]?.message?.content;
 
     if (!content) {
-      res.status(500).json({ error: 'No response from OpenAI' });
+      res.status(500).json(createErrorResponse('EXTERNAL_API_ERROR', 'No response from AI'));
       return;
     }
 
@@ -111,7 +144,7 @@ IMPORTANT: Return ONLY valid JSON, no markdown, no explanations.`
       parsedItems = JSON.parse(cleanContent);
     } catch (parseError) {
       console.error('Failed to parse OpenAI response:', content);
-      res.status(500).json({ error: 'Failed to parse AI response' });
+      res.status(500).json(createErrorResponse('PARSE_ERROR', 'Failed to process AI response'));
       return;
     }
 
@@ -131,9 +164,8 @@ IMPORTANT: Return ONLY valid JSON, no markdown, no explanations.`
       items,
       rawText: content
     });
-  } catch (err: any) {
-    console.error('Scan image endpoint error:', err);
-    res.status(500).json({ error: err.message || 'Unknown error' });
+  } catch (err: unknown) {
+    handleApiError(res, err, 'scan-image', 500, 'SERVER_ERROR');
   }
 }
 

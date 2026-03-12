@@ -5,7 +5,7 @@
  * Sub-tabs: Tasks | Events | Routines | Items | Resolutions
  */
 
-import React, { useState } from 'react';
+import React, { useState, memo } from 'react';
 import ConfigureView from './ConfigureView';
 import EventsView from './EventsView';
 import RoutinesView from './RoutinesView';

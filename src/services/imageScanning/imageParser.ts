@@ -6,13 +6,27 @@
 
 import { ExtractedItem, ScanMode } from './types';
 
+export interface ParseHints {
+  keywords?: string;
+  isFinancial?: boolean;
+}
+
 /**
  * Parse extracted text into structured items
  * Uses pattern matching and heuristics for quick scan
  */
-export function parseExtractedText(text: string, mode: ScanMode): ExtractedItem[] {
+export function parseExtractedText(text: string, mode: ScanMode, hints?: ParseHints): ExtractedItem[] {
   const items: ExtractedItem[] = [];
   const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+  
+  // FEAT-002: If user indicated financial, try to extract financial data first
+  if (hints?.isFinancial) {
+    const financialItem = detectFinancialData(text, lines, hints.keywords);
+    if (financialItem) {
+      items.push(financialItem);
+      return items; // Return early if financial data found
+    }
+  }
   
   // Birthday detection
   const birthdayItem = detectBirthday(text, lines);
@@ -35,6 +49,79 @@ export function parseExtractedText(text: string, mode: ScanMode): ExtractedItem[
   if (giftCardItem) items.push(giftCardItem);
   
   return items;
+}
+
+/**
+ * FEAT-002: Detect financial/investment data from text
+ */
+function detectFinancialData(text: string, lines: string[], keywords?: string): ExtractedItem | null {
+  // Look for currency amounts
+  const amountPattern = /\$[\d,]+\.?\d*|\₹[\d,]+\.?\d*|[\d,]+\.\d{2}/g;
+  const amounts = text.match(amountPattern);
+  
+  if (!amounts || amounts.length === 0) return null;
+  
+  // Find the largest amount (likely the total balance)
+  const parsedAmounts = amounts.map(a => {
+    const cleaned = a.replace(/[$₹,]/g, '');
+    return parseFloat(cleaned) || 0;
+  });
+  const maxAmount = Math.max(...parsedAmounts);
+  
+  if (maxAmount < 1) return null;
+  
+  // Determine source from keywords or text
+  let source = 'unknown';
+  const sourcePatterns: Record<string, RegExp> = {
+    'robinhood': /robinhood/i,
+    'fidelity': /fidelity/i,
+    'schwab': /schwab|charles schwab/i,
+    'vanguard': /vanguard/i,
+    'etrade': /e\*?trade/i,
+    'zerodha': /zerodha/i,
+    'groww': /groww/i,
+    'coinbase': /coinbase/i
+  };
+  
+  // Check keywords first
+  if (keywords) {
+    for (const [name, pattern] of Object.entries(sourcePatterns)) {
+      if (pattern.test(keywords)) {
+        source = name;
+        break;
+      }
+    }
+  }
+  
+  // Then check text
+  if (source === 'unknown') {
+    for (const [name, pattern] of Object.entries(sourcePatterns)) {
+      if (pattern.test(text)) {
+        source = name;
+        break;
+      }
+    }
+  }
+  
+  return {
+    id: crypto.randomUUID(),
+    type: 'financial-screenshot',
+    confidence: 0.6, // Lower confidence for quick scan
+    title: `Financial Update${source !== 'unknown' ? ` - ${source}` : ''}`,
+    description: `Detected balance: ${amounts[parsedAmounts.indexOf(maxAmount)]}`,
+    data: {
+      source,
+      totalValue: maxAmount,
+      accounts: [{
+        name: keywords || source || 'Investment Account',
+        type: 'brokerage',
+        balance: maxAmount,
+        currency: text.includes('₹') ? 'INR' : 'USD'
+      }]
+    },
+    suggestedDestination: 'financial-import',
+    icon: '📊'
+  };
 }
 
 function detectBirthday(text: string, lines: string[]): ExtractedItem | null {

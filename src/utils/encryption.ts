@@ -9,12 +9,26 @@
 export type CryptoKey = globalThis.CryptoKey;
 
 /**
+ * SEC-008: PBKDF2 Iterations Configuration
+ * 
+ * Current: 100,000 iterations (established baseline)
+ * OWASP 2023 recommends: 600,000+ for PBKDF2-SHA256
+ * 
+ * WARNING: Changing this value breaks existing password hashes.
+ * A migration strategy is required before increasing:
+ * 1. Store iteration count with each hash
+ * 2. Re-hash on successful login with new count
+ * 3. Consider Argon2id for new implementations
+ */
+export const PBKDF2_ITERATIONS = 100000;
+
+/**
  * Derive encryption key from master password using PBKDF2
  */
 export async function deriveKeyFromPassword(
   password: string,
   salt: Uint8Array,
-  iterations: number = 100000
+  iterations: number = PBKDF2_ITERATIONS
 ): Promise<CryptoKey> {
   const encoder = new TextEncoder();
   const passwordKey = await crypto.subtle.importKey(
@@ -63,7 +77,7 @@ export async function hashMasterPassword(
     {
       name: 'PBKDF2',
       salt: salt as BufferSource,
-      iterations: 100000,
+      iterations: PBKDF2_ITERATIONS,
       hash: 'SHA-256'
     },
     passwordKey,

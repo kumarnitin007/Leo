@@ -9,10 +9,15 @@ import React, { useState, useRef } from 'react';
 import Portal from './Portal';
 import { ScanMode } from '../services/imageScanning/types';
 
+export interface ScanContextHints {
+  keywords?: string;
+  isFinancial?: boolean;
+}
+
 interface ImageScanModalProps {
   show: boolean;
   onClose: () => void;
-  onImageSelected: (file: File, mode: ScanMode) => void;
+  onImageSelected: (file: File, mode: ScanMode, hints?: ScanContextHints) => void;
   mode: ScanMode;
 }
 
@@ -28,6 +33,10 @@ const ImageScanModal: React.FC<ImageScanModalProps> = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const [stream, setStream] = useState<MediaStream | null>(null);
+  
+  // FEAT-002: Context hints for better scan accuracy
+  const [keywords, setKeywords] = useState('');
+  const [isFinancial, setIsFinancial] = useState(false);
 
   React.useEffect(() => {
     if (!show) {
@@ -65,6 +74,8 @@ const ImageScanModal: React.FC<ImageScanModalProps> = ({
     setPreview(null);
     setSelectedFile(null);
     setUseCamera(false);
+    setKeywords('');
+    setIsFinancial(false);
   };
 
   const handleFileSelect = (file: File | Blob) => {
@@ -133,7 +144,11 @@ const ImageScanModal: React.FC<ImageScanModalProps> = ({
 
   const handleScan = () => {
     if (selectedFile) {
-      onImageSelected(selectedFile, mode);
+      const hints: ScanContextHints = {};
+      if (keywords.trim()) hints.keywords = keywords.trim();
+      if (isFinancial) hints.isFinancial = true;
+      
+      onImageSelected(selectedFile, mode, Object.keys(hints).length > 0 ? hints : undefined);
       onClose();
       cleanup();
     }
@@ -372,6 +387,63 @@ const ImageScanModal: React.FC<ImageScanModalProps> = ({
                     boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
                   }}
                 />
+                
+                {/* FEAT-002: Context Hints */}
+                <div style={{ 
+                  marginBottom: '1rem', 
+                  padding: '1rem', 
+                  background: '#f9fafb', 
+                  borderRadius: '0.75rem',
+                  border: '1px solid #e5e7eb'
+                }}>
+                  <div style={{ marginBottom: '0.75rem' }}>
+                    <label style={{ 
+                      display: 'block', 
+                      fontSize: '0.875rem', 
+                      fontWeight: 600, 
+                      color: '#374151',
+                      marginBottom: '0.5rem'
+                    }}>
+                      Keywords / Context <span style={{ fontWeight: 400, color: '#6b7280' }}>(optional)</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={keywords}
+                      onChange={(e) => setKeywords(e.target.value)}
+                      placeholder="e.g., robinhood investing, birthday invitation, costco receipt"
+                      style={{
+                        width: '100%',
+                        padding: '0.75rem',
+                        borderRadius: '0.5rem',
+                        border: '1px solid #d1d5db',
+                        fontSize: '0.875rem',
+                        boxSizing: 'border-box'
+                      }}
+                    />
+                    <p style={{ margin: '0.25rem 0 0', fontSize: '0.75rem', color: '#6b7280' }}>
+                      Helps AI understand what this image contains
+                    </p>
+                  </div>
+                  
+                  <label style={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    gap: '0.5rem',
+                    cursor: 'pointer',
+                    fontSize: '0.875rem',
+                    color: '#374151'
+                  }}>
+                    <input
+                      type="checkbox"
+                      checked={isFinancial}
+                      onChange={(e) => setIsFinancial(e.target.checked)}
+                      style={{ width: '1rem', height: '1rem', accentColor: '#10b981' }}
+                    />
+                    <span style={{ fontWeight: 500 }}>💰 Financial Information</span>
+                    <span style={{ color: '#6b7280', fontWeight: 400 }}>(for Bank Dashboard)</span>
+                  </label>
+                </div>
+
                 <div style={{ display: 'flex', gap: '1rem' }}>
                   <button
                     onClick={handleScan}

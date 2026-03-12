@@ -9,9 +9,25 @@
  * - Private key: Encrypted with user's master password (zero-knowledge)
  * - Group keys: Encrypted with recipient's public key (RSA)
  * - Entry data: Encrypted with group key (AES-GCM, faster)
+ * 
+ * SEC-010: RSA Key Size Configuration
+ * 
+ * Current: RSA-2048 (128-bit security)
+ * Alternative: RSA-4096 (140-bit security, ~4x slower)
+ * 
+ * RSA-2048 remains secure through ~2030 per NIST guidelines.
+ * For password vaults with long-term data, RSA-4096 or ECDH P-384
+ * provides better future-proofing at the cost of performance.
+ * 
+ * Migration note: Changing key size requires re-generating keys
+ * for all users and re-encrypting shared group keys.
  */
 
 import { encryptData, decryptData } from './encryption';
+import { encryptionLogger as log } from './logger';
+
+// SEC-010: Configurable RSA key size
+export const RSA_KEY_SIZE = 2048; // Options: 2048, 3072, 4096
 
 /**
  * Generate RSA-2048 key pair for asymmetric encryption
@@ -22,12 +38,12 @@ export async function generateRSAKeyPair(): Promise<{
   publicKey: CryptoKey;
   privateKey: CryptoKey;
 }> {
-  console.log('[AsymmetricCrypto] 🔑 Generating RSA-2048 key pair...');
+  log.debug(`🔑 Generating RSA-${RSA_KEY_SIZE} key pair...`);
   
   const keyPair = await window.crypto.subtle.generateKey(
     {
       name: 'RSA-OAEP',
-      modulusLength: 2048,
+      modulusLength: RSA_KEY_SIZE,
       publicExponent: new Uint8Array([1, 0, 1]), // 65537
       hash: 'SHA-256',
     },
@@ -35,7 +51,7 @@ export async function generateRSAKeyPair(): Promise<{
     ['encrypt', 'decrypt']
   );
 
-  console.log('[AsymmetricCrypto] ✅ RSA key pair generated');
+  log.debug('✅ RSA key pair generated');
   return keyPair;
 }
 
@@ -131,12 +147,12 @@ export async function encryptPrivateKey(
   privateKey: CryptoKey,
   masterKey: CryptoKey
 ): Promise<{ encrypted: string; iv: string }> {
-  console.log('[AsymmetricCrypto] 🔒 Encrypting private key with master password...');
+  log.debug(' 🔒 Encrypting private key with master password...');
   
   const privateKeyRaw = await exportPrivateKey(privateKey);
   const { encrypted, iv } = await encryptData(privateKeyRaw, masterKey);
   
-  console.log('[AsymmetricCrypto] ✅ Private key encrypted');
+  log.debug(' ✅ Private key encrypted');
   return { encrypted, iv };
 }
 
@@ -153,12 +169,12 @@ export async function decryptPrivateKey(
   iv: string,
   masterKey: CryptoKey
 ): Promise<CryptoKey> {
-  console.log('[AsymmetricCrypto] 🔓 Decrypting private key with master password...');
+  log.debug(' 🔓 Decrypting private key with master password...');
   
   const privateKeyRaw = await decryptData(encryptedPrivateKey, iv, masterKey);
   const privateKey = await importPrivateKey(privateKeyRaw);
   
-  console.log('[AsymmetricCrypto] ✅ Private key decrypted');
+  log.debug(' ✅ Private key decrypted');
   return privateKey;
 }
 
@@ -175,7 +191,7 @@ export async function encryptWithPublicKey(
   data: string,
   publicKey: CryptoKey
 ): Promise<string> {
-  console.log('[AsymmetricCrypto] 🔐 Encrypting with public key...');
+  log.debug(' 🔐 Encrypting with public key...');
   
   const encoder = new TextEncoder();
   const dataBuffer = encoder.encode(data);
@@ -190,7 +206,7 @@ export async function encryptWithPublicKey(
 
   const encryptedBase64 = btoa(String.fromCharCode(...new Uint8Array(encrypted)));
   
-  console.log('[AsymmetricCrypto] ✅ Data encrypted with public key');
+  log.debug(' ✅ Data encrypted with public key');
   return encryptedBase64;
 }
 
@@ -207,7 +223,7 @@ export async function decryptWithPrivateKey(
   encryptedData: string,
   privateKey: CryptoKey
 ): Promise<string> {
-  console.log('[AsymmetricCrypto] 🔓 Decrypting with private key...');
+  log.debug(' 🔓 Decrypting with private key...');
   
   const binaryString = atob(encryptedData);
   const bytes = new Uint8Array(binaryString.length);
@@ -226,7 +242,7 @@ export async function decryptWithPrivateKey(
   const decoder = new TextDecoder();
   const decryptedString = decoder.decode(decrypted);
   
-  console.log('[AsymmetricCrypto] ✅ Data decrypted with private key');
+  log.debug(' ✅ Data decrypted with private key');
   return decryptedString;
 }
 
@@ -241,7 +257,7 @@ export async function encryptGroupKeyForRecipient(
   groupKey: CryptoKey,
   recipientPublicKey: CryptoKey
 ): Promise<string> {
-  console.log('[AsymmetricCrypto] 🔑 Encrypting group key for recipient...');
+  log.debug(' 🔑 Encrypting group key for recipient...');
   
   // Export group key to raw format
   const groupKeyRaw = await window.crypto.subtle.exportKey('raw', groupKey);
@@ -250,7 +266,7 @@ export async function encryptGroupKeyForRecipient(
   // Encrypt with recipient's public key
   const encrypted = await encryptWithPublicKey(groupKeyBase64, recipientPublicKey);
   
-  console.log('[AsymmetricCrypto] ✅ Group key encrypted for recipient');
+  log.debug(' ✅ Group key encrypted for recipient');
   return encrypted;
 }
 
@@ -265,7 +281,7 @@ export async function decryptGroupKeyFromRecipient(
   encryptedGroupKey: string,
   privateKey: CryptoKey
 ): Promise<CryptoKey> {
-  console.log('[AsymmetricCrypto] 🔓 Decrypting group key with private key...');
+  log.debug(' 🔓 Decrypting group key with private key...');
   
   // Decrypt with private key
   const groupKeyBase64 = await decryptWithPrivateKey(encryptedGroupKey, privateKey);
@@ -288,6 +304,6 @@ export async function decryptGroupKeyFromRecipient(
     ['encrypt', 'decrypt']
   );
   
-  console.log('[AsymmetricCrypto] ✅ Group key decrypted and imported');
+  log.debug(' ✅ Group key decrypted and imported');
   return groupKey;
 }

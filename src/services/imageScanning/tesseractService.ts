@@ -8,6 +8,11 @@ import { createWorker } from 'tesseract.js';
 import { ScanResult, ExtractedItem } from './types';
 import { parseExtractedText } from './imageParser';
 
+export interface ScanHints {
+  keywords?: string;
+  isFinancial?: boolean;
+}
+
 let worker: any = null;
 
 /**
@@ -24,7 +29,8 @@ async function getWorker() {
  * Scan image using free Tesseract OCR
  */
 export async function scanImageWithTesseract(
-  imageFile: File | Blob | string
+  imageFile: File | Blob | string,
+  hints?: ScanHints
 ): Promise<ScanResult> {
   const startTime = Date.now();
   
@@ -45,8 +51,8 @@ export async function scanImageWithTesseract(
       };
     }
     
-    // Parse extracted text into structured items
-    const items = parseExtractedText(rawText, 'quick');
+    // Parse extracted text into structured items (with hints for context)
+    const items = parseExtractedText(rawText, 'quick', hints);
     
     return {
       success: true,

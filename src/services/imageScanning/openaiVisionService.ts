@@ -6,11 +6,17 @@
 
 import { ScanResult, ExtractedItem } from './types';
 
+export interface ScanHints {
+  keywords?: string;
+  isFinancial?: boolean;
+}
+
 /**
  * Scan image using OpenAI GPT-4 Vision API
  */
 export async function scanImageWithOpenAI(
-  imageFile: File | Blob
+  imageFile: File | Blob,
+  hints?: ScanHints
 ): Promise<ScanResult> {
   const startTime = Date.now();
   
@@ -26,7 +32,8 @@ export async function scanImageWithOpenAI(
       },
       body: JSON.stringify({
         image: base64Image,
-        mimeType: imageFile.type
+        mimeType: imageFile.type,
+        hints: hints // FEAT-002: Pass context hints to API
       })
     });
     

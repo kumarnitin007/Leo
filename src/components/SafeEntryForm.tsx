@@ -4,7 +4,7 @@
  * Form for adding/editing safe entries
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { SafeEntry, Tag, SafeEntryEncryptedData, SafeCustomField } from '../types';
 import { CryptoKey } from '../utils/encryption';
 import { addSafeEntry, updateSafeEntry, decryptSafeEntry } from '../storage';
@@ -53,6 +53,10 @@ const SafeEntryForm: React.FC<SafeEntryFormProps> = ({
   
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+
+  // PERF-007: Memoize tag filtering
+  const categoryTags = useMemo(() => tags.filter(t => t.isSystemCategory), [tags]);
+  const regularTags = useMemo(() => tags.filter(t => !t.isSystemCategory), [tags]);
 
   // Load entry data if editing
   useEffect(() => {
@@ -322,7 +326,7 @@ const SafeEntryForm: React.FC<SafeEntryFormProps> = ({
             }}
           >
             <option value="">Select category</option>
-            {tags.filter(t => t.isSystemCategory).map(tag => (
+            {categoryTags.map(tag => (
               <option key={tag.id} value={tag.id}>{tag.name}</option>
             ))}
           </select>
@@ -333,7 +337,7 @@ const SafeEntryForm: React.FC<SafeEntryFormProps> = ({
             Tags
           </label>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
-            {tags.filter(t => !t.isSystemCategory).map(tag => (
+            {regularTags.map(tag => (
               <label key={tag.id} style={{
                 display: 'flex',
                 alignItems: 'center',

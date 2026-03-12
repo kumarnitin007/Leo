@@ -43,18 +43,28 @@ const SafeEntryDetail: React.FC<SafeEntryDetailProps> = ({
     loadEntryData();
   }, [entry]);
 
-  // Update TOTP code every second if TOTP secret exists
+  // Update TOTP code - regenerate only when 30s window changes, update countdown every second
   useEffect(() => {
     if (!encryptedData?.totpSecret) {
       setTotpCode(null);
+      setTotpRemaining(0);
       return;
     }
 
+    let lastTimeWindow = -1;
+
     const updateTOTP = async () => {
       try {
-        const code = await generateTOTP(encryptedData.totpSecret!);
-        setTotpCode(code);
-        setTotpRemaining(getTOTPRemainingSeconds());
+        const currentTimeWindow = Math.floor(Date.now() / 30000);
+        const remaining = getTOTPRemainingSeconds();
+        setTotpRemaining(remaining);
+
+        // Only regenerate code when time window changes (every 30 seconds)
+        if (currentTimeWindow !== lastTimeWindow) {
+          lastTimeWindow = currentTimeWindow;
+          const code = await generateTOTP(encryptedData.totpSecret!);
+          setTotpCode(code);
+        }
       } catch (error) {
         console.error('Error generating TOTP:', error);
       }

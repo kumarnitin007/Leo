@@ -5,11 +5,13 @@
  * Supabase free tier from pausing due to inactivity.
  */
 
+import { handleApiError, createErrorResponse } from './utils/errorHandler';
+
 export default async function handler(req: any, res: any) {
   // Verify this is called by Vercel Cron (optional security)
   const authHeader = req.headers.authorization;
   if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-    return res.status(401).json({ error: 'Unauthorized' });
+    return res.status(401).json(createErrorResponse('AUTH_ERROR', 'Unauthorized'));
   }
 
   try {
@@ -17,7 +19,7 @@ export default async function handler(req: any, res: any) {
     const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY;
 
     if (!supabaseUrl || !supabaseKey) {
-      throw new Error('Supabase credentials not configured');
+      return res.status(500).json(createErrorResponse('CONFIG_ERROR'));
     }
 
     // Simple ping to keep database active
@@ -29,7 +31,8 @@ export default async function handler(req: any, res: any) {
     });
 
     if (!response.ok) {
-      throw new Error(`Supabase ping failed: ${response.status}`);
+      console.error('Supabase ping failed:', response.status);
+      return res.status(500).json(createErrorResponse('EXTERNAL_API_ERROR', 'Ping failed'));
     }
 
     console.log('✅ Keep-alive ping successful');
@@ -39,12 +42,7 @@ export default async function handler(req: any, res: any) {
       message: 'Supabase keep-alive ping successful',
       timestamp: new Date().toISOString()
     });
-  } catch (error: any) {
-    console.error('❌ Keep-alive ping failed:', error);
-    
-    return res.status(500).json({ 
-      success: false, 
-      error: error.message 
-    });
+  } catch (error: unknown) {
+    handleApiError(res, error, 'keep-alive', 500, 'SERVER_ERROR');
   }
 }

@@ -4,7 +4,8 @@
  * Comprehensive settings interface with theme, avatar, and user customization.
  */
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
+import { useDebounce } from '../hooks/useDebounce';
 
 // Add fadeIn animation style
 const fadeInStyle = `
@@ -48,6 +49,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ show, onClose }) => {
   const [selectedCategory, setSelectedCategory] = useState(avatar.category);
   const [showAvatarPicker, setShowAvatarPicker] = useState(false);
   const [avatarSearch, setAvatarSearch] = useState('');
+  const debouncedAvatarSearch = useDebounce(avatarSearch, 300);
   const [hoveredAvatar, setHoveredAvatar] = useState<string | null>(null);
   const [dashboardLayout, setDashboardLayout] = useState<DashboardLayout>('uniform');
   const [location, setLocation] = useState<{ zipCode?: string; city?: string; country?: string }>({});
@@ -117,13 +119,13 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ show, onClose }) => {
     }
   ];
 
-  const filteredAvatars = avatars.filter(a => {
+  const filteredAvatars = useMemo(() => avatars.filter(a => {
     const matchesCategory = a.category === selectedCategory;
-    const matchesSearch = avatarSearch.trim() === '' || 
-      a.name.toLowerCase().includes(avatarSearch.toLowerCase()) ||
-      a.category.toLowerCase().includes(avatarSearch.toLowerCase());
+    const matchesSearch = debouncedAvatarSearch.trim() === '' || 
+      a.name.toLowerCase().includes(debouncedAvatarSearch.toLowerCase()) ||
+      a.category.toLowerCase().includes(debouncedAvatarSearch.toLowerCase());
     return matchesCategory && matchesSearch;
-  });
+  }), [selectedCategory, debouncedAvatarSearch]);
 
   return (
     <Portal>

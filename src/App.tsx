@@ -12,21 +12,29 @@
  * these settings consistently.
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, Suspense, lazy } from 'react';
 import { ThemeProvider, useTheme } from './contexts/ThemeContext';
 import { UserProvider, useUser } from './contexts/UserContext';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { VoiceCommandPrefillProvider, useVoiceCommandPrefill } from './contexts/VoiceCommandPrefillContext';
 import { useUserLevel } from './hooks/useUserLevel';
-import TodayView from './TodayView';
-import TasksAndEventsView from './TasksAndEventsView';
-import JournalView from './JournalView';
-import AnalyticsView from './AnalyticsView';
-import SettingsView from './SettingsView';
-import ItemsView from './ItemsView';
-import SafeView from './SafeView';
-import TimerView from './TimerView';
-import ResolutionsView from './ResolutionsView';
+
+// Lazy-loaded views for code splitting (PERF-001)
+const TodayView = lazy(() => import('./TodayView'));
+const TasksAndEventsView = lazy(() => import('./TasksAndEventsView'));
+const JournalView = lazy(() => import('./JournalView'));
+const AnalyticsView = lazy(() => import('./AnalyticsView'));
+const SettingsView = lazy(() => import('./SettingsView'));
+const ItemsView = lazy(() => import('./ItemsView'));
+const SafeView = lazy(() => import('./SafeView'));
+const TimerView = lazy(() => import('./TimerView'));
+const ResolutionsView = lazy(() => import('./ResolutionsView'));
+const TodoView = lazy(() => import('./TodoView'));
+const SmartView = lazy(() => import('./SmartView'));
+const GroupsManager = lazy(() => import('./components/GroupsManager'));
+const VoiceCommandHistory = lazy(() => import('./components/VoiceCommand/VoiceCommandHistory'));
+
+// Eagerly loaded components (small, frequently used)
 import SpeedDialFAB from './components/SpeedDialFAB';
 import PinnedModal from './components/PinnedModal';
 import GiftCardsModal from './components/GiftCardsModal';
@@ -43,13 +51,25 @@ import MobileContextHeader from './components/MobileContextHeader';
 import VoiceCommandButton from './components/VoiceCommand/VoiceCommandButton';
 import { isFirstTimeUser, markOnboardingComplete } from './storage';
 import { loadSampleTasks } from './utils/sampleData';
-import TodoView from './TodoView';
-import GroupsManager from './components/GroupsManager';
-import SmartView from './SmartView';
 import { ParsedCommand } from './services/voice/types';
 import DemoBanner from './components/DemoBanner';
 import { VoiceCommandLog } from './types/voice-command-db.types';
-import VoiceCommandHistory from './components/VoiceCommand/VoiceCommandHistory';
+
+// Loading fallback for lazy-loaded views
+const ViewLoader: React.FC = () => (
+  <div style={{
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: '50vh',
+    color: '#6b7280'
+  }}>
+    <div style={{ textAlign: 'center' }}>
+      <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>🦁</div>
+      <div>Loading...</div>
+    </div>
+  </div>
+);
 
 type View = 'today' | 'tasks-events' | 'items' | 'journal' | 'resolutions' | 'analytics' | 'settings' | 'safe' | 'todo' | 'groups' | 'smart' | 'history';
 
@@ -119,8 +139,20 @@ const AppContent: React.FC = () => {
   }, [authLoading, isAuthenticated, showOnboarding]);
 
   // Refresh the current view when switching back to it
-  const handleNavigate = (view: View) => {
-    setCurrentView(view);
+  const handleNavigate = (view: View | string) => {
+    // Handle aliases for tasks-events view with specific tabs
+    if (view === 'configure' || view === 'tasks') {
+      setTasksEventsInitialTab('tasks');
+      setCurrentView('tasks-events');
+    } else if (view === 'events') {
+      setTasksEventsInitialTab('events');
+      setCurrentView('tasks-events');
+    } else if (view === 'routines') {
+      setTasksEventsInitialTab('routines');
+      setCurrentView('tasks-events');
+    } else {
+      setCurrentView(view as View);
+    }
     setKey(prev => prev + 1); // Force re-render of the view
   };
 
@@ -587,7 +619,9 @@ const AppContent: React.FC = () => {
       />
 
       <main className="main-content">
-        {renderView()}
+        <Suspense fallback={<ViewLoader />}>
+          {renderView()}
+        </Suspense>
       </main>
 
       {/* Modals */}

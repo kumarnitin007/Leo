@@ -81,7 +81,7 @@ const ShareModal: React.FC<ShareModalProps> = ({
           sharedAt: s.sharedAt,
         })));
       }
-      // TODO: Add other entity types as needed
+      // EXTENSIBLE: Add other entity types here (e.g., safe_entry, journal)
       
       setExistingShares(allShares);
     } catch (err) {
@@ -110,7 +110,7 @@ const ShareModal: React.FC<ShareModalProps> = ({
       if (entityType === 'todo_group') {
         await sharingService.shareTodoGroup(entityId, selectedGroupId, shareMode);
       }
-      // TODO: Add other entity types as needed
+      // EXTENSIBLE: Add other entity types here
       
       await loadData();
       setSelectedGroupId('');
@@ -129,7 +129,7 @@ const ShareModal: React.FC<ShareModalProps> = ({
       if (entityType === 'todo_group') {
         await sharingService.revokeTodoGroupShare(shareId);
       }
-      // TODO: Add other entity types as needed
+      // EXTENSIBLE: Add other entity types here
       
       await loadData();
       if (onShared) onShared();

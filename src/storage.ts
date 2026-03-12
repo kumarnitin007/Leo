@@ -23,6 +23,26 @@ const generateUUID = (): string => {
   });
 };
 
+// Map voice integration fields from updates object to database columns
+interface VoiceFields {
+  createdViaVoice?: boolean;
+  voiceCommandId?: string;
+  voiceConfidence?: number;
+}
+
+function mapVoiceFieldsToDb(updates: VoiceFields, dbUpdates: Record<string, unknown>): void {
+  if (updates.createdViaVoice !== undefined) dbUpdates.created_via_voice = updates.createdViaVoice;
+  if (updates.voiceCommandId !== undefined) dbUpdates.voice_command_id = updates.voiceCommandId;
+  if (updates.voiceConfidence !== undefined) dbUpdates.voice_confidence = updates.voiceConfidence;
+}
+
+// Map voice integration fields from updates object to database columns
+const mapVoiceFields = (updates: Record<string, unknown>, dbUpdates: Record<string, unknown>): void => {
+  if (updates.createdViaVoice !== undefined) dbUpdates.created_via_voice = updates.createdViaVoice;
+  if (updates.voiceCommandId !== undefined) dbUpdates.voice_command_id = updates.voiceCommandId;
+  if (updates.voiceConfidence !== undefined) dbUpdates.voice_confidence = updates.voiceConfidence;
+};
+
 // ===== QUERY CACHE =====
 
 interface CacheEntry {
@@ -214,9 +234,7 @@ export const updateTask = async (taskId: string, updates: Partial<Task>): Promis
   if (updates.holdReason !== undefined) dbUpdates.hold_reason = updates.holdReason;
   if (updates.tags !== undefined) dbUpdates.tags = updates.tags;
   // Voice integration fields
-  if ((updates as any).createdViaVoice !== undefined) dbUpdates.created_via_voice = (updates as any).createdViaVoice;
-  if ((updates as any).voiceCommandId !== undefined) dbUpdates.voice_command_id = (updates as any).voiceCommandId;
-  if ((updates as any).voiceConfidence !== undefined) dbUpdates.voice_confidence = (updates as any).voiceConfidence;
+  mapVoiceFieldsToDb(updates as VoiceFields, dbUpdates);
 
   const { error } = await client
     .from('myday_tasks')
@@ -584,9 +602,7 @@ export const updateEvent = async (eventId: string, updates: Partial<Event>): Pro
   if (updates.year !== undefined) dbUpdates.year = updates.year;
 
   // Voice integration fields
-  if ((updates as any).createdViaVoice !== undefined) dbUpdates.created_via_voice = (updates as any).createdViaVoice;
-  if ((updates as any).voiceCommandId !== undefined) dbUpdates.voice_command_id = (updates as any).voiceCommandId;
-  if ((updates as any).voiceConfidence !== undefined) dbUpdates.voice_confidence = (updates as any).voiceConfidence;
+  mapVoiceFieldsToDb(updates as VoiceFields, dbUpdates);
 
   const { error } = await client
     .from('myday_events')
@@ -2587,6 +2603,9 @@ export const importSampleSafe = async (replace: boolean = false): Promise<boolea
       }
     }
 
+    // SEC-006: Generate demo credentials at runtime instead of hardcoding
+    const generateDemoPassword = () => `Demo_${Math.random().toString(36).slice(2, 10)}`;
+    
     // Prepare a larger set (15-20) of sample safe entries with varied categories
     const sampleEntries = [
       {
@@ -2595,7 +2614,7 @@ export const importSampleSafe = async (replace: boolean = false): Promise<boolea
         tags: [],
         is_favorite: true,
         expires_at: null,
-        encryptedData: { username: 'demo.user', password: 'demo1234', notes: 'This is a demo credential.' }
+        encryptedData: { username: 'demo.user@example.com', password: generateDemoPassword(), notes: 'This is a demo credential.' }
       },
       {
         title: 'Work Email - acme',
@@ -2603,7 +2622,7 @@ export const importSampleSafe = async (replace: boolean = false): Promise<boolea
         tags: [],
         is_favorite: false,
         expires_at: null,
-        encryptedData: { username: 'employee@acme.com', password: 'Acme!Pass2024', notes: 'Work email access.' }
+        encryptedData: { username: 'demo.employee@example.com', password: generateDemoPassword(), notes: 'Work email access (demo).' }
       },
       {
         title: 'Personal Bank Account',
@@ -2635,7 +2654,7 @@ export const importSampleSafe = async (replace: boolean = false): Promise<boolea
         tags: [],
         is_favorite: false,
         expires_at: null,
-        encryptedData: { username: 'aws-demo', password: 'AwsDemo!234', apiKey: 'AKIADEMO', apiSecret: 'secret' }
+        encryptedData: { username: 'aws-demo', password: generateDemoPassword(), apiKey: 'AKIA_DEMO_KEY', apiSecret: generateDemoPassword() }
       },
       {
         title: 'Home WiFi',
@@ -2643,7 +2662,7 @@ export const importSampleSafe = async (replace: boolean = false): Promise<boolea
         tags: [],
         is_favorite: false,
         expires_at: null,
-        encryptedData: { networkName: 'DemoNet', securityType: 'WPA2', password: 'DemoWifiPass' }
+        encryptedData: { networkName: 'DemoNet', securityType: 'WPA2', password: generateDemoPassword() }
       },
       {
         title: 'Licensing - Photoshop',
@@ -2699,7 +2718,7 @@ export const importSampleSafe = async (replace: boolean = false): Promise<boolea
         tags: [],
         is_favorite: false,
         expires_at: null,
-        encryptedData: { username: 'vpn-demo', password: 'VpnDemoPass', endpoint: 'vpn.demo:443' }
+        encryptedData: { username: 'vpn-demo', password: generateDemoPassword(), endpoint: 'vpn.demo.example:443' }
       },
       {
         title: 'Bank Routing Info',

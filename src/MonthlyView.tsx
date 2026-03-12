@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Task, TaskCompletion, Event } from './types';
 import { loadData, completeTask, isTaskCompletedToday } from './storage';
 import { formatDate, shouldTaskShowToday, getWeekBounds, getMonthBounds } from './utils';

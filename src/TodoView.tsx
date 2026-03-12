@@ -9,7 +9,7 @@
  * - Priority levels with visual indicators
  */
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, memo, useCallback } from 'react';
 import { useTheme } from './contexts/ThemeContext';
 import { TodoItem, TodoGroup, TodoPriority } from './types';
 import VoiceCommandModal from './components/VoiceCommand/VoiceCommandModal';
