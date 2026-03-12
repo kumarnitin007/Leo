@@ -45,7 +45,17 @@ const PendingFinancialImportsModal: React.FC<PendingFinancialImportsModalProps> 
   onApplyImport
 }) => {
   const { theme } = useTheme();
-  const colors = theme.colors;
+  const themeColors = theme.colors;
+  
+  // Map theme colors to component-friendly names
+  const colors = {
+    surface: themeColors.cardBg,
+    background: themeColors.background,
+    border: themeColors.cardBorder,
+    text: themeColors.text,
+    textSecondary: themeColors.textLight,
+    primary: themeColors.primary
+  };
   const [pendingImports, setPendingImports] = useState<PendingFinancialImport[]>([]);
   const [selectedImport, setSelectedImport] = useState<PendingFinancialImport | null>(null);
   const [accountUpdates, setAccountUpdates] = useState<Map<string, AccountUpdate>>(new Map());
@@ -160,11 +170,11 @@ const PendingFinancialImportsModal: React.FC<PendingFinancialImportsModalProps> 
     if (!update) return;
     
     const actions: Array<'update' | 'create' | 'skip'> = ['update', 'create', 'skip'];
-    const nextAction = actions[(actions.indexOf(currentAction) + 1) % 3] as 'update' | 'create';
+    const nextAction = actions[(actions.indexOf(currentAction) + 1) % 3];
     
     setAccountUpdates(new Map(accountUpdates.set(key, {
       ...update,
-      action: nextAction === 'skip' ? 'update' : nextAction
+      action: nextAction
     })));
   };
 
@@ -390,7 +400,7 @@ const PendingFinancialImportsModal: React.FC<PendingFinancialImportsModalProps> 
                             
                             {/* Action Selector */}
                             <div style={{ display: 'flex', gap: '0.5rem' }}>
-                              {['update', 'create', 'skip'].map(action => (
+                              {(['update', 'create', 'skip'] as const).map(action => (
                                 <button
                                   key={action}
                                   onClick={() => {
@@ -398,7 +408,7 @@ const PendingFinancialImportsModal: React.FC<PendingFinancialImportsModalProps> 
                                     if (current) {
                                       setAccountUpdates(new Map(accountUpdates.set(key, {
                                         ...current,
-                                        action: action as 'update' | 'create'
+                                        action: action
                                       })));
                                     }
                                   }}
