@@ -119,18 +119,18 @@ const VoiceCommandAnalytics: React.FC<VoiceCommandAnalyticsProps> = ({
       });
 
       // Calculate trend by comparing recent vs older success rates
-      let recentTrend: 'improving' | 'declining' | 'stable' = 'stable';
+      let recentTrend: 'up' | 'down' | 'stable' = 'stable';
       if (filtered.length >= 4) {
         const midpoint = Math.floor(filtered.length / 2);
         const olderHalf = filtered.slice(0, midpoint);
         const recentHalf = filtered.slice(midpoint);
         
-        const olderSuccess = olderHalf.filter(c => c.outcome === 'COMPLETED').length / olderHalf.length;
-        const recentSuccess = recentHalf.filter(c => c.outcome === 'COMPLETED').length / recentHalf.length;
+        const olderSuccess = olderHalf.filter(c => c.outcome === 'SUCCESS').length / olderHalf.length;
+        const recentSuccess = recentHalf.filter(c => c.outcome === 'SUCCESS').length / recentHalf.length;
         
         const diff = recentSuccess - olderSuccess;
-        if (diff > 0.1) recentTrend = 'improving';
-        else if (diff < -0.1) recentTrend = 'declining';
+        if (diff > 0.1) recentTrend = 'up';
+        else if (diff < -0.1) recentTrend = 'down';
       }
 
       setAnalytics({

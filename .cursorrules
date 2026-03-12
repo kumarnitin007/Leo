@@ -26,6 +26,21 @@ DATABASE RULES (STRICT - MUST FOLLOW)
   - ❌ myday_safe_tags → ✅ myday_tags
 - Failure to follow this process is unacceptable
 
+TODO TRACKING RULES
+- The project TODO list is maintained at: docs/LEO_IMPROVEMENTS_TODO.TODO
+- When completing any task from the TODO list:
+  1. Update the item's **Status** from ⬜ Pending to ✅ Completed
+  2. Add the **Completed Date** (format: YYYY-MM-DD)
+  3. Update **Notes** with implementation details
+  4. Update the summary table counts at the top
+  5. Add a changelog entry at the bottom of the file
+- When adding new bugs, features, or improvements:
+  1. Add to appropriate section with unique ID (BUG-XXX, FEAT-XXX, CR-XXX, etc.)
+  2. Include: Status, Priority, Files, Issue, Solution fields
+  3. Update summary table counts
+- Priority levels: 🔴 Critical, 🟡 Medium, 🟢 Low
+- Status options: ⬜ Pending, 🟡 In Progress, ✅ Completed, ❌ Cancelled
+
 OUTPUT
 - Prefer code diffs or updated code blocks.
 - Make the smallest change necessary to satisfy the request.
