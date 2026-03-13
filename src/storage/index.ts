@@ -10,9 +10,9 @@
  */
 
 // Core utilities
+export type { VoiceFields, AuthContext } from './core';
 export {
   generateUUID,
-  VoiceFields,
   mapVoiceFieldsToDb,
   mapVoiceFields,
   pendingRequests,
@@ -21,7 +21,6 @@ export {
   setCache,
   getCache,
   clearDashboardCache,
-  AuthContext,
   requireAuth
 } from './core';
 

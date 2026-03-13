@@ -4,7 +4,7 @@
  * Item CRUD operations (Gift Cards, Subscriptions, Warranties, Notes)
  */
 
-import { Item } from '../types';
+import { Item, ItemCategory } from '../types';
 import { requireAuth } from './core';
 
 // ===== ITEMS =====
@@ -25,22 +25,22 @@ export const getItems = async (): Promise<Item[]> => {
   return (data || []).map((row: Record<string, unknown>) => ({
     id: row.id as string,
     name: row.name as string,
-    description: row.description as string,
-    category: row.category as string,
+    description: (row.description as string | null) ?? undefined,
+    category: (row.category as ItemCategory) || 'Note',
     tags: (row.tags as string[]) || [],
-    expirationDate: row.expiration_date as string | undefined,
-    value: row.value as number | undefined,
-    currency: row.currency as string | undefined,
-    merchant: row.merchant as string | undefined,
-    accountNumber: row.account_number as string | undefined,
+    expirationDate: (row.expiration_date as string | null) ?? undefined,
+    value: (row.value as number | null) ?? undefined,
+    currency: (row.currency as string | null) ?? undefined,
+    merchant: (row.merchant as string | null) ?? undefined,
+    accountNumber: (row.account_number as string | null) ?? undefined,
     autoRenew: (row.auto_renew as boolean) || false,
     notifyDaysBefore: (row.notify_days_before as number) || 0,
     priority: (row.priority as number) || 5,
-    color: row.color as string | undefined,
+    color: (row.color as string | null) ?? undefined,
     isClosed: (row.is_closed as boolean) || false,
     createdAt: row.created_at as string,
-    updatedAt: row.updated_at as string | undefined
-  }));
+    updatedAt: (row.updated_at as string | null) ?? undefined
+  })) as Item[];
 };
 
 export const addItem = async (item: Item): Promise<void> => {

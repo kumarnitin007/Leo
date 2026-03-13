@@ -1,3 +1,4 @@
+/// <reference path="../../types/speech.d.ts" />
 /**
  * SpeechService: wrapper around Web Speech API for minimal transcription
  * Falls back to prompt() when unavailable (safe, non-intrusive)
@@ -7,10 +8,7 @@ export class SpeechService {
   private isListening: boolean = false;
 
   constructor() {
-    const AnyWin = window as unknown as Window & {
-      webkitSpeechRecognition?: typeof SpeechRecognition;
-    };
-    const Rec = AnyWin.SpeechRecognition || AnyWin.webkitSpeechRecognition || null;
+    const Rec = window.SpeechRecognition || window.webkitSpeechRecognition || null;
     if (Rec) {
       this.recognition = new Rec();
       this.recognition.lang = 'en-US';

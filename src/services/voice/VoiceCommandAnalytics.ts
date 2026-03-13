@@ -402,14 +402,14 @@ export class VoiceCommandAnalyticsService {
 
     try {
       const userHash = await hashUserId(userId);
-      const { data, error } = await client.from(this.table).select('intent_type, total_commands, successful_commands, average_confidence');
+      const { data, error } = await client.from(this.table).select('user_hash, intent_type, total_commands, successful_commands, average_confidence');
       if (error) {
         console.error('getUserMetrics error', error);
         return { totalCommands: 0, successRate: 0, averageConfidence: 0, mostUsedIntent: null, learnedPatterns: 0 };
       }
 
-      // Filter rows client-side for this user hash
-      const rows = (data || []).filter((r: { user_hash?: string }) => r.user_hash === userHash);
+      type Row = { user_hash?: string; intent_type?: string; total_commands?: number; successful_commands?: number; average_confidence?: unknown };
+      const rows = ((data || []) as Row[]).filter((r) => r.user_hash === userHash);
 
       const totals = rows.reduce((acc: { total: number; success: number; confidenceSum: number }, r: { total_commands?: number; successful_commands?: number; average_confidence?: unknown }) => {
         acc.total += (r.total_commands || 0);

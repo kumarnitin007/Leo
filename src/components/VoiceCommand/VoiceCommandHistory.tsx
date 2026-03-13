@@ -169,7 +169,7 @@ const VoiceCommandHistory: React.FC<VoiceCommandHistoryProps> = ({
         setSuggestionsCommand(null);
         await loadCommands(); // Refresh list
       } else {
-        alert(`❌ Failed to create: ${result.error?.message || 'Unknown error'}`);
+        alert(`❌ Failed to create: ${(result.error as { message?: string })?.message || 'Unknown error'}`);
       }
     } catch (err) {
       console.error('Error creating from pending:', err);
