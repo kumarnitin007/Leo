@@ -64,7 +64,7 @@ export interface Entity {
   /** Confidence score between 0 and 1 */
   confidence?: number;
   /** Any additional metadata about the extraction */
-  meta?: Record<string, any>;
+  meta?: Record<string, unknown>;
 }
 
 /**
@@ -90,9 +90,9 @@ export interface UserCorrection {
   /** Field that was corrected (e.g. title, memoDate) */
   field: string;
   /** Value before correction */
-  oldValue: any;
+  oldValue: unknown;
   /** Value after correction */
-  newValue: any;
+  newValue: unknown;
   /** When the correction was made */
   correctedAt?: Date;
   /** Optional note or reason */
@@ -132,7 +132,7 @@ export interface VoiceCommandLog {
   /** Method used to generate the intent */
   intentMethod?: IntentMethod;
   /** Alternative intent candidates */
-  intentAlternatives?: any;
+  intentAlternatives?: unknown;
 
   /** Entity extraction */
   entityType?: EntityType;
@@ -181,7 +181,7 @@ export interface VoiceCommandLog {
   /** Created item references */
   createdItemType?: string | null;
   createdItemId?: string | null;
-  createdItemData?: any;
+  createdItemData?: unknown;
 
   /** Search & fuzzy matching */
   fuzzyMatchUsed?: boolean;
@@ -189,7 +189,7 @@ export interface VoiceCommandLog {
   searchKeywords?: string[];
 
   /** Context & learning */
-  contextData?: any;
+  contextData?: unknown;
   learnedFromHistory?: boolean;
   userPatternMatched?: boolean;
   customVocabularyUsed?: string[];
@@ -226,13 +226,13 @@ export interface VoiceCommandLogInsert {
   extractedDuration?: number | null;
   createdItemType?: string | null;
   createdItemId?: string | null;
-  createdItemData?: any;
+  createdItemData?: unknown;
   intentConfidence?: number;
   intentMethod?: IntentMethod;
-  intentAlternatives?: any;
+  intentAlternatives?: unknown;
   confidenceBreakdown?: ConfidenceBreakdown | null;
-  // allow any additional columns
-  [key: string]: any;
+  // allow additional columns without using `any`
+  [key: string]: unknown;
 }
 
 /**

@@ -3,11 +3,13 @@
  * Falls back to prompt() when unavailable (safe, non-intrusive)
  */
 export class SpeechService {
-  private recognition: any | null = null;
+  private recognition: SpeechRecognition | null = null;
   private isListening: boolean = false;
 
   constructor() {
-    const AnyWin: any = window as any;
+    const AnyWin = window as unknown as Window & {
+      webkitSpeechRecognition?: typeof SpeechRecognition;
+    };
     const Rec = AnyWin.SpeechRecognition || AnyWin.webkitSpeechRecognition || null;
     if (Rec) {
       this.recognition = new Rec();
@@ -66,7 +68,7 @@ export class SpeechService {
         rec.onend = null;
       };
 
-      rec.onresult = (ev: any) => {
+      rec.onresult = (ev: SpeechRecognitionEvent) => {
         try {
           const result = ev.results[0][0];
           finished = true;
@@ -79,10 +81,10 @@ export class SpeechService {
         }
       };
       
-      rec.onerror = (err: any) => {
+      rec.onerror = (err: SpeechRecognitionErrorEvent) => {
         if (finished) return;
         // err can be a SpeechRecognitionErrorEvent - map common codes to friendly messages
-        const code = err?.error || err?.type || err?.message || '';
+        const code = err?.error || '';
         const mapping: Record<string,string> = {
           'not-allowed': 'Microphone access denied. Allow microphone permissions in your browser.',
           'service-not-allowed': 'Microphone access denied. Allow microphone permissions in your browser.',

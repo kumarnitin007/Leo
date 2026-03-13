@@ -16,10 +16,10 @@
 | UX - Polish | 3 | 0 | 0 | 3 |
 | Bugs / Fixes | 3 | 0 | 0 | 3 |
 | New Features | 2 | 0 | 0 | 2 |
-| Code Refactoring | 21 | 3 | 0 | 16 | (2 deferred)
+| Code Refactoring | 21 | 2 | 1 | 16 | (2 deferred)
 | Performance | 10 | 0 | 0 | 10 |
 | Security | 10 | 0 | 0 | 10 |
-| **TOTAL** | **69** | **4** | **0** | **63** | (2 deferred)
+| **TOTAL** | **69** | **3** | **1** | **63** | (2 deferred)
 
 ---
 
@@ -792,13 +792,13 @@
 - **Notes**: Final step - run typecheck before and after
 
 ### CR-003: Eliminate `any` Type Usage
-- **Status**: ⬜ Pending
+- **Status**: 🟡 In Progress
 - **Priority**: 🔴 Critical
 - **Files**: 62 files, 300+ instances (worst: VoiceCommandDatabaseService, storage.ts, BankDashboard)
 - **Issue**: Heavy use of `as any` casts defeats TypeScript's type safety.
 - **Solution**: Define proper interfaces; extend Task/Event interfaces to include optional voice properties
 - **Completed Date**: -
-- **Notes**: Prioritize service files
+- **Notes**: Started with voice stack (SpeechService, VoiceCommandDatabaseService, VoiceCommandRepository, core voice types)
 
 ### CR-004: Decompose Large View Components
 - **Status**: ⬜ Pending

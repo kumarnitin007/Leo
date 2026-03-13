@@ -83,10 +83,10 @@ import { VoiceCommandLog, IntentType } from '../../types/voice-command-db.types'
 async function hashUserId(userId: string): Promise<string> {
   try {
     // Prefer Web Crypto (browser / modern runtimes)
-    if (typeof window !== 'undefined' && (window.crypto as any)?.subtle) {
+    if (typeof window !== 'undefined' && window.crypto?.subtle) {
       const enc = new TextEncoder();
       const data = enc.encode(userId);
-      const hash = await (window.crypto as any).subtle.digest('SHA-256', data);
+      const hash = await window.crypto.subtle.digest('SHA-256', data);
       return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, '0')).join('');
     }
 
@@ -153,7 +153,7 @@ export class VoiceCommandAnalyticsService {
       }
 
       if (!existing) {
-        const insert: any = {
+        const insert: Record<string, unknown> = {
           user_hash: userHash,
           intent_type: commandLog.intentType,
           entity_type: commandLog.entityType || null,
@@ -174,7 +174,7 @@ export class VoiceCommandAnalyticsService {
       }
 
       // Update existing aggregate: increment counters, update running averages, merge common_errors
-      const updated: any = {
+      const updated: Record<string, unknown> = {
         total_commands: (existing.total_commands || 0) + 1,
       };
 
@@ -223,7 +223,7 @@ export class VoiceCommandAnalyticsService {
     if (!client) throw new Error('Supabase client not configured');
 
     try {
-      let q: any = client.from(this.table).select('total_commands, successful_commands');
+      let q = client.from(this.table).select('total_commands, successful_commands') as any;
       if (intentType) q = q.eq('intent_type', intentType);
       if (dateFrom) q = q.gte('date', dateToYMD(dateFrom));
       if (dateTo) q = q.lte('date', dateToYMD(dateTo));
@@ -234,7 +234,7 @@ export class VoiceCommandAnalyticsService {
         return 0;
       }
 
-      const totals = (data || []).reduce((acc: { total: number; success: number }, row: any) => {
+      const totals = (data || []).reduce((acc: { total: number; success: number }, row: { total_commands?: number; successful_commands?: number }) => {
         acc.total += (row.total_commands || 0);
         acc.success += (row.successful_commands || 0);
         return acc;
@@ -256,7 +256,7 @@ export class VoiceCommandAnalyticsService {
     if (!client) throw new Error('Supabase client not configured');
 
     try {
-      let q: any = client.from(this.table).select('common_errors, total_commands');
+      let q = client.from(this.table).select('common_errors, total_commands') as any;
       if (dateFrom) q = q.gte('date', dateToYMD(dateFrom));
       if (dateTo) q = q.lte('date', dateToYMD(dateTo));
 
@@ -268,11 +268,12 @@ export class VoiceCommandAnalyticsService {
 
       const counts = new Map<string, number>();
 
-      (data || []).forEach((row: any) => {
+      (data || []).forEach((row: { common_errors?: unknown }) => {
         const arr = Array.isArray(row.common_errors) ? row.common_errors : [];
-        arr.forEach((e: any) => {
-          const reason = e.reason || String(e || 'unknown');
-          const c = Number(e.count || 1);
+        arr.forEach((e: unknown) => {
+          const obj = (e && typeof e === 'object') ? (e as { reason?: unknown; count?: unknown }) : {};
+          const reason = typeof obj.reason === 'string' ? obj.reason : String(obj.reason ?? e ?? 'unknown');
+          const c = Number(obj.count ?? 1);
           counts.set(reason, (counts.get(reason) || 0) + c);
         });
       });
@@ -306,7 +307,7 @@ export class VoiceCommandAnalyticsService {
       }
 
       const map = new Map<string, number>();
-      (data || []).forEach((r: any) => {
+      (data || []).forEach((r: { intent_type?: string; total_commands?: number }) => {
         const k = r.intent_type || 'UNKNOWN';
         map.set(k, (map.get(k) || 0) + (r.total_commands || 0));
       });
@@ -335,7 +336,7 @@ export class VoiceCommandAnalyticsService {
       }
 
       const sums = new Map<string, { weightedSum: number; count: number }>();
-      (data || []).forEach((r: any) => {
+      (data || []).forEach((r: { intent_type?: string; average_confidence?: unknown; total_commands?: number }) => {
         const key = r.intent_type || 'UNKNOWN';
         const avg = r.average_confidence != null ? Number(r.average_confidence) : 0;
         const count = Number(r.total_commands || 0);
@@ -372,7 +373,7 @@ export class VoiceCommandAnalyticsService {
       }
 
       const counts = new Map<number, number>();
-      (data || []).forEach((r: any) => {
+      (data || []).forEach((r: { hour_of_day?: unknown; total_commands?: number }) => {
         const h = Number(r.hour_of_day || 0);
         counts.set(h, (counts.get(h) || 0) + (r.total_commands || 0));
       });
@@ -408,9 +409,9 @@ export class VoiceCommandAnalyticsService {
       }
 
       // Filter rows client-side for this user hash
-      const rows = (data || []).filter((r: any) => r.user_hash === userHash);
+      const rows = (data || []).filter((r: { user_hash?: string }) => r.user_hash === userHash);
 
-      const totals = rows.reduce((acc: { total: number; success: number; confidenceSum: number }, r: any) => {
+      const totals = rows.reduce((acc: { total: number; success: number; confidenceSum: number }, r: { total_commands?: number; successful_commands?: number; average_confidence?: unknown }) => {
         acc.total += (r.total_commands || 0);
         acc.success += (r.successful_commands || 0);
         acc.confidenceSum += (Number(r.average_confidence || 0) * (r.total_commands || 0));
@@ -418,7 +419,7 @@ export class VoiceCommandAnalyticsService {
       }, { total: 0, success: 0, confidenceSum: 0 });
 
       const mostUsedMap = new Map<string, number>();
-      rows.forEach((r: any) => {
+      rows.forEach((r: { intent_type?: string; total_commands?: number }) => {
         const k = r.intent_type || 'UNKNOWN';
         mostUsedMap.set(k, (mostUsedMap.get(k) || 0) + (r.total_commands || 0));
       });

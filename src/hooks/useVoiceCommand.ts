@@ -16,7 +16,7 @@ export function useVoiceCommand() {
       const p = await service.listenAndParse();
       setParsed(p);
       setState('confirm');
-    } catch (err: any) {
+    } catch (err: unknown) {
       setError(String(err));
       setState('error');
     }

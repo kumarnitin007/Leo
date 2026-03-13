@@ -126,7 +126,7 @@ const encryptTranscript = (text: string): string => {
       return window.btoa(text);
     }
     // Node-friendly fallback using global Buffer if available
-    const BufferCtor: any = (globalThis as any).Buffer;
+    const BufferCtor = (globalThis as unknown as { Buffer?: { from: (input: string) => { toString: (encoding: string) => string } } }).Buffer;
     if (BufferCtor && typeof BufferCtor.from === 'function') {
       return BufferCtor.from(text).toString('base64');
     }
@@ -143,7 +143,7 @@ const decryptTranscript = (encrypted: string): string => {
       return window.atob(encrypted);
     }
     // Node-friendly fallback using global Buffer if available
-    const BufferCtor: any = (globalThis as any).Buffer;
+    const BufferCtor = (globalThis as unknown as { Buffer?: { from: (input: string, encoding?: string) => { toString: (encoding: string) => string } } }).Buffer;
     if (BufferCtor && typeof BufferCtor.from === 'function') {
       return BufferCtor.from(encrypted, 'base64').toString('utf-8');
     }
@@ -157,64 +157,64 @@ const decryptTranscript = (encrypted: string): string => {
 /**
  * Helper: map DB row (snake_case) to VoiceCommandLog (camelCase)
  */
-const mapRowToVoiceCommandLog = (row: any): VoiceCommandLog => {
+const mapRowToVoiceCommandLog = (row: Record<string, unknown>): VoiceCommandLog => {
   return {
-    id: row.id,
-    userId: row.user_id || null,
-    sessionId: row.session_id,
-    createdAt: row.created_at || new Date().toISOString(),
-    updatedAt: row.updated_at || new Date().toISOString(),
-    expiresAt: row.expires_at || new Date().toISOString(),
-    rawTranscript: row.raw_transcript_encrypted ? decryptTranscript(row.raw_transcript) : row.raw_transcript,
+    id: String(row.id),
+    userId: (row.user_id as string | null) || null,
+    sessionId: String(row.session_id),
+    createdAt: (row.created_at as string) || new Date().toISOString(),
+    updatedAt: (row.updated_at as string) || new Date().toISOString(),
+    expiresAt: (row.expires_at as string) || new Date().toISOString(),
+    rawTranscript: (row.raw_transcript_encrypted ? decryptTranscript(String(row.raw_transcript)) : String(row.raw_transcript)) as string,
     rawTranscriptEncrypted: !!row.raw_transcript_encrypted,
-    language: row.language,
-    intentType: row.intent_type,
-    intentConfidence: row.intent_confidence === null ? undefined : Number(row.intent_confidence),
-    intentMethod: row.intent_method,
+    language: row.language as string | undefined,
+    intentType: row.intent_type as VoiceCommandLog['intentType'],
+    intentConfidence: row.intent_confidence === null || row.intent_confidence === undefined ? undefined : Number(row.intent_confidence),
+    intentMethod: row.intent_method as VoiceCommandLog['intentMethod'],
     intentAlternatives: row.intent_alternatives,
-    entityType: row.entity_type,
+    entityType: row.entity_type as VoiceCommandLog['entityType'],
     entities: (row.entities || []) as Entity[],
-    memoDate: row.memo_date || null,
-    memoDateExpression: row.memo_date_expression,
-    memoTime: row.memo_time,
-    memoTimeExpression: row.memo_time_expression,
-    allDayEvent: !!(row as any).all_day_event, // Column may not exist in schema
-    extractedTitle: row.extracted_title,
-    extractedPriority: row.extracted_priority,
-    extractedTags: row.extracted_tags || [],
-    extractedRecurrence: row.extracted_recurrence,
-    extractedRecurrenceHuman: row.extracted_recurrence_human,
-    extractedDuration: row.extracted_duration,
-    extractedLocation: row.extracted_location,
-    extractedAttendees: row.extracted_attendees || [],
-    processingDurationMs: row.processing_duration_ms,
-    overallConfidence: row.overall_confidence === null ? undefined : Number(row.overall_confidence),
-    confidenceBreakdown: row.confidence_breakdown,
+    memoDate: (row.memo_date as string | null) || null,
+    memoDateExpression: row.memo_date_expression as string | null | undefined,
+    memoTime: row.memo_time as string | null | undefined,
+    memoTimeExpression: row.memo_time_expression as string | null | undefined,
+    allDayEvent: !!(row as Record<string, unknown>).all_day_event,
+    extractedTitle: row.extracted_title as string | null | undefined,
+    extractedPriority: row.extracted_priority as VoiceCommandLog['extractedPriority'],
+    extractedTags: (row.extracted_tags as string[]) || [],
+    extractedRecurrence: row.extracted_recurrence as string | null | undefined,
+    extractedRecurrenceHuman: row.extracted_recurrence_human as string | null | undefined,
+    extractedDuration: row.extracted_duration as number | null | undefined,
+    extractedLocation: row.extracted_location as string | null | undefined,
+    extractedAttendees: (row.extracted_attendees as string[]) || [],
+    processingDurationMs: row.processing_duration_ms as number | null | undefined,
+    overallConfidence: row.overall_confidence === null || row.overall_confidence === undefined ? undefined : Number(row.overall_confidence),
+    confidenceBreakdown: row.confidence_breakdown as VoiceCommandLog['confidenceBreakdown'],
     isValid: !!row.is_valid,
-    missingFields: row.missing_fields || [],
-    validationErrors: row.validation_errors || [],
+    missingFields: (row.missing_fields as string[]) || [],
+    validationErrors: (row.validation_errors as string[]) || [],
     needsUserInput: !!row.needs_user_input,
-    userCorrections: row.user_corrections || [],
+    userCorrections: (row.user_corrections as VoiceCommandLog['userCorrections']) || [],
     confirmationShown: !!row.confirmation_shown,
     userConfirmed: !!row.user_confirmed,
-    userEdited: !!(row as any).user_edited, // Column may not exist in schema
-    outcome: row.outcome,
-    failureReason: (row as any).failure_reason, // Column may not exist in schema
-    retryCount: row.retry_count,
-    createdItemType: row.created_item_type,
+    userEdited: !!(row as Record<string, unknown>).user_edited,
+    outcome: row.outcome as VoiceCommandLog['outcome'],
+    failureReason: (row as Record<string, unknown>).failure_reason as string | null | undefined,
+    retryCount: row.retry_count as number | undefined,
+    createdItemType: row.created_item_type as string | null | undefined,
     createdItemId: row.created_item_id ? String(row.created_item_id) : null,
-    createdItemData: row.created_item_data,
+    createdItemData: row.created_item_data as unknown,
     fuzzyMatchUsed: !!row.fuzzy_match_used,
-    fuzzyMatchScore: row.fuzzy_match_score === null ? undefined : Number(row.fuzzy_match_score),
-    searchKeywords: row.search_keywords || [],
-    contextData: row.context_data,
+    fuzzyMatchScore: row.fuzzy_match_score === null || row.fuzzy_match_score === undefined ? undefined : Number(row.fuzzy_match_score),
+    searchKeywords: (row.search_keywords as string[]) || [],
+    contextData: row.context_data as unknown,
     learnedFromHistory: !!row.learned_from_history,
     userPatternMatched: !!row.user_pattern_matched,
-    customVocabularyUsed: row.custom_vocabulary_used || [],
-    deviceType: row.device_type,
-    deviceOs: row.device_os,
-    appVersion: row.app_version,
-    modelVersion: row.model_version,
+    customVocabularyUsed: (row.custom_vocabulary_used as string[]) || [],
+    deviceType: row.device_type as string | null | undefined,
+    deviceOs: row.device_os as string | null | undefined,
+    appVersion: row.app_version as string | null | undefined,
+    modelVersion: row.model_version as string | null | undefined,
     containsPii: !!row.contains_pii,
     anonymized: !!row.anonymized,
   };
@@ -240,7 +240,7 @@ export class VoiceCommandDatabaseService {
       const encrypted = encryptTranscript(String(commandData.rawTranscript || ''));
       const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(); // 30 days
 
-      const row: any = {
+      const row: Record<string, unknown> = {
         user_id: (commandData as any).userId || null,
         session_id: (commandData as any).sessionId || undefined,
         raw_transcript: encrypted,
@@ -284,7 +284,7 @@ export class VoiceCommandDatabaseService {
       }
 
       return data.id;
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('saveCommand failed', err);
       throw err;
     }
@@ -350,7 +350,7 @@ export class VoiceCommandDatabaseService {
     if (!client) throw new Error('Supabase client not configured');
 
     try {
-      const payload: any = { updated_at: new Date().toISOString() };
+      const payload: Record<string, unknown> = { updated_at: new Date().toISOString() };
 
       if (updates.rawTranscript !== undefined) {
         payload.raw_transcript = encryptTranscript(String(updates.rawTranscript || ''));
@@ -699,7 +699,7 @@ export class VoiceCommandDatabaseService {
       }
 
       // Update existing aggregate
-      const updatedRow: any = {
+      const updatedRow: Record<string, unknown> = {
         total_commands: (existing.total_commands || 0) + 1,
       };
       if (commandLog.outcome === 'SUCCESS') updatedRow.successful_commands = (existing.successful_commands || 0) + 1;

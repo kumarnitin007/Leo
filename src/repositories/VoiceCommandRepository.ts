@@ -78,17 +78,18 @@ export class VoiceCommandRepository {
     }
   }
 
-  private applyOptions(q: any, opts?: QueryOptions) {
+  private applyOptions(q: unknown, opts?: QueryOptions) {
     if (!opts) return q;
+    let query = q as any;
     const orderMap: Record<string, string> = {
       created_at: 'created_at',
       updated_at: 'updated_at',
       confidence: 'overall_confidence',
     };
-    if (opts.orderBy) q = q.order(orderMap[opts.orderBy] || opts.orderBy, { ascending: (opts.order || 'DESC') === 'ASC' ? true : false });
-    if (opts.limit) q = q.limit(opts.limit);
-    if (opts.offset) q = q.range(opts.offset, (opts.offset || 0) + (opts.limit || 100) - 1);
-    return q;
+    if (opts.orderBy) query = query.order(orderMap[opts.orderBy] || opts.orderBy, { ascending: (opts.order || 'DESC') === 'ASC' ? true : false });
+    if (opts.limit) query = query.limit(opts.limit);
+    if (opts.offset) query = query.range(opts.offset, (opts.offset || 0) + (opts.limit || 100) - 1);
+    return query;
   }
 
   async findByUserId(userId: string, options?: QueryOptions): Promise<VoiceCommandLog[]> {
@@ -96,11 +97,11 @@ export class VoiceCommandRepository {
     if (!client) throw new Error('Supabase client not configured');
 
     try {
-      let q: any = client.from(this.table).select('id').eq('user_id', userId);
-      q = this.applyOptions(q, options);
+      const baseQuery = client.from(this.table).select('id').eq('user_id', userId);
+      const q = this.applyOptions(baseQuery, options) as any;
       const { data, error } = await q;
       if (error) throw error;
-      const ids = (data || []).map((r: any) => r.id).filter(Boolean);
+      const ids = (data || []).map((r: { id?: string }) => r.id).filter(Boolean) as string[];
       const results = await Promise.all(ids.map(id => dbService.getCommandById(id)));
       return results.filter(Boolean) as VoiceCommandLog[];
     } catch (err) {
@@ -123,7 +124,7 @@ export class VoiceCommandRepository {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      const ids = (data || []).map((r: any) => r.id).filter(Boolean);
+      const ids = (data || []).map((r: { id?: string }) => r.id).filter(Boolean) as string[];
       const results = await Promise.all(ids.map(id => dbService.getCommandById(id)));
       return results.filter(Boolean) as VoiceCommandLog[];
     } catch (err) {
@@ -139,7 +140,7 @@ export class VoiceCommandRepository {
     try {
       const { data, error } = await client.from(this.table).select('id').eq('user_id', userId).eq('intent_type', intentType).order('created_at', { ascending: false }).limit(200);
       if (error) throw error;
-      const ids = (data || []).map((r: any) => r.id).filter(Boolean);
+      const ids = (data || []).map((r: { id?: string }) => r.id).filter(Boolean) as string[];
       const results = await Promise.all(ids.map(id => dbService.getCommandById(id)));
       return results.filter(Boolean) as VoiceCommandLog[];
     } catch (err) {
@@ -155,7 +156,7 @@ export class VoiceCommandRepository {
     try {
       const { data, error } = await client.from(this.table).select('id').eq('user_id', userId).eq('outcome', outcome).order('created_at', { ascending: false }).limit(200);
       if (error) throw error;
-      const ids = (data || []).map((r: any) => r.id).filter(Boolean);
+      const ids = (data || []).map((r: { id?: string }) => r.id).filter(Boolean) as string[];
       const results = await Promise.all(ids.map(id => dbService.getCommandById(id)));
       return results.filter(Boolean) as VoiceCommandLog[];
     } catch (err) {
@@ -188,7 +189,7 @@ export class VoiceCommandRepository {
         .limit(200);
 
       if (error) throw error;
-      const ids = (data || []).map((r: any) => r.id).filter(Boolean);
+      const ids = (data || []).map((r: { id?: string }) => r.id).filter(Boolean) as string[];
       const results = await Promise.all(ids.map(id => dbService.getCommandById(id)));
       return results.filter(Boolean) as VoiceCommandLog[];
     } catch (err) {
@@ -250,7 +251,7 @@ export class VoiceCommandRepository {
       const orExpr = ors.join(',');
       const { data, error } = await client.from(this.table).select('id').eq('user_id', userId).or(orExpr).order('created_at', { ascending: false }).limit(200);
       if (error) throw error;
-      const ids = (data || []).map((r: any) => r.id).filter(Boolean);
+      const ids = (data || []).map((r: { id?: string }) => r.id).filter(Boolean) as string[];
       const results = await Promise.all(ids.map(id => dbService.getCommandById(id)));
       return results.filter(Boolean) as VoiceCommandLog[];
     } catch (err) {
@@ -264,7 +265,7 @@ export class VoiceCommandRepository {
     if (!client) throw new Error('Supabase client not configured');
 
     try {
-      let q: any = client.from(this.table).select('id', { count: 'exact', head: false }).eq('user_id', userId);
+      let q = client.from(this.table).select('id', { count: 'exact', head: false }).eq('user_id', userId) as any;
       if (filters?.intentType) q = q.eq('intent_type', filters.intentType);
       if (filters?.entityType) q = q.eq('entity_type', filters.entityType);
       if (filters?.outcome) q = q.eq('outcome', filters.outcome);

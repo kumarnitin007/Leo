@@ -13,7 +13,7 @@ export interface ScanHints {
   isFinancial?: boolean;
 }
 
-let worker: any = null;
+let worker: Awaited<ReturnType<typeof createWorker>> | null = null;
 
 /**
  * Initialize Tesseract worker (lazy loading)

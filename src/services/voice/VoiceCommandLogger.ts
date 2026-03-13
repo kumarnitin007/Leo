@@ -38,7 +38,7 @@ export class VoiceCommandLogger {
     }
   }
 
-  async audit(actionType: string, metadata: any = {}) {
+  async audit(actionType: string, metadata: Record<string, unknown> = {}) {
     if (!this.client) return;
     try {
       await this.client.from('myday_voice_audit_logs').insert([{

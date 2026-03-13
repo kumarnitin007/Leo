@@ -37,9 +37,9 @@ const getEntityValue = (entities: Entity[], type: string, defaultValue: string):
 export interface ExecutionResult {
   success: boolean;
   createdId?: string | null;
-  error?: any;
+  error?: unknown;
   entityType?: string;
-  extractedFields?: Record<string, { value: any; isDefault: boolean }>;
+  extractedFields?: Record<string, { value: unknown; isDefault: boolean }>;
   missingMandatory?: string[];
   needsUserInput?: boolean;
 }
