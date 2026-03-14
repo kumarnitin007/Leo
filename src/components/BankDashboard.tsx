@@ -132,6 +132,20 @@ function getBankColor(bank: string): string {
   return bankColorMap[bank];
 }
 
+/** Default display currency from locale/timezone (e.g. USD for US, INR for India) */
+function getDefaultDisplayCurrency(): 'ORIGINAL' | 'INR' | 'USD' | 'EUR' | 'GBP' {
+  try {
+    const lang = typeof navigator !== 'undefined' ? navigator.language : '';
+    const tz = typeof Intl !== 'undefined' && Intl.DateTimeFormat ? Intl.DateTimeFormat().resolvedOptions().timeZone : '';
+    if (lang.startsWith('en-IN') || tz.includes('Kolkata') || tz.includes('India')) return 'INR';
+    if (lang.startsWith('en-US') || lang.startsWith('en-GB') || tz.startsWith('America/') || tz.startsWith('Europe/London')) return 'USD';
+    if (tz.startsWith('Europe/') && !tz.includes('London')) return 'EUR';
+    return 'USD';
+  } catch {
+    return 'USD';
+  }
+}
+
 function UrgencyBadge({ days }: { days: number | null }) {
   const bs = (bg: string, color: string) => ({ background:bg, color, padding:"2px 10px", borderRadius:20, fontSize:11, fontWeight:700, whiteSpace:"nowrap" as const });
   if (days === null) return <span style={bs("#f3f4f6","#6b7280")}>No Date</span>;
@@ -225,8 +239,8 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
   const [form, setForm] = useState<any>({});
   const [filterBank, setFilterBank] = useState("All");
   
-  // Currency conversion settings - 'ORIGINAL' means show each account in its native currency
-  const [displayCurrency, setDisplayCurrency] = useState<'ORIGINAL' | 'INR' | 'USD' | 'EUR' | 'GBP'>('ORIGINAL');
+  // Currency conversion settings - default from locale (e.g. USD for US), 'ORIGINAL' = mixed
+  const [displayCurrency, setDisplayCurrency] = useState<'ORIGINAL' | 'INR' | 'USD' | 'EUR' | 'GBP'>(getDefaultDisplayCurrency);
   const [exchangeRates, setExchangeRates] = useState<{USD: number; EUR: number; GBP: number}>({ USD: 83, EUR: 90, GBP: 105 });
   const [showRatesModal, setShowRatesModal] = useState(false);
   const [accountsViewMode, setAccountsViewMode] = useState<'cards' | 'grouped' | 'flat'>('cards');
@@ -288,12 +302,13 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
   }, [showPendingImportsModal]);
 
   const handleApplyFinancialImport = async (importId: string, updates: AccountUpdate[]) => {
+    const now = new Date().toISOString();
     const newAccounts = [...accounts];
     const newDeposits = [...deposits];
-    
+
     updates.forEach(update => {
       if (update.action === 'skip') return;
-      
+
       if (update.action === 'create') {
         if (update.type === 'account') {
           newAccounts.push({
@@ -307,30 +322,49 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
             detail: 'Imported from screenshot',
             nextAction: '',
             done: false,
-            currency: update.currency as Currency || 'USD'
+            currency: update.currency as Currency || 'USD',
+            lastBalanceUpdatedAt: now,
+            balanceHistory: [{ date: now, amount: Number(update.newBalance) || 0, source: 'Imported from screenshot' }],
           });
         }
       } else if (update.action === 'update' && update.existingIndex !== undefined) {
         if (update.type === 'account') {
+          const prev = newAccounts[update.existingIndex];
+          const prevAmount = Number(prev.amount) || 0;
+          const newBalance = update.newBalance;
+          const newAmount = Number(newBalance) || 0;
           newAccounts[update.existingIndex] = {
-            ...newAccounts[update.existingIndex],
-            amount: update.newBalance
+            ...prev,
+            amount: newBalance,
+            lastBalanceUpdatedAt: now,
+            balanceHistory: [
+              ...(prev.balanceHistory || []),
+              { date: now, amount: newAmount, previousAmount: prevAmount, source: 'Financial import' },
+            ],
           };
         } else if (update.type === 'deposit') {
+          const prev = newDeposits[update.existingIndex];
+          const prevAmount = Number(prev.deposit) || 0;
+          const newBalance = update.newBalance;
+          const newAmount = Number(newBalance) || 0;
           newDeposits[update.existingIndex] = {
-            ...newDeposits[update.existingIndex],
-            deposit: update.newBalance
+            ...prev,
+            deposit: newBalance,
+            lastBalanceUpdatedAt: now,
+            balanceHistory: [
+              ...(prev.balanceHistory || []),
+              { date: now, amount: newAmount, previousAmount: prevAmount, source: 'Financial import' },
+            ],
           };
         }
       }
     });
-    
+
     setAccounts(newAccounts);
     setDeposits(newDeposits);
     approveFinancialImport(importId);
     setPendingImportsCount(getPendingImportCount());
-    
-    // Auto-save after applying import
+
     await persist(newDeposits, newAccounts, bills, actions, goals);
     alert('✅ Financial import applied successfully!');
   };
@@ -366,7 +400,8 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
             setActions(parsed.actions || []);
             setGoals(parsed.goals || []);
             if (parsed.exchangeRates) setExchangeRates(parsed.exchangeRates);
-            // Always default to ORIGINAL (Mixed) mode on load - user preference
+            if (parsed.displayCurrency) setDisplayCurrency(parsed.displayCurrency);
+            else setDisplayCurrency(getDefaultDisplayCurrency());
             console.log('[BankDashboard] ✅ Loaded data from Supabase');
           } catch (decryptError) {
             console.error('[BankDashboard] Decryption error:', decryptError);
@@ -380,12 +415,13 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
             setActions([]);
           }
         } else {
-          // No data yet — start empty (this is normal after clearing or first use)
+          // No data yet — start empty; keep display currency from locale
           console.log('[BankDashboard] 📊 No data found, starting empty');
           setDeposits([]);
           setAccounts([]);
           setBills([]);
           setActions([]);
+          setDisplayCurrency(getDefaultDisplayCurrency());
         }
       } else {
         // No Supabase/encryption — start empty
@@ -1371,42 +1407,48 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
     return true;
   });
 
-  // ── Upcoming 30-day actions ─────────────────────────────────────────────
-  const upcoming30Days: Array<{type:string; title:string; bank:string; date:string; days:number; amount?:string}> = [];
-  
-  // Deposits maturing in 30 days
+  // ── Maturing Soon: ONLY Fixed Deposits (deposits table) with maturityDate in next 30 days ──
+  const maturingSoonDeposits: Array<{ type: 'maturity'; title: string; bank: string; date: string; days: number; amount?: string; sourceField: string }> = [];
   deposits.forEach(d => {
     if (d.done) return;
     const days = daysUntil(d.maturityDate);
     if (days !== null && days >= 0 && days <= 30) {
-      upcoming30Days.push({ type:"maturity", title:`${d.type || "FD"} matures`, bank:d.bank, date:d.maturityDate, days, amount:String(d.maturityAmt) });
+      maturingSoonDeposits.push({
+        type: 'maturity',
+        title: `${d.type || 'FD'} matures`,
+        bank: d.bank,
+        date: d.maturityDate,
+        days,
+        amount: String(d.maturityAmt),
+        sourceField: 'Maturity date',
+      });
     }
   });
-  
-  // Account next actions
-  accounts.forEach(a => {
-    if (a.done || !a.nextAction) return;
-    upcoming30Days.push({ type:"account", title:a.nextAction, bank:a.bank, date:"", days:-1 });
-  });
-  
-  // Manual actions with dates in next 30 days
+  maturingSoonDeposits.sort((a, b) => a.days - b.days);
+
+  // ── Actions due: action items with date in next 30 days or overdue (uses actions[].date) ──
+  const actionsDue30: Array<{ type: 'action'; title: string; bank: string; date: string; days: number; sourceField: string }> = [];
   actions.forEach(a => {
     if (a.done) return;
     const days = daysUntil(a.date);
-    if (days !== null && days >= 0 && days <= 30) {
-      upcoming30Days.push({ type:"action", title:a.title, bank:a.bank||"", date:a.date, days });
-    } else if (!a.date) {
-      upcoming30Days.push({ type:"action", title:a.title, bank:a.bank||"", date:"", days:-1 });
+    if (days !== null && days <= 30) {
+      actionsDue30.push({
+        type: 'action',
+        title: a.title,
+        bank: a.bank || '',
+        date: a.date,
+        days,
+        sourceField: 'Due date',
+      });
     }
   });
-  
-  // Bills due
-  bills.forEach(b => {
-    if (b.done) return;
-    upcoming30Days.push({ type:"bill", title:`Pay ${b.name}`, bank:"", date:b.due||"", days:-1, amount:String(b.amount) });
-  });
-  
-  // Sort by days (undated last)
+  actionsDue30.sort((a, b) => a.days - b.days);
+
+  // ── Legacy "Next 30 Days" combined list (deposits + actions due; no account next-actions in count) ──
+  const upcoming30Days: Array<{ type: string; title: string; bank: string; date: string; days: number; amount?: string }> = [
+    ...maturingSoonDeposits.map(({ type, title, bank, date, days, amount }) => ({ type, title, bank, date, days, amount })),
+    ...actionsDue30.map(({ type, title, bank, date, days }) => ({ type, title, bank, date, days })),
+  ];
   upcoming30Days.sort((a, b) => {
     if (a.days === -1 && b.days === -1) return 0;
     if (a.days === -1) return 1;
@@ -1559,39 +1601,57 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                     <div style={{fontSize:11,color:"#6B7280",fontWeight:600,marginTop:4}}>Bills Due</div>
                     <div style={{fontSize:12,color:"#F59E0B",fontFamily:"monospace",marginTop:6}}>{fmt(bills.filter(b=>!b.done).reduce((s,b)=>s+(Number(b.amount)||0),0), targetCurrency)}</div>
                   </div>
-                  <div style={{background:THEME.cardBg,borderRadius:14,padding:"16px",border:`1px solid ${upcoming30Days.length > 0 ? '#7F1D1D' : THEME.border}`,textAlign:"center"}}>
-                    <div style={{fontSize:28,fontWeight:800,color:upcoming30Days.length > 0 ? "#EF4444" : "#6B7280"}}>{upcoming30Days.length}</div>
+                  <div style={{background:THEME.cardBg,borderRadius:14,padding:"16px",border:`1px solid ${maturingSoonDeposits.length > 0 ? '#7F1D1D' : THEME.border}`,textAlign:"center"}}>
+                    <div style={{fontSize:28,fontWeight:800,color:maturingSoonDeposits.length > 0 ? "#EF4444" : "#6B7280"}}>{maturingSoonDeposits.length}</div>
                     <div style={{fontSize:11,color:"#6B7280",fontWeight:600,marginTop:4}}>Maturing Soon</div>
-                    <div style={{fontSize:10,color:THEME.textLight,marginTop:6}}>Next 30 days</div>
+                    <div style={{fontSize:10,color:THEME.textLight,marginTop:6}}>FDs · Next 30 days</div>
                   </div>
                 </div>
 
-                {/* Mobile: Upcoming Maturities - Swipeable Cards */}
-                {upcoming30Days.length > 0 && (
+                {/* Mobile: Maturing Soon - ONLY Fixed Deposits (deposits table, maturityDate) */}
+                {maturingSoonDeposits.length > 0 && (
                   <div style={{background:THEME.cardBg,borderRadius:14,padding:"14px",border:"1px solid #7F1D1D"}}>
                     <div style={{fontSize:12,fontWeight:700,color:"#EF4444",marginBottom:12,display:"flex",alignItems:"center",gap:6}}>
-                      <span>⚡</span> Maturing Soon
+                      <span>⚡</span> Maturing Soon ({maturingSoonDeposits.length} FD{maturingSoonDeposits.length !== 1 ? 's' : ''})
                     </div>
                     <div style={{display:"flex",flexDirection:"column",gap:10}}>
-                      {upcoming30Days.slice(0, 3).map((d, i) => {
-                        return (
-                          <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"12px",background:THEME.cardBgAlt,borderRadius:10,borderLeft:`3px solid ${d.days <= 7 ? '#EF4444' : '#F59E0B'}`}}>
-                            <div>
-                              <div style={{fontSize:13,fontWeight:600,color:THEME.text}}>{d.bank}</div>
-                              <div style={{fontSize:11,color:THEME.textLight}}>{fmtDate(d.date)}</div>
-                            </div>
-                            <div style={{textAlign:"right"}}>
-                              <div style={{fontSize:14,fontWeight:700,fontFamily:"monospace",color:THEME.accent}}>{fmt(d.amount)}</div>
-                              <div style={{fontSize:10,color:d.days <= 7 ? '#EF4444' : '#F59E0B',fontWeight:600}}>{d.days}d left</div>
+                      {maturingSoonDeposits.map((d, i) => (
+                        <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"12px",background:THEME.cardBgAlt,borderRadius:10,borderLeft:`3px solid ${d.days <= 7 ? '#EF4444' : '#F59E0B'}`}}>
+                          <div>
+                            <div style={{fontSize:13,fontWeight:600,color:THEME.text}}>{d.bank} · {d.title}</div>
+                            <div style={{fontSize:11,color:THEME.textLight}}>{d.sourceField}: {fmtDate(d.date)}</div>
+                          </div>
+                          <div style={{textAlign:"right"}}>
+                            <div style={{fontSize:14,fontWeight:700,fontFamily:"monospace",color:THEME.accent}}>{d.amount ? fmt(d.amount) : '—'}</div>
+                            <div style={{fontSize:10,color:d.days <= 7 ? '#EF4444' : '#F59E0B',fontWeight:600}}>
+                              {d.days >= 0 ? `${d.days}d left` : `${-d.days}d overdue`}
                             </div>
                           </div>
-                        );
-                      })}
-                      {upcoming30Days.length > 3 && (
-                        <button onClick={() => setTab("deposits")} style={{background:THEME.cardBgAlt,color:"#2563eb",border:"none",borderRadius:8,padding:"10px",fontSize:12,fontWeight:600}}>
-                          View all {upcoming30Days.length} →
-                        </button>
-                      )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Mobile: Actions due (uses actions[].date - e.g. loan payment due dates) */}
+                {actionsDue30.length > 0 && (
+                  <div style={{background:THEME.cardBg,borderRadius:14,padding:"14px",border:"1px solid #92400E"}}>
+                    <div style={{fontSize:12,fontWeight:700,color:"#F59E0B",marginBottom:12,display:"flex",alignItems:"center",gap:6}}>
+                      <span>📋</span> Actions due ({actionsDue30.length})
+                    </div>
+                    <div style={{fontSize:10,color:THEME.textLight,marginBottom:8}}>Uses <strong>Due date</strong> from Safe → More → Actions</div>
+                    <div style={{display:"flex",flexDirection:"column",gap:10}}>
+                      {actionsDue30.map((d, i) => (
+                        <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"12px",background:THEME.cardBgAlt,borderRadius:10,borderLeft:`3px solid ${d.days <= 0 ? '#EF4444' : '#F59E0B'}`}}>
+                          <div>
+                            <div style={{fontSize:13,fontWeight:600,color:THEME.text}}>{d.title}</div>
+                            <div style={{fontSize:11,color:THEME.textLight}}>{d.sourceField}: {fmtDate(d.date)}{d.bank ? ` · ${d.bank}` : ''}</div>
+                          </div>
+                          <div style={{fontSize:10,color:d.days <= 0 ? '#EF4444' : '#F59E0B',fontWeight:600}}>
+                            {d.days >= 0 ? `${d.days}d left` : `${-d.days}d overdue`}
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   </div>
                 )}
@@ -1782,7 +1842,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
             })()}
 
             {/* Next 30 Days - Collapsible */}
-            {upcoming30Days.length > 0 && (
+            {(maturingSoonDeposits.length > 0 || actionsDue30.length > 0) && (
               <div style={{background:THEME.cardBg,borderRadius:12,border:`1px solid ${THEME.border}`,overflow:"hidden"}}>
                 <button 
                   onClick={()=>setShow30Days(!show30Days)} 
@@ -1792,50 +1852,54 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                     <span style={{fontSize:10,color:"#6B7280",transition:"transform 0.2s",transform:show30Days?"rotate(90deg)":"rotate(0deg)"}}>▶</span>
                     <span style={{fontSize:11,fontWeight:700,color:"#F59E0B",textTransform:"uppercase"}}>⚡ Next 30 Days</span>
                   </div>
-                  <div style={{fontSize:10,color:"#6B7280",background:THEME.cardBgAlt,padding:"2px 8px",borderRadius:10}}>{upcoming30Days.length}</div>
+                  <div style={{fontSize:10,color:"#6B7280",background:THEME.cardBgAlt,padding:"2px 8px",borderRadius:10}}>{maturingSoonDeposits.length} FD · {actionsDue30.length} actions</div>
                 </button>
                 {show30Days && (
-                  <div style={{maxHeight:220,overflowY:"auto",borderTop:"1px solid #1F2937"}}>
-                    {upcoming30Days.slice(0, 5).map((item, i) => (
-                      <div key={i} style={{padding:"10px 14px",borderBottom:i<Math.min(4,upcoming30Days.length-1)?"1px solid #1F2937":"none",display:"flex",alignItems:"center",gap:10}}>
-                        <div style={{
-                          width:32,height:32,borderRadius:8,display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,
-                          background: item.type==="maturity"?"rgba(239,68,68,0.15)":item.type==="bill"?"rgba(245,158,11,0.15)":"rgba(59,130,246,0.15)",
-                          color: item.type==="maturity"?"#EF4444":item.type==="bill"?"#F59E0B":"#3B82F6"
-                        }}>
-                          {item.type==="maturity"?"💰":item.type==="bill"?"📋":item.type==="account"?"🏦":"⚡"}
-                        </div>
-                        <div style={{flex:1,minWidth:0}}>
-                          <div style={{fontSize:12,fontWeight:600,color:THEME.text,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{item.title}</div>
-                          <div style={{fontSize:10,color:"#6B7280"}}>{item.bank}{item.bank && item.amount ? " · " : ""}{item.amount ? fmt(Number(item.amount)) : ""}</div>
-                        </div>
-                        <div style={{textAlign:"right"}}>
-                          {item.days >= 0 ? (
-                            <>
-                              <div style={{fontSize:14,fontWeight:800,color:item.days<=7?"#EF4444":item.days<=14?"#F59E0B":"#10B981"}}>{item.days}</div>
-                              <div style={{fontSize:9,color:"#6B7280"}}>days</div>
-                            </>
-                          ) : (
-                            <div style={{fontSize:10,color:"#6B7280"}}>{item.date || "No date"}</div>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                    {upcoming30Days.length > 5 && (
-                      <div style={{padding:"8px 14px",textAlign:"center",fontSize:11,color:"#6B7280",background:THEME.cardBgAlt}}>
-                        +{upcoming30Days.length - 5} more actions
-                      </div>
+                  <div style={{maxHeight:320,overflowY:"auto",borderTop:"1px solid #1F2937"}}>
+                    {maturingSoonDeposits.length > 0 && (
+                      <>
+                        <div style={{padding:"8px 14px",fontSize:10,color:"#6B7280",background:"#1F2937",fontWeight:600}}>💰 Maturing Soon — from Deposits (Maturity date)</div>
+                        {maturingSoonDeposits.map((item, i) => (
+                          <div key={`m-${i}`} style={{padding:"10px 14px",borderBottom:"1px solid #1F2937",display:"flex",alignItems:"center",gap:10}}>
+                            <div style={{width:32,height:32,borderRadius:8,display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,background:"rgba(239,68,68,0.15)",color:"#EF4444"}}>💰</div>
+                            <div style={{flex:1,minWidth:0}}>
+                              <div style={{fontSize:12,fontWeight:600,color:THEME.text}}>{item.title} · {item.bank}</div>
+                              <div style={{fontSize:10,color:"#6B7280"}}>Maturity date: {fmtDate(item.date)}{item.amount ? ` · ${fmt(Number(item.amount))}` : ''}</div>
+                            </div>
+                            <div style={{textAlign:"right",fontSize:11,fontWeight:700,color:item.days<=7?"#EF4444":"#F59E0B"}}>
+                              {item.days >= 0 ? `${item.days}d left` : `${-item.days}d overdue`}
+                            </div>
+                          </div>
+                        ))}
+                      </>
+                    )}
+                    {actionsDue30.length > 0 && (
+                      <>
+                        <div style={{padding:"8px 14px",fontSize:10,color:"#6B7280",background:"#1F2937",fontWeight:600}}>📋 Actions due — from More → Actions (Due date)</div>
+                        {actionsDue30.map((item, i) => (
+                          <div key={`a-${i}`} style={{padding:"10px 14px",borderBottom:"1px solid #1F2937",display:"flex",alignItems:"center",gap:10}}>
+                            <div style={{width:32,height:32,borderRadius:8,display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,background:"rgba(245,158,11,0.15)",color:"#F59E0B"}}>📋</div>
+                            <div style={{flex:1,minWidth:0}}>
+                              <div style={{fontSize:12,fontWeight:600,color:THEME.text}}>{item.title}</div>
+                              <div style={{fontSize:10,color:"#6B7280"}}>Due date: {fmtDate(item.date)}{item.bank ? ` · ${item.bank}` : ''}</div>
+                            </div>
+                            <div style={{textAlign:"right",fontSize:11,fontWeight:700,color:item.days<=0?"#EF4444":"#F59E0B"}}>
+                              {item.days >= 0 ? `${item.days}d left` : `${-item.days}d overdue`}
+                            </div>
+                          </div>
+                        ))}
+                      </>
                     )}
                   </div>
                 )}
               </div>
             )}
             
-            {upcoming30Days.length === 0 && (
+            {maturingSoonDeposits.length === 0 && actionsDue30.length === 0 && (
               <div style={{background:THEME.cardBg,borderRadius:12,padding:"16px",textAlign:"center",border:`1px solid ${THEME.border}`}}>
                 <div style={{fontSize:24,marginBottom:6}}>✅</div>
                 <div style={{fontSize:12,color:"#10B981",fontWeight:600}}>All Clear!</div>
-                <div style={{fontSize:11,color:"#6B7280"}}>No actions needed in the next 30 days</div>
+                <div style={{fontSize:11,color:"#6B7280"}}>No FDs maturing and no actions due in the next 30 days</div>
               </div>
             )}
 
@@ -2600,6 +2664,15 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                                             <div style={{fontSize:13,fontWeight:700,fontFamily:"monospace",color:THEME.accent}}>{fmt(d.maturityAmt || d.deposit)}</div>
                                           </div>
                                         </div>
+                                        {d.balanceHistory?.length > 0 && (() => {
+                                          const latest = d.balanceHistory[d.balanceHistory.length - 1];
+                                          const prev = latest.previousAmount != null ? `${fmt(latest.previousAmount, (d.currency || 'INR') as Currency)} → ` : '';
+                                          return (
+                                            <div style={{fontSize:10,color:"#6B7280",marginTop:4}} title={d.balanceHistory.map((h: { date: string; amount: number; previousAmount?: number; source?: string }) => `${new Date(h.date).toLocaleString()}: ${h.previousAmount != null ? fmt(h.previousAmount, (d.currency || 'INR') as Currency) + ' → ' : ''}${fmt(h.amount, (d.currency || 'INR') as Currency)} ${h.source || ''}`).join('\n')}>
+                                              📅 Updated {new Date(latest.date).toLocaleDateString(undefined, { dateStyle: 'short' })} · {prev}{fmt(latest.amount, (d.currency || 'INR') as Currency)} {latest.source && <span style={{color:"#9CA3AF"}}>({latest.source})</span>}
+                                            </div>
+                                          );
+                                        })()}
                                         <div style={{display:"flex",gap:12,marginTop:6,fontSize:10,color:THEME.textLight}}>
                                           <span>{fmtDate(d.startDate)} → {fmtDate(d.maturityDate)}</span>
                                           {d.duration && <span style={{color:"#6B7280"}}>{d.duration}</span>}
@@ -3317,6 +3390,15 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                                           {acc.amount && <span style={{fontSize:14,fontWeight:700,fontFamily:"monospace",color:acc.done ? "#6B7280" : "#F9FAFB"}}>{fmt(acc.amount, (acc.currency || 'INR') as Currency)}</span>}
                                           {acc.roi && <span style={{fontSize:11,color:"#34D399",fontFamily:"monospace"}}>{(Number(acc.roi) * 100).toFixed(2)}% pa</span>}
                                         </div>
+                                        {acc.balanceHistory?.length > 0 && (() => {
+                                          const latest = acc.balanceHistory[acc.balanceHistory.length - 1];
+                                          const prev = latest.previousAmount != null ? `${fmt(latest.previousAmount, (acc.currency || 'INR') as Currency)} → ` : '';
+                                          return (
+                                            <div style={{fontSize:10,color:"#6B7280",marginTop:3}} title={acc.balanceHistory.map(h => `${new Date(h.date).toLocaleString()}: ${h.previousAmount != null ? fmt(h.previousAmount, (acc.currency || 'INR') as Currency) + ' → ' : ''}${fmt(h.amount, (acc.currency || 'INR') as Currency)} ${h.source || ''}`).join('\n')}>
+                                              📅 Updated {new Date(latest.date).toLocaleDateString(undefined, { dateStyle: 'short' })} · {prev}{fmt(latest.amount, (acc.currency || 'INR') as Currency)} {latest.source && <span style={{color:"#9CA3AF"}}>({latest.source})</span>}
+                                            </div>
+                                          );
+                                        })()}
                                         {acc.address && <div style={{fontSize:10,color:"#6B7280",marginTop:3}}>📍 {acc.address}</div>}
                                         {acc.detail && <div style={{fontSize:10,color:THEME.textLight,marginTop:2}}>📝 {acc.detail}</div>}
                                         {acc.accountNumber && <div style={{fontSize:9,color:"#484F58",marginTop:2,fontFamily:"monospace"}}>A/C: {acc.accountNumber}</div>}
@@ -3624,6 +3706,21 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                 <div><label style={labelSt}>Linked Account</label><input style={inputSt} value={form.linkedAccount||""} onChange={e=>setForm({...form,linkedAccount:e.target.value})} placeholder="Interest credit account" /></div>
                 <div><label style={labelSt}>Maturity Action</label><input style={inputSt} value={form.maturityAction||""} onChange={e=>setForm({...form,maturityAction:e.target.value})} placeholder="What to do at maturity" /></div>
                 <div style={{gridColumn:"span 2"}}><label style={labelSt}>Notes</label><textarea style={{...inputSt,minHeight:60,resize:"vertical"}} value={form.notes||""} onChange={e=>setForm({...form,notes:e.target.value})} /></div>
+                {(form as Deposit).balanceHistory?.length > 0 && (
+                  <div style={{gridColumn:"span 2",padding:"10px 0",borderTop:`1px solid ${THEME.border}`,marginTop:6}}>
+                    <div style={{fontSize:11,fontWeight:700,color:THEME.textLight,marginBottom:6}}>Amount history</div>
+                    <div style={{display:"flex",flexDirection:"column",gap:4,maxHeight:120,overflowY:"auto"}}>
+                      {(form as Deposit).balanceHistory!.map((h: { date: string; amount: number; previousAmount?: number; source?: string }, i: number) => (
+                        <div key={i} style={{fontSize:11,color:THEME.text,display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:4}}>
+                          <span>{new Date(h.date).toLocaleDateString(undefined, { dateStyle: 'short' })} {h.source && <span style={{color:THEME.textLight}}>· {h.source}</span>}</span>
+                          <span style={{fontFamily:"monospace",fontWeight:600}}>
+                            {h.previousAmount != null ? `${fmt(h.previousAmount, (form as Deposit).currency as Currency)} → ` : ''}{fmt(h.amount, (form as Deposit).currency as Currency)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
@@ -3651,6 +3748,21 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                   </label>
                   <span style={{fontSize:10,color:"#6B7280"}}>(shown as "Other Accounts" aggregate)</span>
                 </div>
+                {(form as BankAccount).balanceHistory?.length > 0 && (
+                  <div style={{gridColumn:"span 2",padding:"10px 0",borderTop:`1px solid ${THEME.border}`,marginTop:6}}>
+                    <div style={{fontSize:11,fontWeight:700,color:THEME.textLight,marginBottom:6}}>Balance history</div>
+                    <div style={{display:"flex",flexDirection:"column",gap:4,maxHeight:120,overflowY:"auto"}}>
+                      {(form as BankAccount).balanceHistory!.map((h: { date: string; amount: number; previousAmount?: number; source?: string }, i: number) => (
+                        <div key={i} style={{fontSize:11,color:THEME.text,display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:4}}>
+                          <span>{new Date(h.date).toLocaleDateString(undefined, { dateStyle: 'short' })} {h.source && <span style={{color:THEME.textLight}}>· {h.source}</span>}</span>
+                          <span style={{fontFamily:"monospace",fontWeight:600}}>
+                            {h.previousAmount != null ? `${fmt(h.previousAmount, (form as BankAccount).currency as Currency)} → ` : ''}{fmt(h.amount, (form as BankAccount).currency as Currency)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 

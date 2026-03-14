@@ -131,10 +131,6 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
     await loadItems();
   };
 
-  const handleNavigateToFull = (type: 'task' | 'event') => {
-    onNavigate(type === 'task' ? 'configure' : 'events');
-  };
-
   // Load observances only when expanded (lazy loading for faster initial page load)
   const loadObservances = async () => {
     if (observancesLoaded || isLoadingObservances) return;
@@ -1488,7 +1484,6 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
       <QuickAddWidget
         onAddTask={handleQuickAddTask}
         onAddEvent={handleQuickAddEvent}
-        onNavigateToFull={handleNavigateToFull}
       />
 
       {isReorderMode && (

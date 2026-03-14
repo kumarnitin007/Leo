@@ -118,17 +118,17 @@ import {
 } from '../../types/voice-command-db.types';
 
 /**
- * Simple base64 helpers that work in both browser and Node-like environments
+ * UTF-8-safe base64 encode (btoa only supports Latin1; transcript may contain Unicode).
+ * Uses unescape(encodeURIComponent(text)) to get a UTF-8 byte string, then btoa.
  */
 const encryptTranscript = (text: string): string => {
   try {
     if (typeof window !== 'undefined' && typeof window.btoa === 'function') {
-      return window.btoa(text);
+      return window.btoa(unescape(encodeURIComponent(text)));
     }
-    // Node-friendly fallback using global Buffer if available
-    const BufferCtor = (globalThis as unknown as { Buffer?: { from: (input: string) => { toString: (encoding: string) => string } } }).Buffer;
+    const BufferCtor = (globalThis as unknown as { Buffer?: { from: (input: string, encoding?: string) => { toString: (encoding: string) => string } } }).Buffer;
     if (BufferCtor && typeof BufferCtor.from === 'function') {
-      return BufferCtor.from(text).toString('base64');
+      return BufferCtor.from(text, 'utf-8').toString('base64');
     }
     throw new Error('No base64 encoder available');
   } catch (err) {
@@ -137,12 +137,12 @@ const encryptTranscript = (text: string): string => {
   }
 };
 
+/** Decode UTF-8-safe base64 back to string. */
 const decryptTranscript = (encrypted: string): string => {
   try {
     if (typeof window !== 'undefined' && typeof window.atob === 'function') {
-      return window.atob(encrypted);
+      return decodeURIComponent(escape(window.atob(encrypted)));
     }
-    // Node-friendly fallback using global Buffer if available
     const BufferCtor = (globalThis as unknown as { Buffer?: { from: (input: string, encoding?: string) => { toString: (encoding: string) => string } } }).Buffer;
     if (BufferCtor && typeof BufferCtor.from === 'function') {
       return BufferCtor.from(encrypted, 'base64').toString('utf-8');
@@ -250,7 +250,7 @@ export class VoiceCommandDatabaseService {
         intent_confidence: (commandData as any).intentConfidence,
         intent_method: (commandData as any).intentMethod,
         intent_alternatives: (commandData as any).intentAlternatives,
-        entity_type: (commandData as any).entityType,
+        // entity_type not in DB schema - omit from insert
         entities: (commandData as any).entities || [],
         memo_date: (commandData as any).memoDate ? new Date((commandData as any).memoDate).toISOString() : null,
         memo_date_expression: (commandData as any).memoDateExpression,

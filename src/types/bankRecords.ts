@@ -26,6 +26,14 @@ export type DepositCategory =
   | 'Tax Saving'
   | 'Other';
 
+/** Single entry for balance/amount change history */
+export interface BalanceHistoryEntry {
+  date: string;   // ISO timestamp when changed
+  amount: number; // New balance/amount after this update
+  previousAmount?: number; // Balance before this update (for "X → Y" display)
+  source?: string; // e.g. 'Financial import', 'Manual edit'
+}
+
 export interface Deposit {
   bank: string;
   type: string;
@@ -47,6 +55,10 @@ export interface Deposit {
   linkedAccount?: string;  // Account where interest/maturity credits
   documentId?: string;  // Link to Safe Document
   notes?: string;
+  /** When the deposit amount was last updated (e.g. from financial import) */
+  lastBalanceUpdatedAt?: string;
+  /** History of amount changes: date and amount when it was changed */
+  balanceHistory?: BalanceHistoryEntry[];
   // Future: sharing support
   sharedWith?: string[]; // Group IDs that have access
 }
@@ -68,6 +80,10 @@ export interface BankAccount {
   ifscCode?: string;
   branch?: string;
   hidden?: boolean; // Hide from default view, aggregate into "Other Accounts"
+  /** When the account balance was last updated (e.g. from financial import) */
+  lastBalanceUpdatedAt?: string;
+  /** History of balance changes: date and amount when it was changed */
+  balanceHistory?: BalanceHistoryEntry[];
   // Future: sharing support
   sharedWith?: string[];
 }

@@ -239,8 +239,8 @@ const SafeView: React.FC = () => {
               const missingKeyGroups = memberGroupIds.filter(gid => !loadedGroupKeys.has(gid));
               
               if (missingKeyGroups.length > 0) {
-                console.warn(`[Safe] ⚠️ MISSING KEYS for ${missingKeyGroups.length} groups:`, missingKeyGroups);
-                console.warn('[Safe] 💡 These groups need encryption keys. User should request access from group owner.');
+                console.debug(`[Safe] ⚠️ MISSING KEYS for ${missingKeyGroups.length} groups:`, missingKeyGroups);
+                console.debug('[Safe] 💡 These groups need encryption keys. User should request access from group owner.');
                 // TODO: Show UI notification to user that they need group owner to re-share
               } else {
                 // console.log('[Safe] ✅ All group keys present');

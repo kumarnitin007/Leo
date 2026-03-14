@@ -41,6 +41,7 @@ export interface UserLevelAssignment {
 export async function getUserLevel(): Promise<UserLevelAssignment | null> {
   try {
     const client = getSupabaseClient();
+    if (!client) return null;
     const { data: { user } } = await client.auth.getUser();
     if (!user) return null;
 
@@ -102,6 +103,7 @@ export async function getUserLevel(): Promise<UserLevelAssignment | null> {
 export async function getAllLevels(): Promise<UserLevel[]> {
   try {
     const client = getSupabaseClient();
+    if (!client) return [];
     const { data, error } = await client
       .from('myday_user_levels')
       .select('*')

@@ -112,7 +112,8 @@ export const detectBrokerageSource = (text: string): FinancialScreenshotData['so
   if (lowerText.includes('zerodha') || lowerText.includes('kite')) return 'zerodha';
   if (lowerText.includes('groww')) return 'groww';
   if (lowerText.includes('coinbase')) return 'coinbase';
-  
+  if (lowerText.includes('sofi')) return 'sofi';
+
   return 'unknown';
 };
 
@@ -125,5 +126,6 @@ export const BROKERAGE_INFO: Record<FinancialScreenshotData['source'], { name: s
   zerodha: { name: 'Zerodha', icon: '🔷', color: '#387ED1' },
   groww: { name: 'Groww', icon: '🌱', color: '#00D09C' },
   coinbase: { name: 'Coinbase', icon: '🪙', color: '#0052FF' },
+  sofi: { name: 'SoFi', icon: '🏦', color: '#00B4D8' },
   unknown: { name: 'Unknown Brokerage', icon: '💰', color: '#6B7280' }
 };

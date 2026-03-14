@@ -5,12 +5,11 @@ import { getTodayString } from '../utils';
 interface QuickAddWidgetProps {
   onAddTask: (name: string, category?: string) => void;
   onAddEvent: (name: string, date: string, time?: string) => void;
-  onNavigateToFull: (type: 'task' | 'event') => void;
 }
 
 type AddMode = null | 'task' | 'event';
 
-const QuickAddWidget: React.FC<QuickAddWidgetProps> = ({ onAddTask, onAddEvent, onNavigateToFull }) => {
+const QuickAddWidget: React.FC<QuickAddWidgetProps> = ({ onAddTask, onAddEvent }) => {
   const [mode, setMode] = useState<AddMode>(null);
   const [inputValue, setInputValue] = useState('');
   const [eventDate, setEventDate] = useState(getTodayString());
@@ -142,19 +141,6 @@ const QuickAddWidget: React.FC<QuickAddWidgetProps> = ({ onAddTask, onAddEvent, 
             <span>📅</span>
             <span>Event</span>
           </button>
-          <button
-            onClick={() => onNavigateToFull('task')}
-            style={{
-              ...quickButtonStyle(false, theme.colors.textLight),
-              padding: '10px 14px',
-              fontSize: 13,
-              color: theme.colors.textLight,
-            }}
-            title="Open full task editor"
-          >
-            <span>⚙️</span>
-            <span>More Options</span>
-          </button>
         </div>
       </div>
     );
@@ -227,21 +213,6 @@ const QuickAddWidget: React.FC<QuickAddWidgetProps> = ({ onAddTask, onAddEvent, 
           )}
 
           <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', alignItems: 'center' }}>
-            <button
-              type="button"
-              onClick={() => onNavigateToFull(mode)}
-              style={{
-                padding: '10px 16px',
-                borderRadius: 12,
-                border: `1px solid ${theme.colors.cardBorder}`,
-                background: 'transparent',
-                color: theme.colors.textLight,
-                fontSize: 13,
-                cursor: 'pointer',
-              }}
-            >
-              More Options
-            </button>
             <button
               type="submit"
               disabled={!inputValue.trim() || isSubmitting}

@@ -4,7 +4,7 @@
  * Parses extracted text into structured data items
  */
 
-import { ExtractedItem, ScanMode } from './types';
+import { ExtractedItem, FinancialScreenshotData, ScanMode } from './types';
 
 export interface ParseHints {
   keywords?: string;
@@ -51,26 +51,25 @@ export function parseExtractedText(text: string, mode: ScanMode, hints?: ParseHi
   return items;
 }
 
+/** Account type labels we look for in OCR (order matters for matching) */
+const ACCOUNT_LABELS: { pattern: RegExp; type: 'checking' | 'savings' | 'brokerage' | 'retirement' | 'crypto' | 'other'; name: string }[] = [
+  { pattern: /checking/i, type: 'checking', name: 'Checking' },
+  { pattern: /savings?(\s+account)?/i, type: 'savings', name: 'Savings' },
+  { pattern: /total\s+available\s+balance|total\s+balance/i, type: 'other', name: 'Total' },
+  { pattern: /brokerage|investment\s+account/i, type: 'brokerage', name: 'Brokerage' },
+  { pattern: /retirement|401k|ira/i, type: 'retirement', name: 'Retirement' },
+  { pattern: /crypto/i, type: 'crypto', name: 'Crypto' },
+];
+
 /**
- * FEAT-002: Detect financial/investment data from text
+ * FEAT-002: Detect financial/investment data from text.
+ * Tries to split into multiple accounts (Checking, Savings, etc.) when labels appear in the text.
  */
 function detectFinancialData(text: string, lines: string[], keywords?: string): ExtractedItem | null {
-  // Look for currency amounts
   const amountPattern = /\$[\d,]+\.?\d*|\₹[\d,]+\.?\d*|[\d,]+\.\d{2}/g;
-  const amounts = text.match(amountPattern);
-  
-  if (!amounts || amounts.length === 0) return null;
-  
-  // Find the largest amount (likely the total balance)
-  const parsedAmounts = amounts.map(a => {
-    const cleaned = a.replace(/[$₹,]/g, '');
-    return parseFloat(cleaned) || 0;
-  });
-  const maxAmount = Math.max(...parsedAmounts);
-  
-  if (maxAmount < 1) return null;
-  
-  // Determine source from keywords or text
+  const currency = text.includes('₹') ? 'INR' : 'USD';
+
+  // Determine source from keywords first (user override), then text
   let source = 'unknown';
   const sourcePatterns: Record<string, RegExp> = {
     'robinhood': /robinhood/i,
@@ -80,10 +79,9 @@ function detectFinancialData(text: string, lines: string[], keywords?: string): 
     'etrade': /e\*?trade/i,
     'zerodha': /zerodha/i,
     'groww': /groww/i,
-    'coinbase': /coinbase/i
+    'coinbase': /coinbase/i,
+    'sofi': /sofi/i,
   };
-  
-  // Check keywords first
   if (keywords) {
     for (const [name, pattern] of Object.entries(sourcePatterns)) {
       if (pattern.test(keywords)) {
@@ -92,8 +90,6 @@ function detectFinancialData(text: string, lines: string[], keywords?: string): 
       }
     }
   }
-  
-  // Then check text
   if (source === 'unknown') {
     for (const [name, pattern] of Object.entries(sourcePatterns)) {
       if (pattern.test(text)) {
@@ -102,25 +98,69 @@ function detectFinancialData(text: string, lines: string[], keywords?: string): 
       }
     }
   }
-  
+
+  // Try to find multiple accounts: lines that look like "Checking" / "Savings" with an amount on same or next line
+  const parseAmount = (raw: string): number => parseFloat(raw.replace(/[$₹,]/g, '')) || 0;
+  const accounts: Array<{ name: string; type: FinancialScreenshotData['accounts'][0]['type']; balance: number; currency: string }> = [];
+  const usedAmounts = new Set<number>();
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const lineLower = line.toLowerCase();
+    for (const { pattern, type, name } of ACCOUNT_LABELS) {
+      if (pattern.test(lineLower) && type !== 'other') {
+        const amountsInLine = (line.match(amountPattern) || []).map(parseAmount).filter(v => v >= 0.01);
+        const nextLine = lines[i + 1];
+        const amountsNext = nextLine ? (nextLine.match(amountPattern) || []).map(parseAmount).filter(v => v >= 0.01) : [];
+        const candidates = [...amountsInLine, ...amountsNext].filter(v => !usedAmounts.has(v));
+        if (candidates.length > 0) {
+          const balance = candidates[0];
+          usedAmounts.add(balance);
+          accounts.push({ name, type, balance, currency });
+        }
+        break; // one label per line
+      }
+    }
+  }
+
+  // If we didn't find multiple accounts, fall back to single-account (max amount)
+  const allAmounts = text.match(amountPattern);
+  if (!allAmounts || allAmounts.length === 0) return null;
+  const parsedAmounts = allAmounts.map(a => parseFloat(a.replace(/[$₹,]/g, '')) || 0).filter(v => v >= 0.01);
+  const maxAmount = Math.max(...parsedAmounts);
+  if (maxAmount < 1) return null;
+
+  const totalValue = accounts.length > 0
+    ? accounts.reduce((sum, a) => sum + a.balance, 0)
+    : maxAmount;
+  const finalAccounts = accounts.length >= 2
+    ? accounts
+    : [{
+        name: keywords || source !== 'unknown' ? source : 'Investment Account',
+        type: 'brokerage' as const,
+        balance: maxAmount,
+        currency,
+      }];
+
+  const description = finalAccounts.length >= 2
+    ? `${finalAccounts.length} accounts: ${finalAccounts.map(a => `${a.name} ${currency === 'USD' ? '$' : '₹'}${a.balance.toLocaleString()}`).join(', ')}`
+    : `Detected balance: ${allAmounts[parsedAmounts.indexOf(maxAmount)]}`;
+
   return {
     id: crypto.randomUUID(),
     type: 'financial-screenshot',
-    confidence: 0.6, // Lower confidence for quick scan
+    confidence: finalAccounts.length >= 2 ? 0.75 : 0.6,
     title: `Financial Update${source !== 'unknown' ? ` - ${source}` : ''}`,
-    description: `Detected balance: ${amounts[parsedAmounts.indexOf(maxAmount)]}`,
+    description,
     data: {
       source,
-      totalValue: maxAmount,
-      accounts: [{
-        name: keywords || source || 'Investment Account',
-        type: 'brokerage',
-        balance: maxAmount,
-        currency: text.includes('₹') ? 'INR' : 'USD'
-      }]
+      totalValue,
+      accounts: finalAccounts,
+      screenshotDate: new Date().toISOString().split('T')[0],
+      confidence: finalAccounts.length >= 2 ? 0.75 : 0.6,
     },
     suggestedDestination: 'financial-import',
-    icon: '📊'
+    icon: '📊',
   };
 }
 
