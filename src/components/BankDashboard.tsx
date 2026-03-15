@@ -2061,6 +2061,35 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
         {/* ══ CHARTS TAB ════════════════════════════════════════════════ */}
         {tab === "charts" && (
           <div style={{display:"flex",flexDirection:"column",gap:20}}>
+            {/* Summary insight cards */}
+            {(() => {
+              const totalInvested = deposits.reduce((s, d) => s + (Number(d.deposit) || 0), 0);
+              const totalMaturity = deposits.reduce((s, d) => s + (Number(d.maturityAmt) || Number(d.deposit) || 0), 0);
+              const nextMaturity = deposits.filter(d => d.maturityDate && !d.done).map(d => ({ date: d.maturityDate!, amt: Number(d.maturityAmt) || Number(d.deposit) || 0 })).sort((a, b) => a.date.localeCompare(b.date))[0];
+              return (
+                <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit, minmax(140px, 1fr))",gap:12}}>
+                  <div style={{background:THEME.cardBg,borderRadius:12,padding:16,border:`1px solid ${THEME.border}`}}>
+                    <div style={{fontSize:11,color:THEME.textLight,marginBottom:4}}>Total Invested</div>
+                    <div style={{fontSize:18,fontWeight:800,fontFamily:"monospace",color:THEME.accent}}>{fmt(totalInvested, displayCurrency === 'ORIGINAL' ? 'INR' : displayCurrency)}</div>
+                  </div>
+                  <div style={{background:THEME.cardBg,borderRadius:12,padding:16,border:`1px solid ${THEME.border}`}}>
+                    <div style={{fontSize:11,color:THEME.textLight,marginBottom:4}}>At Maturity</div>
+                    <div style={{fontSize:18,fontWeight:800,fontFamily:"monospace",color:"#10B981"}}>{fmt(totalMaturity, displayCurrency === 'ORIGINAL' ? 'INR' : displayCurrency)}</div>
+                  </div>
+                  <div style={{background:THEME.cardBg,borderRadius:12,padding:16,border:`1px solid ${THEME.border}`}}>
+                    <div style={{fontSize:11,color:THEME.textLight,marginBottom:4}}>Fixed Deposits</div>
+                    <div style={{fontSize:18,fontWeight:800,color:THEME.text}}>{deposits.filter(d => !d.done).length}</div>
+                  </div>
+                  {nextMaturity && (
+                    <div style={{background:THEME.cardBg,borderRadius:12,padding:16,border:`1px solid ${THEME.border}`}}>
+                      <div style={{fontSize:11,color:THEME.textLight,marginBottom:4}}>Next Maturity</div>
+                      <div style={{fontSize:14,fontWeight:700,color:THEME.text}}>{new Date(nextMaturity.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</div>
+                      <div style={{fontSize:12,fontFamily:"monospace",color:THEME.accent}}>{fmt(nextMaturity.amt, displayCurrency === 'ORIGINAL' ? 'INR' : displayCurrency)}</div>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
             {/* ROI Comparison */}
             <div style={{background:THEME.cardBgAlt,borderRadius:14,padding:22}}>
               <div style={{fontSize:14,fontWeight:700,color:"#E5E7EB",marginBottom:4}}>📊 ROI Comparison</div>
@@ -2628,7 +2657,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                       };
                       
                       return (
-                        <div key={bankName} style={{background:THEME.cardBgAlt,borderRadius:12,border:`1px solid ${color}30`,borderLeft:`3px solid ${color}`,overflow:"hidden"}}>
+                        <div key={bankName} style={{background:THEME.cardBgAlt,borderRadius:12,borderTop:`1px solid ${color}30`,borderRight:`1px solid ${color}30`,borderBottom:`1px solid ${color}30`,borderLeft:`3px solid ${color}`,overflow:"hidden"}}>
                           {/* Bank Header - Clickable */}
                           <div 
                             onClick={toggleCardBank}
@@ -2754,13 +2783,18 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                     </button>
                     {showLegend.has('dep_type') && (
                       <div style={{display:"flex",flexWrap:"wrap",gap:6,marginTop:8}}>
-                        {typePieData.map((e, i) => (
-                          <div key={i} style={{display:"flex",alignItems:"center",gap:4,fontSize:11,background:THEME.cardBgAlt,padding:"3px 8px",borderRadius:12}}>
-                            <div style={{width:8,height:8,borderRadius:"50%",background:e.color}} />
-                            <span style={{color:"#D1D5DB"}}>{e.name}</span>
-                            <span style={{color:e.color,fontWeight:600}}>{fmt(e.value)}</span>
-                          </div>
-                        ))}
+                        {typePieData.map((e, i) => {
+                          const total = typePieData.reduce((s, x) => s + x.value, 0);
+                          const pct = total ? (e.value / total) * 100 : 0;
+                          return (
+                            <div key={i} style={{display:"flex",alignItems:"center",gap:4,fontSize:11,background:THEME.cardBgAlt,padding:"3px 8px",borderRadius:12}}>
+                              <div style={{width:8,height:8,borderRadius:"50%",background:e.color}} />
+                              <span style={{color:"#D1D5DB"}}>{e.name}</span>
+                              <span style={{color:e.color,fontWeight:600}}>{fmt(e.value)}</span>
+                              <span style={{color:THEME.textLight,fontSize:10}}>({pct.toFixed(1)}%)</span>
+                            </div>
+                          );
+                        })}
                       </div>
                     )}
                   </>
@@ -2916,7 +2950,9 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                                 width: "100%",
                                 background: isExpanded ? `${color}10` : THEME.cardBg,
                                 color: THEME.text,
-                                border: `1px solid ${isExpanded ? color : THEME.border}`,
+                                borderTop: `1px solid ${isExpanded ? color : THEME.border}`,
+                                borderRight: `1px solid ${isExpanded ? color : THEME.border}`,
+                                borderBottom: `1px solid ${isExpanded ? color : THEME.border}`,
                                 borderLeft: `4px solid ${color}`,
                                 borderRadius: isExpanded ? "10px 10px 0 0" : 10,
                                 padding: "14px 16px",
@@ -3041,19 +3077,63 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                       )}
                     </div>
                   )}
-                {/* Mobile: Accounts by Bank list (readable, no chart) */}
+                {/* Mobile: Accounts by Bank - pie chart + list at end of Accounts tab */}
                 {accountsPieData.length > 0 && (
-                  <div style={{background:THEME.cardBg,borderRadius:14,padding:"14px",border:`1px solid ${THEME.border}`}}>
+                  <div style={{background:THEME.cardBg,borderRadius:14,padding:"14px",marginTop:12,border:`1px solid ${THEME.border}`}}>
                     <div style={{fontSize:12,fontWeight:700,color:THEME.textLight,marginBottom:10}}>🏦 Accounts by Bank</div>
-                    <div style={{display:"flex",flexDirection:"column",gap:6,maxHeight:240,overflowY:"auto"}}>
-                      {accountsPieData.map((e, i) => (
-                        <div key={i} style={{display:"flex",alignItems:"center",gap:8,fontSize:12,background:THEME.cardBgAlt,padding:"8px 10px",borderRadius:8,borderLeft:`4px solid ${e.color}`}}>
-                          <div style={{width:10,height:10,borderRadius:"50%",background:e.color,flexShrink:0}} />
-                          <span style={{color:THEME.text,flex:1,minWidth:0,overflow:"hidden",textOverflow:"ellipsis"}}>{e.name}</span>
-                          <span style={{color:e.color,fontWeight:600,fontSize:12}}>{fmt(e.value, displayCurrency === 'ORIGINAL' ? 'INR' : displayCurrency)}</span>
-                        </div>
-                      ))}
+                    <ResponsiveContainer width="100%" height={180}>
+                      <PieChart>
+                        <Pie
+                          data={accountsPieData}
+                          cx="50%"
+                          cy="50%"
+                          innerRadius={40}
+                          outerRadius={62}
+                          paddingAngle={2}
+                          dataKey="value"
+                          label={({ name, percent }) => (percent != null && percent >= 0.10) ? `${name} ${(percent * 100).toFixed(0)}%` : null}
+                          labelLine={({ percent }) => (percent != null && percent >= 0.10)}
+                        >
+                          {accountsPieData.map((e, i) => <Cell key={i} fill={e.color} stroke="#111827" strokeWidth={2} />)}
+                        </Pie>
+                        <Tooltip
+                          contentStyle={{background:THEME.cardBgAlt,border:`1px solid ${THEME.border}`,borderRadius:8,fontSize:12}}
+                          content={({ active, payload }) => {
+                            if (!active || !payload?.length) return null;
+                            const p = payload[0].payload as { name: string; value: number };
+                            const total = accountsPieData.reduce((s, e) => s + e.value, 0);
+                            const pct = total ? (p.value / total) * 100 : 0;
+                            const cur = displayCurrency === 'ORIGINAL' ? 'INR' : displayCurrency;
+                            return (
+                              <div style={{padding:6,minWidth:120}}>
+                                <div style={{fontWeight:700,color:THEME.text,fontSize:12}}>{p.name}</div>
+                                <div style={{fontSize:12,fontFamily:"monospace"}}>{fmt(p.value, cur)}</div>
+                                <div style={{fontSize:10,color:THEME.textLight}}>{(pct).toFixed(1)}%</div>
+                              </div>
+                            );
+                          }}
+                        />
+                      </PieChart>
+                    </ResponsiveContainer>
+                    <button type="button" onClick={() => setShowLegend(prev => prev.has('accounts_pie_mob') ? new Set([...prev].filter(k => k !== 'accounts_pie_mob')) : new Set([...prev, 'accounts_pie_mob']))} style={{marginTop:10,background:THEME.cardBgAlt,border:`1px solid ${THEME.border}`,color:THEME.textLight,padding:"6px 12px",borderRadius:8,fontSize:11,cursor:"pointer",display:"flex",alignItems:"center",gap:6}}>
+                      <span style={{fontSize:10,transition:"transform 0.2s",transform:showLegend.has('accounts_pie_mob')?"rotate(90deg)":"rotate(0deg)"}}>▶</span>
+                      Banks ({accountsPieData.length})
+                    </button>
+                    {showLegend.has('accounts_pie_mob') && (
+                    <div style={{display:"flex",flexDirection:"column",gap:6,maxHeight:220,overflowY:"auto",marginTop:10}}>
+                      {accountsPieData.map((e, i) => {
+                        const total = accountsPieData.reduce((s, x) => s + x.value, 0);
+                        const pct = total ? (e.value / total) * 100 : 0;
+                        return (
+                          <div key={i} style={{display:"flex",alignItems:"center",gap:8,fontSize:12,background:THEME.cardBgAlt,padding:"8px 10px",borderRadius:8,borderLeft:`4px solid ${e.color}`}}>
+                            <div style={{width:10,height:10,borderRadius:"50%",background:e.color,flexShrink:0}} />
+                            <span style={{color:THEME.text,flex:1,minWidth:0,overflow:"hidden",textOverflow:"ellipsis"}}>{e.name}</span>
+                            <span style={{color:e.color,fontWeight:600,fontSize:12}}>{fmt(e.value, displayCurrency === 'ORIGINAL' ? 'INR' : displayCurrency)} <span style={{fontSize:10,color:THEME.textLight}}>({pct.toFixed(1)}%)</span></span>
+                          </div>
+                        );
+                      })}
                     </div>
+                    )}
                   </div>
                 )}
                 </div>
@@ -3380,7 +3460,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                       const headerCurrency = displayCurrency === 'ORIGINAL' ? dominantCurrency : displayCurrency;
                       
                       return (
-                        <div key={bankName} style={{background:THEME.cardBgAlt,borderRadius:12,border:`1px solid ${color}30`,borderLeft:`3px solid ${color}`,overflow:"hidden"}}>
+                        <div key={bankName} style={{background:THEME.cardBgAlt,borderRadius:12,borderTop:`1px solid ${color}30`,borderRight:`1px solid ${color}30`,borderBottom:`1px solid ${color}30`,borderLeft:`3px solid ${color}`,overflow:"hidden"}}>
                           {/* Bank Header - Clickable */}
                           <div 
                             onClick={() => toggleBank(bankName)}
@@ -3530,16 +3610,28 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                             />
                           </PieChart>
                         </ResponsiveContainer>
-                        <div style={{marginTop:10,fontSize:11,color:THEME.textLight,marginBottom:6}}>Banks · hover slice for details</div>
-                        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(160px,1fr))",gap:8,maxHeight:220,overflowY:"auto"}}>
-                          {accountsPieData.map((e, i) => (
-                            <div key={i} style={{display:"flex",alignItems:"center",gap:6,fontSize:12,background:THEME.cardBgAlt,padding:"6px 10px",borderRadius:8,borderLeft:`3px solid ${e.color}`}}>
-                              <div style={{width:10,height:10,borderRadius:"50%",background:e.color,flexShrink:0}} />
-                              <span style={{color:THEME.text,flex:1,minWidth:0,overflow:"hidden",textOverflow:"ellipsis"}} title={e.name}>{e.name}</span>
-                              <span style={{color:e.color,fontWeight:600,fontSize:12,whiteSpace:"nowrap"}}>{fmt(e.value, displayCurrency === 'ORIGINAL' ? 'INR' : displayCurrency)}</span>
+                        <button type="button" onClick={() => setShowLegend(prev => prev.has('accounts_pie') ? new Set([...prev].filter(k => k !== 'accounts_pie')) : new Set([...prev, 'accounts_pie']))} style={{marginTop:10,background:THEME.cardBgAlt,border:`1px solid ${THEME.border}`,color:THEME.textLight,padding:"4px 12px",borderRadius:6,fontSize:11,cursor:"pointer",display:"flex",alignItems:"center",gap:6}}>
+                          <span style={{fontSize:10,transition:"transform 0.2s",transform:showLegend.has('accounts_pie')?"rotate(90deg)":"rotate(0deg)"}}>▶</span>
+                          Banks ({accountsPieData.length})
+                        </button>
+                        {showLegend.has('accounts_pie') && (
+                          <>
+                            <div style={{marginTop:6,fontSize:11,color:THEME.textLight,marginBottom:6}}>Banks · hover slice for details</div>
+                            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(160px,1fr))",gap:8,maxHeight:220,overflowY:"auto"}}>
+                              {accountsPieData.map((e, i) => {
+                                const total = accountsPieData.reduce((s, x) => s + x.value, 0);
+                                const pct = total ? (e.value / total) * 100 : 0;
+                                return (
+                                  <div key={i} style={{display:"flex",alignItems:"center",gap:6,fontSize:12,background:THEME.cardBgAlt,padding:"6px 10px",borderRadius:8,borderLeft:`3px solid ${e.color}`}}>
+                                    <div style={{width:10,height:10,borderRadius:"50%",background:e.color,flexShrink:0}} />
+                                    <span style={{color:THEME.text,flex:1,minWidth:0,overflow:"hidden",textOverflow:"ellipsis"}} title={e.name}>{e.name}</span>
+                                    <span style={{color:e.color,fontWeight:600,fontSize:12,whiteSpace:"nowrap"}}>{fmt(e.value, displayCurrency === 'ORIGINAL' ? 'INR' : displayCurrency)} <span style={{fontSize:10,color:THEME.textLight}}>({pct.toFixed(1)}%)</span></span>
+                                  </div>
+                                );
+                              })}
                             </div>
-                          ))}
-                        </div>
+                          </>
+                        )}
                       </>
                     )}
                   </div>

@@ -401,32 +401,29 @@ const GroupsManager: React.FC<GroupsManagerProps> = ({ onClose, encryptionKey })
                 My Groups
               </h2>
               <p style={{ margin: 0, fontSize: '0.8rem', color: '#6b7280' }}>
-                {myDisplayName ? `Visible to others as "${myDisplayName}"` : 'Share passwords & tasks with family'}
+                {myDisplayName ? `As: ${myDisplayName}` : 'Share with family'}
               </p>
             </div>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             {myDisplayName && (
               <button
                 onClick={() => {
                   setEditDisplayName(myDisplayName);
                   setShowProfileModal(true);
                 }}
+                title="Edit display name"
                 style={{
-                  padding: '0.5rem 1rem',
+                  padding: '0.4rem 0.6rem',
                   background: theme.colors.primary,
                   color: 'white',
                   border: 'none',
                   borderRadius: '0.5rem',
                   cursor: 'pointer',
-                  fontWeight: 500,
-                  fontSize: '0.85rem',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.5rem'
+                  fontSize: '1rem'
                 }}
               >
-                ✏️ Edit Display Name
+                ✏️
               </button>
             )}
             <button

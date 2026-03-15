@@ -8,6 +8,7 @@ import React, { useState, useEffect } from 'react';
 
 export const SAFE_SESSION_STORAGE_KEY = 'myday-safe-session-minutes';
 export const SAFE_SESSION_OPTIONS = [
+  { value: 5, label: '5 min' },
   { value: 15, label: '15 min' },
   { value: 30, label: '30 min' },
   { value: 60, label: '1 hour' },

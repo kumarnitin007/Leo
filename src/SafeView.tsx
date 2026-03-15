@@ -98,6 +98,7 @@ const SafeView: React.FC = () => {
   const [isAdding, setIsAdding] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [timeUntilLock, setTimeUntilLock] = useState<number | null>(null);
+  const [remainingMinutes, setRemainingMinutes] = useState<number | null>(null);
   const [showImportExport, setShowImportExport] = useState(false);
   const [showSafeTags, setShowSafeTags] = useState(false);
   const [showChangePassword, setShowChangePassword] = useState(false);
@@ -576,6 +577,7 @@ const SafeView: React.FC = () => {
     setTimeUntilLock(null);
 
     const timeoutMs = getSafeSessionMs();
+    setRemainingMinutes(Math.max(1, Math.ceil(timeoutMs / 60000)));
     const warningTime = Math.max(0, timeoutMs - LOCK_WARNING_TIME);
 
     // Set warning timer (1 minute before lock)
@@ -599,6 +601,7 @@ const SafeView: React.FC = () => {
     setIsAdding(false);
     setIsEditing(false);
     setTimeUntilLock(null);
+    setRemainingMinutes(null);
     justUnlockedRef.current = false;
     
     // Clear timers
@@ -627,6 +630,18 @@ const SafeView: React.FC = () => {
       return () => clearInterval(interval);
     }
   }, [timeUntilLock]);
+
+  // Update remaining minutes (for header timer, minutes only)
+  useEffect(() => {
+    if (isLocked || !encryptionKey) return;
+    const update = () => {
+      const remaining = getSafeSessionMs() - (Date.now() - lastActivityRef.current);
+      setRemainingMinutes(Math.max(0, Math.ceil(remaining / 60000)));
+    };
+    update();
+    const id = setInterval(update, 60000);
+    return () => clearInterval(id);
+  }, [isLocked, encryptionKey]);
 
   // Handle window blur (lock on tab switch)
   // Only lock on blur if user has been active (to avoid locking immediately on mount)
@@ -963,6 +978,24 @@ const SafeView: React.FC = () => {
   // Unlocked state - show list or detail/form
   return (
     <div style={{ padding: isMobile ? '0.5rem' : '2rem', maxWidth: '1400px', margin: '0 auto' }}>
+      {/* Mobile: Lock timer bar at top so it's always visible */}
+      {isMobile && remainingMinutes !== null && remainingMinutes >= 0 && (
+        <div style={{
+          marginBottom: '0.75rem',
+          padding: '0.5rem 0.75rem',
+          borderRadius: '0.5rem',
+          background: remainingMinutes <= 1 ? '#fef2f2' : '#f3f4f6',
+          color: remainingMinutes <= 1 ? '#dc2626' : '#6b7280',
+          fontSize: '0.85rem',
+          fontWeight: 600,
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.5rem',
+        }}>
+          <span>🔒</span>
+          <span>Lock in {remainingMinutes} min</span>
+        </div>
+      )}
       {/* Auto-lock warning */}
       {timeUntilLock !== null && timeUntilLock < 60 && (
         <div style={{
@@ -989,9 +1022,24 @@ const SafeView: React.FC = () => {
         marginBottom: '2rem'
       }}>
         <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.5rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.5rem', flexWrap: 'wrap' }}>
             <span style={{ fontSize: '2.5rem' }}>🦁</span>
             <h1 style={{ margin: 0, fontSize: '2rem' }}>Leo's Safe</h1>
+            {remainingMinutes !== null && remainingMinutes >= 0 && (
+              <span
+                style={{
+                  fontSize: '0.9rem',
+                  fontWeight: 600,
+                  color: remainingMinutes <= 1 ? '#dc2626' : '#6b7280',
+                  background: remainingMinutes <= 1 ? '#fef2f2' : '#f3f4f6',
+                  padding: '0.35rem 0.6rem',
+                  borderRadius: '0.375rem',
+                }}
+                title="Auto-lock countdown"
+              >
+                Lock in {remainingMinutes} min
+              </span>
+            )}
           </div>
           <p style={{ margin: '0.5rem 0 0 0', opacity: 0.8, fontSize: '0.875rem' }}>
             {entryCount} {entryCount === 1 ? 'entry' : 'entries'}, {documents.length} {documents.length === 1 ? 'document' : 'documents'}
