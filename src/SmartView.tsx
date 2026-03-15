@@ -6,8 +6,8 @@
  * - Image Scanning (Quick & Smart)
  */
 
-import React, { useState } from 'react';
-import VoiceCommandButton from './components/VoiceCommand/VoiceCommandButton';
+import React, { useState, useRef } from 'react';
+import VoiceCommandButton, { VoiceCommandButtonHandle } from './components/VoiceCommand/VoiceCommandButton';
 import ImageScanModal, { ScanContextHints } from './components/ImageScanModal';
 import SmartSuggestionsModal from './components/SmartSuggestionsModal';
 import { scanImageWithTesseract } from './services/imageScanning/tesseractService';
@@ -22,9 +22,13 @@ import { IntentType } from './types/voice-command-db.types';
 
 interface SmartViewProps {
   onNavigate: (view: string) => void;
+  onVoicePrefillAndNavigate?: (parsed: import('./services/voice/types').ParsedCommand) => void;
+  onCreateFromVoiceHistory?: (command: import('./types/voice-command-db.types').VoiceCommandLog) => void;
+  userId?: string;
 }
 
-const SmartView: React.FC<SmartViewProps> = ({ onNavigate }) => {
+const SmartView: React.FC<SmartViewProps> = ({ onNavigate, onVoicePrefillAndNavigate, onCreateFromVoiceHistory, userId }) => {
+  const voiceButtonRef = useRef<VoiceCommandButtonHandle>(null);
   const [showImageScanModal, setShowImageScanModal] = useState(false);
   const [showSuggestionsModal, setShowSuggestionsModal] = useState(false);
   const [scanMode, setScanMode] = useState<ScanMode>('quick');
@@ -95,6 +99,7 @@ const SmartView: React.FC<SmartViewProps> = ({ onNavigate }) => {
       try {
         const intentType: IntentType = mode === 'quick' ? 'SCAN_IMAGE_QUICK' : 'SCAN_IMAGE_SMART';
         const scanId = await dbService.saveCommand({
+          userId: userId ?? undefined,
           rawTranscript: result.rawText || `Image scan - ${result.items.length} items found`,
           intentType,
           entityType: 'TASK', // Default, will be updated when item is created
@@ -291,30 +296,20 @@ const SmartView: React.FC<SmartViewProps> = ({ onNavigate }) => {
           <p style={{ fontSize: '0.95rem', color: '#1e40af', marginBottom: '1.5rem' }}>
             Speak to create tasks, events, journal entries, and more. Just press the button and start talking!
           </p>
-          <VoiceCommandButton />
-        </div>
-
-        {/* History / Audit Log */}
-        <div
-          style={{
-            background: 'linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)',
-            borderRadius: '1rem',
-            padding: '2rem',
-            border: '2px solid #f59e0b',
-            boxShadow: '0 4px 12px rgba(245, 158, 11, 0.2)'
-          }}
-        >
-          <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>📋</div>
-          <h2 style={{ fontSize: '1.5rem', fontWeight: 700, margin: '0 0 0.5rem' }}>History & Audit</h2>
-          <p style={{ fontSize: '0.95rem', color: '#92400e', marginBottom: '1.5rem' }}>
-            View all your voice commands and image scans. Track what was created and when.
-          </p>
+          <VoiceCommandButton
+            ref={voiceButtonRef}
+            showFloatingButton={false}
+            onPrefillAndNavigate={onVoicePrefillAndNavigate}
+            onCreateFromHistory={onCreateFromVoiceHistory}
+            onNavigateToHistory={() => onNavigate('history')}
+            userId={userId}
+          />
           <button
-            onClick={() => onNavigate('history')}
+            onClick={() => voiceButtonRef.current?.open()}
             style={{
               width: '100%',
               padding: '1rem',
-              background: '#f59e0b',
+              background: '#3b82f6',
               color: 'white',
               border: 'none',
               borderRadius: '0.5rem',
@@ -323,7 +318,7 @@ const SmartView: React.FC<SmartViewProps> = ({ onNavigate }) => {
               fontSize: '1rem'
             }}
           >
-            📜 View History
+            🎤 Start Voice Command
           </button>
         </div>
 
@@ -392,6 +387,39 @@ const SmartView: React.FC<SmartViewProps> = ({ onNavigate }) => {
             }}
           >
             {isScanning ? '⏳ Scanning...' : '✨ Start Smart Scan'}
+          </button>
+        </div>
+
+        {/* History / Audit Log - last */}
+        <div
+          style={{
+            background: 'linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)',
+            borderRadius: '1rem',
+            padding: '2rem',
+            border: '2px solid #f59e0b',
+            boxShadow: '0 4px 12px rgba(245, 158, 11, 0.2)'
+          }}
+        >
+          <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>📋</div>
+          <h2 style={{ fontSize: '1.5rem', fontWeight: 700, margin: '0 0 0.5rem' }}>History & Audit</h2>
+          <p style={{ fontSize: '0.95rem', color: '#92400e', marginBottom: '1.5rem' }}>
+            View all your voice commands and image scans. Track what was created and when.
+          </p>
+          <button
+            onClick={() => onNavigate('history')}
+            style={{
+              width: '100%',
+              padding: '1rem',
+              background: '#f59e0b',
+              color: 'white',
+              border: 'none',
+              borderRadius: '0.5rem',
+              fontWeight: 600,
+              cursor: 'pointer',
+              fontSize: '1rem'
+            }}
+          >
+            📜 View History
           </button>
         </div>
       </div>

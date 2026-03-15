@@ -63,10 +63,12 @@ const VoiceCommandHistory: React.FC<VoiceCommandHistoryProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterIntent, setFilterIntent] = useState<IntentType | 'ALL'>('ALL');
+  const [filterOutcome, setFilterOutcome] = useState<Outcome | 'ALL' | 'OTHER'>('ALL');
   const [selectedCommand, setSelectedCommand] = useState<VoiceCommandLog | null>(null);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [suggestionsCommand, setSuggestionsCommand] = useState<VoiceCommandLog | null>(null);
   const [showAnalytics, setShowAnalytics] = useState(false);
+  const [pendingCreate, setPendingCreate] = useState<{ suggestion: { title: string; type: string; recurrenceLabel?: string; time?: string }; command: VoiceCommandLog } | null>(null);
 
   const loadCommands = useCallback(async () => {
     if (!userId) {
@@ -95,8 +97,12 @@ const VoiceCommandHistory: React.FC<VoiceCommandHistoryProps> = ({
     const matchesSearch = searchQuery === '' || 
       cmd.rawTranscript?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       cmd.extractedTitle?.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesFilter = filterIntent === 'ALL' || cmd.intentType === filterIntent;
-    return matchesSearch && matchesFilter;
+    const matchesIntent = filterIntent === 'ALL' || cmd.intentType === filterIntent;
+    const matchesOutcome = filterOutcome === 'ALL' ||
+      (filterOutcome === 'SUCCESS' && cmd.outcome === 'SUCCESS') ||
+      (filterOutcome === 'PENDING' && cmd.outcome === 'PENDING') ||
+      (filterOutcome === 'OTHER' && cmd.outcome !== 'SUCCESS' && cmd.outcome !== 'PENDING');
+    return matchesSearch && matchesIntent && matchesOutcome;
   }).sort((a, b) => {
     // Sort PENDING commands to the top
     if (a.outcome === 'PENDING' && b.outcome !== 'PENDING') return -1;
@@ -144,14 +150,18 @@ const VoiceCommandHistory: React.FC<VoiceCommandHistoryProps> = ({
     setShowSuggestions(true);
   };
 
-  const handleSuggestionSelect = async (suggestion: any) => {
+  const handleSuggestionSelect = (suggestion: any) => {
     if (!suggestionsCommand) return;
-    
+    setPendingCreate({ suggestion, command: suggestionsCommand });
+  };
+
+  const handleConfirmCreate = async () => {
+    if (!pendingCreate) return;
+    const { suggestion, command } = pendingCreate;
+    setPendingCreate(null);
     try {
       const VoiceCommandService = (await import('../../services/voice/VoiceCommandService')).default;
       const service = new VoiceCommandService();
-      
-      // Apply suggestion edits
       const userEdits = {
         title: suggestion.title,
         recurrence: suggestion.recurrence,
@@ -160,14 +170,12 @@ const VoiceCommandHistory: React.FC<VoiceCommandHistoryProps> = ({
                     suggestion.type === 'task' ? 'CREATE_TASK' :
                     suggestion.type === 'routine' ? 'CREATE_ROUTINE' : 'CREATE_TODO',
       };
-      
-      const result = await service.createFromPending(suggestionsCommand.id, userId, userEdits);
-      
+      const result = await service.createFromPending(command.id, userId, userEdits);
       if (result.success) {
-        alert(`✅ ${suggestion.title} created successfully!`);
         setShowSuggestions(false);
         setSuggestionsCommand(null);
-        await loadCommands(); // Refresh list
+        await loadCommands();
+        alert(`✅ ${suggestion.title} created successfully!`);
       } else {
         alert(`❌ Failed to create: ${(result.error as { message?: string })?.message || 'Unknown error'}`);
       }
@@ -186,6 +194,23 @@ const VoiceCommandHistory: React.FC<VoiceCommandHistoryProps> = ({
   const handleSuggestionDismiss = () => {
     setShowSuggestions(false);
     setSuggestionsCommand(null);
+  };
+
+  const handleReject = async (cmd: VoiceCommandLog) => {
+    if (!confirm('Reject this entry? It will be marked as cancelled and won\'t be used.')) return;
+    try {
+      await dbService.updateCommand(cmd.id, { outcome: 'CANCELLED' });
+      if (suggestionsCommand?.id === cmd.id) {
+        setShowSuggestions(false);
+        setSuggestionsCommand(null);
+      }
+      setPendingCreate(null);
+      setSelectedCommand(null);
+      await loadCommands();
+    } catch (err) {
+      console.error('Reject failed:', err);
+      alert('Failed to reject. Please try again.');
+    }
   };
 
   return (
@@ -230,7 +255,7 @@ const VoiceCommandHistory: React.FC<VoiceCommandHistoryProps> = ({
             >
               All
             </button>
-            {['CREATE_TASK', 'CREATE_EVENT', 'CREATE_JOURNAL', 'CREATE_TODO'].map(intent => {
+            {['CREATE_TASK', 'CREATE_EVENT', 'CREATE_JOURNAL', 'CREATE_TODO', 'SCAN_IMAGE_QUICK', 'SCAN_IMAGE_SMART'].map(intent => {
               const info = getIntentInfo(intent as IntentType);
               return (
                 <button
@@ -242,11 +267,24 @@ const VoiceCommandHistory: React.FC<VoiceCommandHistoryProps> = ({
                     borderColor: filterIntent === intent ? info.color : undefined,
                     background: filterIntent === intent ? `${info.color}15` : undefined,
                   } as React.CSSProperties}
+                  title={info.label}
                 >
-                  {info.icon}
+                  {info.icon} <span className="filter-pill-label">{info.label}</span>
                 </button>
               );
             })}
+          </div>
+          <div className="voice-filter-pills outcome-pills">
+            <span style={{ fontSize: '0.75rem', color: '#6b7280', marginRight: '0.5rem' }}>Status:</span>
+            {(['ALL', 'PENDING', 'SUCCESS', 'OTHER'] as const).map(out => (
+              <button
+                key={out}
+                className={`filter-pill ${filterOutcome === out ? 'active' : ''}`}
+                onClick={() => setFilterOutcome(out)}
+              >
+                {out === 'ALL' ? 'All' : out === 'PENDING' ? '⏳ Pending' : out === 'SUCCESS' ? '✓ Implemented' : 'Other'}
+              </button>
+            ))}
           </div>
         </div>
 
@@ -293,18 +331,21 @@ const VoiceCommandHistory: React.FC<VoiceCommandHistoryProps> = ({
                             {intentInfo.icon}
                           </div>
                           <div className="command-content">
-                            <div className="command-title">
-                              {cmd.extractedTitle || cmd.rawTranscript?.substring(0, 50) || 'Voice Command'}
+                            <div className="command-title-row">
+                              <div className="command-title">
+                                {cmd.extractedTitle || cmd.rawTranscript?.substring(0, 50) || 'Voice Command'}
+                              </div>
+                              <span 
+                                className="command-status-badge"
+                                style={{ background: `${outcomeInfo.color}20`, color: outcomeInfo.color }}
+                                title={`Status: ${outcomeInfo.label}`}
+                              >
+                                {outcomeInfo.icon} {outcomeInfo.label}
+                              </span>
                             </div>
                             <div className="command-meta">
                               <span className="command-type">{intentInfo.label}</span>
                               <span className="command-time">{formatTime(cmd.createdAt)}</span>
-                              <span 
-                                className="command-outcome"
-                                style={{ color: outcomeInfo.color }}
-                              >
-                                {outcomeInfo.icon} {outcomeInfo.label}
-                              </span>
                             </div>
                           </div>
                           <div className="command-chevron">
@@ -366,15 +407,27 @@ const VoiceCommandHistory: React.FC<VoiceCommandHistoryProps> = ({
                             {/* Actions */}
                             <div className="command-actions">
                               {cmd.outcome === 'PENDING' && (
-                                <button 
-                                  className="action-btn primary"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleReviewAndCreate(cmd);
-                                  }}
-                                >
-                                  ✨ Review & Create
-                                </button>
+                                <>
+                                  <button 
+                                    className="action-btn primary"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleReviewAndCreate(cmd);
+                                    }}
+                                  >
+                                    ✨ Review & Create
+                                  </button>
+                                  <button 
+                                    className="action-btn secondary"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleReject(cmd);
+                                    }}
+                                    title="Reject and mark as cancelled"
+                                  >
+                                    ✕ Reject
+                                  </button>
+                                </>
                               )}
                               {cmd.outcome !== 'SUCCESS' && cmd.outcome !== 'PENDING' && onCreateFromCommand && (
                                 <button 
@@ -420,6 +473,79 @@ const VoiceCommandHistory: React.FC<VoiceCommandHistoryProps> = ({
           onEdit={handleSuggestionEdit}
           onDismiss={handleSuggestionDismiss}
         />
+      )}
+
+      {/* Confirmation modal before create (like Safe financial) */}
+      {pendingCreate && (
+        <div
+          className="voice-history-confirm-overlay"
+          onClick={() => setPendingCreate(null)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1100,
+            padding: '1rem',
+          }}
+        >
+          <div
+            style={{
+              background: 'white',
+              borderRadius: '1rem',
+              maxWidth: 420,
+              width: '100%',
+              padding: '1.5rem',
+              boxShadow: '0 20px 40px rgba(0,0,0,0.15)',
+            }}
+            onClick={e => e.stopPropagation()}
+          >
+            <h3 style={{ margin: '0 0 1rem', fontSize: '1.1rem', fontWeight: 700 }}>Confirm & Create</h3>
+            <p style={{ margin: '0 0 0.75rem', fontSize: '0.875rem', color: '#6b7280' }}>
+              This will add the following to your list:
+            </p>
+            <ul style={{ margin: '0 0 1.25rem', paddingLeft: '1.25rem', fontSize: '0.95rem', lineHeight: 1.7 }}>
+              <li><strong>Type:</strong> {pendingCreate.suggestion.type === 'event' ? 'Event' : pendingCreate.suggestion.type === 'task' ? 'Task' : pendingCreate.suggestion.type === 'routine' ? 'Routine' : 'List item'}</li>
+              <li><strong>Title:</strong> {pendingCreate.suggestion.title}</li>
+              {pendingCreate.suggestion.recurrenceLabel && <li><strong>Recurrence:</strong> {pendingCreate.suggestion.recurrenceLabel}</li>}
+              {pendingCreate.suggestion.time && <li><strong>Time:</strong> {pendingCreate.suggestion.time}</li>}
+            </ul>
+            <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
+              <button
+                type="button"
+                onClick={() => setPendingCreate(null)}
+                style={{
+                  padding: '0.5rem 1rem',
+                  border: '1px solid #d1d5db',
+                  borderRadius: '0.5rem',
+                  background: 'white',
+                  cursor: 'pointer',
+                  fontSize: '0.9rem',
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmCreate}
+                style={{
+                  padding: '0.5rem 1rem',
+                  border: 'none',
+                  borderRadius: '0.5rem',
+                  background: '#10b981',
+                  color: 'white',
+                  cursor: 'pointer',
+                  fontSize: '0.9rem',
+                  fontWeight: 600,
+                }}
+              >
+                Confirm & Create
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Analytics Modal */}
@@ -575,6 +701,15 @@ const VoiceCommandHistory: React.FC<VoiceCommandHistoryProps> = ({
           transition: all 0.2s;
         }
 
+        .filter-pill-label {
+          margin-left: 0.15rem;
+        }
+        @media (max-width: 640px) {
+          .filter-pill-label { display: none; }
+        }
+        .outcome-pills {
+          margin-top: 0.5rem;
+        }
         .filter-pill.active {
           border-color: #667eea;
           background: #667eea15;
@@ -684,13 +819,30 @@ const VoiceCommandHistory: React.FC<VoiceCommandHistoryProps> = ({
           min-width: 0;
         }
 
+        .command-title-row {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          flex-wrap: wrap;
+        }
+
         .command-title {
+          flex: 1;
+          min-width: 0;
           font-weight: 600;
           font-size: 0.95rem;
           color: #1f2937;
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
+        }
+
+        .command-status-badge {
+          flex-shrink: 0;
+          font-size: 0.7rem;
+          font-weight: 600;
+          padding: 0.2rem 0.5rem;
+          border-radius: 9999px;
         }
 
         .command-meta {

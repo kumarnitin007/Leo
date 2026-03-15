@@ -339,7 +339,15 @@ const AppContent: React.FC = () => {
       case 'groups':
         return <GroupsManager key={`groups-${key}`} onClose={() => handleNavigate('today')} />;
       case 'smart':
-        return <SmartView key={`smart-${key}`} onNavigate={handleNavigate} />;
+        return (
+          <SmartView
+            key={`smart-${key}`}
+            onNavigate={handleNavigate}
+            onVoicePrefillAndNavigate={handleVoicePrefillAndNavigate}
+            onCreateFromVoiceHistory={handleCreateFromVoiceHistory}
+            userId={user?.id}
+          />
+        );
       case 'history':
         return (
           <VoiceCommandHistory 
@@ -492,24 +500,82 @@ const AppContent: React.FC = () => {
               <span className="nav-icon">🏠</span>
               <span className="nav-text">Home</span>
             </button>
-            <button
-              className={`nav-button ${currentView === 'tasks-events' ? 'active' : ''}`}
-              onClick={() => handleNavigate('tasks-events')}
-              title="Tasks, Events & Routines"
-              style={currentView === 'tasks-events' ? { backgroundColor: theme.colors.primary } : {}}
-            >
-              <span className="nav-icon">📋</span>
-              <span className="nav-text">New</span>
-            </button>
-            <button
-              className={`nav-button ${currentView === 'journal' ? 'active' : ''}`}
-              onClick={() => handleNavigate('journal')}
-              title="Daily Journal & Reflections"
-              style={currentView === 'journal' ? { backgroundColor: theme.colors.primary } : {}}
-            >
-              <span className="nav-icon">📔</span>
-              <span className="nav-text">Journal</span>
-            </button>
+            <div style={{ position: 'relative', display: 'inline-block' }}>
+              <button
+                className={`nav-button ${(currentView === 'tasks-events' || currentView === 'journal') ? 'active' : ''}`}
+                onClick={() => setShowNewDropdown(prev => !prev)}
+                title="New - Tasks, Journal & more"
+                style={(currentView === 'tasks-events' || currentView === 'journal') ? { backgroundColor: theme.colors.primary } : {}}
+              >
+                <span className="nav-icon">➕</span>
+                <span className="nav-text">New</span>
+                <span style={{ fontSize: '0.65rem', marginLeft: 2 }}>▼</span>
+              </button>
+              {showNewDropdown && (
+                <>
+                  <div
+                    style={{ position: 'fixed', inset: 0, zIndex: 999 }}
+                    onClick={() => setShowNewDropdown(false)}
+                    aria-hidden="true"
+                  />
+                  <div
+                    style={{
+                      position: 'absolute',
+                      top: '100%',
+                      left: 0,
+                      marginTop: 4,
+                      minWidth: 180,
+                      background: theme.colors.cardBg || '#1f2937',
+                      border: `1px solid ${theme.colors.cardBorder || '#374151'}`,
+                      borderRadius: 8,
+                      boxShadow: '0 4px 12px rgba(0,0,0,0.25)',
+                      zIndex: 1000,
+                      overflow: 'hidden',
+                    }}
+                  >
+                    <button
+                      onClick={() => { handleNavigate('tasks-events'); setShowNewDropdown(false); }}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.5rem',
+                        width: '100%',
+                        padding: '0.6rem 1rem',
+                        border: 'none',
+                        background: currentView === 'tasks-events' ? (theme.colors.primary + '22') : 'transparent',
+                        color: theme.colors.text,
+                        cursor: 'pointer',
+                        fontSize: '0.9rem',
+                        textAlign: 'left',
+                      }}
+                    >
+                      <span>📋</span>
+                      <span>Tasks & Events</span>
+                    </button>
+                    <button
+                      onClick={() => { handleNavigate('journal'); setShowNewDropdown(false); }}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.5rem',
+                        width: '100%',
+                        padding: '0.6rem 1rem',
+                        border: 'none',
+                        borderTop: `1px solid ${theme.colors.cardBorder || '#374151'}`,
+                        background: currentView === 'journal' ? (theme.colors.primary + '22') : 'transparent',
+                        color: theme.colors.text,
+                        cursor: 'pointer',
+                        fontSize: '0.9rem',
+                        textAlign: 'left',
+                      }}
+                    >
+                      <span>📔</span>
+                      <span>Journal</span>
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
             {!features.isDemo && (
               <button
                 className={`nav-button ${currentView === 'smart' ? 'active' : ''}`}
@@ -541,15 +607,6 @@ const AppContent: React.FC = () => {
                 <span className="nav-text">Safe</span>
               </button>
             )}
-            <button
-              className={`nav-button ${currentView === 'groups' ? 'active' : ''}`}
-              onClick={() => handleNavigate('groups')}
-              title="Groups - Manage Sharing Groups"
-              style={currentView === 'groups' ? { backgroundColor: theme.colors.primary } : {}}
-            >
-              <span className="nav-icon">👥</span>
-              <span className="nav-text">Groups</span>
-            </button>
           </nav>
           <div className="header-right-desktop">
             <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
@@ -748,19 +805,6 @@ const AppContent: React.FC = () => {
         onClose={() => setShowAddSheet(false)}
         title={features.isDemo ? "View Demo (Read-Only)" : "Add New"}
         options={[
-          features.canUseVoiceCommands && {
-            icon: '🎙️',
-            label: 'Voice Input',
-            description: 'Add via voice command',
-            onClick: () => setShowVoiceAddModal(true),
-            primary: true,
-          },
-          !features.isDemo && {
-            icon: '🆓',
-            label: 'Quick Scan',
-            description: 'Free OCR - Scan images instantly',
-            onClick: () => handleNavigate('smart'),
-          },
           features.canUseAI && {
             icon: '✨',
             label: 'Smart Scan',

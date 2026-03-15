@@ -10,10 +10,14 @@
  * - Voice history view
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useImperativeHandle, forwardRef, useRef } from 'react';
 import VoiceCommandModal from './VoiceCommandModal';
 import { ParsedCommand } from '../../services/voice/types';
 import { VoiceCommandLog } from '../../types/voice-command-db.types';
+
+export interface VoiceCommandButtonHandle {
+  open: () => void;
+}
 
 interface VoiceCommandButtonProps {
   onSuccess?: (message: string) => void;
@@ -23,9 +27,10 @@ interface VoiceCommandButtonProps {
   onCreateFromHistory?: (command: VoiceCommandLog) => void; // Create from history
   userId?: string; // For fetching history
   onNavigateToHistory?: () => void; // Navigate to history screen
+  showFloatingButton?: boolean; // If false, only modal (opened via ref). Default true.
 }
 
-const VoiceCommandButton: React.FC<VoiceCommandButtonProps> = ({ 
+const VoiceCommandButton = forwardRef<VoiceCommandButtonHandle, VoiceCommandButtonProps>(({ 
   onSuccess,
   isModalMode = false,
   onClose,
@@ -33,9 +38,14 @@ const VoiceCommandButton: React.FC<VoiceCommandButtonProps> = ({
   onCreateFromHistory,
   userId,
   onNavigateToHistory,
-}) => {
+  showFloatingButton = true,
+}, ref) => {
   const [showModal, setShowModal] = useState(isModalMode);
   const [isHovered, setIsHovered] = useState(false);
+
+  useImperativeHandle(ref, () => ({
+    open: () => setShowModal(true),
+  }), []);
 
   // Keyboard shortcut: Ctrl/Cmd + Shift + V
   useEffect(() => {
@@ -85,7 +95,8 @@ const VoiceCommandButton: React.FC<VoiceCommandButtonProps> = ({
 
   return (
     <>
-      {/* Floating Button */}
+      {/* Floating Button - hidden when showFloatingButton is false (e.g. Smart View card uses its own button) */}
+      {showFloatingButton && (
       <button
         onClick={() => setShowModal(true)}
         onMouseEnter={() => setIsHovered(true)}
@@ -120,9 +131,10 @@ const VoiceCommandButton: React.FC<VoiceCommandButtonProps> = ({
       >
         🎤
       </button>
+      )}
 
       {/* Tooltip on hover */}
-      {isHovered && (
+      {showFloatingButton && isHovered && (
         <div
           style={{
             position: 'fixed',
@@ -164,6 +176,7 @@ const VoiceCommandButton: React.FC<VoiceCommandButtonProps> = ({
       `}</style>
     </>
   );
-};
+});
 
+VoiceCommandButton.displayName = 'VoiceCommandButton';
 export default VoiceCommandButton;

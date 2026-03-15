@@ -4,7 +4,15 @@
  * Displayed when safe is locked
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+
+export const SAFE_SESSION_STORAGE_KEY = 'myday-safe-session-minutes';
+export const SAFE_SESSION_OPTIONS = [
+  { value: 15, label: '15 min' },
+  { value: 30, label: '30 min' },
+  { value: 60, label: '1 hour' },
+  { value: 120, label: '2 hours' },
+] as const;
 
 interface SafeLockScreenProps {
   entryCount: number;
@@ -23,6 +31,15 @@ const SafeLockScreen: React.FC<SafeLockScreenProps> = ({ entryCount, onUnlock, i
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [resetConfirmText, setResetConfirmText] = useState('');
   const [isResetting, setIsResetting] = useState(false);
+  const [sessionMinutes, setSessionMinutes] = useState<number>(() => {
+    const raw = localStorage.getItem(SAFE_SESSION_STORAGE_KEY);
+    const n = raw ? parseInt(raw, 10) : NaN;
+    return SAFE_SESSION_OPTIONS.some(o => o.value === n) ? n : 15;
+  });
+
+  useEffect(() => {
+    localStorage.setItem(SAFE_SESSION_STORAGE_KEY, String(sessionMinutes));
+  }, [sessionMinutes]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -123,6 +140,27 @@ const SafeLockScreen: React.FC<SafeLockScreenProps> = ({ entryCount, onUnlock, i
         </button>
       </form>
 
+      <div style={{ marginTop: '1rem', marginBottom: '0.5rem' }}>
+        <label style={{ display: 'block', fontSize: '0.8rem', color: '#6b7280', marginBottom: '0.35rem' }}>Keep unlocked for</label>
+        <select
+          value={sessionMinutes}
+          onChange={(e) => setSessionMinutes(Number(e.target.value))}
+          style={{
+            width: '100%',
+            padding: '0.5rem 0.75rem',
+            border: '1px solid #d1d5db',
+            borderRadius: '0.5rem',
+            fontSize: '0.95rem',
+            background: '#fff',
+            cursor: 'pointer',
+          }}
+        >
+          {SAFE_SESSION_OPTIONS.map((o) => (
+            <option key={o.value} value={o.value}>{o.label}</option>
+          ))}
+        </select>
+      </div>
+
       {/* Demo unlock & change password actions */}
       <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem' }}>
         {isDemoUser && demoSafePassword && (
@@ -190,7 +228,7 @@ const SafeLockScreen: React.FC<SafeLockScreenProps> = ({ entryCount, onUnlock, i
         opacity: 0.6,
         lineHeight: 1.6
       }}>
-        Auto-locks after 15 minutes of inactivity or when you switch tabs
+        Auto-locks after {sessionMinutes} min of inactivity or when you switch tabs
       </p>
 
       {/* Reset Confirmation Modal */}

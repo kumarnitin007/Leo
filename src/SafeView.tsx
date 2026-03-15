@@ -49,9 +49,17 @@ import getSupabaseClient from './lib/supabase';
 import { loadUserGroupKeys } from './services/groupEncryptionService';
 import { decryptData } from './utils/encryption';
 import { getPendingImportCount } from './services/pendingFinancialImports';
+import { SAFE_SESSION_STORAGE_KEY, SAFE_SESSION_OPTIONS } from './components/SafeLockScreen';
 
-const AUTO_LOCK_TIMEOUT = 15 * 60 * 1000; // 15 minutes in milliseconds
+const DEFAULT_SESSION_MINUTES = 15;
 const LOCK_WARNING_TIME = 60 * 1000; // 1 minute before lock
+
+function getSafeSessionMs(): number {
+  const raw = typeof localStorage !== 'undefined' ? localStorage.getItem(SAFE_SESSION_STORAGE_KEY) : null;
+  const n = raw ? parseInt(raw, 10) : NaN;
+  const minutes = SAFE_SESSION_OPTIONS.some(o => o.value === n) ? n : DEFAULT_SESSION_MINUTES;
+  return minutes * 60 * 1000;
+}
 
 // Helper to get filter label for display
 function getFilterLabel(filter: SafeFilter, tags: Tag[]): string {
@@ -567,12 +575,12 @@ const SafeView: React.FC = () => {
 
     setTimeUntilLock(null);
 
-    const timeoutMs = AUTO_LOCK_TIMEOUT;
-    const warningTime = AUTO_LOCK_TIMEOUT - LOCK_WARNING_TIME;
+    const timeoutMs = getSafeSessionMs();
+    const warningTime = Math.max(0, timeoutMs - LOCK_WARNING_TIME);
 
     // Set warning timer (1 minute before lock)
     warningTimerRef.current = setTimeout(() => {
-      const remaining = AUTO_LOCK_TIMEOUT - (Date.now() - lastActivityRef.current);
+      const remaining = getSafeSessionMs() - (Date.now() - lastActivityRef.current);
       const seconds = Math.ceil(remaining / 1000);
       setTimeUntilLock(seconds);
     }, warningTime);
@@ -608,7 +616,7 @@ const SafeView: React.FC = () => {
   useEffect(() => {
     if (timeUntilLock !== null && timeUntilLock > 0) {
       const interval = setInterval(() => {
-        const remaining = AUTO_LOCK_TIMEOUT - (Date.now() - lastActivityRef.current);
+        const remaining = getSafeSessionMs() - (Date.now() - lastActivityRef.current);
         const seconds = Math.ceil(remaining / 1000);
         if (seconds <= 0) {
           setTimeUntilLock(null);
@@ -643,15 +651,15 @@ const SafeView: React.FC = () => {
               if (blurLockTimer) {
                 clearTimeout(blurLockTimer);
               }
-              
-              // Set 15-second delay before locking
+              // Use same session duration as inactivity (e.g. 1 hr choice = lock 1 hr after leaving tab)
+              const blurDelayMs = getSafeSessionMs();
               blurLockTimer = setTimeout(() => {
                 // Double-check that window still doesn't have focus
                 if (!document.hasFocus()) {
                   handleLock();
                 }
                 blurLockTimer = null;
-              }, 15000); // 15 second delay
+              }, blurDelayMs);
             } else {
               // Cancel any pending blur lock if focus is back
               if (blurLockTimer) {
