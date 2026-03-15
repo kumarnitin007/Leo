@@ -68,7 +68,7 @@ const VoiceCommandHistory: React.FC<VoiceCommandHistoryProps> = ({
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [suggestionsCommand, setSuggestionsCommand] = useState<VoiceCommandLog | null>(null);
   const [showAnalytics, setShowAnalytics] = useState(false);
-  const [pendingCreate, setPendingCreate] = useState<{ suggestion: { title: string; type: string; recurrenceLabel?: string; time?: string }; command: VoiceCommandLog } | null>(null);
+  const [pendingCreate, setPendingCreate] = useState<{ suggestion: { title: string; type: string; recurrence?: string; recurrenceLabel?: string; time?: string }; command: VoiceCommandLog } | null>(null);
 
   const loadCommands = useCallback(async () => {
     if (!userId) {

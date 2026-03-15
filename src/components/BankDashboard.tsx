@@ -3092,7 +3092,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                           paddingAngle={2}
                           dataKey="value"
                           label={({ name, percent }) => (percent != null && percent >= 0.10) ? `${name} ${(percent * 100).toFixed(0)}%` : null}
-                          labelLine={({ percent }) => (percent != null && percent >= 0.10)}
+                          labelLine={true}
                         >
                           {accountsPieData.map((e, i) => <Cell key={i} fill={e.color} stroke="#111827" strokeWidth={2} />)}
                         </Pie>
@@ -3587,7 +3587,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                               paddingAngle={2} 
                               dataKey="value"
                               label={({ name, percent }) => (percent != null && percent >= 0.10) ? `${name} ${(percent * 100).toFixed(0)}%` : null}
-                              labelLine={({ percent }) => (percent != null && percent >= 0.10)}
+                              labelLine={true}
                             >
                               {accountsPieData.map((e, i) => <Cell key={i} fill={e.color} stroke="#111827" strokeWidth={2} />)}
                             </Pie>
