@@ -1,0 +1,40 @@
+---
+description: Consider database changes when implementing features or fixes; suggest schema changes when that's a better approach
+globs: ["**/components/**", "**/views/**", "**/contexts/**", "**/hooks/**", "**/*Service*.ts", "**/pages/**"]
+alwaysApply: false
+---
+
+# Consider Database Changes When Implementing
+
+## Mindset
+
+When implementing a **feature**, **fix**, or **behavior change**:
+
+- **Do not assume** the solution must be app-only (local state, in-memory, localStorage, or complex workarounds).
+- **Consider** whether a **database change** would be a better or simpler approach:
+  - New table or column
+  - New constraint or index
+  - Migration to normalize or persist data
+- The app is **still in dev** — schema changes are acceptable. Prefer a clear DB-backed design when it fits.
+
+## When to Suggest DB Changes
+
+Suggest schema/migration changes when:
+
+- Data is **shared across devices or users** and should live in Supabase.
+- The feature is **persistence-heavy** (e.g. new entity type, new settings, new relationship) and would be cleaner with a table or column.
+- The current approach is **fragile or complex** (e.g. overloading existing columns, heavy client-side joins) and a small schema change would simplify it.
+- Adding a **column or table** would avoid future migrations or tech debt.
+
+## How to Suggest
+
+- **Briefly state** that a DB change could be a better approach and why.
+- **Outline** the change (e.g. "Add `myday_foo` table with columns X, Y" or "Add column Z to `myday_bar`").
+- **Do not** assume you must implement it in this step — suggesting is enough unless the user asks you to implement.
+- If the user agrees, implement the migration and **update `docs/LEO_DB_SCHEMA.schema`** per the Database Schema Maintenance rule.
+
+## When Not to Push for DB
+
+- Truly UI-only or one-off behavior (e.g. animation, layout tweak).
+- User explicitly wants an app-only or no-DB solution.
+- Change is experimental and might be reverted soon.

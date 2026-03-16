@@ -1,6 +1,6 @@
 ---
-description: Keep LEO_DB_SCHEMA.md updated when database changes occur
-globs: ["**/*.sql", "**/migrations/**", "**/services/**Service.ts"]
+description: Keep docs/LEO_DB_SCHEMA.schema updated when database changes occur
+globs: ["**/*.sql", "**/migrations/**", "**/services/**Service.ts", "**/supabase/**"]
 alwaysApply: false
 ---
 
@@ -14,7 +14,7 @@ When you:
 - Modify table structure
 - Add new entity types
 
-**You MUST update `LEO_DB_SCHEMA.md`** in the project root:
+**You MUST update `docs/LEO_DB_SCHEMA.schema`**:
 
 1. Add new table to "Tables Overview" section with:
    - Sequential number
@@ -28,8 +28,10 @@ When you:
 
 4. Update "Last Updated" date at bottom
 
+5. Add a row to the Changelog table at the bottom (Date | Change)
+
 ## File Location
-`LEO_DB_SCHEMA.md` - Project root
+`docs/LEO_DB_SCHEMA.schema`
 
 ## Naming Conventions
 - Tables: `myday_[entity_name]` (e.g., `myday_group_finance_messages`)
@@ -37,7 +39,7 @@ When you:
 - Acronyms: `MY` + abbreviation (e.g., MYGFM for group finance messages)
 
 ## Reference Before Writing
-Always check `LEO_DB_SCHEMA.md` before:
+Always check `docs/LEO_DB_SCHEMA.schema` before:
 - Writing SQL migrations
 - Writing Supabase queries in TypeScript
 - Adding new database features

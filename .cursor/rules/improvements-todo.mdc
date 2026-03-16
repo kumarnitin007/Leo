@@ -1,0 +1,48 @@
+---
+description: Keep docs/LEO_IMPROVEMENTS_TODO.TODO updated when implementing or completing improvements
+globs: ["**/*.ts", "**/*.tsx", "docs/LEO_IMPROVEMENTS_TODO.TODO"]
+alwaysApply: false
+---
+
+# Improvements & TODO Doc Maintenance Rule
+
+## File
+`docs/LEO_IMPROVEMENTS_TODO.TODO` – single source of truth for improvements, bugs, refactors, and feature work.
+
+## When to Update
+
+### 1. Completing work that matches an existing item
+When your implementation clearly fulfills an existing TODO item (same ID, same scope):
+- Set **Status** to `✅ Completed`
+- Add **Completed Date** (YYYY-MM-DD)
+- Add **Notes** (1–2 lines) describing what was done
+- Update the **Summary** table at the top (decrement Pending, increment Completed for that category)
+- Update **Last Updated** at the top
+
+### 2. Adding a new tracked improvement
+When implementing a user-requested or agreed improvement that should be tracked:
+- Add a new entry in the appropriate category (or a suitable existing category) using the same format:
+  - `### CAT-ID: Short title`
+  - **Status**: ⬜ Pending / 🟡 In Progress / ✅ Completed
+  - **Priority**: 🔴 Critical / 🟡 Medium / 🟢 Low
+  - **Files**: paths
+  - **Issue**: one line
+  - **Solution**: one line
+  - **Completed Date** / **Notes** if done
+- Update the Summary table (Total and category counts)
+- Update **Last Updated**
+
+### 3. Change Log (optional but recommended)
+When marking an item completed, add a line to the **Change Log** section at the bottom:
+`| YYYY-MM-DD | ID | Short description of what was done | AI |`
+
+## Format to Preserve
+- Status legend at top: ⬜ Pending | 🟡 In Progress | ✅ Completed | ❌ Cancelled
+- Category headers: `## 🎨 Category Name`
+- Item IDs: e.g. `UX-VC-001`, `CR-008`, `BUG-003`
+- Do not remove or renumber existing items; only add or update status/notes.
+
+## When Not to Update
+- Small typo/comment-only changes
+- Config or dependency updates with no doc-worthy feature/fix
+- If the user says not to touch the TODO doc

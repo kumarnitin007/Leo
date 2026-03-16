@@ -1,0 +1,32 @@
+---
+description: Catch TypeScript and build errors before Vercel (type safety, library APIs, build check)
+globs: ["**/*.ts", "**/*.tsx"]
+alwaysApply: true
+---
+
+# TypeScript & Build Safety (Avoid Vercel Failures)
+
+## 1. Verify build after edits
+
+When you change TypeScript/React code that could affect the build:
+
+- **Run** `npm run build` before considering the task done (same command Vercel uses).
+- If the user reports a build error, fix it and re-run the build to confirm.
+
+## 2. Library types – use what the API expects
+
+- For **Recharts** (Pie, BarChart, etc.): use the types the component expects. Do not pass a function that returns `boolean` for props that expect `boolean | ReactElement | (props) => ReactElement` (e.g. `labelLine` on `Pie`). Use `true`/`false` or the documented type.
+- For other **typed libraries**: check the prop type (e.g. in IDE or `node_modules`) before passing custom functions or values. Prefer the library’s types over `any` when fixing errors.
+
+## 3. State/prop types – include every property you read
+
+When you define a type for state or props that hold an object (e.g. from a modal or parent):
+
+- **Include every property that is read** in handlers or render. If you later use `suggestion.recurrence` in `handleConfirmCreate`, the type for `suggestion` must include `recurrence?: string` (or the correct type).
+- When passing objects between components (e.g. from `VoiceCommandSuggestions` into `VoiceCommandHistory`), align the consumer’s type with the producer’s shape (same property names and types).
+
+## 4. Quick checklist before finishing
+
+- [ ] No new `any` or unsupported types for library props (Recharts, etc.).
+- [ ] All properties read from state/props are declared on the type.
+- [ ] `npm run build` succeeds after your changes.
