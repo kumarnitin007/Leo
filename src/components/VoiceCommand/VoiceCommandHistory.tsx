@@ -139,6 +139,28 @@ const VoiceCommandHistory: React.FC<VoiceCommandHistoryProps> = ({
     });
   };
 
+  const formatCurrency = (amount: number, currency: string) => {
+    return new Intl.NumberFormat('en-US', { style: 'currency', currency: currency || 'USD' }).format(amount);
+  };
+
+  const getFinancialSummary = (cmd: VoiceCommandLog): { source?: string; accounts: Array<{ name: string; balance: number; currency: string }> } | null => {
+    const entities = cmd.entities || [];
+    for (const e of entities) {
+      const meta = e.meta as { source?: string; accounts?: Array<{ name: string; balance: number; currency: string }> } | undefined;
+      if (meta?.accounts && Array.isArray(meta.accounts) && meta.accounts.length > 0) {
+        return {
+          source: meta.source,
+          accounts: meta.accounts.map(a => ({
+            name: a.name,
+            balance: typeof a.balance === 'number' ? a.balance : Number(a.balance) || 0,
+            currency: a.currency || 'USD'
+          }))
+        };
+      }
+    }
+    return null;
+  };
+
   const handleCreateFromCommand = (cmd: VoiceCommandLog) => {
     onCreateFromCommand?.(cmd);
     onBack();
@@ -316,6 +338,7 @@ const VoiceCommandHistory: React.FC<VoiceCommandHistoryProps> = ({
                     const intentInfo = getIntentInfo(cmd.intentType);
                     const outcomeInfo = getOutcomeInfo(cmd.outcome as Outcome);
                     const isSelected = selectedCommand?.id === cmd.id;
+                    const financialSummary = getFinancialSummary(cmd);
                     
                     return (
                       <div
@@ -347,6 +370,16 @@ const VoiceCommandHistory: React.FC<VoiceCommandHistoryProps> = ({
                               <span className="command-type">{intentInfo.label}</span>
                               <span className="command-time">{formatTime(cmd.createdAt)}</span>
                             </div>
+                            {financialSummary && (
+                              <div className="command-financial-preview" style={{ fontSize: '0.75rem', color: theme.colors.textLight, marginTop: '0.25rem' }}>
+                                {financialSummary.accounts.map((a, i) => (
+                                  <span key={i}>
+                                    {i > 0 ? ' · ' : ''}{a.name}: {formatCurrency(Math.abs(a.balance), a.currency)}
+                                    {a.balance < 0 ? ' (loan)' : ''}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
                           </div>
                           <div className="command-chevron">
                             {isSelected ? '▲' : '▼'}
@@ -360,6 +393,23 @@ const VoiceCommandHistory: React.FC<VoiceCommandHistoryProps> = ({
                               <label>What you said:</label>
                               <p>"{cmd.rawTranscript}"</p>
                             </div>
+
+                            {financialSummary && (
+                              <div className="command-field" style={{ marginTop: '0.75rem' }}>
+                                <label>📊 Accounts (from scan):</label>
+                                <ul style={{ margin: '0.25rem 0 0', paddingLeft: '1.25rem', fontSize: '0.875rem', lineHeight: 1.6 }}>
+                                  {financialSummary.accounts.map((a, i) => (
+                                    <li key={i} style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', marginBottom: '0.25rem' }}>
+                                      <span>{a.name}</span>
+                                      <span style={{ fontWeight: 600, fontFamily: 'monospace' }}>
+                                        {formatCurrency(Math.abs(a.balance), a.currency)}
+                                        {a.balance < 0 && <span style={{ fontSize: '0.7rem', color: theme.colors.textLight }}> (principal)</span>}
+                                      </span>
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
+                            )}
 
                             {cmd.memoDate && (
                               <div className="command-field">

@@ -36,6 +36,8 @@ export interface AccountUpdate {
   newBalance: number;
   accountName: string;
   currency: string;
+  /** Extracted account type from scan: checking, savings, loan, brokerage, etc. */
+  accountType?: string;
 }
 
 const PendingFinancialImportsModal: React.FC<PendingFinancialImportsModalProps> = ({
@@ -79,7 +81,7 @@ const PendingFinancialImportsModal: React.FC<PendingFinancialImportsModalProps> 
     const updates = new Map<string, AccountUpdate>();
     
     imp.extractedData.accounts.forEach((extracted, idx) => {
-      const matchedAccount = findMatchingAccount(extracted.name);
+      const matchedAccount = findMatchingAccount(extracted.name, extracted.type);
       const matchedDeposit = findMatchingDeposit(extracted.name);
       
       const key = `${imp.id}-${idx}`;
@@ -91,7 +93,8 @@ const PendingFinancialImportsModal: React.FC<PendingFinancialImportsModalProps> 
           existingIndex: matchedAccount,
           newBalance: extracted.balance,
           accountName: extracted.name,
-          currency: extracted.currency
+          currency: extracted.currency,
+          accountType: extracted.type
         });
       } else if (matchedDeposit !== null) {
         updates.set(key, {
@@ -100,7 +103,8 @@ const PendingFinancialImportsModal: React.FC<PendingFinancialImportsModalProps> 
           existingIndex: matchedDeposit,
           newBalance: extracted.balance,
           accountName: extracted.name,
-          currency: extracted.currency
+          currency: extracted.currency,
+          accountType: extracted.type
         });
       } else {
         updates.set(key, {
@@ -108,7 +112,8 @@ const PendingFinancialImportsModal: React.FC<PendingFinancialImportsModalProps> 
           action: 'create',
           newBalance: extracted.balance,
           accountName: extracted.name,
-          currency: extracted.currency
+          currency: extracted.currency,
+          accountType: extracted.type
         });
       }
     });
@@ -116,9 +121,25 @@ const PendingFinancialImportsModal: React.FC<PendingFinancialImportsModalProps> 
     setAccountUpdates(updates);
   };
 
-  const findMatchingAccount = (name: string): number | null => {
+  const findMatchingAccount = (name: string, extractedType?: string): number | null => {
     const lowerName = name.toLowerCase();
-    const index = bankData.accounts.findIndex(acc => 
+    const isLoan = (extractedType || '').toLowerCase() === 'loan';
+
+    if (isLoan) {
+      const bankFromName = lowerName.replace(/\s*loan\s*$/i, '').trim();
+      const loanMatchIndex = bankData.accounts.findIndex(
+        acc => acc.type.toLowerCase() === 'loan' &&
+          (lowerName.includes(acc.bank.toLowerCase()) ||
+           acc.bank.toLowerCase().includes(bankFromName) ||
+           bankFromName.includes(acc.bank.toLowerCase()))
+      );
+      if (loanMatchIndex >= 0) return loanMatchIndex;
+      const anyLoanIndex = bankData.accounts.findIndex(acc => acc.type.toLowerCase() === 'loan');
+      if (anyLoanIndex >= 0 && bankData.accounts.filter(a => a.type.toLowerCase() === 'loan').length === 1) return anyLoanIndex;
+      return null;
+    }
+
+    const index = bankData.accounts.findIndex(acc =>
       acc.bank.toLowerCase().includes(lowerName) ||
       lowerName.includes(acc.bank.toLowerCase()) ||
       acc.type.toLowerCase().includes(lowerName)
@@ -192,6 +213,17 @@ const PendingFinancialImportsModal: React.FC<PendingFinancialImportsModalProps> 
       hour: '2-digit',
       minute: '2-digit'
     });
+  };
+
+  const formatAccountType = (type: string): string => {
+    const t = type.toLowerCase();
+    if (t === 'checking') return 'Checking';
+    if (t === 'savings') return 'Savings';
+    if (t === 'loan') return 'Loan';
+    if (t === 'brokerage') return 'Brokerage';
+    if (t === 'retirement') return 'Retirement';
+    if (t === 'crypto') return 'Crypto';
+    return type;
   };
 
   if (!show) return null;
@@ -276,7 +308,13 @@ const PendingFinancialImportsModal: React.FC<PendingFinancialImportsModalProps> 
                   </h3>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                     {pendingImports.map(imp => {
-                      const info = BROKERAGE_INFO[imp.extractedData.source];
+                      const info = BROKERAGE_INFO[imp.extractedData.source] || {
+                        name: (imp.extractedData.source && imp.extractedData.source !== 'unknown')
+                          ? String(imp.extractedData.source).charAt(0).toUpperCase() + String(imp.extractedData.source).slice(1)
+                          : 'Unknown',
+                        icon: '📊',
+                        color: colors.primary
+                      };
                       const isSelected = selectedImport?.id === imp.id;
                       
                       return (
@@ -360,7 +398,7 @@ const PendingFinancialImportsModal: React.FC<PendingFinancialImportsModalProps> 
                               <div>
                                 <div style={{ fontWeight: 600, color: colors.text }}>{account.name}</div>
                                 <div style={{ fontSize: '0.75rem', color: colors.textSecondary }}>
-                                  {account.type} • {account.currency}
+                                  {formatAccountType(account.type)} • {account.currency}
                                 </div>
                               </div>
                               <div style={{ 
@@ -368,11 +406,14 @@ const PendingFinancialImportsModal: React.FC<PendingFinancialImportsModalProps> 
                                 fontWeight: 700, 
                                 color: colors.primary 
                               }}>
-                                {formatCurrency(account.balance, account.currency)}
+                                {formatCurrency(account.type === 'loan' ? Math.abs(account.balance) : account.balance, account.currency)}
+                                {account.type === 'loan' && account.balance < 0 && (
+                                  <span style={{ fontSize: '0.7rem', color: colors.textSecondary, display: 'block', fontWeight: 400 }}>Principal (stored as negative)</span>
+                                )}
                               </div>
                             </div>
                             
-                            {/* Match Info */}
+                            {/* Match Info + Impact Summary */}
                             {(existingAccount || existingDeposit) && (
                               <div style={{
                                 padding: '0.5rem',
@@ -392,9 +433,52 @@ const PendingFinancialImportsModal: React.FC<PendingFinancialImportsModalProps> 
                                   )}
                                   {' → '}
                                   <span style={{ color: colors.primary, fontWeight: 600 }}>
-                                    {formatCurrency(account.balance, account.currency)}
+                                    {formatCurrency(account.type === 'loan' ? Math.abs(account.balance) : account.balance, account.currency)}
                                   </span>
                                 </div>
+                                {update?.action !== 'skip' && (() => {
+                                  const currentVal = Number(existingAccount?.amount ?? existingDeposit?.deposit ?? 0) || 0;
+                                  const newVal = account.balance;
+                                  const delta = newVal - currentVal;
+                                  const isLoan = (account.type || '').toLowerCase() === 'loan';
+                                  const absCurrent = Math.abs(currentVal);
+                                  const pct = absCurrent !== 0 && !Number.isNaN(delta)
+                                    ? Math.round((delta / absCurrent) * 100)
+                                    : null;
+                                  const isIncrease = delta > 0;
+                                  const isDecrease = delta < 0;
+                                  const deltaLabel = isLoan
+                                    ? (isIncrease ? 'Principal ↑' : 'Principal ↓')
+                                    : (isIncrease ? 'will increase by' : 'will decrease by');
+                                  const deltaStr = formatCurrency(Math.abs(delta), account.currency);
+                                  const pctStr = pct !== null ? ` (${pct > 0 ? '+' : ''}${pct}% ${isDecrease ? 'decrease' : 'increase'})` : '';
+                                  return (
+                                    <div style={{
+                                      marginTop: '0.35rem',
+                                      padding: '0.35rem 0.5rem',
+                                      background: colors.surface,
+                                      borderRadius: '0.25rem',
+                                      borderLeft: `3px solid ${isIncrease ? '#10b981' : isDecrease ? '#f59e0b' : colors.border}`,
+                                      fontWeight: 600,
+                                      color: isIncrease ? '#059669' : isDecrease ? '#d97706' : colors.text
+                                    }}>
+                                      {account.name} {deltaLabel} {deltaStr}{pctStr}
+                                    </div>
+                                  );
+                                })()}
+                              </div>
+                            )}
+                            {(!existingAccount && !existingDeposit) && update?.action === 'create' && (
+                              <div style={{
+                                marginTop: '0.35rem',
+                                padding: '0.35rem 0.5rem',
+                                background: `${colors.primary}12`,
+                                borderRadius: '0.25rem',
+                                fontSize: '0.75rem',
+                                fontWeight: 600,
+                                color: colors.primary
+                              }}>
+                                New account: {formatCurrency(account.type === 'loan' ? Math.abs(account.balance) : account.balance, account.currency)}
                               </div>
                             )}
                             

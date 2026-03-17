@@ -52,9 +52,11 @@ export function parseExtractedText(text: string, mode: ScanMode, hints?: ParseHi
 }
 
 /** Account type labels we look for in OCR (order matters for matching) */
-const ACCOUNT_LABELS: { pattern: RegExp; type: 'checking' | 'savings' | 'brokerage' | 'retirement' | 'crypto' | 'other'; name: string }[] = [
+const ACCOUNT_LABELS: { pattern: RegExp; type: 'checking' | 'savings' | 'brokerage' | 'retirement' | 'crypto' | 'loan' | 'other'; name: string }[] = [
   { pattern: /checking/i, type: 'checking', name: 'Checking' },
   { pattern: /savings?(\s+account)?/i, type: 'savings', name: 'Savings' },
+  { pattern: /mortgage\s+loan|mortgage\s+loan\s+\(|pay\s+loan|principal\s+balance/i, type: 'loan', name: 'Loan' },
+  { pattern: /\bloan\b/i, type: 'loan', name: 'Loan' },
   { pattern: /total\s+available\s+balance|total\s+balance/i, type: 'other', name: 'Total' },
   { pattern: /brokerage|investment\s+account/i, type: 'brokerage', name: 'Brokerage' },
   { pattern: /retirement|401k|ira/i, type: 'retirement', name: 'Retirement' },
@@ -72,6 +74,7 @@ function detectFinancialData(text: string, lines: string[], keywords?: string): 
   // Determine source from keywords first (user override), then text
   let source = 'unknown';
   const sourcePatterns: Record<string, RegExp> = {
+    'chase': /chase/i,
     'robinhood': /robinhood/i,
     'fidelity': /fidelity/i,
     'schwab': /schwab|charles schwab/i,
@@ -112,10 +115,11 @@ function detectFinancialData(text: string, lines: string[], keywords?: string): 
         const amountsInLine = (line.match(amountPattern) || []).map(parseAmount).filter(v => v >= 0.01);
         const nextLine = lines[i + 1];
         const amountsNext = nextLine ? (nextLine.match(amountPattern) || []).map(parseAmount).filter(v => v >= 0.01) : [];
-        const candidates = [...amountsInLine, ...amountsNext].filter(v => !usedAmounts.has(v));
+        const candidates = [...amountsInLine, ...amountsNext].filter(v => !usedAmounts.has(Math.abs(v)));
         if (candidates.length > 0) {
-          const balance = candidates[0];
-          usedAmounts.add(balance);
+          const rawBalance = candidates[0];
+          const balance = type === 'loan' ? -rawBalance : rawBalance;
+          usedAmounts.add(Math.abs(rawBalance));
           accounts.push({ name, type, balance, currency });
         }
         break; // one label per line
@@ -130,15 +134,25 @@ function detectFinancialData(text: string, lines: string[], keywords?: string): 
   const maxAmount = Math.max(...parsedAmounts);
   if (maxAmount < 1) return null;
 
+  const loanKeywords = /mortgage|principal\s*balance|pay\s*loan|\bloan\b/i;
+  const textSuggestsLoan = loanKeywords.test(text);
+
   const totalValue = accounts.length > 0
     ? accounts.reduce((sum, a) => sum + a.balance, 0)
-    : maxAmount;
-  const finalAccounts = accounts.length >= 2
-    ? accounts
+    : (textSuggestsLoan ? -maxAmount : maxAmount);
+  // Use detected account(s) when we have at least one; only fall back to single brokerage when none matched
+  const finalAccounts = accounts.length >= 1
+    ? accounts.map(a => ({
+        ...a,
+        name: source !== 'unknown' && accounts.length === 1
+          ? `${source.charAt(0).toUpperCase() + source.slice(1)} ${a.name}` : a.name,
+      }))
     : [{
-        name: keywords || source !== 'unknown' ? source : 'Investment Account',
-        type: 'brokerage' as const,
-        balance: maxAmount,
+        name: keywords?.trim() || (textSuggestsLoan
+          ? (source !== 'unknown' ? `${source.charAt(0).toUpperCase() + source.slice(1)} Loan` : 'Loan')
+          : (source !== 'unknown' ? source : 'Investment Account')),
+        type: (textSuggestsLoan ? 'loan' : 'brokerage') as const,
+        balance: textSuggestsLoan ? -maxAmount : maxAmount,
         currency,
       }];
 

@@ -8,6 +8,7 @@ import React, { useState, useEffect } from 'react';
 
 export const SAFE_SESSION_STORAGE_KEY = 'myday-safe-session-minutes';
 export const SAFE_SESSION_OPTIONS = [
+  { value: 1, label: '1 min' },
   { value: 5, label: '5 min' },
   { value: 15, label: '15 min' },
   { value: 30, label: '30 min' },
@@ -35,7 +36,7 @@ const SafeLockScreen: React.FC<SafeLockScreenProps> = ({ entryCount, onUnlock, i
   const [sessionMinutes, setSessionMinutes] = useState<number>(() => {
     const raw = localStorage.getItem(SAFE_SESSION_STORAGE_KEY);
     const n = raw ? parseInt(raw, 10) : NaN;
-    return SAFE_SESSION_OPTIONS.some(o => o.value === n) ? n : 15;
+    return SAFE_SESSION_OPTIONS.some(o => o.value === n) ? n : 5;
   });
 
   useEffect(() => {
@@ -229,7 +230,7 @@ const SafeLockScreen: React.FC<SafeLockScreenProps> = ({ entryCount, onUnlock, i
         opacity: 0.6,
         lineHeight: 1.6
       }}>
-        Auto-locks after {sessionMinutes} min of inactivity or when you switch tabs
+        Auto-locks after {sessionMinutes} min of inactivity or when you switch tabs. Clicks, keys, and scroll reset the timer.
       </p>
 
       {/* Reset Confirmation Modal */}

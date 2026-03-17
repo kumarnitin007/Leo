@@ -306,16 +306,27 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
     const newAccounts = [...accounts];
     const newDeposits = [...deposits];
 
+    const mapExtractedTypeToBankAccountType = (accountType?: string): string => {
+      if (!accountType) return 'Investment';
+      const t = accountType.toLowerCase();
+      if (t === 'checking' || t === 'savings') return 'Saving';
+      if (t === 'loan') return 'Loan';
+      return 'Investment';
+    };
+
     updates.forEach(update => {
       if (update.action === 'skip') return;
+
+      const isLoan = (update.accountType || '').toLowerCase() === 'loan';
+      const effectiveBalance = isLoan ? -Math.abs(Number(update.newBalance) || 0) : (Number(update.newBalance) || 0);
 
       if (update.action === 'create') {
         if (update.type === 'account') {
           newAccounts.push({
             bank: update.accountName,
-            type: 'Investment',
+            type: mapExtractedTypeToBankAccountType(update.accountType),
             holders: '',
-            amount: update.newBalance,
+            amount: effectiveBalance,
             roi: 0,
             online: 'Yes',
             address: '',
@@ -324,22 +335,21 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
             done: false,
             currency: update.currency as Currency || 'USD',
             lastBalanceUpdatedAt: now,
-            balanceHistory: [{ date: now, amount: Number(update.newBalance) || 0, source: 'Imported from screenshot' }],
+            balanceHistory: [{ date: now, amount: effectiveBalance, source: 'Imported from screenshot' }],
           });
         }
       } else if (update.action === 'update' && update.existingIndex !== undefined) {
         if (update.type === 'account') {
           const prev = newAccounts[update.existingIndex];
           const prevAmount = Number(prev.amount) || 0;
-          const newBalance = update.newBalance;
-          const newAmount = Number(newBalance) || 0;
           newAccounts[update.existingIndex] = {
             ...prev,
-            amount: newBalance,
+            type: mapExtractedTypeToBankAccountType(update.accountType) || prev.type,
+            amount: effectiveBalance,
             lastBalanceUpdatedAt: now,
             balanceHistory: [
               ...(prev.balanceHistory || []),
-              { date: now, amount: newAmount, previousAmount: prevAmount, source: 'Financial import' },
+              { date: now, amount: effectiveBalance, previousAmount: prevAmount, source: 'Financial import' },
             ],
           };
         } else if (update.type === 'deposit') {
@@ -448,17 +458,18 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
   useEffect(() => {
     if (loading) return;
     
-    // ALL totals from Accounts sheet ONLY
+    // Totals: include both Accounts (type=FD) and Deposits table for FD invested/maturity
     const accountBalance = accounts.reduce((s,a)=>s+(Number(a.amount)||0),0);
-    const fdTotal = accounts.filter(a => a.type === "FD").reduce((s,a)=>s+(Number(a.amount)||0),0);
-    // Estimate FD maturity using ROI (1-year projection)
-    const fdMaturityEst = accounts.filter(a => a.type === "FD").reduce((s,a) => {
+    const fdTotalAccounts = accounts.filter(a => a.type === "FD").reduce((s,a)=>s+(Number(a.amount)||0),0);
+    const fdMaturityEstAccounts = accounts.filter(a => a.type === "FD").reduce((s,a) => {
       const principal = Number(a.amount) || 0;
       const roi = Number(a.roi) || 0.07;
       return s + principal * (1 + roi);
     }, 0);
-    const totalInvested = fdTotal; // FDs from accounts
-    const totalMaturity = fdMaturityEst; // Estimated maturity
+    const fdTotalDeposits = deposits.reduce((s,d)=>s+(Number(d.deposit)||0),0);
+    const fdMaturityDeposits = deposits.reduce((s,d)=>s+(Number(d.maturityAmt)||Number(d.deposit)||0),0);
+    const totalInvested = fdTotalAccounts + fdTotalDeposits;
+    const totalMaturity = fdMaturityEstAccounts + fdMaturityDeposits;
     
     // Generate alerts - same logic as "Next 30 Days" section
     const alertsList: FinancialAlertsSummary['alerts'] = [];
@@ -473,7 +484,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
         if (severity === 'urgent') urgentCount++;
         if (severity === 'warning') warningCount++;
         alertsList.push({
-          title: `${d.bank} FD Maturing`,
+          title: `${d.bank || d.depositId || d.type || 'FD'} Maturing`,
           description: fmt(Number(d.maturityAmt)||Number(d.deposit), d.currency),
           daysUntil: days,
           severity,
@@ -1305,15 +1316,21 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
   const sumConverted = (items: {amount?: number|string; currency?: Currency}[]) => 
     items.reduce((s, a) => s + convertCurrency(Number(a.amount) || 0, (a.currency || 'INR') as Currency, targetCurrency, exchangeRates), 0);
   
-  const totalInvested = accounts.filter(a => a.type === "FD").reduce((s,a) => 
+  // FD totals: include both Accounts (type=FD) and Deposits table so overview shows correct amount when user only has deposits
+  const accountsFdInvested = accounts.filter(a => a.type === "FD").reduce((s,a) => 
     s + convertCurrency(Number(a.amount) || 0, (a.currency || 'INR') as Currency, targetCurrency, exchangeRates), 0);
-  
-  const totalMaturity = accounts.filter(a => a.type === "FD").reduce((s,a) => {
+  const accountsFdMaturity = accounts.filter(a => a.type === "FD").reduce((s,a) => {
     const principal = Number(a.amount) || 0;
     const roi = Number(a.roi) || 0.07;
     const maturityVal = principal * (1 + roi);
     return s + convertCurrency(maturityVal, (a.currency || 'INR') as Currency, targetCurrency, exchangeRates);
   }, 0);
+  const depositsTotalInvested = deposits.reduce((s, d) => 
+    s + convertCurrency(Number(d.deposit) || 0, (d.currency || 'INR') as Currency, targetCurrency, exchangeRates), 0);
+  const depositsTotalMaturity = deposits.reduce((s, d) => 
+    s + convertCurrency(Number(d.maturityAmt) || Number(d.deposit) || 0, (d.currency || 'INR') as Currency, targetCurrency, exchangeRates), 0);
+  const totalInvested = accountsFdInvested + depositsTotalInvested;
+  const totalMaturity = accountsFdMaturity + depositsTotalMaturity;
   
   const netWorthConverted = accounts.reduce((s, a) => 
     s + convertCurrency(Number(a.amount) || 0, (a.currency || 'INR') as Currency, targetCurrency, exchangeRates), 0);
@@ -1430,7 +1447,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
       maturingSoonDeposits.push({
         type: 'maturity',
         title: `${d.type || 'FD'} matures`,
-        bank: d.bank,
+        bank: d.bank || d.depositId || d.type || 'Unnamed',
         date: d.maturityDate,
         days,
         amount: String(d.maturityAmt),
@@ -1929,7 +1946,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                     <span style={{fontSize:10,color:THEME.textMuted,fontWeight:500,textTransform:"uppercase",letterSpacing:"0.3px"}}>Invested</span>
                   </div>
                   <div style={{fontSize:18,fontWeight:700,color:THEME.text,fontFamily:"monospace"}}>{fmt(totalInvested, targetCurrency)}</div>
-                  <div style={{fontSize:10,color:THEME.textMuted,marginTop:4}}>{accounts.filter(a=>a.type==="FD").length} FDs</div>
+                  <div style={{fontSize:10,color:THEME.textMuted,marginTop:4}}>{deposits.length + accounts.filter(a=>a.type==="FD").length} FDs</div>
                 </div>
                 <div style={{background:THEME.cardBg,padding:"14px 16px",textAlign:"center"}}>
                   <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:6,marginBottom:6}}>
@@ -2209,7 +2226,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                     <div style={{flex:1,background:rowBg,border:`1px solid ${isDone ? "#dcfce7" : isPast ? "#1F2937" : days != null && days <= 90 ? "#fecaca" : "#1F2937"}`,borderRadius:14,padding:"12px 16px",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:10,transition:"all 0.3s"}}>
                       <div style={{flex:1}}>
                         <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
-                          <span style={{fontWeight:800,color:isDone ? "#6EE7B7" : "#F3F4F6",fontSize:14,textDecoration:isDone ? "line-through" : "none"}}>{d.bank}</span>
+                          <span style={{fontWeight:800,color:isDone ? "#6EE7B7" : "#F3F4F6",fontSize:14,textDecoration:isDone ? "line-through" : "none"}}>{d.bank || d.depositId || d.type || 'Unnamed'}</span>
                           <span style={{fontSize:11,color:"#6B7280",background:THEME.cardBg,padding:"2px 8px",borderRadius:20}}>{d.type}</span>
                           {isDone && <span style={{fontSize:11,color:"#34D399",fontWeight:700}}>✓ Done</span>}
                         </div>
@@ -3832,11 +3849,37 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                 <div><label style={labelSt}>Linked Account</label><input style={inputSt} value={form.linkedAccount||""} onChange={e=>setForm({...form,linkedAccount:e.target.value})} placeholder="Interest credit account" /></div>
                 <div><label style={labelSt}>Maturity Action</label><input style={inputSt} value={form.maturityAction||""} onChange={e=>setForm({...form,maturityAction:e.target.value})} placeholder="What to do at maturity" /></div>
                 <div style={{gridColumn:"span 2"}}><label style={labelSt}>Notes</label><textarea style={{...inputSt,minHeight:60,resize:"vertical"}} value={form.notes||""} onChange={e=>setForm({...form,notes:e.target.value})} /></div>
-                {(form as Deposit).balanceHistory?.length > 0 && (
-                  <div style={{gridColumn:"span 2",padding:"10px 0",borderTop:`1px solid ${THEME.border}`,marginTop:6}}>
-                    <div style={{fontSize:11,fontWeight:700,color:THEME.textLight,marginBottom:6}}>Amount history</div>
-                    <div style={{display:"flex",flexDirection:"column",gap:4,maxHeight:120,overflowY:"auto"}}>
-                      {(form as Deposit).balanceHistory!.map((h: { date: string; amount: number; previousAmount?: number; source?: string }, i: number) => (
+                {(form as Deposit).balanceHistory?.length > 0 && (() => {
+                  const hist = (form as Deposit).balanceHistory!;
+                  const amounts = hist.map((h: { amount: number }) => Number(h.amount) || 0);
+                  const minAmt = Math.min(...amounts, 0);
+                  const maxAmt = Math.max(...amounts, 1);
+                  const range = maxAmt - minAmt || 1;
+                  const w = 280; const h = 56;
+                  const barW = Math.max(4, (w - (hist.length - 1) * 4) / hist.length);
+                  return (
+                  <div style={{gridColumn:"span 2",padding:"12px 0",borderTop:`1px solid ${THEME.border}`,marginTop:8}}>
+                    <div style={{fontSize:12,fontWeight:700,color:THEME.text,marginBottom:6}}>📈 Amount history</div>
+                    <div style={{fontSize:10,color:THEME.textLight,marginBottom:8}}>Updates from imports and edits.</div>
+                    <div style={{marginBottom:10}}>
+                      <svg width={w} height={h} style={{display:"block",maxWidth:"100%"}}>
+                        {amounts.map((amt, i) => {
+                          const norm = range ? (amt - minAmt) / range : 0;
+                          const barH = Math.max(2, norm * (h - 8));
+                          const y = h - 4 - barH;
+                          const x = i * (barW + 4);
+                          return (
+                            <rect key={i} x={x} y={y} width={barW} height={barH} rx={2} fill="rgba(16,185,129,0.7)" />
+                          );
+                        })}
+                      </svg>
+                      <div style={{fontSize:9,color:THEME.textLight,display:"flex",justifyContent:"space-between",marginTop:2}}>
+                        <span>{hist.length > 0 ? new Date(hist[0].date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: '2-digit' }) : ''}</span>
+                        <span>{hist.length > 0 ? new Date(hist[hist.length - 1].date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: '2-digit' }) : ''}</span>
+                      </div>
+                    </div>
+                    <div style={{display:"flex",flexDirection:"column",gap:4,maxHeight:140,overflowY:"auto"}}>
+                      {hist.map((h: { date: string; amount: number; previousAmount?: number; source?: string }, i: number) => (
                         <div key={i} style={{fontSize:11,color:THEME.text,display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:4}}>
                           <span>{new Date(h.date).toLocaleDateString(undefined, { dateStyle: 'short' })} {h.source && <span style={{color:THEME.textLight}}>· {h.source}</span>}</span>
                           <span style={{fontFamily:"monospace",fontWeight:600}}>
@@ -3846,7 +3889,8 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                       ))}
                     </div>
                   </div>
-                )}
+                  );
+                })()}
               </div>
             )}
 
@@ -3874,11 +3918,38 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                   </label>
                   <span style={{fontSize:10,color:"#6B7280"}}>(shown as "Other Accounts" aggregate)</span>
                 </div>
-                {(form as BankAccount).balanceHistory?.length > 0 && (
-                  <div style={{gridColumn:"span 2",padding:"10px 0",borderTop:`1px solid ${THEME.border}`,marginTop:6}}>
-                    <div style={{fontSize:11,fontWeight:700,color:THEME.textLight,marginBottom:6}}>Balance history</div>
-                    <div style={{display:"flex",flexDirection:"column",gap:4,maxHeight:120,overflowY:"auto"}}>
-                      {(form as BankAccount).balanceHistory!.map((h: { date: string; amount: number; previousAmount?: number; source?: string }, i: number) => (
+                {(form as BankAccount).balanceHistory?.length > 0 && (() => {
+                  const hist = (form as BankAccount).balanceHistory!;
+                  const amounts = hist.map((h: { amount: number }) => Number(h.amount) || 0);
+                  const minAmt = Math.min(...amounts, 0);
+                  const maxAmt = Math.max(...amounts, 1);
+                  const range = maxAmt - minAmt || 1;
+                  const w = 280; const h = 56;
+                  const barW = Math.max(4, (w - (hist.length - 1) * 4) / hist.length);
+                  return (
+                  <div style={{gridColumn:"span 2",padding:"12px 0",borderTop:`1px solid ${THEME.border}`,marginTop:8}}>
+                    <div style={{fontSize:12,fontWeight:700,color:THEME.text,marginBottom:6}}>📈 Balance history</div>
+                    <div style={{fontSize:10,color:THEME.textLight,marginBottom:8}}>Updates from imports and edits. View when editing this account.</div>
+                    {/* Simple bar chart */}
+                    <div style={{marginBottom:10}}>
+                      <svg width={w} height={h} style={{display:"block",maxWidth:"100%"}}>
+                        {amounts.map((amt, i) => {
+                          const norm = range ? (amt - minAmt) / range : 0;
+                          const barH = Math.max(2, norm * (h - 8));
+                          const y = h - 4 - barH;
+                          const x = i * (barW + 4);
+                          return (
+                            <rect key={i} x={x} y={y} width={barW} height={barH} rx={2} fill={amt >= 0 ? "rgba(16,185,129,0.7)" : "rgba(239,68,68,0.7)"} />
+                          );
+                        })}
+                      </svg>
+                      <div style={{fontSize:9,color:THEME.textLight,display:"flex",justifyContent:"space-between",marginTop:2}}>
+                        <span>{hist.length > 0 ? new Date(hist[0].date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: '2-digit' }) : ''}</span>
+                        <span>{hist.length > 0 ? new Date(hist[hist.length - 1].date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: '2-digit' }) : ''}</span>
+                      </div>
+                    </div>
+                    <div style={{display:"flex",flexDirection:"column",gap:4,maxHeight:140,overflowY:"auto"}}>
+                      {hist.map((h: { date: string; amount: number; previousAmount?: number; source?: string }, i: number) => (
                         <div key={i} style={{fontSize:11,color:THEME.text,display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:4}}>
                           <span>{new Date(h.date).toLocaleDateString(undefined, { dateStyle: 'short' })} {h.source && <span style={{color:THEME.textLight}}>· {h.source}</span>}</span>
                           <span style={{fontFamily:"monospace",fontWeight:600}}>
@@ -3888,7 +3959,8 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                       ))}
                     </div>
                   </div>
-                )}
+                  );
+                })()}
               </div>
             )}
 

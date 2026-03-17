@@ -98,10 +98,10 @@ export interface PrescriptionData {
 }
 
 export interface FinancialScreenshotData {
-  source: 'robinhood' | 'fidelity' | 'schwab' | 'vanguard' | 'etrade' | 'zerodha' | 'groww' | 'coinbase' | 'sofi' | 'unknown';
+  source: 'robinhood' | 'fidelity' | 'schwab' | 'vanguard' | 'etrade' | 'zerodha' | 'groww' | 'coinbase' | 'sofi' | 'chase' | 'unknown';
   accounts: Array<{
     name: string;
-    type: 'brokerage' | 'retirement' | 'savings' | 'checking' | 'crypto' | 'other';
+    type: 'brokerage' | 'retirement' | 'savings' | 'checking' | 'crypto' | 'loan' | 'other';
     balance: number;
     currency: string;
     holdings?: Array<{

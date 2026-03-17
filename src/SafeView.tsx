@@ -51,7 +51,7 @@ import { decryptData } from './utils/encryption';
 import { getPendingImportCount } from './services/pendingFinancialImports';
 import { SAFE_SESSION_STORAGE_KEY, SAFE_SESSION_OPTIONS } from './components/SafeLockScreen';
 
-const DEFAULT_SESSION_MINUTES = 15;
+const DEFAULT_SESSION_MINUTES = 5;
 const LOCK_WARNING_TIME = 60 * 1000; // 1 minute before lock
 
 function getSafeSessionMs(): number {

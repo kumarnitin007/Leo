@@ -117,7 +117,8 @@ export const detectBrokerageSource = (text: string): FinancialScreenshotData['so
   return 'unknown';
 };
 
-export const BROKERAGE_INFO: Record<FinancialScreenshotData['source'], { name: string; icon: string; color: string }> = {
+export const BROKERAGE_INFO: Record<string, { name: string; icon: string; color: string }> = {
+  chase: { name: 'Chase', icon: '🏦', color: '#117ACA' },
   robinhood: { name: 'Robinhood', icon: '🪶', color: '#00C805' },
   fidelity: { name: 'Fidelity', icon: '📊', color: '#4CAF50' },
   schwab: { name: 'Charles Schwab', icon: '💼', color: '#00A0DF' },
@@ -127,5 +128,5 @@ export const BROKERAGE_INFO: Record<FinancialScreenshotData['source'], { name: s
   groww: { name: 'Groww', icon: '🌱', color: '#00D09C' },
   coinbase: { name: 'Coinbase', icon: '🪙', color: '#0052FF' },
   sofi: { name: 'SoFi', icon: '🏦', color: '#00B4D8' },
-  unknown: { name: 'Unknown Brokerage', icon: '💰', color: '#6B7280' }
+  unknown: { name: 'Unknown', icon: '💰', color: '#6B7280' }
 };

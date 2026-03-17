@@ -239,10 +239,11 @@ export class VoiceCommandDatabaseService {
     try {
       const encrypted = encryptTranscript(String(commandData.rawTranscript || ''));
       const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(); // 30 days
+      const sessionId = (commandData as any).sessionId || `scan-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
 
       const row: Record<string, unknown> = {
         user_id: (commandData as any).userId || null,
-        session_id: (commandData as any).sessionId || undefined,
+        session_id: sessionId,
         raw_transcript: encrypted,
         raw_transcript_encrypted: true,
         language: (commandData as any).language || 'en-US',
