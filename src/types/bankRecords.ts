@@ -149,6 +149,14 @@ export interface FinancialAlert {
   amount?: number;
 }
 
+/** One snapshot of total portfolio value (accounts + deposits) for history chart */
+export interface TotalValueHistoryEntry {
+  date: string;           // ISO timestamp
+  totalAccountValue: number;  // Sum of all account amounts (loans negative)
+  totalDepositValue: number;  // Sum of all deposit amounts
+  source?: string;       // e.g. 'Manual edit', 'Financial import', 'Created', 'Excel import'
+}
+
 export interface BankRecordsData {
   deposits: Deposit[];
   accounts: BankAccount[];
@@ -158,6 +166,8 @@ export interface BankRecordsData {
   // Currency settings
   exchangeRates?: { USD: number; EUR: number; GBP: number };
   displayCurrency?: 'ORIGINAL' | 'INR' | 'USD' | 'EUR' | 'GBP';
+  // Total value over time (any balance edit or new account/deposit)
+  totalValueHistory?: TotalValueHistoryEntry[];
   // Metadata
   updatedAt?: string;
   version?: number; // For future migrations

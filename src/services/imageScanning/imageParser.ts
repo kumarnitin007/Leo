@@ -151,7 +151,7 @@ function detectFinancialData(text: string, lines: string[], keywords?: string): 
         name: keywords?.trim() || (textSuggestsLoan
           ? (source !== 'unknown' ? `${source.charAt(0).toUpperCase() + source.slice(1)} Loan` : 'Loan')
           : (source !== 'unknown' ? source : 'Investment Account')),
-        type: (textSuggestsLoan ? 'loan' : 'brokerage') as const,
+        type: (textSuggestsLoan ? 'loan' : 'brokerage') as 'loan' | 'brokerage',
         balance: textSuggestsLoan ? -maxAmount : maxAmount,
         currency,
       }];

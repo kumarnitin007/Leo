@@ -119,6 +119,23 @@ const PendingFinancialImportsModal: React.FC<PendingFinancialImportsModalProps> 
       }
     });
 
+    // When scan swaps Checking/Savings: if exactly 2 account-updates for same bank, match by amount (smallest→smallest, largest→largest)
+    const accountUpdateKeys = Array.from(updates.keys()).filter(k => k.startsWith(imp.id));
+    if (accountUpdateKeys.length === 2) {
+      const u0 = updates.get(accountUpdateKeys[0])!;
+      const u1 = updates.get(accountUpdateKeys[1])!;
+      if (u0.type === 'account' && u1.type === 'account' && u0.action === 'update' && u1.action === 'update' && u0.existingIndex !== undefined && u1.existingIndex !== undefined) {
+        const bankMatchesSource = (acc: BankAccount) => acc.bank.toLowerCase().includes(source) || source.includes(acc.bank.toLowerCase());
+        const candidates = bankData.accounts.map((acc, i) => ({ acc, i, amount: Number(acc.amount) || 0 })).filter(({ acc }) => bankMatchesSource(acc));
+        if (candidates.length === 2) {
+          const byNewBalance = [u0, u1].sort((a, b) => a.newBalance - b.newBalance);
+          const byAmount = [...candidates].sort((a, b) => a.amount - b.amount);
+          updates.set(accountUpdateKeys[0], { ...byNewBalance[0], existingIndex: byAmount[0].i });
+          updates.set(accountUpdateKeys[1], { ...byNewBalance[1], existingIndex: byAmount[1].i });
+        }
+      }
+    }
+
     setAccountUpdates(updates);
   };
 

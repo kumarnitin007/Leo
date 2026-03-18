@@ -16,8 +16,8 @@
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { SupabaseClient } from '@supabase/supabase-js';
-import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend, AreaChart, Area } from 'recharts';
-import { Deposit, BankAccount, Bill, ActionItem, BankRecordsData, SavingsGoal, Currency, DepositCategory } from '../types/bankRecords';
+import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend, AreaChart, Area, LineChart, Line, LabelList } from 'recharts';
+import { Deposit, BankAccount, Bill, ActionItem, BankRecordsData, SavingsGoal, Currency, DepositCategory, TotalValueHistoryEntry } from '../types/bankRecords';
 import { updateFinancialAlertsCache, FinancialAlertsSummary } from './FinancialAlertsWidget';
 import { CryptoKey, encryptData, decryptData } from '../utils/encryption';
 import { useTheme } from '../contexts/ThemeContext';
@@ -250,7 +250,10 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
   const [showDone, setShowDone] = useState(false);
   const [showSetupBanner, setShowSetupBanner] = useState(false);
   const [show30Days, setShow30Days] = useState(false);
+  const [showPortfolioHistory, setShowPortfolioHistory] = useState(true);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  const [totalValueHistory, setTotalValueHistory] = useState<TotalValueHistoryEntry[]>([]);
+  const MAX_TOTAL_VALUE_HISTORY = 500;
   const [expandedBanks, setExpandedBanks] = useState<Set<string>>(new Set());
   const [showLegend, setShowLegend] = useState<Set<string>>(new Set());
   const [showMoreMenu, setShowMoreMenu] = useState(false);
@@ -370,12 +373,9 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
       }
     });
 
-    setAccounts(newAccounts);
-    setDeposits(newDeposits);
     approveFinancialImport(importId);
     setPendingImportsCount(getPendingImportCount());
-
-    await persist(newDeposits, newAccounts, bills, actions, goals);
+    save(newDeposits, newAccounts, bills, actions, goals, { recordTotalValue: true, totalValueSource: 'Financial import' });
     alert('✅ Financial import applied successfully!');
   };
 
@@ -409,6 +409,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
             setBills(parsed.bills || []);
             setActions(parsed.actions || []);
             setGoals(parsed.goals || []);
+            setTotalValueHistory(parsed.totalValueHistory || []);
             if (parsed.exchangeRates) setExchangeRates(parsed.exchangeRates);
             if (parsed.displayCurrency) setDisplayCurrency(parsed.displayCurrency);
             else setDisplayCurrency(getDefaultDisplayCurrency());
@@ -573,8 +574,15 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
     updateFinancialAlertsCache(summary);
   }, [loading, deposits, accounts, bills, actions]);
 
-  async function persist(deps: Deposit[], accs: BankAccount[], bls: Bill[], acts: ActionItem[], gls?: SavingsGoal[], rates?: {USD: number; EUR: number; GBP: number}, dispCur?: 'ORIGINAL' | 'INR' | 'USD' | 'EUR' | 'GBP') {
-    const payload: BankRecordsData = { deposits: deps, accounts: accs, bills: bls, actions: acts, goals: gls || goals, exchangeRates: rates || exchangeRates, displayCurrency: dispCur || displayCurrency, updatedAt: new Date().toISOString(), version: 1 };
+  function computeTotalValues(deps: Deposit[], accs: BankAccount[], rates: {USD: number; EUR: number; GBP: number}, dispCur: 'ORIGINAL' | 'INR' | 'USD' | 'EUR' | 'GBP'): { totalAccountValue: number; totalDepositValue: number } {
+    const toCur = dispCur === 'ORIGINAL' ? 'INR' : dispCur;
+    const totalAccountValue = accs.reduce((s, a) => s + convertCurrency(Number(a.amount) || 0, (a.currency || 'INR') as Currency, toCur, rates), 0);
+    const totalDepositValue = deps.reduce((s, d) => s + convertCurrency(Number(d.deposit) || 0, (d.currency || 'INR') as Currency, toCur, rates), 0);
+    return { totalAccountValue, totalDepositValue };
+  }
+
+  async function persist(deps: Deposit[], accs: BankAccount[], bls: Bill[], acts: ActionItem[], gls?: SavingsGoal[], rates?: {USD: number; EUR: number; GBP: number}, dispCur?: 'ORIGINAL' | 'INR' | 'USD' | 'EUR' | 'GBP', totalValueHist?: TotalValueHistoryEntry[]) {
+    const payload: BankRecordsData = { deposits: deps, accounts: accs, bills: bls, actions: acts, goals: gls || goals, exchangeRates: rates || exchangeRates, displayCurrency: dispCur || displayCurrency, totalValueHistory: totalValueHist ?? totalValueHistory, updatedAt: new Date().toISOString(), version: 1 };
     try {
       if (supabase && userId && encryptionKey) {
         // Encrypt before saving - store both encrypted data and IV as JSON
@@ -594,10 +602,17 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
     }
   }
 
-  function save(deps: Deposit[], accs: BankAccount[], bls: Bill[], acts: ActionItem[], gls?: SavingsGoal[]) {
+  function save(deps: Deposit[], accs: BankAccount[], bls: Bill[], acts: ActionItem[], gls?: SavingsGoal[], options?: { recordTotalValue?: boolean; totalValueSource?: string }) {
     setDeposits(deps); setAccounts(accs); setBills(bls); setActions(acts);
     if (gls !== undefined) setGoals(gls);
-    persist(deps, accs, bls, acts, gls);
+    let hist = totalValueHistory;
+    if (options?.recordTotalValue) {
+      const { totalAccountValue, totalDepositValue } = computeTotalValues(deps, accs, exchangeRates, displayCurrency);
+      const entry: TotalValueHistoryEntry = { date: new Date().toISOString(), totalAccountValue, totalDepositValue, source: options.totalValueSource || 'Balance change' };
+      hist = [...totalValueHistory, entry].slice(-MAX_TOTAL_VALUE_HISTORY);
+      setTotalValueHistory(hist);
+    }
+    persist(deps, accs, bls, acts, gls, undefined, undefined, hist);
   }
 
   // ── Excel Import (Smart Merge by ID) ────────────────────────────────────
@@ -919,7 +934,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
       });
       
       // Save merged data
-      save(mergedDeposits, mergedAccounts, mergedBills, actions);
+      save(mergedDeposits, mergedAccounts, mergedBills, actions, undefined, { recordTotalValue: true, totalValueSource: 'Excel import' });
       
       alert(`✅ Excel imported!\n📊 ${addedCount} new records added\n✏️ ${updatedCount} records updated\n🗑️ ${deletedCount} records deleted\n📁 Total: ${mergedDeposits.length} deposits, ${mergedAccounts.length} accounts, ${mergedBills.length} bills`);
       
@@ -945,8 +960,9 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
 
   function deleteRow(type: string, idx: number) {
     if(!confirm("Delete this record?")) return;
-    if(type==="deposit") save(deposits.filter((_,i)=>i!==idx),accounts,bills,actions);
-    else if(type==="account") save(deposits,accounts.filter((_,i)=>i!==idx),bills,actions);
+    const recordOpt = { recordTotalValue: true as const };
+    if(type==="deposit") save(deposits.filter((_,i)=>i!==idx),accounts,bills,actions, undefined, { ...recordOpt, totalValueSource: 'Deleted deposit' });
+    else if(type==="account") save(deposits,accounts.filter((_,i)=>i!==idx),bills,actions, undefined, { ...recordOpt, totalValueSource: 'Deleted account' });
     else if(type==="bill") save(deposits,accounts,bills.filter((_,i)=>i!==idx),actions);
     else save(deposits,accounts,bills,actions.filter((_,i)=>i!==idx));
   }
@@ -1292,9 +1308,40 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
   }
 
   function saveModal() {
+    const now = new Date().toISOString();
     const {type,mode,idx}=modal!;
-    if(type==="deposit"){ const d=[...deposits]; mode==="add"?d.push(form):d[idx!]=form; save(d,accounts,bills,actions); }
-    else if(type==="account"){ const a=[...accounts]; mode==="add"?a.push(form):a[idx!]=form; save(deposits,a,bills,actions); }
+    if(type==="deposit"){
+      const d=[...deposits];
+      if(mode==="add"){
+        const withHistory = { ...form, lastBalanceUpdatedAt: now, balanceHistory: [{ date: now, amount: Number(form.deposit)||0, source: 'Created' }] };
+        d.push(withHistory);
+      } else {
+        const prev = deposits[idx!];
+        const prevAmt = Number(prev.deposit)||0;
+        const newAmt = Number(form.deposit)||0;
+        const withHistory = prevAmt !== newAmt
+          ? { ...form, lastBalanceUpdatedAt: now, balanceHistory: [...(prev.balanceHistory||[]), { date: now, amount: newAmt, previousAmount: prevAmt, source: 'Manual edit' }] }
+          : form;
+        d[idx!]=withHistory;
+      }
+      save(d,accounts,bills,actions, undefined, { recordTotalValue: true, totalValueSource: mode === 'add' ? 'Created' : 'Manual edit' });
+    }
+    else if(type==="account"){
+      const a=[...accounts];
+      if(mode==="add"){
+        const withHistory = { ...form, lastBalanceUpdatedAt: now, balanceHistory: [{ date: now, amount: Number(form.amount)||0, source: 'Created' }] };
+        a.push(withHistory);
+      } else {
+        const prev = accounts[idx!];
+        const prevAmt = Number(prev.amount)||0;
+        const newAmt = Number(form.amount)||0;
+        const withHistory = prevAmt !== newAmt
+          ? { ...form, lastBalanceUpdatedAt: now, balanceHistory: [...(prev.balanceHistory||[]), { date: now, amount: newAmt, previousAmount: prevAmt, source: 'Manual edit' }] }
+          : form;
+        a[idx!]=withHistory;
+      }
+      save(deposits,a,bills,actions, undefined, { recordTotalValue: true, totalValueSource: mode === 'add' ? 'Created' : 'Manual edit' });
+    }
     else if(type==="bill"){ const b=[...bills]; mode==="add"?b.push(form):b[idx!]=form; save(deposits,accounts,b,actions); }
     else if(type==="goal"){ const g=[...goals]; mode==="add"?g.push(form):g[idx!]=form; save(deposits,accounts,bills,actions,g); }
     else { const ac=[...actions]; mode==="add"?ac.push(form):ac[idx!]=form; save(deposits,accounts,bills,ac); }
@@ -1417,6 +1464,28 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([month, amt]) => ({ month, amt: (amt / 100000).toFixed(1) }));
   })();
+
+  // Portfolio value over time (from totalValueHistory) — sorted by date for chart; dateLabel includes time so same-day snapshots are distinct
+  const portfolioHistoryChartData = useMemo(() => {
+    if (!totalValueHistory?.length) return [];
+    const sorted = [...totalValueHistory].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    const dayCounts = sorted.reduce((m, e) => { const k = new Date(e.date).toDateString(); m.set(k, (m.get(k) || 0) + 1); return m; }, new Map<string, number>());
+    return sorted.map(e => {
+      const d = new Date(e.date);
+      const dayKey = d.toDateString();
+      const sameDayCount = dayCounts.get(dayKey) ?? 1;
+      const dateLabel = sameDayCount > 1
+        ? d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: '2-digit' }) + ', ' + d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })
+        : (sorted.length > 12 ? d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' }) : d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: '2-digit' }));
+      return {
+        dateLabel,
+        fullDate: e.date,
+        totalAccountValue: Number(e.totalAccountValue) || 0,
+        totalDepositValue: Number(e.totalDepositValue) || 0,
+        source: e.source,
+      };
+    });
+  }, [totalValueHistory]);
 
   const mainTabs = [
     {id:"overview",  icon:"📊", label:"Overview", key:"1"},
@@ -1597,7 +1666,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                     {(['INR', 'USD'] as const).map(cur => (
                       <button
                         key={cur}
-                        onClick={() => { setDisplayCurrency(cur); persist(deposits, accounts, bills, actions, goals, exchangeRates, cur); }}
+                        onClick={() => { setDisplayCurrency(cur); persist(deposits, accounts, bills, actions, goals, exchangeRates, cur, totalValueHistory); }}
                         style={{
                           background: displayCurrency === cur ? 'white' : 'rgba(255,255,255,0.2)',
                           color: displayCurrency === cur ? THEME.accent : 'rgba(255,255,255,0.9)',
@@ -1736,6 +1805,58 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                     );
                   })()}
                 </div>
+
+                {/* Mobile: Portfolio value over time */}
+                <div style={{background:THEME.cardBg,borderRadius:14,padding:"14px",border:`1px solid ${THEME.border}`}}>
+                  <button
+                    onClick={() => setShowPortfolioHistory(!showPortfolioHistory)}
+                    style={{width:"100%",padding:0,background:"transparent",border:"none",cursor:"pointer",display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:showPortfolioHistory ? 12 : 0}}
+                  >
+                    <div style={{display:"flex",alignItems:"center",gap:6}}>
+                      <span style={{fontSize:11,color:THEME.textMuted,transition:"transform 0.2s",transform:showPortfolioHistory?"rotate(90deg)":"rotate(0deg)"}}>▶</span>
+                      <span style={{fontSize:12,fontWeight:700,color:THEME.text}}>📈 Portfolio value over time</span>
+                    </div>
+                    {portfolioHistoryChartData.length > 0 && (
+                      <span style={{fontSize:10,color:THEME.textLight,background:THEME.cardBgAlt,padding:"2px 8px",borderRadius:8}}>{portfolioHistoryChartData.length} points</span>
+                    )}
+                  </button>
+                  {showPortfolioHistory && (
+                    portfolioHistoryChartData.length === 0 ? (
+                      <div style={{fontSize:11,color:THEME.textLight,padding:"12px 0",textAlign:"center"}}>Edit balances or add accounts to build history. Each save records a snapshot.</div>
+                    ) : (
+                      <ResponsiveContainer width="100%" height={200}>
+                        <AreaChart data={portfolioHistoryChartData} margin={{top:4,right:4,left:4,bottom:4}}>
+                          <defs>
+                            <linearGradient id="mobilePortfolioArea" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="5%" stopColor="#10B981" stopOpacity={0.4} />
+                              <stop offset="95%" stopColor="#10B981" stopOpacity={0} />
+                            </linearGradient>
+                          </defs>
+                          <CartesianGrid strokeDasharray="3 3" stroke={THEME.border} />
+                          <XAxis dataKey="dateLabel" tick={{fill:THEME.textLight,fontSize:9}} axisLine={false} tickLine={false} />
+                          <YAxis tick={{fill:THEME.textLight,fontSize:9}} axisLine={false} tickLine={false} tickFormatter={v => fmt(v, targetCurrency)} />
+                          <Tooltip
+                            content={({ active, payload, label }) => {
+                              if (!active || !payload?.length) return null;
+                              const p = payload[0]?.payload;
+                              return (
+                                <div style={{background:THEME.cardBgAlt,border:`1px solid ${THEME.border}`,borderRadius:8,padding:"8px 12px",fontSize:11,minWidth:140}}>
+                                  <div style={{color:THEME.textMuted,marginBottom:4}}>{p?.fullDate ? fmtDate(p.fullDate) : label}</div>
+                                  <div style={{fontWeight:600,color:"#10B981"}}>Accounts: {fmt(p?.totalAccountValue ?? 0, targetCurrency)}</div>
+                                  <div style={{fontWeight:600,color:"#3B82F6"}}>Deposits: {fmt(p?.totalDepositValue ?? 0, targetCurrency)}</div>
+                                  {p?.source && <div style={{color:THEME.textLight,fontSize:10,marginTop:4}}>{p.source}</div>}
+                                </div>
+                              );
+                            }}
+                          />
+                          <Area type="monotone" dataKey="totalAccountValue" stroke="#10B981" strokeWidth={2} fill="url(#mobilePortfolioArea)" name="Total value">
+                            <LabelList dataKey="totalAccountValue" position="top" formatter={(v: number) => fmt(v, targetCurrency)} style={{fontSize:9,fill:THEME.textLight}} />
+                          </Area>
+                        </AreaChart>
+                      </ResponsiveContainer>
+                    )
+                  )}
+                </div>
               </>
             ) : (
             /* ═══ DESKTOP OVERVIEW ═══ */
@@ -1746,7 +1867,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                 <span style={{fontSize:10,color:"#6B7280",fontWeight:600}}>VIEW:</span>
                 <div style={{display:"flex",gap:4}}>
                   <button
-                    onClick={() => { setDisplayCurrency('ORIGINAL'); persist(deposits, accounts, bills, actions, goals, exchangeRates, 'ORIGINAL'); }}
+                    onClick={() => { setDisplayCurrency('ORIGINAL'); persist(deposits, accounts, bills, actions, goals, exchangeRates, 'ORIGINAL', totalValueHistory); }}
                     style={{
                       background: displayCurrency === 'ORIGINAL' ? THEME.accent : THEME.cardBgAlt,
                       color: displayCurrency === 'ORIGINAL' ? '#FFFFFF' : THEME.textMuted,
@@ -1763,7 +1884,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                   {(['INR', 'USD', 'EUR', 'GBP'] as const).map(cur => (
                     <button
                       key={cur}
-                      onClick={() => { setDisplayCurrency(cur); persist(deposits, accounts, bills, actions, goals, exchangeRates, cur); }}
+                      onClick={() => { setDisplayCurrency(cur); persist(deposits, accounts, bills, actions, goals, exchangeRates, cur, totalValueHistory); }}
                       style={{
                         background: displayCurrency === cur ? THEME.accent : THEME.cardBgAlt,
                         color: displayCurrency === cur ? '#FFFFFF' : THEME.textMuted,
@@ -1871,6 +1992,58 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                 </div>
               );
             })()}
+
+            {/* Portfolio value over time - Desktop */}
+            <div style={{background:THEME.cardBg,borderRadius:12,border:`1px solid ${THEME.border}`,overflow:"hidden"}}>
+              <button
+                onClick={() => setShowPortfolioHistory(!showPortfolioHistory)}
+                style={{width:"100%",padding:"10px 14px",background:"transparent",border:"none",cursor:"pointer",display:"flex",justifyContent:"space-between",alignItems:"center"}}
+              >
+                <div style={{display:"flex",alignItems:"center",gap:8}}>
+                  <span style={{fontSize:10,color:"#6B7280",transition:"transform 0.2s",transform:showPortfolioHistory?"rotate(90deg)":"rotate(0deg)"}}>▶</span>
+                  <span style={{fontSize:11,fontWeight:700,color:"#E5E7EB",textTransform:"uppercase"}}>📈 Portfolio value over time</span>
+                </div>
+                {portfolioHistoryChartData.length > 0 && (
+                  <span style={{fontSize:10,color:"#6B7280",background:THEME.cardBgAlt,padding:"2px 8px",borderRadius:10}}>{portfolioHistoryChartData.length} snapshots</span>
+                )}
+              </button>
+              {showPortfolioHistory && (
+                <div style={{padding:"0 14px 14px",borderTop:`1px solid ${THEME.border}`}}>
+                  {portfolioHistoryChartData.length === 0 ? (
+                    <div style={{color:THEME.textMuted,padding:20,textAlign:"center",fontSize:12}}>Edit balances or add accounts to build history. Each save records a snapshot.</div>
+                  ) : (
+                    <ResponsiveContainer width="100%" height={260}>
+                      <LineChart data={portfolioHistoryChartData} margin={{top:8,right:8,left:8,bottom:8}}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#1F2937" />
+                        <XAxis dataKey="dateLabel" tick={{fill:THEME.textLight,fontSize:11}} axisLine={false} tickLine={false} />
+                        <YAxis tick={{fill:"#6B7280",fontSize:11}} axisLine={false} tickLine={false} tickFormatter={v => fmt(v, targetCurrency)} />
+                        <Tooltip
+                          content={({ active, payload }) => {
+                            if (!active || !payload?.length) return null;
+                            const p = payload[0]?.payload;
+                            return (
+                              <div style={{background:THEME.cardBgAlt,border:`1px solid ${THEME.border}`,borderRadius:8,padding:"10px 14px",fontSize:12,minWidth:180}}>
+                                <div style={{color:THEME.textMuted,marginBottom:6}}>{p?.fullDate ? fmtDate(p.fullDate) : ''}</div>
+                                <div style={{fontWeight:600,color:"#10B981"}}>Accounts total: {fmt(p?.totalAccountValue ?? 0, targetCurrency)}</div>
+                                <div style={{fontWeight:600,color:"#3B82F6"}}>Deposits total: {fmt(p?.totalDepositValue ?? 0, targetCurrency)}</div>
+                                {p?.source && <div style={{color:THEME.textLight,fontSize:11,marginTop:6}}>Source: {p.source}</div>}
+                              </div>
+                            );
+                          }}
+                        />
+                        <Legend wrapperStyle={{fontSize:11,color:THEME.textLight}} />
+                        <Line type="monotone" dataKey="totalAccountValue" name="Account total" stroke="#10B981" strokeWidth={2} dot={{r:3}} activeDot={{r:5}}>
+                          <LabelList dataKey="totalAccountValue" position="top" formatter={(v: number) => fmt(v, targetCurrency)} style={{fontSize:10,fill:THEME.textLight}} />
+                        </Line>
+                        <Line type="monotone" dataKey="totalDepositValue" name="Deposit total" stroke="#3B82F6" strokeWidth={2} dot={{r:3}} activeDot={{r:5}}>
+                          <LabelList dataKey="totalDepositValue" position="bottom" formatter={(v: number) => fmt(v, targetCurrency)} style={{fontSize:10,fill:THEME.textLight}} />
+                        </Line>
+                      </LineChart>
+                    </ResponsiveContainer>
+                  )}
+                </div>
+              )}
+            </div>
 
             {/* Next 30 Days - Collapsible */}
             {(maturingSoonDeposits.length > 0 || actionsDue30.length > 0) && (
@@ -2901,7 +3074,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                         {(['INR', 'USD'] as const).map(cur => (
                           <button
                             key={cur}
-                            onClick={() => { setDisplayCurrency(cur); persist(deposits, accounts, bills, actions, goals, exchangeRates, cur); }}
+                            onClick={() => { setDisplayCurrency(cur); persist(deposits, accounts, bills, actions, goals, exchangeRates, cur, totalValueHistory); }}
                             style={{
                               background: displayCurrency === cur ? '#10B981' : 'rgba(255,255,255,0.1)',
                               color: displayCurrency === cur ? '#FFF' : '#94A3B8',
@@ -3193,7 +3366,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                   )}
                   <div style={{display:"flex",gap:2}}>
                     <button
-                      onClick={() => { setDisplayCurrency('ORIGINAL'); persist(deposits, accounts, bills, actions, goals, exchangeRates, 'ORIGINAL'); }}
+                      onClick={() => { setDisplayCurrency('ORIGINAL'); persist(deposits, accounts, bills, actions, goals, exchangeRates, 'ORIGINAL', totalValueHistory); }}
                       style={{
                         background: displayCurrency === 'ORIGINAL' ? THEME.accent : THEME.cardBgAlt,
                         color: displayCurrency === 'ORIGINAL' ? '#FFFFFF' : '#6B7280',
@@ -3210,7 +3383,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                     {(['INR', 'USD'] as const).map(cur => (
                       <button
                         key={cur}
-                        onClick={() => { setDisplayCurrency(cur); persist(deposits, accounts, bills, actions, goals, exchangeRates, cur); }}
+                        onClick={() => { setDisplayCurrency(cur); persist(deposits, accounts, bills, actions, goals, exchangeRates, cur, totalValueHistory); }}
                         style={{
                           background: displayCurrency === cur ? THEME.accent : THEME.cardBgAlt,
                           color: displayCurrency === cur ? '#FFFFFF' : '#6B7280',
@@ -3898,9 +4071,10 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
             {modal.type === "account" && (
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
                 <div style={{gridColumn:"span 2"}}><label style={labelSt}>Bank</label><input style={inputSt} value={form.bank||""} onChange={e=>setForm({...form,bank:e.target.value})} placeholder="e.g. SBI, Axis" /></div>
-                <div><label style={labelSt}>Type</label><input style={inputSt} value={form.type||""} onChange={e=>setForm({...form,type:e.target.value})} placeholder="Saving, Current" /></div>
+                <div><label style={labelSt}>Type</label><input style={inputSt} value={form.type||""} onChange={e=>setForm({...form,type:e.target.value})} placeholder="Saving, Current, Checking" /></div>
+                <div><label style={labelSt}>Currency</label><select style={inputSt} value={(form as BankAccount).currency||"INR"} onChange={e=>setForm({...form,currency:e.target.value})}>{CURRENCIES.map(c=><option key={c} value={c}>{c} ({CURRENCY_SYMBOLS[c]})</option>)}</select></div>
                 <div><label style={labelSt}>Holders</label><input style={inputSt} value={form.holders||""} onChange={e=>setForm({...form,holders:e.target.value})} placeholder="Account holders" /></div>
-                <div><label style={labelSt}>Balance (₹)</label><input style={inputSt} type="number" value={form.amount||""} onChange={e=>setForm({...form,amount:e.target.value})} /></div>
+                <div><label style={labelSt}>Balance ({CURRENCY_SYMBOLS[((form as BankAccount).currency as Currency) || 'INR']})</label><input style={inputSt} type="number" value={form.amount||""} onChange={e=>setForm({...form,amount:e.target.value})} /></div>
                 <div><label style={labelSt}>ROI (decimal)</label><input style={inputSt} type="number" step="0.001" value={form.roi||""} onChange={e=>setForm({...form,roi:e.target.value})} /></div>
                 <div><label style={labelSt}>Online Banking</label><input style={inputSt} value={form.online||""} onChange={e=>setForm({...form,online:e.target.value})} placeholder="Yes/No" /></div>
                 <div><label style={labelSt}>Address</label><input style={inputSt} value={form.address||""} onChange={e=>setForm({...form,address:e.target.value})} /></div>
@@ -3969,7 +4143,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
                 <div style={{gridColumn:"span 2"}}><label style={labelSt}>Bill Name</label><input style={inputSt} value={form.name||""} onChange={e=>setForm({...form,name:e.target.value})} placeholder="e.g. Electricity, Internet" /></div>
                 <div><label style={labelSt}>Frequency</label><input style={inputSt} value={form.freq||""} onChange={e=>setForm({...form,freq:e.target.value})} placeholder="Monthly, Quarterly" /></div>
-                <div><label style={labelSt}>Amount (₹)</label><input style={inputSt} type="number" value={form.amount||""} onChange={e=>setForm({...form,amount:e.target.value})} /></div>
+                <div><label style={labelSt}>Amount ({CURRENCY_SYMBOLS[(form as Bill).currency as Currency] || '₹'})</label><input style={inputSt} type="number" value={form.amount||""} onChange={e=>setForm({...form,amount:e.target.value})} /></div>
                 <div><label style={labelSt}>Due Day</label><input style={inputSt} value={form.due||""} onChange={e=>setForm({...form,due:e.target.value})} placeholder="15th" /></div>
                 <div><label style={labelSt}>Priority</label><input style={inputSt} value={form.priority||""} onChange={e=>setForm({...form,priority:e.target.value})} placeholder="Normal, High" /></div>
                 <div><label style={labelSt}>Phone</label><input style={inputSt} value={form.phone||""} onChange={e=>setForm({...form,phone:e.target.value})} /></div>
@@ -4055,7 +4229,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
             <div style={{display:"flex",gap:12,marginTop:22,justifyContent:"flex-end"}}>
               <button onClick={()=>setShowRatesModal(false)} style={{background:THEME.border,color:THEME.textLight,border:"none",borderRadius:10,padding:"9px 18px",cursor:"pointer"}}>Cancel</button>
               <button 
-                onClick={() => { persist(deposits, accounts, bills, actions, goals, exchangeRates, displayCurrency); setShowRatesModal(false); }}
+                onClick={() => { persist(deposits, accounts, bills, actions, goals, exchangeRates, displayCurrency, totalValueHistory); setShowRatesModal(false); }}
                 style={{background:"linear-gradient(135deg,#1D4ED8,#2563EB)",color:"#fff",border:"none",borderRadius:10,padding:"9px 22px",cursor:"pointer"}}
               >
                 Save Rates
