@@ -79,13 +79,14 @@ const PendingFinancialImportsModal: React.FC<PendingFinancialImportsModalProps> 
 
   const initializeMatches = (imp: PendingFinancialImport) => {
     const updates = new Map<string, AccountUpdate>();
-    
+    const source = (imp.extractedData.source || '').toLowerCase();
+
     imp.extractedData.accounts.forEach((extracted, idx) => {
-      const matchedAccount = findMatchingAccount(extracted.name, extracted.type);
+      const matchedAccount = findMatchingAccount(extracted.name, extracted.type, source, idx);
       const matchedDeposit = findMatchingDeposit(extracted.name);
-      
+
       const key = `${imp.id}-${idx}`;
-      
+
       if (matchedAccount !== null) {
         updates.set(key, {
           type: 'account',
@@ -117,13 +118,16 @@ const PendingFinancialImportsModal: React.FC<PendingFinancialImportsModalProps> 
         });
       }
     });
-    
+
     setAccountUpdates(updates);
   };
 
-  const findMatchingAccount = (name: string, extractedType?: string): number | null => {
+  const findMatchingAccount = (name: string, extractedType?: string, source?: string, orderIndex?: number): number | null => {
     const lowerName = name.toLowerCase();
-    const isLoan = (extractedType || '').toLowerCase() === 'loan';
+    const extType = (extractedType || '').toLowerCase();
+    const isLoan = extType === 'loan';
+    const isChecking = extType === 'checking';
+    const isSavings = extType === 'savings';
 
     if (isLoan) {
       const bankFromName = lowerName.replace(/\s*loan\s*$/i, '').trim();
@@ -139,10 +143,26 @@ const PendingFinancialImportsModal: React.FC<PendingFinancialImportsModalProps> 
       return null;
     }
 
+    if (source && (isChecking || isSavings) && orderIndex !== undefined) {
+      const bankMatchesSource = (acc: BankAccount) => acc.bank.toLowerCase().includes(source) || source.includes(acc.bank.toLowerCase());
+      const candidates = bankData.accounts
+        .map((acc, i) => ({ acc, i }))
+        .filter(({ acc }) => bankMatchesSource(acc));
+      const byLabel = (acc: BankAccount) => acc.bank.toLowerCase();
+      const checkingFirst = candidates.filter(({ acc }) => byLabel(acc).includes('checking'));
+      const savingsFirst = candidates.filter(({ acc }) => byLabel(acc).includes('saving'));
+      if (isChecking && checkingFirst.length > 0) return checkingFirst[0].i;
+      if (isSavings && savingsFirst.length > 0) return savingsFirst[0].i;
+      if (candidates.length > orderIndex) return candidates[orderIndex].i;
+      if (candidates.length > 0) return candidates[0].i;
+    }
+
     const index = bankData.accounts.findIndex(acc =>
       acc.bank.toLowerCase().includes(lowerName) ||
       lowerName.includes(acc.bank.toLowerCase()) ||
-      acc.type.toLowerCase().includes(lowerName)
+      acc.type.toLowerCase().includes(lowerName) ||
+      (lowerName === 'savings' && acc.type.toLowerCase() === 'saving') ||
+      (lowerName === 'saving' && acc.type.toLowerCase().includes('saving'))
     );
     return index >= 0 ? index : null;
   };
