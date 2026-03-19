@@ -38,6 +38,8 @@ export interface Deposit {
   bank: string;
   type: string;
   depositId: string;
+  /** Primary / joint deposit account owner label (one free-text field) */
+  accountOwner?: string;
   nominee: string;
   startDate: string;
   deposit: number | string;
@@ -67,11 +69,15 @@ export interface BankAccount {
   bank: string;
   type: string;
   holders: string;
+  /** Account nominee (separate from holders) */
+  nominee?: string;
   amount: number | string;
   roi: number | string;
   online: string;
   address: string;
   detail: string;
+  /** Combined Limits / Extra Info / Info 1–2 from Excel; labeled lines */
+  notes?: string;
   nextAction: string;
   done: boolean;
   // New fields

@@ -1271,6 +1271,7 @@ const GroupsManager: React.FC<GroupsManagerProps> = ({ onClose, encryptionKey })
             userDeposits={userBankDeposits}
             userAccounts={userBankAccounts}
             onBack={closeFinanceChat}
+            onCloseChat={closeFinanceChat}
           />
         </div>
       )}

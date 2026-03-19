@@ -84,4 +84,8 @@ export interface GroupFinanceChatProps {
   userDeposits?: FDPayload[];
   userAccounts?: AccountPayload[];
   onBack: () => void;
+  /** When true, adds bottom padding so input clears device safe area / bottom nav */
+  isMobile?: boolean;
+  /** Close entire chat hub (exit to Safe) — shown as ✕ in header */
+  onCloseChat?: () => void;
 }

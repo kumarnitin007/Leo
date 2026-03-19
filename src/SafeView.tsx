@@ -1586,23 +1586,23 @@ const SafeView: React.FC = () => {
         />
       )}
 
-      {/* Group Chat Hub - Chat-first interface */}
+      {/* Group Chat Hub - Chat-first interface; on mobile full viewport so input isn't hidden behind bottom bar */}
       {showGroupsChat && encryptionKey && (
         <div style={{
           position: 'fixed',
           inset: 0,
-          background: 'rgba(0,0,0,0.5)',
-          zIndex: 1000,
+          background: isMobile ? '#fff' : 'rgba(0,0,0,0.5)',
+          zIndex: 1100,
           display: 'flex',
-          alignItems: 'center',
+          alignItems: isMobile ? 'stretch' : 'center',
           justifyContent: 'center',
         }}>
           <div style={{
             background: '#fff',
-            borderRadius: '1rem',
-            width: '95%',
+            borderRadius: isMobile ? 0 : '1rem',
+            width: isMobile ? '100%' : '95%',
             maxWidth: '1000px',
-            height: '90vh',
+            height: isMobile ? '100vh' : '90vh',
             overflow: 'hidden',
           }}>
             <GroupChatHub 

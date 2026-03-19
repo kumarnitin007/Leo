@@ -18,6 +18,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { SupabaseClient } from '@supabase/supabase-js';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend, AreaChart, Area, LineChart, Line, LabelList } from 'recharts';
 import { Deposit, BankAccount, Bill, ActionItem, BankRecordsData, SavingsGoal, Currency, DepositCategory, TotalValueHistoryEntry } from '../types/bankRecords';
+import { parseBankRecordsWorkbook, downloadBankRecordsTemplate, readBankRecordsFile } from '../services/bankRecordsExcel';
 import { updateFinancialAlertsCache, FinancialAlertsSummary } from './FinancialAlertsWidget';
 import { CryptoKey, encryptData, decryptData } from '../utils/encryption';
 import { useTheme } from '../contexts/ThemeContext';
@@ -33,7 +34,6 @@ interface BankDashboardProps {
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 const MS_PER_DAY = 86400000;
-const EXCEL_EPOCH_OFFSET = 25569; // Days from 1/1/1900 to Unix epoch
 
 const URGENCY_THRESHOLDS = {
   CRITICAL: 7,    // Days until maturity/due considered critical
@@ -56,6 +56,20 @@ function daysUntil(dateStr: string | null | undefined): number | null {
   if (isNaN(d.getTime())) return null;
   d.setHours(0,0,0,0);
   return Math.round((d.getTime() - today.getTime()) / MS_PER_DAY);
+}
+
+/** Days since a calendar date (e.g. last balance update); null if missing/invalid */
+function daysSinceUpdated(isoOrDate: string | null | undefined): number | null {
+  if (!isoOrDate) return null;
+  const d = new Date(isoOrDate);
+  if (isNaN(d.getTime())) return null;
+  d.setHours(0, 0, 0, 0);
+  return Math.round((today.getTime() - d.getTime()) / MS_PER_DAY);
+}
+
+/** Notes (Excel import) + legacy detail for display */
+function accountNotesDetail(a: BankAccount): string {
+  return [a.notes, a.detail].filter(Boolean).join("\n\n").trim();
 }
 
 const CURRENCY_SYMBOLS: Record<Currency, string> = { INR: '₹', USD: '$', EUR: '€', GBP: '£' };
@@ -157,8 +171,8 @@ function UrgencyBadge({ days }: { days: number | null }) {
   return <span style={bs("#dbeafe","#2563eb")}>{days}d</span>;
 }
 
-const emptyDeposit: Deposit  = { bank:"", type:"Fixed Deposit", depositId:"", nominee:"", startDate:"", deposit:"", roi:"", maturityAmt:"", maturityDate:"", duration:"", maturityAction:"", done:false, currency:"INR", category:"General Savings", tdsPercent:"", autoRenewal:false, linkedAccount:"", notes:"" };
-const emptyAccount: BankAccount  = { bank:"", type:"Saving", holders:"", amount:"", roi:"", online:"Yes", address:"", detail:"", nextAction:"", done:false, currency:"INR", accountNumber:"", ifscCode:"", branch:"", hidden:false };
+const emptyDeposit: Deposit  = { bank:"", type:"Fixed Deposit", depositId:"", accountOwner:"", nominee:"", startDate:"", deposit:"", roi:"", maturityAmt:"", maturityDate:"", duration:"", maturityAction:"", done:false, currency:"INR", category:"General Savings", tdsPercent:"", autoRenewal:false, linkedAccount:"", notes:"" };
+const emptyAccount: BankAccount  = { bank:"", type:"Saving", holders:"", nominee:"", amount:"", roi:"", online:"Yes", address:"", detail:"", notes:"", nextAction:"", done:false, currency:"INR", accountNumber:"", ifscCode:"", branch:"", hidden:false };
 const emptyBill: Bill     = { name:"", freq:"Monthly", amount:"", due:"", priority:"Normal", phone:"", email:"", done:false, currency:"INR", category:"", autoPay:false };
 const emptyAction: ActionItem   = { title:"", bank:"", date:"", note:"", done:false, priority:"Medium", reminderDays:[7,1] };
 const emptyGoal: SavingsGoal = { id:"", name:"", targetAmount:0, currency:"INR", currentAmount:0, deadline:"", category:"General Savings", linkedDeposits:[], color:"#3B82F6", notes:"", createdAt:"", done:false };
@@ -618,218 +632,17 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
   // ── Excel Import (Smart Merge by ID) ────────────────────────────────────
   async function handleExcel(file: File) {
     try {
-      const { read, utils } = await import('xlsx');
-      const buf = await file.arrayBuffer();
-      const wb = read(buf, { type:"array", cellDates:true });
-      
-      let newDeposits: Deposit[] = [];
-      let newAccounts: BankAccount[] = [];
-      let newBills: Bill[] = [];
-      
-      // Track items to DELETE
-      let deleteDeposits: { bank: string; depositId?: string; startDate?: string }[] = [];
-      let deleteAccounts: { bank: string; type: string; holders: string }[] = [];
-      let deleteBills: { name: string }[] = [];
-      
-      // Helper to convert Excel date to ISO string
-      const toISO = (val: any): string | null => {
-        if (!val) return null;
-        if (val instanceof Date) return val.toISOString().split('T')[0];
-        if (typeof val === 'string') return val;
-        return null;
-      };
-      
-      // ── Parse Deposits Sheet ──
-      if (wb.SheetNames.includes("Deposits")) {
-        const rows = utils.sheet_to_json(wb.Sheets["Deposits"], { header:1, defval:null }) as any[][];
-        const hIdx = rows.findIndex((r: any) => r && r.includes("Bank") && r.includes("Type") && (r.includes("Deposit") || r.includes("Deposit ID")));
-        if (hIdx >= 0) {
-          const h = rows[hIdx];
-          // Exact match first, then partial match
-          const col = (n: string, exact = false) => {
-            const nLower = n.toLowerCase();
-            // Try exact match first
-            const exactIdx = h.findIndex((x: any) => x && x.toString().toLowerCase().trim() === nLower);
-            if (exactIdx >= 0) return exactIdx;
-            // Fall back to partial match (but not for "Deposit" to avoid matching "Deposit ID")
-            if (exact) return -1;
-            return h.findIndex((x: any) => x && x.toString().toLowerCase().includes(nLower));
-          };
-          const [cB, cT, cI, cN, cS, cR, cM, cMD, cDu, cA] = [
-            col("Bank"), col("Type"), col("Deposit ID"), col("Nominee"), 
-            col("Start"), col("ROI"), col("Maturity Amount"), 
-            col("Maturity Date"), col("Duration"), col("Maturity")
-          ];
-          // For "Deposit" (amount), find column that is exactly "Deposit" or contains "Deposit" but NOT "Deposit ID"
-          const cD = h.findIndex((x: any) => {
-            if (!x) return false;
-            const s = x.toString().toLowerCase().trim();
-            return s === "deposit" || (s.includes("deposit") && !s.includes("id"));
-          });
-          
-          // Find Status column for skip logic (use trim for robust matching)
-          const cStatus = h.findIndex((x: any) => x && x.toString().toLowerCase().trim() === "status");
-          const cCur = h.findIndex((x: any) => x && x.toString().toLowerCase().trim() === "currency");
-          console.log("[Excel Import] Deposits sheet - Currency column index:", cCur, "Headers:", h);
-          
-          for (let i = hIdx + 1; i < rows.length; i++) {
-            const r = rows[i];
-            if (!r || !r[cB]) continue;
-            const bank = r[cB]?.toString().trim();
-            if (!bank || bank === "Row Labels") continue;
-            // Skip total/summary rows
-            const bankLower = bank.toLowerCase();
-            if (bankLower.includes("total") || bankLower.includes("grand") || bankLower.includes("sum") || bankLower === "total") continue;
-            // Handle Status column
-            if (cStatus >= 0 && r[cStatus]) {
-              const status = r[cStatus].toString().toLowerCase().trim();
-              // DELETE - mark for removal
-              if (status === "delete" || status === "remove") {
-                deleteDeposits.push({
-                  bank: bank,
-                  depositId: r[cI]?.toString() || "",
-                  startDate: toISO(r[cS]) || ""
-                });
-                continue;
-              }
-              // Skip rows with Status = SKIP, ARCHIVE, DRAFT, IGNORE
-              if (["skip", "archive", "draft", "ignore", "old", "inactive"].includes(status)) continue;
-            }
-            
-            const currencyVal = (cCur >= 0 && r[cCur]) ? r[cCur].toString().trim().toUpperCase() : "INR";
-            console.log("[Excel Import] Deposit:", bank, "Currency col value:", r[cCur], "→", currencyVal);
-            newDeposits.push({
-              bank: bank,
-              type: r[cT]?.toString() || "Fixed Deposit",
-              depositId: r[cI]?.toString() || "",
-              nominee: r[cN]?.toString() || "",
-              startDate: toISO(r[cS]) || "",
-              deposit: parseFloat(r[cD]) || 0,
-              roi: parseFloat(r[cR]) || 0,
-              maturityAmt: parseFloat(r[cM]) || 0,
-              maturityDate: toISO(r[cMD]) || "",
-              duration: r[cDu]?.toString() || "",
-              maturityAction: r[cA]?.toString() || "",
-              currency: currencyVal as any,
-              done: false
-            });
-          }
-        }
-      }
-      
-      // ── Parse Banks (Accounts) Sheet ──
-      if (wb.SheetNames.includes("Banks")) {
-        const rows = utils.sheet_to_json(wb.Sheets["Banks"], { header:1, defval:null }) as any[][];
-        const hIdx = rows.findIndex((r: any) => r && r.includes("Source"));
-        if (hIdx >= 0) {
-          const h = rows[hIdx];
-          const col = (n: string) => h.findIndex((x: any) => x && x.toString().toLowerCase().includes(n.toLowerCase()));
-          const [cS, cA, cT, cN1, cN2, cOl, cAc, cR, cAd, cDe] = [
-            col("Source"), col("Amount"), col("Type"), col("1st"), col("2nd"),
-            col("Online"), col("Next"), col("ROI"), col("Address"), col("Details")
-          ];
-          // Find Status, Currency, and Hidden columns (use trim for robust matching)
-          const cStatus = h.findIndex((x: any) => x && x.toString().toLowerCase().trim() === "status");
-          const cCur = h.findIndex((x: any) => x && x.toString().toLowerCase().trim() === "currency");
-          const cHidden = h.findIndex((x: any) => x && x.toString().toLowerCase().trim() === "hidden");
-          console.log("[Excel Import] Banks sheet - Currency column index:", cCur, "Headers:", h);
-          
-          for (let i = hIdx + 1; i < rows.length; i++) {
-            const r = rows[i];
-            if (!r || !r[cS]) continue;
-            const bank = r[cS]?.toString().trim();
-            if (!bank) continue;
-            // Skip total/summary rows
-            const bankLower = bank.toLowerCase();
-            if (bankLower.includes("total") || bankLower.includes("grand") || bankLower.includes("sum")) continue;
-            // Handle Status column
-            if (cStatus >= 0 && r[cStatus]) {
-              const status = r[cStatus].toString().toLowerCase().trim();
-              // DELETE - mark for removal
-              if (status === "delete" || status === "remove") {
-                deleteAccounts.push({
-                  bank: bank,
-                  type: r[cT]?.toString() || "Saving",
-                  holders: [r[cN1], r[cN2]].filter(Boolean).join(", ")
-                });
-                continue;
-              }
-              // Skip rows with Status = SKIP, ARCHIVE, DRAFT, IGNORE
-              if (["skip", "archive", "draft", "ignore", "old", "inactive"].includes(status)) continue;
-            }
-            
-            const currencyVal = (cCur >= 0 && r[cCur]) ? r[cCur].toString().trim().toUpperCase() : "INR";
-            const hiddenVal = cHidden >= 0 && r[cHidden] ? ["yes", "true", "1", "y"].includes(r[cHidden].toString().toLowerCase().trim()) : false;
-            console.log("[Excel Import] Account:", bank, "Currency col value:", r[cCur], "→", currencyVal);
-            newAccounts.push({
-              bank: bank,
-              type: r[cT]?.toString() || "Saving",
-              holders: [r[cN1], r[cN2]].filter(Boolean).join(", "),
-              amount: parseFloat(r[cA]) || 0,
-              roi: parseFloat(r[cR]) || 0,
-              online: r[cOl]?.toString() || "No",
-              address: r[cAd]?.toString() || "",
-              detail: r[cDe]?.toString() || "",
-              nextAction: r[cAc]?.toString() || "",
-              currency: currencyVal as any,
-              hidden: hiddenVal,
-              done: false
-            });
-          }
-        }
-      }
-      
-      // ── Parse Bills Sheet ──
-      if (wb.SheetNames.includes("Bills")) {
-        const rows = utils.sheet_to_json(wb.Sheets["Bills"], { header:1, defval:null }) as any[][];
-        const hIdx = rows.findIndex((r: any) => r && r.includes("Name") && r.includes("Frequency"));
-        if (hIdx >= 0) {
-          const h = rows[hIdx];
-          const col = (n: string) => h.findIndex((x: any) => x && x.toString().toLowerCase().includes(n.toLowerCase()));
-          const [cN, cF, cA, cD, cP, cPh, cE] = [
-            col("Name"), col("Freq"), col("Amount"), col("Date"),
-            col("Priority"), col("Phone"), col("Email")
-          ];
-          // Find Status and Currency columns (use trim for robust matching)
-          const cStatus = h.findIndex((x: any) => x && x.toString().toLowerCase().trim() === "status");
-          const cCur = h.findIndex((x: any) => x && x.toString().toLowerCase().trim() === "currency");
-          
-          for (let i = hIdx + 1; i < rows.length; i++) {
-            const r = rows[i];
-            if (!r || !r[cN]) continue;
-            const name = r[cN]?.toString().trim();
-            if (!name) continue;
-            // Skip total/summary rows
-            const nameLower = name.toLowerCase();
-            if (nameLower.includes("total") || nameLower.includes("grand") || nameLower.includes("sum")) continue;
-            // Handle Status column
-            if (cStatus >= 0 && r[cStatus]) {
-              const status = r[cStatus].toString().toLowerCase().trim();
-              // DELETE - mark for removal
-              if (status === "delete" || status === "remove") {
-                deleteBills.push({ name: name });
-                continue;
-              }
-              // Skip rows with Status = SKIP, ARCHIVE, DRAFT, IGNORE
-              if (["skip", "archive", "draft", "ignore", "old", "inactive"].includes(status)) continue;
-            }
-            
-            const currencyVal = (cCur >= 0 && r[cCur]) ? r[cCur].toString().trim().toUpperCase() : "INR";
-            newBills.push({
-              name: name,
-              freq: r[cF]?.toString() || "Monthly",
-              amount: parseFloat(r[cA]) || 0,
-              due: r[cD]?.toString() || "",
-              priority: r[cP]?.toString() || "Normal",
-              phone: r[cPh]?.toString() || "",
-              email: r[cE]?.toString() || "",
-              currency: currencyVal as any,
-              done: false
-            });
-          }
-        }
-      }
-      
+      const wb = await readBankRecordsFile(file);
+
+      const {
+        newDeposits,
+        newAccounts,
+        newBills,
+        deleteDeposits,
+        deleteAccounts,
+        deleteBills,
+      } = parseBankRecordsWorkbook(wb, CATEGORIES);
+
       // ── Smart Merge Logic ──
       let addedCount = 0;
       let updatedCount = 0;
@@ -894,10 +707,31 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
         });
         
         if (existingIdx >= 0) {
-          mergedDeposits[existingIdx] = { ...mergedDeposits[existingIdx], ...newDep };
+          const prev = mergedDeposits[existingIdx];
+          const prevAmt = Number(prev.deposit) || 0;
+          const newAmt = Number(newDep.deposit) || 0;
+          let next: Deposit = { ...prev, ...newDep };
+          if (prevAmt !== newAmt) {
+            const histDate = newDep.lastBalanceUpdatedAt || new Date().toISOString();
+            const cur = (next.currency || "INR") as Currency;
+            const delta = newAmt - prevAmt;
+            const deltaStr = delta >= 0 ? `+${fmt(delta, cur)}` : fmt(delta, cur);
+            next = {
+              ...next,
+              balanceHistory: [
+                ...(prev.balanceHistory || []),
+                { date: histDate, amount: newAmt, previousAmount: prevAmt, source: `Excel import ${deltaStr}` },
+              ],
+            };
+          }
+          mergedDeposits[existingIdx] = next;
           updatedCount++;
         } else {
-          mergedDeposits.push(newDep);
+          const histDate = newDep.lastBalanceUpdatedAt || new Date().toISOString();
+          mergedDeposits.push({
+            ...newDep,
+            balanceHistory: [{ date: histDate, amount: Number(newDep.deposit) || 0, source: "Excel import" }],
+          });
           addedCount++;
         }
       });
@@ -910,10 +744,31 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
         );
         
         if (existingIdx >= 0) {
-          mergedAccounts[existingIdx] = { ...mergedAccounts[existingIdx], ...newAcc };
+          const prev = mergedAccounts[existingIdx];
+          const prevAmt = Number(prev.amount) || 0;
+          const newAmt = Number(newAcc.amount) || 0;
+          let next: BankAccount = { ...prev, ...newAcc };
+          if (prevAmt !== newAmt) {
+            const histDate = newAcc.lastBalanceUpdatedAt || new Date().toISOString();
+            const cur = (next.currency || "INR") as Currency;
+            const delta = newAmt - prevAmt;
+            const deltaStr = delta >= 0 ? `+${fmt(delta, cur)}` : fmt(delta, cur);
+            next = {
+              ...next,
+              balanceHistory: [
+                ...(prev.balanceHistory || []),
+                { date: histDate, amount: newAmt, previousAmount: prevAmt, source: `Excel import ${deltaStr}` },
+              ],
+            };
+          }
+          mergedAccounts[existingIdx] = next;
           updatedCount++;
         } else {
-          mergedAccounts.push(newAcc);
+          const histDate = newAcc.lastBalanceUpdatedAt || new Date().toISOString();
+          mergedAccounts.push({
+            ...newAcc,
+            balanceHistory: [{ date: histDate, amount: Number(newAcc.amount) || 0, source: "Excel import" }],
+          });
           addedCount++;
         }
       });
@@ -968,30 +823,37 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
   }
 
   async function handleClearAll() {
-    const summary = `🗑 Clear ALL financial data?\n\nThis will delete:\n• ${deposits.length} deposits\n• ${accounts.length} accounts\n• ${bills.length} bills\n• ${actions.length} actions\n\nThis cannot be undone!`;
+    const summary = `🗑 Clear ALL financial data?\n\nThis will delete:\n• ${deposits.length} deposits\n• ${accounts.length} accounts\n• ${bills.length} bills\n• ${actions.length} actions\n• ${goals.length} goals\n• Portfolio value history (${totalValueHistory.length} snapshots)\n\nThis cannot be undone!`;
     if (!confirm(summary)) return;
     
     try {
-      // Clear from Supabase
-      if (supabase && userId) {
-        await supabase
-          .from('myday_bank_records')
-          .delete()
-          .eq('user_id', userId);
-        console.log('[BankDashboard] ✅ Cleared data from Supabase');
-      }
-      
-      // Clear local state
+      // Clear local state (including chart history and goals)
       setDeposits([]);
       setAccounts([]);
       setBills([]);
       setActions([]);
-      
+      setGoals([]);
+      setTotalValueHistory([]);
+      // Persist empty state so DB and chart stay in sync
+      await persist([], [], [], [], [], undefined, undefined, []);
+      console.log('[BankDashboard] ✅ All data cleared (including portfolio history)');
       alert('✅ All data cleared! You can now import fresh data.');
     } catch (e) {
       console.error('[BankDashboard] Clear failed:', e);
       alert('❌ Failed to clear data');
     }
+  }
+
+  function clearPortfolioHistory() {
+    if (!confirm('Clear all portfolio value history? The chart will start fresh from your next balance change.')) return;
+    setTotalValueHistory([]);
+    persist(deposits, accounts, bills, actions, goals, undefined, undefined, []);
+  }
+
+  function deletePortfolioHistoryEntry(dateIso: string) {
+    const next = totalValueHistory.filter(e => e.date !== dateIso);
+    setTotalValueHistory(next);
+    persist(deposits, accounts, bills, actions, goals, undefined, undefined, next);
   }
 
   function handleExportPDF() {
@@ -1034,13 +896,14 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
 
         <h2>💰 Deposits (${deposits.length})</h2>
         <table>
-          <thead><tr><th>Bank</th><th>Type</th><th>Nominee</th><th>Invested</th><th>ROI</th><th>Maturity</th><th>Matures</th><th>Days</th></tr></thead>
+          <thead><tr><th>Bank</th><th>Type</th><th>Owner</th><th>Nominee</th><th>Invested</th><th>ROI</th><th>Maturity</th><th>Matures</th><th>Days to mature</th></tr></thead>
           <tbody>
             ${deposits.map(d => {
               const days = daysUntil(d.maturityDate);
               return `<tr>
                 <td><strong>${d.bank}</strong><br><small style="color:#9ca3af">${d.depositId||''}</small></td>
                 <td>${d.type}</td>
+                <td>${d.accountOwner || '—'}</td>
                 <td>${d.nominee}</td>
                 <td>${fmt(d.deposit)}</td>
                 <td>${d.roi ? (Number(d.roi)*100).toFixed(2)+'%' : '—'}</td>
@@ -1054,15 +917,17 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
 
         <h2>🏦 Accounts (${accounts.length})</h2>
         <table>
-          <thead><tr><th>Bank</th><th>Type</th><th>Holders</th><th>Balance</th><th>ROI</th><th>Next Action</th></tr></thead>
+          <thead><tr><th>Bank</th><th>Type</th><th>Holders</th><th>Nominee</th><th>Balance</th><th>ROI</th><th>Next Action</th><th>Notes</th></tr></thead>
           <tbody>
             ${accounts.map(a => `<tr>
               <td><strong>${a.bank}</strong></td>
               <td>${a.type}</td>
               <td>${a.holders}</td>
+              <td>${a.nominee || '—'}</td>
               <td>${fmt(a.amount)}</td>
               <td>${a.roi ? (Number(a.roi)*100).toFixed(2)+'%' : '—'}</td>
               <td>${a.nextAction||'—'}</td>
+              <td>${accountNotesDetail(a).replace(/</g,'&lt;') || '—'}</td>
             </tr>`).join('')}
           </tbody>
         </table>
@@ -1095,216 +960,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
   }
 
   async function handleExportTemplate() {
-    const { utils, writeFile } = await import('xlsx');
-    
-    // Helper to convert date string to Excel serial number
-    const dateToExcel = (dateStr: string) => {
-      const d = new Date(dateStr);
-      return EXCEL_EPOCH_OFFSET + d.getTime() / MS_PER_DAY;
-    };
-    
-    // Instructions sheet - Updated with ALL fields + Status column
-    const instructionsData = [
-      ["📋 BANK RECORDS TEMPLATE - INSTRUCTIONS"],
-      [""],
-      ["⚠️ IMPORTANT RULES:"],
-      ["1. DO NOT add new columns - only the columns listed below are imported"],
-      ["2. DO NOT rename existing columns - the app looks for specific column names"],
-      ["3. DO NOT add new sheets - only Deposits, Banks, and Bills sheets are processed"],
-      ["4. DO NOT include 'Total' or 'Grand Total' rows - they will be skipped automatically"],
-      ["5. Keep the header row intact - it's required for import to work"],
-      [""],
-      ["📝 HOW TO USE:"],
-      ["1. Fill in your data in the Deposits, Banks, and Bills sheets"],
-      ["2. Delete the example rows or modify them with your data"],
-      ["3. Save the file as .xlsx"],
-      ["4. Import it using the Import button in the app"],
-      [""],
-      ["🚫 SKIP / DELETE ROWS:"],
-      ["- Use the 'Status' column to control how rows are processed"],
-      ["- SKIP, ARCHIVE, DRAFT, IGNORE, OLD, INACTIVE → Row is skipped (not imported)"],
-      ["- DELETE or REMOVE → Matching record is DELETED from dashboard"],
-      ["- Blank or ACTIVE → Row is imported/updated normally"],
-      ["- DELETE uses the same matching keys: Bank+DepositID, Bank+Type+Holders, or Bill Name"],
-      [""],
-      ["💰 CURRENCY SUPPORT:"],
-      ["- Supported currencies: INR (₹), USD ($), EUR (€), GBP (£)"],
-      ["- Add a 'Currency' column with values: INR, USD, EUR, or GBP"],
-      ["- If no currency specified, INR is assumed"],
-      [""],
-      ["═══════════════════════════════════════════════════════════════"],
-      ["📊 DEPOSITS SHEET - ALL SUPPORTED COLUMNS:"],
-      ["═══════════════════════════════════════════════════════════════"],
-      ["Status         - ACTIVE (import), SKIP/ARCHIVE (don't import), DELETE (remove from dashboard)"],
-      ["Bank           - Bank name (required)"],
-      ["Type           - FD, RD, SCSS, PPF, Tax Saver FD, etc."],
-      ["Deposit ID     - Unique ID from bank"],
-      ["Nominee        - Name of nominee"],
-      ["Start Date     - When deposit was created (Excel date)"],
-      ["Deposit        - Amount invested (number)"],
-      ["ROI            - Interest rate as decimal (0.07 = 7%)"],
-      ["Maturity Amount - Expected amount at maturity"],
-      ["Maturity Date  - When deposit matures (Excel date)"],
-      ["Duration       - e.g., '12 months', '5 years', '365 days'"],
-      ["Maturity Action - What to do: Renew, Close, Transfer, etc."],
-      ["Currency       - INR, USD, EUR, GBP"],
-      ["Category       - Emergency Fund, Retirement, Tax Saving, etc."],
-      ["TDS Percent    - Tax deducted at source % (e.g., 10)"],
-      ["Auto Renewal   - Yes/No"],
-      ["Linked Account - Account where interest credits"],
-      ["Notes          - Any additional notes"],
-      [""],
-      ["═══════════════════════════════════════════════════════════════"],
-      ["🏦 BANKS (ACCOUNTS) SHEET - ALL SUPPORTED COLUMNS:"],
-      ["═══════════════════════════════════════════════════════════════"],
-      ["Status         - ACTIVE (import), SKIP/ARCHIVE (don't import), DELETE (remove from dashboard)"],
-      ["Source         - Bank name (required)"],
-      ["Amount         - Current balance (number)"],
-      ["Type           - Saving, FD, Current, Credit Card, PPF, etc."],
-      ["1st Holder     - Primary account holder name"],
-      ["2nd Holder     - Joint holder (if any)"],
-      ["Online         - Yes/No - Online banking enabled?"],
-      ["Next Action    - Pending action (Update KYC, etc.)"],
-      ["ROI            - Interest rate as decimal"],
-      ["Address        - Branch address"],
-      ["Details        - Additional details (account number, etc.)"],
-      ["Currency       - INR, USD, EUR, GBP"],
-      ["Account Number - Full account number"],
-      ["IFSC Code      - IFSC code for transfers"],
-      ["Branch         - Branch name"],
-      ["Hidden         - Yes/No - Hide from default view (shown as 'Other Accounts' aggregate)"],
-      [""],
-      ["═══════════════════════════════════════════════════════════════"],
-      ["📄 BILLS SHEET - ALL SUPPORTED COLUMNS:"],
-      ["═══════════════════════════════════════════════════════════════"],
-      ["Status         - ACTIVE (import), SKIP/ARCHIVE (don't import), DELETE (remove from dashboard)"],
-      ["Name           - Bill name (required)"],
-      ["Frequency      - Monthly, Quarterly, Yearly, etc."],
-      ["Amount         - Bill amount (number)"],
-      ["Date           - Due date (e.g., '15th', '2024-03-15')"],
-      ["Priority       - Low, Normal, High"],
-      ["Phone          - Contact phone"],
-      ["Email          - Contact email"],
-      ["Currency       - INR, USD, EUR, GBP"],
-      ["Category       - Utility, Entertainment, Insurance, etc."],
-      ["Auto Pay       - Yes/No"],
-      [""],
-      ["💡 TIPS:"],
-      ["- Dates: Use Excel date format (select cell > Format as Date)"],
-      ["- ROI: Enter as decimal (0.07 = 7%) - app displays as percentage"],
-      ["- Amounts: Enter numbers only, no currency symbols"],
-      ["- Duration: Free text like '12 months', '1 year', '365 days'"],
-      ["- To keep old FDs in Excel but not import: set Status to ARCHIVE"],
-    ];
-    
-    // Deposits sheet - ALL supported columns with Status + INR/USD examples
-    const depositsHeaders = ["Status", "Bank", "Type", "Deposit ID", "Nominee", "Start Date", "Deposit", "ROI", "Maturity Amount", "Maturity Date", "Duration", "Maturity Action", "Currency", "Category", "TDS Percent", "Auto Renewal", "Linked Account", "Notes"];
-    const depositsData = [
-      depositsHeaders,
-      ["ACTIVE", "ICICI Bank", "Fixed Deposit", "FD123456", "Rahul Kumar", dateToExcel("2024-01-15"), 500000, 0.072, 536000, dateToExcel("2025-01-15"), "12 months", "Renew", "INR", "General Savings", 10, "Yes", "ICICI Savings A/C", "Auto renewal enabled"],
-      ["ACTIVE", "SBI", "Tax Saver FD", "FD789012", "Priya Sharma", dateToExcel("2024-03-01"), 150000, 0.068, 161200, dateToExcel("2029-03-01"), "5 years", "Close", "INR", "Tax Saving", 0, "No", "", "Under 80C limit"],
-      ["ACTIVE", "HDFC Bank", "SCSS", "SCSS001", "Retired Kumar", dateToExcel("2024-06-01"), 1500000, 0.082, 1623000, dateToExcel("2029-06-01"), "5 years", "Transfer", "INR", "Retirement", 10, "No", "HDFC Savings", "Senior Citizen Scheme"],
-      ["ACTIVE", "Chase Bank", "Certificate of Deposit", "CD456789", "John Smith", dateToExcel("2024-02-15"), 10000, 0.045, 10450, dateToExcel("2025-02-15"), "12 months", "Renew", "USD", "Emergency Fund", 0, "Yes", "Chase Checking", "US emergency fund"],
-      ["ARCHIVE", "Old Bank", "Fixed Deposit", "OLD123", "Old Nominee", dateToExcel("2020-01-01"), 100000, 0.08, 140000, dateToExcel("2025-01-01"), "5 years", "Closed", "INR", "", 0, "No", "", "This row will NOT be imported (Status=ARCHIVE)"],
-    ];
-    
-    // Banks sheet - ALL supported columns with Status + INR/USD examples + Hidden
-    const banksHeaders = ["Status", "Source", "Amount", "Type", "1st Holder", "2nd Holder", "Online", "Next Action", "ROI", "Address", "Details", "Currency", "Account Number", "IFSC Code", "Branch", "Hidden"];
-    const banksData = [
-      banksHeaders,
-      ["ACTIVE", "HDFC Bank", 150000, "Saving", "Rahul Kumar", "Priya Kumar", "Yes", "Update KYC", 0.035, "Andheri West, Mumbai", "Primary savings account", "INR", "50100123456789", "HDFC0001234", "Andheri West", "No"],
-      ["ACTIVE", "ICICI Bank", 500000, "FD", "Rahul Kumar", "", "Yes", "Check maturity", 0.072, "Bandra, Mumbai", "Fixed deposit", "INR", "157701234567", "ICIC0001234", "Bandra", "No"],
-      ["ACTIVE", "SBI", 25000, "Current", "Kumar Enterprises", "", "Yes", "", 0, "Noida Sector 18", "Business account", "INR", "32105678901", "SBIN0012345", "Noida Sec 18", "No"],
-      ["ACTIVE", "HDFC Bank", -45000, "Credit Card", "Rahul Kumar", "", "Yes", "Pay by 15th", 0, "", "Regalia Credit Card", "INR", "4567XXXX8901", "", "", "No"],
-      ["ACTIVE", "Bank of America", 5000, "Checking", "John Smith", "Jane Smith", "Yes", "", 0.001, "NYC Manhattan", "US checking account", "USD", "1234567890", "", "Manhattan", "No"],
-      ["ACTIVE", "Old PPF Account", 50000, "PPF", "Rahul Kumar", "", "No", "", 0.071, "SBI Main Branch", "Dormant PPF from 2015", "INR", "PPF123456", "", "Main Branch", "Yes"],
-      ["SKIP", "Closed Bank", 0, "Saving", "Old Account", "", "No", "", 0, "", "Account closed in 2020", "INR", "", "", "", "No"],
-    ];
-    
-    // Bills sheet - ALL supported columns with Status
-    const billsHeaders = ["Status", "Name", "Frequency", "Amount", "Date", "Priority", "Phone", "Email", "Currency", "Category", "Auto Pay"];
-    const billsData = [
-      billsHeaders,
-      ["ACTIVE", "Electricity Bill", "Monthly", 2500, "15th", "High", "1800-123-456", "support@power.com", "INR", "Utility", "No"],
-      ["ACTIVE", "Internet - Airtel", "Monthly", 999, "1st", "Normal", "1800-987-654", "support@airtel.com", "INR", "Utility", "Yes"],
-      ["ACTIVE", "Health Insurance", "Yearly", 25000, "2024-04-15", "High", "", "claims@insurance.com", "INR", "Insurance", "No"],
-      ["ACTIVE", "Netflix", "Monthly", 15.99, "20th", "Low", "", "support@netflix.com", "USD", "Entertainment", "Yes"],
-      ["SKIP", "Old Subscription", "Monthly", 0, "", "Low", "", "", "INR", "", "This row will NOT be imported"],
-    ];
-    
-    // Helper to apply header styling (background color + borders)
-    const applyHeaderStyle = (ws: any, numCols: number) => {
-      const headerStyle = {
-        fill: { fgColor: { rgb: "1F4E79" } },
-        font: { bold: true, color: { rgb: "FFFFFF" } },
-        border: {
-          top: { style: "thin", color: { rgb: "000000" } },
-          bottom: { style: "thin", color: { rgb: "000000" } },
-          left: { style: "thin", color: { rgb: "000000" } },
-          right: { style: "thin", color: { rgb: "000000" } }
-        }
-      };
-      const cols = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
-      for (let i = 0; i < numCols; i++) {
-        const cell = cols[i] + "1";
-        if (ws[cell]) {
-          ws[cell].s = headerStyle;
-        }
-      }
-    };
-    
-    // Create workbook
-    const wb = utils.book_new();
-    
-    // Add Instructions sheet
-    const wsInstructions = utils.aoa_to_sheet(instructionsData);
-    wsInstructions['!cols'] = [{ wch: 80 }];
-    utils.book_append_sheet(wb, wsInstructions, "Instructions");
-    
-    // Add Deposits sheet with formatting (Status is col A, so columns shift by 1)
-    const wsDeposits = utils.aoa_to_sheet(depositsData);
-    wsDeposits['!cols'] = [
-      { wch: 10 }, { wch: 14 }, { wch: 16 }, { wch: 14 }, { wch: 14 }, { wch: 12 },
-      { wch: 12 }, { wch: 8 }, { wch: 14 }, { wch: 12 }, { wch: 12 }, 
-      { wch: 14 }, { wch: 10 }, { wch: 16 }, { wch: 10 }, { wch: 12 }, { wch: 18 }, { wch: 30 }
-    ];
-    // Apply number formats to data cells (rows 2-6, columns shifted: F=StartDate, J=MaturityDate, G=Deposit, I=MaturityAmt, H=ROI)
-    for (let r = 2; r <= 6; r++) {
-      ['F','J'].forEach(col => { const c = col + r; if(wsDeposits[c]) wsDeposits[c].z = 'yyyy-mm-dd'; }); // Dates
-      ['G','I'].forEach(col => { const c = col + r; if(wsDeposits[c]) wsDeposits[c].z = '#,##0'; }); // Amounts
-      ['H'].forEach(col => { const c = col + r; if(wsDeposits[c]) wsDeposits[c].z = '0.00%'; }); // ROI as %
-    }
-    applyHeaderStyle(wsDeposits, depositsHeaders.length);
-    utils.book_append_sheet(wb, wsDeposits, "Deposits");
-    
-    // Add Banks sheet with formatting (Status is col A, Amount is col C, ROI is col I, Hidden is col P)
-    const wsBanks = utils.aoa_to_sheet(banksData);
-    wsBanks['!cols'] = [
-      { wch: 10 }, { wch: 18 }, { wch: 12 }, { wch: 12 }, { wch: 16 }, { wch: 16 },
-      { wch: 8 }, { wch: 16 }, { wch: 8 }, { wch: 22 }, { wch: 22 }, 
-      { wch: 10 }, { wch: 18 }, { wch: 14 }, { wch: 16 }, { wch: 8 }
-    ];
-    for (let r = 2; r <= 8; r++) {
-      ['C'].forEach(col => { const c = col + r; if(wsBanks[c]) wsBanks[c].z = '#,##0'; }); // Amounts
-      ['I'].forEach(col => { const c = col + r; if(wsBanks[c]) wsBanks[c].z = '0.00%'; }); // ROI as %
-    }
-    applyHeaderStyle(wsBanks, banksHeaders.length);
-    utils.book_append_sheet(wb, wsBanks, "Banks");
-    
-    // Add Bills sheet with formatting (Status is col A, Amount is col D)
-    const wsBills = utils.aoa_to_sheet(billsData);
-    wsBills['!cols'] = [
-      { wch: 10 }, { wch: 18 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 10 }, 
-      { wch: 15 }, { wch: 25 }, { wch: 10 }, { wch: 14 }, { wch: 10 }
-    ];
-    for (let r = 2; r <= 6; r++) {
-      ['D'].forEach(col => { const c = col + r; if(wsBills[c]) wsBills[c].z = '#,##0.00'; }); // Amounts (col D now due to Status)
-    }
-    applyHeaderStyle(wsBills, billsHeaders.length);
-    utils.book_append_sheet(wb, wsBills, "Bills");
-    
-    // Download
-    writeFile(wb, "BankRecords_Template.xlsx");
+    await downloadBankRecordsTemplate();
   }
 
   function saveModal() {
@@ -1312,35 +968,49 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
     const {type,mode,idx}=modal!;
     if(type==="deposit"){
       const d=[...deposits];
+      const depForm = form as Deposit;
+      const cur = (depForm.currency || 'INR') as Currency;
+      const label = [depForm.bank, depForm.type].filter(Boolean).join(' ') || 'Deposit';
       if(mode==="add"){
-        const withHistory = { ...form, lastBalanceUpdatedAt: now, balanceHistory: [{ date: now, amount: Number(form.deposit)||0, source: 'Created' }] };
+        const withHistory = { ...form, lastBalanceUpdatedAt: now, balanceHistory: [{ date: now, amount: Number(form.deposit)||0, source: `${label} (created)` }] };
         d.push(withHistory);
+        save(d,accounts,bills,actions, undefined, { recordTotalValue: true, totalValueSource: `${label} (created)` });
       } else {
         const prev = deposits[idx!];
         const prevAmt = Number(prev.deposit)||0;
         const newAmt = Number(form.deposit)||0;
+        const delta = newAmt - prevAmt;
+        const deltaStr = delta >= 0 ? `+${fmt(delta, cur)}` : fmt(delta, cur);
+        const sourceLabel = prevAmt !== newAmt ? `${label} ${deltaStr}` : 'Manual edit';
         const withHistory = prevAmt !== newAmt
-          ? { ...form, lastBalanceUpdatedAt: now, balanceHistory: [...(prev.balanceHistory||[]), { date: now, amount: newAmt, previousAmount: prevAmt, source: 'Manual edit' }] }
+          ? { ...form, lastBalanceUpdatedAt: now, balanceHistory: [...(prev.balanceHistory||[]), { date: now, amount: newAmt, previousAmount: prevAmt, source: sourceLabel }] }
           : form;
         d[idx!]=withHistory;
+        save(d,accounts,bills,actions, undefined, { recordTotalValue: true, totalValueSource: sourceLabel });
       }
-      save(d,accounts,bills,actions, undefined, { recordTotalValue: true, totalValueSource: mode === 'add' ? 'Created' : 'Manual edit' });
     }
     else if(type==="account"){
       const a=[...accounts];
+      const accForm = form as BankAccount;
+      const cur = (accForm.currency || 'INR') as Currency;
+      const label = [accForm.bank, accForm.type].filter(Boolean).join(' ') || 'Account';
       if(mode==="add"){
-        const withHistory = { ...form, lastBalanceUpdatedAt: now, balanceHistory: [{ date: now, amount: Number(form.amount)||0, source: 'Created' }] };
+        const withHistory = { ...form, lastBalanceUpdatedAt: now, balanceHistory: [{ date: now, amount: Number(form.amount)||0, source: `${label} (created)` }] };
         a.push(withHistory);
+        save(deposits,a,bills,actions, undefined, { recordTotalValue: true, totalValueSource: `${label} (created)` });
       } else {
         const prev = accounts[idx!];
         const prevAmt = Number(prev.amount)||0;
         const newAmt = Number(form.amount)||0;
+        const delta = newAmt - prevAmt;
+        const deltaStr = delta >= 0 ? `+${fmt(delta, cur)}` : fmt(delta, cur);
+        const sourceLabel = prevAmt !== newAmt ? `${label} ${deltaStr}` : 'Manual edit';
         const withHistory = prevAmt !== newAmt
-          ? { ...form, lastBalanceUpdatedAt: now, balanceHistory: [...(prev.balanceHistory||[]), { date: now, amount: newAmt, previousAmount: prevAmt, source: 'Manual edit' }] }
+          ? { ...form, lastBalanceUpdatedAt: now, balanceHistory: [...(prev.balanceHistory||[]), { date: now, amount: newAmt, previousAmount: prevAmt, source: sourceLabel }] }
           : form;
         a[idx!]=withHistory;
+        save(deposits,a,bills,actions, undefined, { recordTotalValue: true, totalValueSource: sourceLabel });
       }
-      save(deposits,a,bills,actions, undefined, { recordTotalValue: true, totalValueSource: mode === 'add' ? 'Created' : 'Manual edit' });
     }
     else if(type==="bill"){ const b=[...bills]; mode==="add"?b.push(form):b[idx!]=form; save(deposits,accounts,b,actions); }
     else if(type==="goal"){ const g=[...goals]; mode==="add"?g.push(form):g[idx!]=form; save(deposits,accounts,bills,actions,g); }
@@ -1379,8 +1049,10 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
   const totalInvested = accountsFdInvested + depositsTotalInvested;
   const totalMaturity = accountsFdMaturity + depositsTotalMaturity;
   
+  /** All account balances + FD principal from Deposits sheet (same basis as totalInvested FD part) */
   const netWorthConverted = accounts.reduce((s, a) => 
-    s + convertCurrency(Number(a.amount) || 0, (a.currency || 'INR') as Currency, targetCurrency, exchangeRates), 0);
+    s + convertCurrency(Number(a.amount) || 0, (a.currency || 'INR') as Currency, targetCurrency, exchangeRates), 0)
+    + depositsTotalInvested;
   
   // PERF-007: Memoize derived deposit data
   const upcoming90 = useMemo(() => 
@@ -1465,12 +1137,12 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
       .map(([month, amt]) => ({ month, amt: (amt / 100000).toFixed(1) }));
   })();
 
-  // Portfolio value over time (from totalValueHistory) — sorted by date for chart; dateLabel includes time so same-day snapshots are distinct
+  // Portfolio value over time (from totalValueHistory) — sorted by date; timestamp for time-scaled X-axis (min–max), dateLabel for tooltips
   const portfolioHistoryChartData = useMemo(() => {
     if (!totalValueHistory?.length) return [];
     const sorted = [...totalValueHistory].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
     const dayCounts = sorted.reduce((m, e) => { const k = new Date(e.date).toDateString(); m.set(k, (m.get(k) || 0) + 1); return m; }, new Map<string, number>());
-    return sorted.map(e => {
+    const points = sorted.map(e => {
       const d = new Date(e.date);
       const dayKey = d.toDateString();
       const sameDayCount = dayCounts.get(dayKey) ?? 1;
@@ -1478,6 +1150,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
         ? d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: '2-digit' }) + ', ' + d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })
         : (sorted.length > 12 ? d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' }) : d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: '2-digit' }));
       return {
+        timestamp: d.getTime(),
         dateLabel,
         fullDate: e.date,
         totalAccountValue: Number(e.totalAccountValue) || 0,
@@ -1485,7 +1158,58 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
         source: e.source,
       };
     });
+    // Extend timeline to end of today: same values as last snapshot so the line runs flat to “today” on the X axis
+    const last = points[points.length - 1];
+    const endOfToday = new Date();
+    endOfToday.setHours(23, 59, 59, 999);
+    const endTs = endOfToday.getTime();
+    if (last && last.timestamp < endTs) {
+      points.push({
+        ...last,
+        timestamp: endTs,
+        dateLabel: 'Today',
+        fullDate: endOfToday.toISOString(),
+        source: 'Carried forward (no new snapshot)',
+        isProjected: true,
+      });
+    }
+    return points;
   }, [totalValueHistory]);
+
+  const portfolioHistorySnapshotCount = useMemo(
+    () => portfolioHistoryChartData.filter(p => !p.isProjected).length,
+    [portfolioHistoryChartData]
+  );
+
+  // X-axis domain: min snapshot → at least end of today so the axis doesn’t stop at the last save date
+  const portfolioHistoryXDomain = useMemo((): [number, number] | undefined => {
+    if (!portfolioHistoryChartData.length) return undefined;
+    const endOfToday = new Date();
+    endOfToday.setHours(23, 59, 59, 999);
+    const endTs = endOfToday.getTime();
+    const ts = portfolioHistoryChartData.map(p => p.timestamp);
+    const minTs = Math.min(...ts);
+    const maxTs = Math.max(Math.max(...ts), endTs);
+    const span = maxTs - minTs || 1;
+    const pad = Math.max(span * 0.02, 60 * 1000); // 2% or 1 min padding
+    return [minTs - pad, maxTs + pad];
+  }, [portfolioHistoryChartData]);
+
+  // Y-axis domain from data (min/max + padding) so growth is visible instead of flat against 0–max
+  const portfolioHistoryYDomain = useMemo((): [number, number] | undefined => {
+    if (!portfolioHistoryChartData.length) return undefined;
+    const hasDeposit = portfolioHistoryChartData.some(p => Number(p.totalDepositValue) !== 0);
+    const vals = portfolioHistoryChartData.flatMap(p => {
+      const arr = [Number(p.totalAccountValue) || 0];
+      if (hasDeposit) arr.push(Number(p.totalDepositValue) || 0);
+      return arr;
+    });
+    const dataMin = Math.min(...vals);
+    const dataMax = Math.max(...vals);
+    const range = dataMax - dataMin || 1;
+    const padding = range > 0 ? Math.max(range * 0.1, 1) : Math.max(Math.abs(dataMin) * 0.05, 1);
+    return [dataMin - padding, dataMax + padding];
+  }, [portfolioHistoryChartData]);
 
   const mainTabs = [
     {id:"overview",  icon:"📊", label:"Overview", key:"1"},
@@ -1503,7 +1227,11 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
   const banks = Array.from(new Set(deposits.map(d => d.bank).filter(Boolean)));
   const filtered = deposits.filter(d => {
     if (filterBank && filterBank !== "All" && d.bank !== filterBank) return false;
-    if (search && !`${d.bank} ${d.nominee} ${d.depositId}`.toLowerCase().includes(search.toLowerCase())) return false;
+    if (
+      search &&
+      !`${d.bank} ${d.nominee} ${d.depositId} ${d.accountOwner || ""}`.toLowerCase().includes(search.toLowerCase())
+    )
+      return false;
     return true;
   });
 
@@ -1817,7 +1545,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                       <span style={{fontSize:12,fontWeight:700,color:THEME.text}}>📈 Portfolio value over time</span>
                     </div>
                     {portfolioHistoryChartData.length > 0 && (
-                      <span style={{fontSize:10,color:THEME.textLight,background:THEME.cardBgAlt,padding:"2px 8px",borderRadius:8}}>{portfolioHistoryChartData.length} points</span>
+                      <span style={{fontSize:10,color:THEME.textLight,background:THEME.cardBgAlt,padding:"2px 8px",borderRadius:8}}>{portfolioHistorySnapshotCount} snapshots</span>
                     )}
                   </button>
                   {showPortfolioHistory && (
@@ -1833,8 +1561,8 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                             </linearGradient>
                           </defs>
                           <CartesianGrid strokeDasharray="3 3" stroke={THEME.border} />
-                          <XAxis dataKey="dateLabel" tick={{fill:THEME.textLight,fontSize:9}} axisLine={false} tickLine={false} />
-                          <YAxis tick={{fill:THEME.textLight,fontSize:9}} axisLine={false} tickLine={false} tickFormatter={v => fmt(v, targetCurrency)} />
+                          <XAxis dataKey="timestamp" type="number" domain={portfolioHistoryXDomain} tick={{fill:THEME.textLight,fontSize:9}} axisLine={false} tickLine={false} tickFormatter={(ts) => new Date(ts).toLocaleString('en-IN', { month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' })} />
+                          <YAxis domain={portfolioHistoryYDomain} tick={{fill:THEME.textLight,fontSize:9}} axisLine={false} tickLine={false} tickFormatter={v => fmt(v, targetCurrency)} />
                           <Tooltip
                             content={({ active, payload, label }) => {
                               if (!active || !payload?.length) return null;
@@ -1855,6 +1583,9 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                         </AreaChart>
                       </ResponsiveContainer>
                     )
+                  )}
+                  {showPortfolioHistory && portfolioHistoryChartData.length > 0 && (
+                    <button type="button" onClick={clearPortfolioHistory} style={{marginTop:10,background:"transparent",border:"none",color:THEME.textLight,fontSize:11,cursor:"pointer",textDecoration:"underline"}}>Clear all chart history</button>
                   )}
                 </div>
               </>
@@ -1931,11 +1662,14 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
 
             {/* Portfolio Summary - Professional Card Layout with Currency Conversion */}
             {(() => {
-              const accountTotal = sumConverted(accounts);
-              const fdTotal = accounts.filter(a => a.type === "FD").reduce((s, a) => 
+              const accountsOnlyTotal = sumConverted(accounts);
+              const fdFromAccounts = accounts.filter(a => a.type === "FD").reduce((s, a) => 
                 s + convertCurrency(Number(a.amount) || 0, (a.currency || 'INR') as Currency, targetCurrency, exchangeRates), 0);
               const savingsTotal = accounts.filter(a => a.type === "Saving").reduce((s, a) => 
                 s + convertCurrency(Number(a.amount) || 0, (a.currency || 'INR') as Currency, targetCurrency, exchangeRates), 0);
+              // Deposits tab = separate FD principal; overview previously only counted Banks rows with type FD → showed ₹0
+              const fdTotal = fdFromAccounts + depositsTotalInvested;
+              const accountTotal = accountsOnlyTotal + depositsTotalInvested;
               const otherTotal = accountTotal - fdTotal - savingsTotal;
               
               const segments = [
@@ -2004,7 +1738,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                   <span style={{fontSize:11,fontWeight:700,color:"#E5E7EB",textTransform:"uppercase"}}>📈 Portfolio value over time</span>
                 </div>
                 {portfolioHistoryChartData.length > 0 && (
-                  <span style={{fontSize:10,color:"#6B7280",background:THEME.cardBgAlt,padding:"2px 8px",borderRadius:10}}>{portfolioHistoryChartData.length} snapshots</span>
+                  <span style={{fontSize:10,color:"#6B7280",background:THEME.cardBgAlt,padding:"2px 8px",borderRadius:10}}>{portfolioHistorySnapshotCount} snapshots</span>
                 )}
               </button>
               {showPortfolioHistory && (
@@ -2012,34 +1746,50 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                   {portfolioHistoryChartData.length === 0 ? (
                     <div style={{color:THEME.textMuted,padding:20,textAlign:"center",fontSize:12}}>Edit balances or add accounts to build history. Each save records a snapshot.</div>
                   ) : (
-                    <ResponsiveContainer width="100%" height={260}>
-                      <LineChart data={portfolioHistoryChartData} margin={{top:8,right:8,left:8,bottom:8}}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#1F2937" />
-                        <XAxis dataKey="dateLabel" tick={{fill:THEME.textLight,fontSize:11}} axisLine={false} tickLine={false} />
-                        <YAxis tick={{fill:"#6B7280",fontSize:11}} axisLine={false} tickLine={false} tickFormatter={v => fmt(v, targetCurrency)} />
-                        <Tooltip
-                          content={({ active, payload }) => {
-                            if (!active || !payload?.length) return null;
-                            const p = payload[0]?.payload;
-                            return (
-                              <div style={{background:THEME.cardBgAlt,border:`1px solid ${THEME.border}`,borderRadius:8,padding:"10px 14px",fontSize:12,minWidth:180}}>
-                                <div style={{color:THEME.textMuted,marginBottom:6}}>{p?.fullDate ? fmtDate(p.fullDate) : ''}</div>
-                                <div style={{fontWeight:600,color:"#10B981"}}>Accounts total: {fmt(p?.totalAccountValue ?? 0, targetCurrency)}</div>
-                                <div style={{fontWeight:600,color:"#3B82F6"}}>Deposits total: {fmt(p?.totalDepositValue ?? 0, targetCurrency)}</div>
-                                {p?.source && <div style={{color:THEME.textLight,fontSize:11,marginTop:6}}>Source: {p.source}</div>}
-                              </div>
-                            );
-                          }}
-                        />
-                        <Legend wrapperStyle={{fontSize:11,color:THEME.textLight}} />
-                        <Line type="monotone" dataKey="totalAccountValue" name="Account total" stroke="#10B981" strokeWidth={2} dot={{r:3}} activeDot={{r:5}}>
-                          <LabelList dataKey="totalAccountValue" position="top" formatter={(v: number) => fmt(v, targetCurrency)} style={{fontSize:10,fill:THEME.textLight}} />
-                        </Line>
-                        <Line type="monotone" dataKey="totalDepositValue" name="Deposit total" stroke="#3B82F6" strokeWidth={2} dot={{r:3}} activeDot={{r:5}}>
-                          <LabelList dataKey="totalDepositValue" position="bottom" formatter={(v: number) => fmt(v, targetCurrency)} style={{fontSize:10,fill:THEME.textLight}} />
-                        </Line>
-                      </LineChart>
-                    </ResponsiveContainer>
+                    <>
+                      <ResponsiveContainer width="100%" height={260}>
+                        <LineChart data={portfolioHistoryChartData} margin={{top:8,right:8,left:8,bottom:8}}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#1F2937" />
+                          <XAxis dataKey="timestamp" type="number" domain={portfolioHistoryXDomain} tick={{fill:THEME.textLight,fontSize:11}} axisLine={false} tickLine={false} tickFormatter={(ts) => new Date(ts).toLocaleString('en-IN', { month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' })} />
+                          <YAxis domain={portfolioHistoryYDomain} tick={{fill:"#6B7280",fontSize:11}} axisLine={false} tickLine={false} tickFormatter={v => fmt(v, targetCurrency)} />
+                          <Tooltip
+                            content={({ active, payload }) => {
+                              if (!active || !payload?.length) return null;
+                              const p = payload[0]?.payload;
+                              return (
+                                <div style={{background:THEME.cardBgAlt,border:`1px solid ${THEME.border}`,borderRadius:8,padding:"10px 14px",fontSize:12,minWidth:180}}>
+                                  <div style={{color:THEME.textMuted,marginBottom:6}}>{p?.fullDate ? fmtDate(p.fullDate) : ''}</div>
+                                  <div style={{fontWeight:600,color:"#10B981"}}>Accounts total: {fmt(p?.totalAccountValue ?? 0, targetCurrency)}</div>
+                                  <div style={{fontWeight:600,color:"#3B82F6"}}>Deposits total: {fmt(p?.totalDepositValue ?? 0, targetCurrency)}</div>
+                                  {p?.source && <div style={{color:THEME.textLight,fontSize:11,marginTop:6}}>Source: {p.source}</div>}
+                                </div>
+                              );
+                            }}
+                          />
+                          <Legend wrapperStyle={{fontSize:11,color:THEME.textLight}} />
+                          <Line type="monotone" dataKey="totalAccountValue" name="Account total" stroke="#10B981" strokeWidth={2} dot={{r:3}} activeDot={{r:5}}>
+                            <LabelList dataKey="totalAccountValue" position="top" formatter={(v: number) => fmt(v, targetCurrency)} style={{fontSize:10,fill:THEME.textLight}} />
+                          </Line>
+                          {portfolioHistoryChartData.some(p => Number(p.totalDepositValue) !== 0) && (
+                            <Line type="monotone" dataKey="totalDepositValue" name="Deposit total (FD)" stroke="#3B82F6" strokeWidth={2} dot={{r:3}} activeDot={{r:5}}>
+                              <LabelList dataKey="totalDepositValue" position="bottom" formatter={(v: number) => fmt(v, targetCurrency)} style={{fontSize:10,fill:THEME.textLight}} />
+                            </Line>
+                          )}
+                        </LineChart>
+                      </ResponsiveContainer>
+                      <div style={{marginTop:12,display:"flex",flexDirection:"column",gap:8}}>
+                        <button type="button" onClick={clearPortfolioHistory} style={{alignSelf:"flex-start",background:"transparent",border:"none",color:THEME.textLight,fontSize:11,cursor:"pointer",textDecoration:"underline"}}>Clear all chart history</button>
+                        <div style={{fontSize:10,color:THEME.textMuted,marginBottom:4}}>Remove a snapshot:</div>
+                        <div style={{display:"flex",flexDirection:"column",gap:4,maxHeight:120,overflowY:"auto"}}>
+                          {[...portfolioHistoryChartData].filter(p => !p.isProjected).reverse().slice(0, 10).map((p) => (
+                            <div key={p.fullDate} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"4px 8px",background:THEME.cardBgAlt,borderRadius:6,fontSize:11}}>
+                              <span style={{color:THEME.text}}>{fmtDate(p.fullDate)} · {fmt(p.totalAccountValue, targetCurrency)}{p.source ? ` (${p.source})` : ''}</span>
+                              <button type="button" onClick={() => deletePortfolioHistoryEntry(p.fullDate)} title="Remove this snapshot" style={{background:"none",border:"none",cursor:"pointer",padding:2,color:THEME.textLight,fontSize:12}}>🗑</button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </>
                   )}
                 </div>
               )}
@@ -2148,6 +1898,9 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                 const t = a.type || 'Other';
                 byType[t] = (byType[t] || 0) + convertCurrency(Number(a.amount) || 0, (a.currency || 'INR') as Currency, targetCurrency, exchangeRates);
               });
+              if (depositsTotalInvested > 0) {
+                byType['Deposits (principal)'] = (byType['Deposits (principal)'] || 0) + depositsTotalInvested;
+              }
               const byBank: Record<string, number> = {};
               accounts.forEach(a => {
                 byBank[a.bank] = (byBank[a.bank] || 0) + convertCurrency(Number(a.amount) || 0, (a.currency || 'INR') as Currency, targetCurrency, exchangeRates);
@@ -2663,13 +2416,13 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                 <div style={{overflowX:"auto",scrollbarWidth:"thin",scrollbarColor:`${THEME.border} ${THEME.bg}`}}>
                   <table style={{width:"100%",borderCollapse:"collapse",fontSize:11}}>
                     <thead><tr style={{background:THEME.cardBg,borderBottom:`1px solid ${THEME.border}`}}>
-                      {["Bank/ID","Type","Nominee","Invested","ROI","Maturity ₹","Start","Maturity","Duration","Action",""].map(h => (
+                      {["Bank/ID","Type","Owner","Nominee","Invested","ROI","Maturity ₹","Start","Maturity","Days","Duration","Action",""].map(h => (
                         <th key={h} style={{padding:"8px 10px",textAlign:"left",color:THEME.textMuted,fontWeight:600,fontSize:10,whiteSpace:"nowrap"}}>{h}</th>
                       ))}
                     </tr></thead>
                     <tbody>
                       {filtered.length === 0 ? (
-                        <tr><td colSpan={11} style={{padding:32,textAlign:"center",color:THEME.textMuted}}>No deposits found</td></tr>
+                        <tr><td colSpan={13} style={{padding:32,textAlign:"center",color:THEME.textMuted}}>No deposits found</td></tr>
                       ) : (
                         depBankNames.map(bankName => {
                           const { deps: bankDeps, indices } = groupedDeps[bankName];
@@ -2682,6 +2435,9 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                           // Find common values across all deposits in this bank
                           const commonNominee = bankDeps.every(d => d.nominee === bankDeps[0]?.nominee) ? bankDeps[0]?.nominee : null;
                           const commonType = bankDeps.every(d => d.type === bankDeps[0]?.type) ? bankDeps[0]?.type : null;
+                          const commonOwner = bankDeps.every(d => (d.accountOwner || "") === (bankDeps[0]?.accountOwner || ""))
+                            ? bankDeps[0]?.accountOwner
+                            : null;
                           
                           return (
                             <React.Fragment key={bankName}>
@@ -2700,6 +2456,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                                   {isSingleRow && singleDep?.depositId && <div style={{fontSize:9,color:"#484F58",fontFamily:"monospace",marginLeft:30}}>{singleDep.depositId}</div>}
                                 </td>
                                 <td style={{padding:"8px 10px",color:THEME.textLight,fontSize:10}}>{isSingleRow ? (singleDep?.type || "FD") : (commonType || "—")}</td>
+                                <td style={{padding:"8px 10px",color:THEME.text,fontSize:10,maxWidth:90,overflow:"hidden",textOverflow:"ellipsis"}} title={isSingleRow ? singleDep?.accountOwner : commonOwner || ""}>{isSingleRow ? (singleDep?.accountOwner || "—") : (commonOwner || (bankDeps.length > 1 ? "Various" : "—"))}</td>
                                 <td style={{padding:"8px 10px",color:THEME.text,fontSize:10}}>{isSingleRow ? (singleDep?.nominee || "—") : (commonNominee || (bankDeps.length > 1 ? "Various" : "—"))}</td>
                                 <td style={{padding:"8px 10px",fontFamily:"monospace",fontWeight:700,color:THEME.text,fontSize:11}}>{fmt(totalDeposited)}</td>
                                 <td style={{padding:"8px 10px",fontFamily:"monospace",color:THEME.accent,fontWeight:600,fontSize:10}}>{isSingleRow && singleDep?.roi ? (Number(singleDep.roi) * 100).toFixed(2) + "%" : "—"}</td>
@@ -2713,6 +2470,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                                     </div>
                                   ) : "—"}
                                 </td>
+                                <td style={{padding:"8px 10px",color:THEME.textLight,fontSize:10,fontFamily:"monospace"}}>{isSingleRow ? (() => { const dm = daysUntil(singleDep?.maturityDate); return dm === null ? "—" : dm < 0 ? "0" : String(dm); })() : "—"}</td>
                                 <td style={{padding:"8px 10px",color:"#6B7280",fontSize:9}}>{isSingleRow ? (singleDep?.duration || "—") : "—"}</td>
                                 <td style={{padding:"8px 10px",color:THEME.textLight,fontSize:9,maxWidth:80,overflow:"hidden",textOverflow:"ellipsis"}}>{isSingleRow ? (singleDep?.maturityAction || "—") : "—"}</td>
                                 <td style={{padding:"8px 10px",whiteSpace:"nowrap"}}>
@@ -2730,12 +2488,14 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                               {isExpanded && bankDeps.map((d, j) => {
                                 const origIdx = indices[j];
                                 const days = daysUntil(d.maturityDate);
+                                const daysCell = days === null ? "—" : days < 0 ? "0" : String(days);
                                 return (
                                   <tr key={`${bankName}-${j}`} style={{borderBottom:`1px solid ${THEME.border}`,background:d.done ? "rgba(46,160,67,0.05)" : days != null && days < 0 ? "rgba(110,118,129,0.1)" : days != null && days <= 90 ? "rgba(248,81,73,0.05)" : "transparent",opacity:d.done ? 0.6 : 1}}>
                                     <td style={{padding:"8px 10px",paddingLeft:32}}>
                                       <div style={{fontSize:9,color:"#484F58",fontFamily:"monospace"}}>{d.depositId || "—"}</div>
                                     </td>
                                     <td style={{padding:"8px 10px",color:THEME.textLight,fontSize:10}}>{d.type || "FD"}</td>
+                                    <td style={{padding:"8px 10px",color:THEME.text,fontSize:10,maxWidth:90,overflow:"hidden",textOverflow:"ellipsis"}} title={d.accountOwner || ""}>{d.accountOwner || "—"}</td>
                                     <td style={{padding:"8px 10px",color:THEME.text,fontSize:10}}>{d.nominee || "—"}</td>
                                     <td style={{padding:"8px 10px",fontFamily:"monospace",fontWeight:600,color:THEME.text,fontSize:11}}>{fmt(d.deposit)}</td>
                                     <td style={{padding:"8px 10px",fontFamily:"monospace",color:THEME.accent,fontWeight:600,fontSize:10}}>{d.roi ? (Number(d.roi) * 100).toFixed(2) + "%" : "—"}</td>
@@ -2747,6 +2507,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                                         <UrgencyBadge days={days} />
                                       </div>
                                     </td>
+                                    <td style={{padding:"8px 10px",color:THEME.textLight,fontSize:10,fontFamily:"monospace"}}>{daysCell}</td>
                                     <td style={{padding:"8px 10px",color:"#6B7280",fontSize:9}}>{d.duration || "—"}</td>
                                     <td style={{padding:"8px 10px",color:THEME.textLight,fontSize:9,maxWidth:80,overflow:"hidden",textOverflow:"ellipsis"}} title={d.maturityAction}>{d.maturityAction || "—"}</td>
                                     <td style={{padding:"8px 10px",whiteSpace:"nowrap"}}>
@@ -2773,18 +2534,19 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                 <div style={{overflowX:"auto",scrollbarWidth:"thin",scrollbarColor:`${THEME.border} ${THEME.bg}`}}>
                   <table style={{width:"100%",borderCollapse:"collapse",fontSize:11}}>
                     <thead><tr style={{background:THEME.cardBg,borderBottom:`1px solid ${THEME.border}`}}>
-                      {["Bank","ID","Type","Nominee","Invested","ROI","Maturity ₹","Start","Maturity","Duration","Action",""].map(h => (
+                      {["Bank","ID","Type","Owner","Nominee","Invested","ROI","Maturity ₹","Start","Maturity","Days","Duration","Action",""].map(h => (
                         <th key={h} style={{padding:"8px 10px",textAlign:"left",color:THEME.textMuted,fontWeight:600,fontSize:10,whiteSpace:"nowrap"}}>{h}</th>
                       ))}
                     </tr></thead>
                     <tbody>
                       {filtered.length === 0 ? (
-                        <tr><td colSpan={12} style={{padding:32,textAlign:"center",color:THEME.textMuted}}>No deposits found</td></tr>
+                        <tr><td colSpan={14} style={{padding:32,textAlign:"center",color:THEME.textMuted}}>No deposits found</td></tr>
                       ) : (
                         filtered.map((d, idx) => {
                           const origIdx = deposits.indexOf(d);
                           const days = daysUntil(d.maturityDate);
                           const color = getBankColor(d.bank);
+                          const daysCell = days === null ? "—" : days < 0 ? "0" : String(days);
                           return (
                             <tr key={idx} style={{borderBottom:`1px solid ${THEME.border}`,background:d.done ? "rgba(46,160,67,0.05)" : days != null && days < 0 ? "rgba(110,118,129,0.1)" : days != null && days <= 90 ? "rgba(248,81,73,0.05)" : "transparent",opacity:d.done ? 0.6 : 1}}>
                               <td style={{padding:"8px 10px"}}>
@@ -2795,6 +2557,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                               </td>
                               <td style={{padding:"8px 10px",fontSize:9,color:"#484F58",fontFamily:"monospace"}}>{d.depositId || "—"}</td>
                               <td style={{padding:"8px 10px",color:THEME.textLight,fontSize:10}}>{d.type || "FD"}</td>
+                              <td style={{padding:"8px 10px",color:THEME.text,fontSize:10,maxWidth:88,overflow:"hidden",textOverflow:"ellipsis"}} title={d.accountOwner || ""}>{d.accountOwner || "—"}</td>
                               <td style={{padding:"8px 10px",color:THEME.text,fontSize:10}}>{d.nominee || "—"}</td>
                               <td style={{padding:"8px 10px",fontFamily:"monospace",fontWeight:600,color:THEME.text,fontSize:11}}>{fmt(d.deposit)}</td>
                               <td style={{padding:"8px 10px",fontFamily:"monospace",color:THEME.accent,fontWeight:600,fontSize:10}}>{d.roi ? (Number(d.roi) * 100).toFixed(2) + "%" : "—"}</td>
@@ -2806,6 +2569,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                                   <UrgencyBadge days={days} />
                                 </div>
                               </td>
+                              <td style={{padding:"8px 10px",color:THEME.textLight,fontSize:10,fontFamily:"monospace"}}>{daysCell}</td>
                               <td style={{padding:"8px 10px",color:"#6B7280",fontSize:9}}>{d.duration || "—"}</td>
                               <td style={{padding:"8px 10px",color:THEME.textLight,fontSize:9,maxWidth:80,overflow:"hidden",textOverflow:"ellipsis"}} title={d.maturityAction}>{d.maturityAction || "—"}</td>
                               <td style={{padding:"8px 10px",whiteSpace:"nowrap"}}>
@@ -2880,6 +2644,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                                         <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
                                           {d.depositId && <span style={{fontSize:9,color:"#484F58",fontFamily:"monospace"}}>{d.depositId}</span>}
                                           <span style={{background:"#1D4ED820",color:"#60A5FA",padding:"2px 6px",borderRadius:4,fontSize:9,fontWeight:600}}>{d.type || "FD"}</span>
+                                          {d.accountOwner && <span style={{fontSize:9,color:"#9CA3AF"}}>Owner: {d.accountOwner}</span>}
                                           {d.nominee && <span style={{fontSize:9,color:"#6B7280"}}>👤 {d.nominee}</span>}
                                           {d.done && <span style={{fontSize:9,color:"#34D399"}}>✓ Done</span>}
                                         </div>
@@ -3194,6 +2959,18 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                                             {acc.hidden && <span style={{background:THEME.border,color:THEME.textLight,padding:"2px 6px",borderRadius:4,fontSize:9,fontWeight:600}}>Hidden</span>}
                                           </div>
                                           {acc.holders && <div style={{fontSize:11,color:THEME.textLight}}>👤 {acc.holders}</div>}
+                                          {acc.nominee && <div style={{fontSize:10,color:"#6B7280"}}>Nominee: {acc.nominee}</div>}
+                                          {accountNotesDetail(acc) ? (
+                                            <div style={{fontSize:10,color:THEME.textMuted,marginTop:4,whiteSpace:"pre-wrap",maxHeight:56,overflow:"hidden"}}>{accountNotesDetail(acc)}</div>
+                                          ) : null}
+                                          {(() => {
+                                            const stale = daysSinceUpdated(acc.lastBalanceUpdatedAt);
+                                            return stale != null && stale >= 0 ? (
+                                              <div style={{fontSize:9,color: stale > 90 ? "#F59E0B" : "#6B7280",marginTop:4}}>
+                                                Sheet updated {stale === 0 ? "today" : `${stale}d ago`}
+                                              </div>
+                                            ) : null;
+                                          })()}
                                         </div>
                                         <div style={{textAlign:"right"}}>
                                           <div style={{fontSize:18,fontWeight:800,fontFamily:"monospace",color:isNegative ? "#EF4444" : THEME.text}}>{fmt(acc.amount, accCurrency)}</div>
@@ -3446,7 +3223,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                       <div style={{overflowX:"auto",scrollbarWidth:"thin",scrollbarColor:`${THEME.border} ${THEME.bg}`}}>
                         <table style={{width:"100%",borderCollapse:"collapse",fontSize:11}}>
                           <thead><tr style={{background:THEME.cardBg,borderBottom:`1px solid ${THEME.border}`}}>
-                            {["Bank","Type","Holders","Amount","Currency","ROI","A/C Number","IFSC","Branch","Online","Address","Details","Action",""].map(h => (
+                            {["Bank","Type","Holders","Nominee","Amount","Currency","ROI","A/C Number","IFSC","Branch","Online","Address","Notes","Action",""].map(h => (
                               <th key={h} style={{padding:"8px 10px",textAlign:"left",color:THEME.textMuted,fontWeight:600,fontSize:10,whiteSpace:"nowrap"}}>{h}</th>
                             ))}
                           </tr></thead>
@@ -3464,6 +3241,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                               // Find common values across all accounts in this bank
                               const commonType = bankAccounts.every(a => a.type === bankAccounts[0]?.type) ? bankAccounts[0]?.type : null;
                               const commonHolders = bankAccounts.every(a => a.holders === bankAccounts[0]?.holders) ? bankAccounts[0]?.holders : null;
+                              const commonNominee = bankAccounts.every(a => (a.nominee || "") === (bankAccounts[0]?.nominee || "")) ? bankAccounts[0]?.nominee : null;
                               
                               const toggleGridBank = () => {
                                 setExpandedBanks(prev => {
@@ -3497,6 +3275,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                                       ) : (commonType ? <span style={{color:THEME.textLight,fontSize:10}}>{commonType}</span> : "—")}
                                     </td>
                                     <td style={{padding:"8px 10px",color:THEME.text,fontSize:10,maxWidth:100,overflow:"hidden",textOverflow:"ellipsis"}}>{isSingleRow ? (singleAcc?.holders || "—") : (commonHolders || (bankAccounts.length > 1 ? "Various" : "—"))}</td>
+                                    <td style={{padding:"8px 10px",color:THEME.text,fontSize:10,maxWidth:88,overflow:"hidden",textOverflow:"ellipsis"}} title={isSingleRow ? singleAcc?.nominee || "" : ""}>{isSingleRow ? (singleAcc?.nominee || "—") : (commonNominee || (bankAccounts.length > 1 ? "Various" : "—"))}</td>
                                     <td style={{padding:"8px 10px",fontFamily:"monospace",fontWeight:700,color:THEME.text,fontSize:11}}>{fmt(totalBalance, isSingleRow ? singleAccCurrency : headerCurrency)}</td>
                                     <td style={{padding:"8px 10px",color:THEME.textLight,fontSize:9}}>{isSingleRow ? singleAccCurrency : (isMixedCurrency ? "Mixed" : headerCurrency)}</td>
                                     <td style={{padding:"8px 10px",fontFamily:"monospace",color:THEME.accent,fontWeight:600,fontSize:10}}>{isSingleRow && singleAcc?.roi ? (Number(singleAcc.roi) * 100).toFixed(2) + "%" : "—"}</td>
@@ -3505,7 +3284,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                                     <td style={{padding:"8px 10px",color:THEME.textLight,fontSize:9,maxWidth:80,overflow:"hidden",textOverflow:"ellipsis"}}>{isSingleRow ? (singleAcc?.branch || "—") : "—"}</td>
                                     <td style={{padding:"8px 10px"}}>{isSingleRow && singleAcc?.online && <span style={{fontSize:9,color:singleAcc.online === "Yes" ? "#34D399" : "#6B7280",background:singleAcc.online === "Yes" ? "#064E3B30" : "${THEME.border}40",padding:"2px 4px",borderRadius:3}}>{singleAcc.online === "Yes" ? "🌐" : "—"}</span>}</td>
                                     <td style={{padding:"8px 10px",color:"#6B7280",fontSize:9,maxWidth:80,overflow:"hidden",textOverflow:"ellipsis"}}>{isSingleRow ? (singleAcc?.address || "—") : "—"}</td>
-                                    <td style={{padding:"8px 10px",color:THEME.textLight,fontSize:9,maxWidth:80,overflow:"hidden",textOverflow:"ellipsis"}}>{isSingleRow ? (singleAcc?.detail || "—") : "—"}</td>
+                                    <td style={{padding:"8px 10px",color:THEME.textLight,fontSize:9,maxWidth:100,overflow:"hidden",textOverflow:"ellipsis"}} title={isSingleRow && singleAcc ? accountNotesDetail(singleAcc) : ""}>{isSingleRow && singleAcc ? (accountNotesDetail(singleAcc) || "—") : "—"}</td>
                                     <td style={{padding:"8px 10px",color:isSingleRow && singleAcc?.nextAction && !singleAcc.done ? "#F59E0B" : "#6B7280",fontSize:9,maxWidth:80,overflow:"hidden",textOverflow:"ellipsis",fontWeight:isSingleRow && singleAcc?.nextAction && !singleAcc.done ? 600 : 400}}>{isSingleRow ? (singleAcc?.nextAction ? (singleAcc.done ? "✓ " : "⚡ ") + singleAcc.nextAction : "—") : "—"}</td>
                                     <td style={{padding:"8px 10px",whiteSpace:"nowrap"}}>
                                       {isSingleRow && (
@@ -3530,6 +3309,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                                           <span style={{background:`${typeColor}20`,color:typeColor,padding:"2px 6px",borderRadius:4,fontSize:9,fontWeight:700}}>{acc.type || "—"}</span>
                                         </td>
                                         <td style={{padding:"8px 10px",color:THEME.text,fontSize:10,maxWidth:100,overflow:"hidden",textOverflow:"ellipsis"}} title={acc.holders}>{acc.holders || "—"}</td>
+                                        <td style={{padding:"8px 10px",color:THEME.text,fontSize:10,maxWidth:88,overflow:"hidden",textOverflow:"ellipsis"}} title={acc.nominee || ""}>{acc.nominee || "—"}</td>
                                         <td style={{padding:"8px 10px",fontFamily:"monospace",fontWeight:600,color:acc.done ? "#6B7280" : THEME.text,fontSize:11}}>{fmt(acc.amount, accCurrency)}</td>
                                         <td style={{padding:"8px 10px",color:THEME.textLight,fontSize:9}}>{accCurrency}</td>
                                         <td style={{padding:"8px 10px",fontFamily:"monospace",color:THEME.accent,fontWeight:600,fontSize:10}}>{acc.roi ? (Number(acc.roi) * 100).toFixed(2) + "%" : "—"}</td>
@@ -3540,7 +3320,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                                           {acc.online && <span style={{fontSize:9,color:acc.online === "Yes" ? "#34D399" : "#6B7280",background:acc.online === "Yes" ? "#064E3B30" : "${THEME.border}40",padding:"2px 4px",borderRadius:3}}>{acc.online === "Yes" ? "🌐" : "—"}</span>}
                                         </td>
                                         <td style={{padding:"8px 10px",color:"#6B7280",fontSize:9,maxWidth:80,overflow:"hidden",textOverflow:"ellipsis"}} title={acc.address}>{acc.address || "—"}</td>
-                                        <td style={{padding:"8px 10px",color:THEME.textLight,fontSize:9,maxWidth:80,overflow:"hidden",textOverflow:"ellipsis"}} title={acc.detail}>{acc.detail || "—"}</td>
+                                        <td style={{padding:"8px 10px",color:THEME.textLight,fontSize:9,maxWidth:100,overflow:"hidden",textOverflow:"ellipsis"}} title={accountNotesDetail(acc)}>{accountNotesDetail(acc) || "—"}</td>
                                         <td style={{padding:"8px 10px",color:acc.nextAction && !acc.done ? "#F59E0B" : "#6B7280",fontSize:9,maxWidth:80,overflow:"hidden",textOverflow:"ellipsis",fontWeight:acc.nextAction && !acc.done ? 600 : 400}} title={acc.nextAction}>{acc.nextAction ? (acc.done ? "✓ " : "⚡ ") + acc.nextAction : "—"}</td>
                                         <td style={{padding:"8px 10px",whiteSpace:"nowrap"}}>
                                           <button onClick={(e) => { e.stopPropagation(); toggleDone("account", origIdx); }} style={{background:acc.done ? "#238636" : THEME.cardBgAlt,color:acc.done ? "#fff" : THEME.textMuted,border:"none",borderRadius:4,padding:"2px 6px",fontSize:9,cursor:"pointer",marginRight:3,fontWeight:600}}>{acc.done ? "↩" : "✓"}</button>
@@ -3565,13 +3345,13 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                       <div style={{overflowX:"auto",scrollbarWidth:"thin",scrollbarColor:`${THEME.border} ${THEME.bg}`}}>
                         <table style={{width:"100%",borderCollapse:"collapse",fontSize:11}}>
                           <thead><tr style={{background:THEME.cardBg,borderBottom:`1px solid ${THEME.border}`}}>
-                            {["Bank","Type","Holders","Amount","Currency","ROI","A/C Number","IFSC","Branch","Online","Address","Details","Action",""].map(h => (
+                            {["Bank","Type","Holders","Nominee","Amount","Currency","ROI","A/C Number","IFSC","Branch","Online","Address","Notes","Action",""].map(h => (
                               <th key={h} style={{padding:"8px 10px",textAlign:"left",color:THEME.textMuted,fontWeight:600,fontSize:10,whiteSpace:"nowrap"}}>{h}</th>
                             ))}
                           </tr></thead>
                           <tbody>
                             {visibleAccounts.length === 0 ? (
-                              <tr><td colSpan={14} style={{padding:32,textAlign:"center",color:THEME.textMuted}}>No accounts found</td></tr>
+                              <tr><td colSpan={15} style={{padding:32,textAlign:"center",color:THEME.textMuted}}>No accounts found</td></tr>
                             ) : (
                               <>
                                 {visibleAccounts.map((acc) => {
@@ -3592,6 +3372,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                                         <span style={{background:`${typeColor}20`,color:typeColor,padding:"2px 6px",borderRadius:4,fontSize:9,fontWeight:700}}>{acc.type || "—"}</span>
                                       </td>
                                       <td style={{padding:"8px 10px",color:THEME.text,fontSize:10,maxWidth:100,overflow:"hidden",textOverflow:"ellipsis"}} title={acc.holders}>{acc.holders || "—"}</td>
+                                      <td style={{padding:"8px 10px",color:THEME.text,fontSize:10,maxWidth:88,overflow:"hidden",textOverflow:"ellipsis"}} title={acc.nominee || ""}>{acc.nominee || "—"}</td>
                                       <td style={{padding:"8px 10px",fontFamily:"monospace",fontWeight:600,color:acc.done ? "#6B7280" : THEME.text,fontSize:11}}>{fmt(acc.amount, accCurrency)}</td>
                                       <td style={{padding:"8px 10px",color:THEME.textLight,fontSize:9}}>{accCurrency}</td>
                                       <td style={{padding:"8px 10px",fontFamily:"monospace",color:THEME.accent,fontWeight:600,fontSize:10}}>{acc.roi ? (Number(acc.roi) * 100).toFixed(2) + "%" : "—"}</td>
@@ -3602,7 +3383,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                                         {acc.online && <span style={{fontSize:9,color:acc.online === "Yes" ? "#34D399" : "#6B7280",background:acc.online === "Yes" ? "#064E3B30" : "${THEME.border}40",padding:"2px 4px",borderRadius:3}}>{acc.online === "Yes" ? "🌐" : "—"}</span>}
                                       </td>
                                       <td style={{padding:"8px 10px",color:"#6B7280",fontSize:9,maxWidth:80,overflow:"hidden",textOverflow:"ellipsis"}} title={acc.address}>{acc.address || "—"}</td>
-                                      <td style={{padding:"8px 10px",color:THEME.textLight,fontSize:9,maxWidth:80,overflow:"hidden",textOverflow:"ellipsis"}} title={acc.detail}>{acc.detail || "—"}</td>
+                                      <td style={{padding:"8px 10px",color:THEME.textLight,fontSize:9,maxWidth:100,overflow:"hidden",textOverflow:"ellipsis"}} title={accountNotesDetail(acc)}>{accountNotesDetail(acc) || "—"}</td>
                                       <td style={{padding:"8px 10px",color:acc.nextAction && !acc.done ? "#F59E0B" : "#6B7280",fontSize:9,maxWidth:80,overflow:"hidden",textOverflow:"ellipsis",fontWeight:acc.nextAction && !acc.done ? 600 : 400}} title={acc.nextAction}>{acc.nextAction ? (acc.done ? "✓ " : "⚡ ") + acc.nextAction : "—"}</td>
                                       <td style={{padding:"8px 10px",whiteSpace:"nowrap"}}>
                                         <button onClick={() => toggleDone("account", idx)} style={{background:acc.done ? "#238636" : THEME.cardBgAlt,color:acc.done ? "#fff" : THEME.textMuted,border:"none",borderRadius:4,padding:"2px 6px",fontSize:9,cursor:"pointer",marginRight:3,fontWeight:600}}>{acc.done ? "↩" : "✓"}</button>
@@ -3623,7 +3404,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                                       </div>
                                     </td>
                                     <td style={{padding:"12px 10px",fontFamily:"monospace",fontWeight:600,color:THEME.textMuted,fontSize:11}}>{fmt(hiddenTotal, targetCurrency)}</td>
-                                    <td colSpan={9} style={{padding:"12px 10px",color:THEME.textMuted,fontSize:10}}>Click to show all accounts</td>
+                                    <td colSpan={10} style={{padding:"12px 10px",color:THEME.textMuted,fontSize:10}}>Click to show all accounts</td>
                                     <td style={{padding:"12px 10px"}}>
                                       <button style={{background:THEME.accent,color:"#FFF",border:"none",borderRadius:4,padding:"3px 8px",fontSize:9,cursor:"pointer",fontWeight:600}}>Show</button>
                                     </td>
@@ -3685,10 +3466,19 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                                           {acc.done && <span style={{fontSize:9,color:"#6B7280"}}>✓ Done</span>}
                                         </div>
                                         {acc.holders && <div style={{fontSize:11,color:THEME.text,marginTop:4}}>👤 {acc.holders}</div>}
+                                        {acc.nominee && <div style={{fontSize:10,color:"#6B7280",marginTop:2}}>Nominee: {acc.nominee}</div>}
                                         <div style={{display:"flex",alignItems:"baseline",gap:8,marginTop:4,flexWrap:"wrap"}}>
                                           {acc.amount && <span style={{fontSize:14,fontWeight:700,fontFamily:"monospace",color:acc.done ? "#6B7280" : "#F9FAFB"}}>{fmt(acc.amount, (acc.currency || 'INR') as Currency)}</span>}
                                           {acc.roi && <span style={{fontSize:11,color:"#34D399",fontFamily:"monospace"}}>{(Number(acc.roi) * 100).toFixed(2)}% pa</span>}
                                         </div>
+                                        {(() => {
+                                          const stale = daysSinceUpdated(acc.lastBalanceUpdatedAt);
+                                          return stale != null && stale >= 0 ? (
+                                            <div style={{fontSize:9,color: stale > 90 ? "#F59E0B" : "#6B7280",marginTop:3}}>
+                                              Balance row · {stale === 0 ? "updated today" : `${stale}d since update`}
+                                            </div>
+                                          ) : null;
+                                        })()}
                                         {acc.balanceHistory?.length > 0 && (() => {
                                           const latest = acc.balanceHistory[acc.balanceHistory.length - 1];
                                           const prev = latest.previousAmount != null ? `${fmt(latest.previousAmount, (acc.currency || 'INR') as Currency)} → ` : '';
@@ -3699,7 +3489,9 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                                           );
                                         })()}
                                         {acc.address && <div style={{fontSize:10,color:"#6B7280",marginTop:3}}>📍 {acc.address}</div>}
-                                        {acc.detail && <div style={{fontSize:10,color:THEME.textLight,marginTop:2}}>📝 {acc.detail}</div>}
+                                        {accountNotesDetail(acc) ? (
+                                          <div style={{fontSize:10,color:THEME.textLight,marginTop:2,whiteSpace:"pre-wrap",maxHeight:72,overflow:"hidden"}}>📝 {accountNotesDetail(acc)}</div>
+                                        ) : null}
                                         {acc.accountNumber && <div style={{fontSize:9,color:"#484F58",marginTop:2,fontFamily:"monospace"}}>A/C: {acc.accountNumber}</div>}
                                         {acc.ifscCode && <div style={{fontSize:9,color:"#484F58",fontFamily:"monospace"}}>IFSC: {acc.ifscCode}</div>}
                                         {acc.branch && <div style={{fontSize:9,color:"#484F58"}}>Branch: {acc.branch}</div>}
@@ -4010,6 +3802,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                 <div><label style={labelSt}>Currency</label><select style={inputSt} value={form.currency||"INR"} onChange={e=>setForm({...form,currency:e.target.value})}>{CURRENCIES.map(c=><option key={c} value={c}>{c} ({CURRENCY_SYMBOLS[c]})</option>)}</select></div>
                 <div><label style={labelSt}>Category</label><select style={inputSt} value={form.category||"General Savings"} onChange={e=>setForm({...form,category:e.target.value})}>{CATEGORIES.map(c=><option key={c} value={c}>{c}</option>)}</select></div>
                 <div><label style={labelSt}>Deposit ID</label><input style={inputSt} value={form.depositId||""} onChange={e=>setForm({...form,depositId:e.target.value})} /></div>
+                <div><label style={labelSt}>Account Owner</label><input style={inputSt} value={(form as Deposit).accountOwner||""} onChange={e=>setForm({...form,accountOwner:e.target.value})} placeholder="Owner(s), one field" /></div>
                 <div><label style={labelSt}>Nominee</label><input style={inputSt} value={form.nominee||""} onChange={e=>setForm({...form,nominee:e.target.value})} /></div>
                 <div><label style={labelSt}>Start Date</label><input style={inputSt} type="date" value={form.startDate||""} onChange={e=>setForm({...form,startDate:e.target.value})} /></div>
                 <div><label style={labelSt}>Principal ({CURRENCY_SYMBOLS[form.currency as Currency || 'INR']})</label><input style={inputSt} type="number" value={form.deposit||""} onChange={e=>setForm({...form,deposit:e.target.value})} /></div>
@@ -4074,11 +3867,13 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                 <div><label style={labelSt}>Type</label><input style={inputSt} value={form.type||""} onChange={e=>setForm({...form,type:e.target.value})} placeholder="Saving, Current, Checking" /></div>
                 <div><label style={labelSt}>Currency</label><select style={inputSt} value={(form as BankAccount).currency||"INR"} onChange={e=>setForm({...form,currency:e.target.value})}>{CURRENCIES.map(c=><option key={c} value={c}>{c} ({CURRENCY_SYMBOLS[c]})</option>)}</select></div>
                 <div><label style={labelSt}>Holders</label><input style={inputSt} value={form.holders||""} onChange={e=>setForm({...form,holders:e.target.value})} placeholder="Account holders" /></div>
+                <div><label style={labelSt}>Nominee</label><input style={inputSt} value={(form as BankAccount).nominee||""} onChange={e=>setForm({...form,nominee:e.target.value})} /></div>
                 <div><label style={labelSt}>Balance ({CURRENCY_SYMBOLS[((form as BankAccount).currency as Currency) || 'INR']})</label><input style={inputSt} type="number" value={form.amount||""} onChange={e=>setForm({...form,amount:e.target.value})} /></div>
                 <div><label style={labelSt}>ROI (decimal)</label><input style={inputSt} type="number" step="0.001" value={form.roi||""} onChange={e=>setForm({...form,roi:e.target.value})} /></div>
                 <div><label style={labelSt}>Online Banking</label><input style={inputSt} value={form.online||""} onChange={e=>setForm({...form,online:e.target.value})} placeholder="Yes/No" /></div>
                 <div><label style={labelSt}>Address</label><input style={inputSt} value={form.address||""} onChange={e=>setForm({...form,address:e.target.value})} /></div>
-                <div style={{gridColumn:"span 2"}}><label style={labelSt}>Details</label><input style={inputSt} value={form.detail||""} onChange={e=>setForm({...form,detail:e.target.value})} /></div>
+                <div style={{gridColumn:"span 2"}}><label style={labelSt}>Details</label><input style={inputSt} value={form.detail||""} onChange={e=>setForm({...form,detail:e.target.value})} placeholder="Short detail (legacy)" /></div>
+                <div style={{gridColumn:"span 2"}}><label style={labelSt}>Notes</label><textarea style={{...inputSt,minHeight:72,resize:"vertical"}} value={(form as BankAccount).notes||""} onChange={e=>setForm({...form,notes:e.target.value})} placeholder="Limits, Extra Info, Info 1/2 (combined from Excel)" /></div>
                 <div style={{gridColumn:"span 2"}}><label style={labelSt}>Next Action</label><input style={inputSt} value={form.nextAction||""} onChange={e=>setForm({...form,nextAction:e.target.value})} placeholder="Pending task for this account" /></div>
                 <div style={{gridColumn:"span 2",display:"flex",alignItems:"center",gap:10,padding:"10px 0",borderTop:`1px solid ${THEME.border}`,marginTop:6}}>
                   <label style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",fontSize:12,color:THEME.textLight}}>

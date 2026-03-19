@@ -341,6 +341,8 @@ const GroupChatHub: React.FC<GroupChatHubProps> = ({ encryptionKey, onClose, onO
               members={chatMembers.map(mapMemberToProfile)}
               userDeposits={userDeposits}
               userAccounts={userAccounts}
+              isMobile={isMobile}
+              onCloseChat={onClose}
               onBack={() => {
                 if (isMobile) {
                   setShowSidebar(true);

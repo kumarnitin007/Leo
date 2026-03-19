@@ -739,6 +739,8 @@ export default function GroupFinanceChat({
   userDeposits = [],
   userAccounts = [],
   onBack,
+  isMobile = false,
+  onCloseChat,
 }: GroupFinanceChatProps) {
   const [messages, setMessages] = useState<GroupFinanceMessage[]>([]);
   const [inputText, setInputText] = useState('');
@@ -952,14 +954,14 @@ export default function GroupFinanceChat({
             {members.map((m) => m.name).join(', ')} · {members.length} members
           </div>
         </div>
-        <div style={{ display: 'flex', gap: 8 }}>
+        <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0 }}>
           <button
             onClick={() => setShowMembers((p) => !p)}
             style={{
               background: showMembers ? '#0D9488' : '#F0FDF4',
               border: '1px solid #BBF7D0',
               borderRadius: 10,
-              padding: '6px 14px',
+              padding: isMobile ? '6px 10px' : '6px 14px',
               cursor: 'pointer',
               fontSize: 12,
               fontWeight: 700,
@@ -970,63 +972,120 @@ export default function GroupFinanceChat({
           >
             👥 {members.length}
           </button>
+          {onCloseChat && (
+            <button
+              type="button"
+              onClick={onCloseChat}
+              title="Close chat"
+              aria-label="Close chat"
+              style={{
+                background: '#FEE2E2',
+                border: '1px solid #FECACA',
+                borderRadius: 10,
+                width: 36,
+                height: 36,
+                cursor: 'pointer',
+                fontSize: 18,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#B91C1C',
+                fontFamily: 'inherit',
+                flexShrink: 0,
+              }}
+            >
+              ✕
+            </button>
+          )}
         </div>
       </div>
 
-      {/* Filter pills */}
+      {/* Filter row — mobile: icon-only (no extra lock row); desktop: short labels + Encrypted */}
       <div
         style={{
           background: '#FFFFFF',
           borderBottom: '1px solid #E5E7EB',
-          padding: '10px 16px',
+          padding: isMobile ? '8px 12px' : '10px 16px',
           display: 'flex',
+          flexDirection: 'row',
           gap: 8,
           alignItems: 'center',
-          overflowX: 'auto',
           flexShrink: 0,
         }}
       >
-        {([['all', '💬 All'], ['fd', '🏦 FD'], ['account', '💳 A/C'], ['alert', '🔔 Alert'], ['doc', '📄 Doc']] as const).map(
-          ([id, label]) => (
+        <div
+          style={{
+            display: 'flex',
+            gap: isMobile ? 6 : 8,
+            alignItems: 'center',
+            overflowX: 'auto',
+            WebkitOverflowScrolling: 'touch',
+            flex: 1,
+            minWidth: 0,
+          }}
+        >
+          {(
+            [
+              ['all', '💬', 'All messages'],
+              ['fd', '🏦', 'Fixed deposits'],
+              ['account', '💳', 'Accounts'],
+              ['alert', '🔔', 'Alerts'],
+              ['doc', '📄', 'Documents'],
+            ] as const
+          ).map(([id, icon, titleText]) => (
             <button
               key={id}
+              type="button"
+              title={titleText}
+              aria-label={titleText}
+              aria-pressed={filter === id}
               onClick={() => setFilter(id)}
               style={{
                 background: filter === id ? '#0D9488' : '#F3F4F6',
                 color: filter === id ? '#FFF' : '#6B7280',
                 border: 'none',
-                borderRadius: 20,
-                padding: '5px 12px',
-                fontSize: 11,
+                borderRadius: isMobile ? 12 : 20,
+                padding: isMobile ? 0 : '5px 12px',
+                width: isMobile ? 44 : undefined,
+                height: isMobile ? 44 : undefined,
+                minWidth: isMobile ? 44 : undefined,
+                fontSize: isMobile ? 20 : 11,
                 fontWeight: 700,
                 cursor: 'pointer',
                 whiteSpace: 'nowrap',
                 fontFamily: 'inherit',
                 transition: 'all 0.2s',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0,
               }}
             >
-              {label}
+              {isMobile ? icon : `${icon} ${id === 'all' ? 'All' : id === 'fd' ? 'FD' : id === 'account' ? 'A/C' : id === 'alert' ? 'Alert' : 'Doc'}`}
             </button>
-          )
-        )}
-        <div
-          style={{
-            marginLeft: 'auto',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 5,
-            fontSize: 11,
-            color: '#10B981',
-            fontWeight: 600,
-            whiteSpace: 'nowrap',
-            background: '#F0FDF4',
-            padding: '4px 12px',
-            borderRadius: 20,
-            border: '1px solid #BBF7D0',
-          }}
-        >
-          🔒 Encrypted
+          ))}
         </div>
+        {!isMobile && (
+          <div
+            style={{
+              marginLeft: 'auto',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 5,
+              fontSize: 11,
+              color: '#10B981',
+              fontWeight: 600,
+              whiteSpace: 'nowrap',
+              background: '#F0FDF4',
+              padding: '4px 12px',
+              borderRadius: 20,
+              border: '1px solid #BBF7D0',
+              flexShrink: 0,
+            }}
+          >
+            🔒 Encrypted
+          </div>
+        )}
       </div>
 
       {/* Messages area */}
@@ -1094,12 +1153,13 @@ export default function GroupFinanceChat({
         </div>
       )}
 
-      {/* Input bar */}
+      {/* Input bar - extra bottom padding on mobile so it isn't hidden behind bottom nav */}
       <div
         style={{
           background: '#FFFFFF',
           borderTop: '1px solid #E5E7EB',
           padding: '10px 16px',
+          paddingBottom: isMobile ? 'max(env(safe-area-inset-bottom, 20px), 64px)' : 10,
           display: 'flex',
           alignItems: 'flex-end',
           gap: 10,

@@ -122,10 +122,28 @@ export async function createGroup(group: Partial<SharingGroup>): Promise<Sharing
   };
 }
 
+/** True if this user may edit group metadata (owner or admin — not only created_by). */
+async function canEditGroup(groupId: string, userId: string): Promise<boolean> {
+  const members = await getGroupMembers(groupId);
+  const me = members.find((m) => m.userId === userId);
+  return me?.role === 'owner' || me?.role === 'admin';
+}
+
+/** True if this user may delete the group (owner only). */
+async function canDeleteGroup(groupId: string, userId: string): Promise<boolean> {
+  const members = await getGroupMembers(groupId);
+  const me = members.find((m) => m.userId === userId);
+  return me?.role === 'owner';
+}
+
 export async function updateGroup(id: string, updates: Partial<SharingGroup>): Promise<SharingGroup> {
   const supabase = getClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('Not authenticated');
+
+  if (!(await canEditGroup(id, user.id))) {
+    throw new Error('Only group owners or admins can edit this group');
+  }
 
   const updatePayload: Record<string, unknown> = { updated_at: new Date().toISOString() };
   if (updates.name !== undefined) updatePayload.name = updates.name;
@@ -133,26 +151,28 @@ export async function updateGroup(id: string, updates: Partial<SharingGroup>): P
   if (updates.icon !== undefined) updatePayload.icon = updates.icon;
   if (updates.color !== undefined) updatePayload.color = updates.color;
 
-  const { data, error } = await supabase
-    .from('myday_groups')
-    .update(updatePayload)
-    .eq('id', id)
-    .eq('created_by', user.id)
-    .select()
-    .single();
+  // Match by id only — creator filter caused 0-row updates for owners who aren't created_by,
+  // and .single() then returns 406 Not Acceptable from PostgREST.
+  const { data, error } = await supabase.from('myday_groups').update(updatePayload).eq('id', id).select();
 
   if (error) throw error;
+  const row = data?.[0];
+  if (!row) {
+    throw new Error(
+      'Could not update group. If you are an owner, ask your admin to check database policies (RLS) on myday_groups for UPDATE.'
+    );
+  }
 
   return {
-    id: data.id,
-    name: data.name,
-    description: data.description,
-    icon: data.icon,
-    color: data.color,
-    createdBy: data.created_by,
-    maxMembers: data.max_members,
-    createdAt: data.created_at,
-    updatedAt: data.updated_at,
+    id: row.id,
+    name: row.name,
+    description: row.description,
+    icon: row.icon,
+    color: row.color,
+    createdBy: row.created_by,
+    maxMembers: row.max_members,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
   };
 }
 
@@ -161,13 +181,18 @@ export async function deleteGroup(id: string): Promise<void> {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('Not authenticated');
 
-  const { error } = await supabase
-    .from('myday_groups')
-    .delete()
-    .eq('id', id)
-    .eq('created_by', user.id);
+  if (!(await canDeleteGroup(id, user.id))) {
+    throw new Error('Only the group owner can delete this group');
+  }
+
+  const { data, error } = await supabase.from('myday_groups').delete().eq('id', id).select('id');
 
   if (error) throw error;
+  if (!data?.length) {
+    throw new Error(
+      'Could not delete group. Check database policies (RLS) on myday_groups for DELETE.'
+    );
+  }
 }
 
 // ===== MEMBERS =====
