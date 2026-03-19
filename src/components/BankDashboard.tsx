@@ -216,6 +216,17 @@ function EmptyState({ icon, title, description, action, onAction }: { icon: stri
 const inputSt: React.CSSProperties = { background:'var(--color-card-bg)', border:'1px solid var(--color-card-border)', color:'var(--color-text)', borderRadius:8, padding:"8px 12px", fontSize:13, width:"100%", fontFamily:"inherit", outline:"none", boxSizing:"border-box" };
 const labelSt: React.CSSProperties = { fontSize:11, color:'var(--color-text-muted)', fontWeight:600, display:"block", marginBottom:4, textTransform:"uppercase", letterSpacing:0.5 };
 
+/** Portfolio-over-time chart row (real snapshot or synthetic “today” carry-forward) */
+type PortfolioHistoryChartPoint = {
+  timestamp: number;
+  dateLabel: string;
+  fullDate: string;
+  totalAccountValue: number;
+  totalDepositValue: number;
+  source?: string;
+  isProjected?: boolean;
+};
+
 // ─── Main Component ──────────────────────────────────────────────────────────
 export default function BankDashboard({ supabase, userId, encryptionKey, onOpenGroupChat }: BankDashboardProps) {
   // Get theme from context - respects user's theme selection
@@ -1142,7 +1153,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
     if (!totalValueHistory?.length) return [];
     const sorted = [...totalValueHistory].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
     const dayCounts = sorted.reduce((m, e) => { const k = new Date(e.date).toDateString(); m.set(k, (m.get(k) || 0) + 1); return m; }, new Map<string, number>());
-    const points = sorted.map(e => {
+    const points: PortfolioHistoryChartPoint[] = sorted.map(e => {
       const d = new Date(e.date);
       const dayKey = d.toDateString();
       const sameDayCount = dayCounts.get(dayKey) ?? 1;
