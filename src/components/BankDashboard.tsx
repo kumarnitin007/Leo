@@ -18,7 +18,13 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { SupabaseClient } from '@supabase/supabase-js';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend, AreaChart, Area, LineChart, Line, LabelList } from 'recharts';
 import { Deposit, BankAccount, Bill, ActionItem, BankRecordsData, SavingsGoal, Currency, DepositCategory, TotalValueHistoryEntry } from '../types/bankRecords';
-import { parseBankRecordsWorkbook, downloadBankRecordsTemplate, readBankRecordsFile } from '../services/bankRecordsExcel';
+import {
+  parseBankRecordsWorkbook,
+  downloadBankRecordsTemplate,
+  readBankRecordsFile,
+  bankAccountMergeKey,
+  bankAccountMatchesDeleteKey,
+} from '../services/bankRecordsExcel';
 import { updateFinancialAlertsCache, FinancialAlertsSummary } from './FinancialAlertsWidget';
 import { CryptoKey, encryptData, decryptData } from '../utils/encryption';
 import { useTheme } from '../contexts/ThemeContext';
@@ -484,7 +490,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
   useEffect(() => {
     if (loading) return;
     
-    // Totals: include both Accounts (type=FD) and Deposits table for FD invested/maturity
+    // Portfolio / invested / maturity: accounts only (Deposits tab is detail/tracking; avoid double-count)
     const accountBalance = accounts.reduce((s,a)=>s+(Number(a.amount)||0),0);
     const fdTotalAccounts = accounts.filter(a => a.type === "FD").reduce((s,a)=>s+(Number(a.amount)||0),0);
     const fdMaturityEstAccounts = accounts.filter(a => a.type === "FD").reduce((s,a) => {
@@ -492,10 +498,8 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
       const roi = Number(a.roi) || 0.07;
       return s + principal * (1 + roi);
     }, 0);
-    const fdTotalDeposits = deposits.reduce((s,d)=>s+(Number(d.deposit)||0),0);
-    const fdMaturityDeposits = deposits.reduce((s,d)=>s+(Number(d.maturityAmt)||Number(d.deposit)||0),0);
-    const totalInvested = fdTotalAccounts + fdTotalDeposits;
-    const totalMaturity = fdMaturityEstAccounts + fdMaturityDeposits;
+    const totalInvested = fdTotalAccounts;
+    const totalMaturity = fdMaturityEstAccounts;
     
     // Generate alerts - same logic as "Next 30 Days" section
     const alertsList: FinancialAlertsSummary['alerts'] = [];
@@ -681,10 +685,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
       // Delete Accounts
       let mergedAccounts = [...accounts];
       deleteAccounts.forEach(del => {
-        const key = `${del.bank}|${del.type}|${del.holders || ''}`;
-        const idx = mergedAccounts.findIndex(a => 
-          `${a.bank}|${a.type}|${a.holders || ''}` === key
-        );
+        const idx = mergedAccounts.findIndex(a => bankAccountMatchesDeleteKey(a, del));
         if (idx >= 0) {
           mergedAccounts.splice(idx, 1);
           deletedCount++;
@@ -749,10 +750,8 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
       
       // Merge Accounts (by bank + type + holders to allow multiple accounts of same type)
       newAccounts.forEach(newAcc => {
-        const key = `${newAcc.bank}|${newAcc.type}|${newAcc.holders || ''}`;
-        const existingIdx = mergedAccounts.findIndex(a => 
-          `${a.bank}|${a.type}|${a.holders || ''}` === key
-        );
+        const key = bankAccountMergeKey(newAcc);
+        const existingIdx = mergedAccounts.findIndex(a => bankAccountMergeKey(a) === key);
         
         if (existingIdx >= 0) {
           const prev = mergedAccounts[existingIdx];
@@ -1044,7 +1043,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
   const sumConverted = (items: {amount?: number|string; currency?: Currency}[]) => 
     items.reduce((s, a) => s + convertCurrency(Number(a.amount) || 0, (a.currency || 'INR') as Currency, targetCurrency, exchangeRates), 0);
   
-  // FD totals: include both Accounts (type=FD) and Deposits table so overview shows correct amount when user only has deposits
+  // FD invested / est. maturity (overview): accounts with type FD only — same basis as net worth / portfolio bar
   const accountsFdInvested = accounts.filter(a => a.type === "FD").reduce((s,a) => 
     s + convertCurrency(Number(a.amount) || 0, (a.currency || 'INR') as Currency, targetCurrency, exchangeRates), 0);
   const accountsFdMaturity = accounts.filter(a => a.type === "FD").reduce((s,a) => {
@@ -1053,17 +1052,12 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
     const maturityVal = principal * (1 + roi);
     return s + convertCurrency(maturityVal, (a.currency || 'INR') as Currency, targetCurrency, exchangeRates);
   }, 0);
-  const depositsTotalInvested = deposits.reduce((s, d) => 
-    s + convertCurrency(Number(d.deposit) || 0, (d.currency || 'INR') as Currency, targetCurrency, exchangeRates), 0);
-  const depositsTotalMaturity = deposits.reduce((s, d) => 
-    s + convertCurrency(Number(d.maturityAmt) || Number(d.deposit) || 0, (d.currency || 'INR') as Currency, targetCurrency, exchangeRates), 0);
-  const totalInvested = accountsFdInvested + depositsTotalInvested;
-  const totalMaturity = accountsFdMaturity + depositsTotalMaturity;
+  const totalInvested = accountsFdInvested;
+  const totalMaturity = accountsFdMaturity;
   
-  /** All account balances + FD principal from Deposits sheet (same basis as totalInvested FD part) */
+  /** Sum of all account balances (portfolio / net worth); Deposits tab not added here */
   const netWorthConverted = accounts.reduce((s, a) => 
-    s + convertCurrency(Number(a.amount) || 0, (a.currency || 'INR') as Currency, targetCurrency, exchangeRates), 0)
-    + depositsTotalInvested;
+    s + convertCurrency(Number(a.amount) || 0, (a.currency || 'INR') as Currency, targetCurrency, exchangeRates), 0);
   
   // PERF-007: Memoize derived deposit data
   const upcoming90 = useMemo(() => 
@@ -1673,14 +1667,11 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
 
             {/* Portfolio Summary - Professional Card Layout with Currency Conversion */}
             {(() => {
-              const accountsOnlyTotal = sumConverted(accounts);
-              const fdFromAccounts = accounts.filter(a => a.type === "FD").reduce((s, a) => 
+              const accountTotal = sumConverted(accounts);
+              const fdTotal = accounts.filter(a => a.type === "FD").reduce((s, a) => 
                 s + convertCurrency(Number(a.amount) || 0, (a.currency || 'INR') as Currency, targetCurrency, exchangeRates), 0);
               const savingsTotal = accounts.filter(a => a.type === "Saving").reduce((s, a) => 
                 s + convertCurrency(Number(a.amount) || 0, (a.currency || 'INR') as Currency, targetCurrency, exchangeRates), 0);
-              // Deposits tab = separate FD principal; overview previously only counted Banks rows with type FD → showed ₹0
-              const fdTotal = fdFromAccounts + depositsTotalInvested;
-              const accountTotal = accountsOnlyTotal + depositsTotalInvested;
               const otherTotal = accountTotal - fdTotal - savingsTotal;
               
               const segments = [
@@ -1909,9 +1900,6 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                 const t = a.type || 'Other';
                 byType[t] = (byType[t] || 0) + convertCurrency(Number(a.amount) || 0, (a.currency || 'INR') as Currency, targetCurrency, exchangeRates);
               });
-              if (depositsTotalInvested > 0) {
-                byType['Deposits (principal)'] = (byType['Deposits (principal)'] || 0) + depositsTotalInvested;
-              }
               const byBank: Record<string, number> = {};
               accounts.forEach(a => {
                 byBank[a.bank] = (byBank[a.bank] || 0) + convertCurrency(Number(a.amount) || 0, (a.currency || 'INR') as Currency, targetCurrency, exchangeRates);
@@ -3649,8 +3637,8 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                     <div style={{fontSize:28,fontWeight:800,color:"#fff"}}>{bills.filter(b => !b.done).length}</div>
                   </div>
                   <div style={{textAlign:"right"}}>
-                    <div style={{fontSize:10,color:THEME.textMuted,fontWeight:500}}>TOTAL DUE</div>
-                    <div style={{fontSize:20,fontWeight:800,color:"#F59E0B",fontFamily:"monospace"}}>{fmt(bills.filter(b => !b.done).reduce((s, b) => s + (Number(b.amount) || 0), 0))}</div>
+                    <div style={{fontSize:10,color:"rgba(255,255,255,0.85)",fontWeight:500}}>TOTAL DUE</div>
+                    <div style={{fontSize:20,fontWeight:800,color:"#FCD34D",fontFamily:"monospace"}}>{fmt(bills.filter(b => !b.done).reduce((s, b) => s + (Number(b.amount) || 0), 0))}</div>
                   </div>
                 </div>
                 
@@ -3741,13 +3729,13 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
             ) : (
               <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(260px,1fr))",gap:12}}>
                 {bills.map((bill, i) => (
-                  <div key={i} style={{background:THEME.cardBgAlt,borderRadius:12,padding:16,border:"1px solid ${THEME.border}",opacity:bill.done ? 0.55 : 1}}>
+                  <div key={i} style={{background:THEME.cardBgAlt,borderRadius:12,padding:16,border:`1px solid ${THEME.border}`,opacity:bill.done ? 0.55 : 1}}>
                     <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:8}}>
-                      <div style={{fontWeight:700,color:bill.done ? "#6B7280" : "#F3F4F6",fontSize:14,textDecoration:bill.done ? "line-through" : "none",flex:1}}>{bill.name}</div>
+                      <div style={{fontWeight:700,color:bill.done ? THEME.textMuted : THEME.text,fontSize:14,textDecoration:bill.done ? "line-through" : "none",flex:1}}>{bill.name}</div>
                       <button onClick={() => toggleDone("bill", i)} style={{background:bill.done ? "#dcfce7" : THEME.cardBgAlt,color:bill.done ? "#34D399" : "#6B7280",border:`1px solid ${bill.done ? "#16a34a" : THEME.border}`,borderRadius:6,padding:"2px 8px",fontSize:10,cursor:"pointer",fontWeight:700}}>{bill.done ? "↩" : "✓"}</button>
                     </div>
                     {bill.amount && <div style={{fontSize:15,fontWeight:800,fontFamily:"monospace",color:THEME.text,marginBottom:4}}>{fmt(bill.amount)}</div>}
-                    <div style={{fontSize:11,color:THEME.textLight,marginBottom:6}}>{bill.freq} · Due: {bill.due || "—"}</div>
+                    <div style={{fontSize:11,color:THEME.textMuted,marginBottom:6}}>{bill.freq} · Due: {bill.due || "—"}</div>
                     <div style={{display:"flex",gap:6,marginTop:8}}>
                       <button onClick={() => openEdit("bill", i)} style={{background:"#1D4ED820",color:"#60A5FA",border:"1px solid #1D4ED840",borderRadius:7,padding:"3px 8px",fontSize:11,cursor:"pointer"}}>✏️</button>
                       <button onClick={() => deleteRow("bill", i)} style={{background:"#7F1D1D20",color:"#FCA5A5",border:"1px solid #7F1D1D40",borderRadius:7,padding:"3px 8px",fontSize:11,cursor:"pointer"}}>🗑</button>

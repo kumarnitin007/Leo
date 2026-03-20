@@ -9,8 +9,27 @@ const MS_PER_DAY = 86400000;
 const EXCEL_EPOCH_OFFSET = 25569;
 
 export type DeleteDepositKey = { bank: string; depositId?: string; startDate?: string };
-export type DeleteAccountKey = { bank: string; type: string; holders: string };
+/** accountNumber distinguishes multiple rows same bank+type+holders (e.g. two SCSS at ICICI). */
+export type DeleteAccountKey = { bank: string; type: string; holders: string; accountNumber?: string };
 export type DeleteBillKey = { name: string };
+
+function normAccountField(v: string | undefined | null): string {
+  return v == null ? "" : String(v).trim();
+}
+
+/** Excel merge / delete identity: bank + type + holders + account number (trimmed). */
+export function bankAccountMergeKey(a: Pick<BankAccount, "bank" | "type" | "holders" | "accountNumber">): string {
+  return `${normAccountField(a.bank)}|${normAccountField(a.type)}|${normAccountField(a.holders)}|${normAccountField(a.accountNumber)}`;
+}
+
+export function bankAccountMatchesDeleteKey(a: BankAccount, del: DeleteAccountKey): boolean {
+  return bankAccountMergeKey(a) === bankAccountMergeKey({
+    bank: del.bank,
+    type: del.type,
+    holders: del.holders,
+    accountNumber: del.accountNumber ?? "",
+  });
+}
 
 export interface BankRecordsExcelParseResult {
   newDeposits: Deposit[];
@@ -281,6 +300,11 @@ export function parseBankRecordsWorkbook(
           holdersForDelete = String(r[cOwner]).trim();
         else holdersForDelete = [cN1 >= 0 ? r[cN1] : "", cN2 >= 0 ? r[cN2] : ""].filter(Boolean).join(", ");
 
+        const rowAccountNumber =
+          cAccNum >= 0 && r[cAccNum] != null && String(r[cAccNum]).trim() !== ""
+            ? String(r[cAccNum]).trim()
+            : "";
+
         if (cStatus >= 0 && r[cStatus]) {
           const status = r[cStatus].toString().toLowerCase().trim();
           if (status === "delete" || status === "remove") {
@@ -288,6 +312,7 @@ export function parseBankRecordsWorkbook(
               bank,
               type: cT >= 0 && r[cT] ? r[cT].toString() : "Saving",
               holders: holdersForDelete,
+              accountNumber: rowAccountNumber,
             });
             continue;
           }
@@ -330,7 +355,7 @@ export function parseBankRecordsWorkbook(
           currency: currencyVal as Currency,
           hidden: hiddenVal,
           done: doneFromChecked,
-          accountNumber: cAccNum >= 0 && r[cAccNum] ? r[cAccNum].toString() : "",
+          accountNumber: rowAccountNumber,
           ifscCode: cIfsc >= 0 && r[cIfsc] ? r[cIfsc].toString() : "",
           branch: cBranch >= 0 && r[cBranch] ? r[cBranch].toString() : "",
           lastBalanceUpdatedAt: cellToISOStartOfDay(cUpdOn >= 0 ? r[cUpdOn] : null),
@@ -440,7 +465,8 @@ export async function downloadBankRecordsTemplate(filename = "BankRecords_Templa
     ["- DELETE or REMOVE → Matching record is DELETED from dashboard"],
     ["- ACTIVE, KEEP, or blank → Imported/updated normally"],
     ["- HIDE (Banks only) → Imported with hidden: true (Other Accounts). HIDE on Deposits/Bills is ignored (still imported visible)"],
-    ["- DELETE uses: Bank+DepositID, Bank+Type+Holders, or Bill Name"],
+    ["- DELETE uses: Deposits → Bank+DepositID; Banks → Bank+Type+Holders+Account Number; Bills → Name"],
+    ["- Banks: Same bank + type + holders on multiple rows (e.g. two SCSS) need different Account Number values or the import merges into one row — fill Account Number for each"],
     [""],
     ["💰 CURRENCY SUPPORT:"],
     ["- Supported currencies: INR (₹), USD ($), EUR (€), GBP (£)"],
