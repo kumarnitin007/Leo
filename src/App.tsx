@@ -702,7 +702,17 @@ const AppContent: React.FC = () => {
 
       {/* Features Page */}
       {showFeaturesPage && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 9999 }}>
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 9999,
+            overflowY: 'auto',
+            overflowX: 'hidden',
+            WebkitOverflowScrolling: 'touch',
+            overscrollBehavior: 'contain',
+          }}
+        >
           <FeaturesPage
             onBackToLogin={() => {
               setShowFeaturesPage(false);

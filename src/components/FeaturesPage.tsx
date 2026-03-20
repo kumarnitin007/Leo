@@ -9,77 +9,21 @@ interface FeaturesPageProps {
   onBackToLogin: () => void;
 }
 
+/** One card per feature area—short lines for humans and tools. Mirrors index.html manifest. */
 const FEATURES = [
-  {
-    icon: '📋',
-    title: 'Smart Tasks & Today',
-    description:
-      'Today view, priorities, tags, recurring tasks, and quick capture from the + menu',
-    color: '#3B82F6',
-  },
-  {
-    icon: '🎤',
-    title: 'Voice & Smart Hub',
-    description:
-      'Speak to create tasks, events, and more; Smart hub for AI-assisted shortcuts and voice history',
-    color: '#A855F7',
-  },
-  {
-    icon: '🔒',
-    title: 'Password Safe',
-    description:
-      'AES-256 encrypted vault for passwords, secure notes, and sensitive documents—unlocked with your master password',
-    color: '#10B981',
-  },
-  {
-    icon: '🏦',
-    title: 'Financial Dashboard (in Safe)',
-    description:
-      'Fixed deposits, bank accounts, bills, and action items; multi-currency with exchange rates; Excel import/export; portfolio overview and value-over-time; maturity timeline—all encrypted with your Safe data',
-    color: '#8B5CF6',
-  },
-  {
-    icon: '📊',
-    title: 'Analytics & Reports',
-    description: 'Insights and trends, daily history, and monthly calendar views across your activity',
-    color: '#6366F1',
-  },
-  {
-    icon: '📅',
-    title: 'Calendar & Events',
-    description: 'Plan events, set reminders, and keep important dates in one place',
-    color: '#F59E0B',
-  },
-  {
-    icon: '📓',
-    title: 'Daily Journal',
-    description: 'Capture thoughts, mood, and reflections with rich formatting',
-    color: '#EC4899',
-  },
-  {
-    icon: '⏱️',
-    title: 'Focus Timer',
-    description: 'Pomodoro-style timer to boost productivity and track focus sessions',
-    color: '#EF4444',
-  },
-  {
-    icon: '🎯',
-    title: 'Goals & Resolutions',
-    description: 'Yearly goals with milestones—plus savings goals alongside your financial dashboard in Safe',
-    color: '#06B6D4',
-  },
-  {
-    icon: '👨‍👩‍👧‍👦',
-    title: 'Family & Groups',
-    description: 'Encrypted group spaces—including optional shared finance context from the Safe section',
-    color: '#0D9488',
-  },
-  {
-    icon: '🌙',
-    title: 'Themes & every device',
-    description: 'Light and dark themes with a layout tuned for phones, tablets, and desktop',
-    color: '#14B8A6',
-  },
+  { icon: '📋', title: 'Tasks & Today', description: 'Multiple layouts, tags, priorities, recurring rules, hold/pause, assign to groups.', color: '#3B82F6' },
+  { icon: '🎤', title: 'Voice & Smart Hub', description: 'Voice capture for tasks, events, journal; shortcuts and history.', color: '#A855F7' },
+  { icon: '🔐', title: 'Safe — vault', description: 'Master password, auto-lock, AES-256; passwords, notes, documents, tags, import/export.', color: '#10B981' },
+  { icon: '🏦', title: 'Bank Records', description: 'Deposits, accounts, bills, actions, goals; multi-currency, Excel, charts—in Safe.', color: '#8B5CF6' },
+  { icon: '👥', title: 'Groups', description: 'Email invites, members, finance chat from Safe.', color: '#0D9488' },
+  { icon: '📅', title: 'Calendar & events', description: 'Birthdays, holidays, recurring dates; .ics import.', color: '#F59E0B' },
+  { icon: '📓', title: 'Journal', description: 'Mood, tags, search, streaks.', color: '#EC4899' },
+  { icon: '📊', title: 'Analytics', description: 'Trends, calendar history, tag insights.', color: '#6366F1' },
+  { icon: '🎯', title: 'Routines & goals', description: 'Routine templates, resolutions, savings goals.', color: '#06B6D4' },
+  { icon: '🎁', title: 'Items & quick to-do', description: 'Gift cards, subscriptions, warranties; separate quick list.', color: '#F97316' },
+  { icon: '⏱️', title: 'Focus timer', description: 'Countdown, stopwatch, task-linked sessions.', color: '#EF4444' },
+  { icon: '🔌', title: 'Integrations', description: 'Google Calendar, Google Tasks, Apple Reminders, Todoist.', color: '#64748B' },
+  { icon: '🎨', title: 'Themes & PWA', description: '15 themes, emoji avatars; install app; Supabase sync; home financial alerts.', color: '#14B8A6' },
 ];
 
 const FeaturesPage: React.FC<FeaturesPageProps> = ({ onBackToLogin }) => {

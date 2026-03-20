@@ -15,7 +15,7 @@
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { SupabaseClient } from '@supabase/supabase-js';
-import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, XAxis, YAxis, CartesianGrid, Legend, AreaChart, Area, LineChart, Line, LabelList } from 'recharts';
+import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 import { Deposit, BankAccount, Bill, ActionItem, BankRecordsData, SavingsGoal, Currency, TotalValueHistoryEntry } from '../types/bankRecords';
 import {
   parseBankRecordsWorkbook,
@@ -54,6 +54,9 @@ import {
 import { UrgencyBadge, EmptyState, inputSt, labelSt } from './bank/BankDashboardPrimitives';
 import { BankTimelineTab } from './bank/BankTimelineTab';
 import { BankActionsTab } from './bank/BankActionsTab';
+import { BankDepositsTab } from './bank/BankDepositsTab';
+import { BankBillsTab } from './bank/BankBillsTab';
+import { BankOverviewTab } from './bank/BankOverviewTab';
 import { collectLinkedNextActions } from '../bank/bankLinkedActions';
 import type { PortfolioHistoryChartPoint } from '../bank/bankDashboardTypes';
 
@@ -934,6 +937,29 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
     [accounts, deposits, bills]
   );
 
+  /** Deposits tab principal (all rows), converted — matches Overview mobile “Deposits” tile; not the same as FD-only account balances */
+  const depositsTablePrincipalConverted = useMemo(
+    () =>
+      deposits.reduce(
+        (s, d) =>
+          s +
+          convertCurrency(
+            Number(d.deposit) || 0,
+            (d.currency || "INR") as Currency,
+            targetCurrency,
+            exchangeRates
+          ),
+        0
+      ),
+    [deposits, targetCurrency, exchangeRates]
+  );
+
+  /** Same items as Actions tab default view: pending manual + linked “Next action” rows */
+  const overviewActionsCount = useMemo(
+    () => actions.filter((a) => !a.done).length + linkedFromRecords.length,
+    [actions, linkedFromRecords]
+  );
+
   // Accounts tab: pie by bank from accounts (not deposits) so "Investment by Bank" reflects account balances
   const accountsPieData = useMemo(() => {
     const byBank: Record<string, number> = {};
@@ -945,7 +971,8 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
     });
     return Object.entries(byBank)
       .filter(([, v]) => v !== 0)
-      .map(([name, value]) => ({ name, value, color: getBankColor(name) }));
+      .map(([name, value]) => ({ name, value, color: getBankColor(name) }))
+      .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
   }, [accounts, displayCurrency, exchangeRates]);
   
   const typePieData = (() => {
@@ -1096,18 +1123,6 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
   });
   actionsDue30.sort((a, b) => a.days - b.days);
 
-  // ── Legacy "Next 30 Days" combined list (deposits + actions due; no account next-actions in count) ──
-  const upcoming30Days: Array<{ type: string; title: string; bank: string; date: string; days: number; amount?: string; currency?: string }> = [
-    ...maturingSoonDeposits.map(({ type, title, bank, date, days, amount, currency }) => ({ type, title, bank, date, days, amount, currency })),
-    ...actionsDue30.map(({ type, title, bank, date, days }) => ({ type, title, bank, date, days })),
-  ];
-  upcoming30Days.sort((a, b) => {
-    if (a.days === -1 && b.days === -1) return 0;
-    if (a.days === -1) return 1;
-    if (b.days === -1) return -1;
-    return a.days - b.days;
-  });
-
   // ── Render ───────────────────────────────────────────────────────────────
   if (loading) {
     return (
@@ -1166,13 +1181,13 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                 }} 
                 title={`${pendingImportsCount} pending import(s) from screenshots`}
               >
-                📊 {pendingImportsCount}
+                📊 {pendingImportsCount}{!isMobile && " Pending"}
               </button>
             )}
-            <button onClick={handleExportTemplate} style={{background:"rgba(255,255,255,0.15)",color:"white",border:"1px solid rgba(255,255,255,0.2)",borderRadius:6,padding:isMobile?"5px 8px":"6px 10px",fontSize:isMobile?10:11,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}} title="Download Template">📥</button>
-            <button onClick={()=>fileRef.current?.click()} style={{background:"white",color:THEME.accent,border:"none",borderRadius:6,padding:isMobile?"5px 8px":"6px 10px",fontSize:isMobile?10:11,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}} title="Import Excel">📂</button>
+            <button onClick={handleExportTemplate} style={{background:"rgba(255,255,255,0.15)",color:"white",border:"1px solid rgba(255,255,255,0.2)",borderRadius:6,padding:isMobile?"5px 8px":"6px 10px",fontSize:isMobile?10:11,fontWeight:600,cursor:"pointer",fontFamily:"inherit",display:"flex",alignItems:"center",gap:4}} title="Download Excel template">📥{!isMobile && " Template"}</button>
+            <button onClick={()=>fileRef.current?.click()} style={{background:"white",color:THEME.accent,border:"none",borderRadius:6,padding:isMobile?"5px 8px":"6px 10px",fontSize:isMobile?10:11,fontWeight:600,cursor:"pointer",fontFamily:"inherit",display:"flex",alignItems:"center",gap:4}} title="Import Excel">📂{!isMobile && " Import"}</button>
             <input ref={fileRef} type="file" accept=".xlsx,.xls" style={{display:"none"}} onChange={e=>{if(e.target.files?.[0])handleExcel(e.target.files[0]);e.target.value="";}} />
-            <button onClick={handleClearAll} style={{background:"rgba(255,255,255,0.15)",color:"#fecaca",border:"1px solid rgba(255,255,255,0.2)",borderRadius:6,padding:isMobile?"5px 8px":"6px 10px",fontSize:isMobile?10:11,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}} title="Clear All">🗑</button>
+            <button onClick={handleClearAll} style={{background:"rgba(255,255,255,0.15)",color:"#fecaca",border:"1px solid rgba(255,255,255,0.2)",borderRadius:6,padding:isMobile?"5px 8px":"6px 10px",fontSize:isMobile?10:11,fontWeight:600,cursor:"pointer",fontFamily:"inherit",display:"flex",alignItems:"center",gap:4}} title="Clear all financial data">🗑{!isMobile && " Clear"}</button>
           </div>
         </div>
         {/* Tabs - Desktop only (mobile uses bottom bar) */}
@@ -1205,619 +1220,47 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
       <div style={{padding:isMobile?"8px 6px":"22px 28px",paddingBottom:isMobile?125:28}}>
         {/* Tab Content */}
         {tab==="overview" && (
-          <div style={{display:"flex",flexDirection:"column",gap:isMobile?12:16}}>
-            
-            {/* ═══ MOBILE OVERVIEW ═══ */}
-            {isMobile ? (
-              <>
-                {/* Mobile: Net Worth Hero Card */}
-                <div style={{background:THEME.headerBg,borderRadius:16,padding:"20px 16px",textAlign:"center"}}>
-                  <div style={{fontSize:11,color:"rgba(255,255,255,0.8)",fontWeight:500,letterSpacing:1,marginBottom:4}}>NET WORTH</div>
-                  <div style={{fontSize:32,fontWeight:800,color:"white",fontFamily:"monospace"}}>{fmt(netWorthConverted, targetCurrency)}</div>
-                  <div style={{display:"flex",justifyContent:"center",gap:12,marginTop:12}}>
-                    {(['INR', 'USD'] as const).map(cur => (
-                      <button
-                        key={cur}
-                        onClick={() => { setDisplayCurrency(cur); persist(deposits, accounts, bills, actions, goals, exchangeRates, cur, totalValueHistory); }}
-                        style={{
-                          background: displayCurrency === cur ? 'white' : 'rgba(255,255,255,0.2)',
-                          color: displayCurrency === cur ? THEME.accent : 'rgba(255,255,255,0.9)',
-                          border: 'none',
-                          padding: '8px 16px',
-                          borderRadius: 20,
-                          fontSize: 13,
-                          fontWeight: 600,
-                          minWidth: 60
-                        }}
-                      >
-                        {CURRENCY_SYMBOLS[cur]}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Mobile: Quick Stats - 2x2 Grid with Large Touch Targets */}
-                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
-                  <div onClick={() => setTab("deposits")} style={{background:THEME.cardBg,borderRadius:14,padding:"16px",border:`1px solid ${THEME.border}`,boxShadow:"0 1px 3px rgba(0,0,0,0.08)",cursor:"pointer",textAlign:"center"}}>
-                    <div style={{fontSize:28,fontWeight:800,color:"#3B82F6"}}>{deposits.length}</div>
-                    <div style={{fontSize:11,color:"#6B7280",fontWeight:600,marginTop:4}}>Fixed Deposits</div>
-                    <div style={{fontSize:12,color:"#3B82F6",fontFamily:"monospace",marginTop:6}}>{fmt(totalInvested, targetCurrency)}</div>
-                  </div>
-                  <div onClick={() => setTab("accounts")} style={{background:THEME.cardBg,borderRadius:14,padding:"16px",border:`1px solid ${THEME.border}`,boxShadow:"0 1px 3px rgba(0,0,0,0.08)",cursor:"pointer",textAlign:"center"}}>
-                    <div style={{fontSize:28,fontWeight:800,color:"#10B981"}}>{accounts.length}</div>
-                    <div style={{fontSize:11,color:"#6B7280",fontWeight:600,marginTop:4}}>Accounts</div>
-                    <div style={{fontSize:12,color:"#10B981",fontFamily:"monospace",marginTop:6}}>{fmt(sumConverted(accounts), targetCurrency)}</div>
-                  </div>
-                  <div onClick={() => setTab("bills")} style={{background:THEME.cardBg,borderRadius:14,padding:"16px",border:`1px solid ${bills.filter(b=>!b.done).length > 0 ? '#92400E' : THEME.border}`,cursor:"pointer",textAlign:"center"}}>
-                    <div style={{fontSize:28,fontWeight:800,color:bills.filter(b=>!b.done).length > 0 ? "#F59E0B" : "#6B7280"}}>{bills.filter(b=>!b.done).length}</div>
-                    <div style={{fontSize:11,color:"#6B7280",fontWeight:600,marginTop:4}}>Bills Due</div>
-                    <div style={{fontSize:12,color:"#F59E0B",fontFamily:"monospace",marginTop:6}}>{fmt(bills.filter(b=>!b.done).reduce((s,b)=>s+convertCurrency(Number(b.amount)||0,(b.currency||'INR') as Currency,targetCurrency,exchangeRates),0), targetCurrency)}</div>
-                  </div>
-                  <div style={{background:THEME.cardBg,borderRadius:14,padding:"16px",border:`1px solid ${maturingSoonDeposits.length > 0 ? '#7F1D1D' : THEME.border}`,textAlign:"center"}}>
-                    <div style={{fontSize:28,fontWeight:800,color:maturingSoonDeposits.length > 0 ? "#EF4444" : "#6B7280"}}>{maturingSoonDeposits.length}</div>
-                    <div style={{fontSize:11,color:"#6B7280",fontWeight:600,marginTop:4}}>Maturing Soon</div>
-                    <div style={{fontSize:10,color:THEME.textLight,marginTop:6}}>FDs · Next 30 days</div>
-                  </div>
-                </div>
-
-                {/* Mobile: Maturing Soon - ONLY Fixed Deposits (deposits table, maturityDate) */}
-                {maturingSoonDeposits.length > 0 && (
-                  <div style={{background:THEME.cardBg,borderRadius:14,padding:"14px",border:"1px solid #7F1D1D"}}>
-                    <div style={{fontSize:12,fontWeight:700,color:"#EF4444",marginBottom:12,display:"flex",alignItems:"center",gap:6}}>
-                      <span>⚡</span> Maturing Soon ({maturingSoonDeposits.length} FD{maturingSoonDeposits.length !== 1 ? 's' : ''})
-                    </div>
-                    <div style={{display:"flex",flexDirection:"column",gap:10}}>
-                      {maturingSoonDeposits.map((d, i) => (
-                        <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"12px",background:THEME.cardBgAlt,borderRadius:10,borderLeft:`3px solid ${d.days <= 7 ? '#EF4444' : '#F59E0B'}`}}>
-                          <div>
-                            <div style={{fontSize:13,fontWeight:600,color:THEME.text}}>{d.bank} · {d.title}</div>
-                            <div style={{fontSize:11,color:THEME.textLight}}>{d.sourceField}: {fmtDate(d.date)}</div>
-                          </div>
-                          <div style={{textAlign:"right"}}>
-                            <div style={{fontSize:14,fontWeight:700,fontFamily:"monospace",color:THEME.accent}}>{d.amount ? fmt(d.amount, (d.currency || 'INR') as Currency) : '—'}</div>
-                            <div style={{fontSize:10,color:d.days <= 7 ? '#EF4444' : '#F59E0B',fontWeight:600}}>
-                              {d.days >= 0 ? `${d.days}d left` : `${-d.days}d overdue`}
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Mobile: Actions due (uses actions[].date - e.g. loan payment due dates) */}
-                {actionsDue30.length > 0 && (
-                  <div style={{background:THEME.cardBg,borderRadius:14,padding:"14px",border:"1px solid #92400E"}}>
-                    <div style={{fontSize:12,fontWeight:700,color:"#F59E0B",marginBottom:12,display:"flex",alignItems:"center",gap:6}}>
-                      <span>📋</span> Actions due ({actionsDue30.length})
-                    </div>
-                    <div style={{fontSize:10,color:THEME.textLight,marginBottom:8}}>Uses <strong>Due date</strong> from Safe → More → Actions</div>
-                    <div style={{display:"flex",flexDirection:"column",gap:10}}>
-                      {actionsDue30.map((d, i) => (
-                        <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"12px",background:THEME.cardBgAlt,borderRadius:10,borderLeft:`3px solid ${d.days <= 0 ? '#EF4444' : '#F59E0B'}`}}>
-                          <div>
-                            <div style={{fontSize:13,fontWeight:600,color:THEME.text}}>{d.title}</div>
-                            <div style={{fontSize:11,color:THEME.textLight}}>{d.sourceField}: {fmtDate(d.date)}{d.bank ? ` · ${d.bank}` : ''}</div>
-                          </div>
-                          <div style={{fontSize:10,color:d.days <= 0 ? '#EF4444' : '#F59E0B',fontWeight:600}}>
-                            {d.days >= 0 ? `${d.days}d left` : `${-d.days}d overdue`}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Mobile: Pending Bills */}
-                {bills.filter(b => !b.done).length > 0 && (
-                  <div style={{background:THEME.cardBg,borderRadius:14,padding:"14px",border:"1px solid #92400E"}}>
-                    <div style={{fontSize:12,fontWeight:700,color:"#F59E0B",marginBottom:12,display:"flex",alignItems:"center",gap:6}}>
-                      <span>📋</span> Pending Bills
-                    </div>
-                    <div style={{display:"flex",flexDirection:"column",gap:8}}>
-                      {bills.filter(b => !b.done).slice(0, 3).map((b, i) => (
-                        <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 12px",background:THEME.cardBgAlt,borderRadius:10}}>
-                          <div style={{fontSize:13,fontWeight:600,color:THEME.text}}>{b.name}</div>
-                          <div style={{display:"flex",alignItems:"center",gap:10}}>
-                            <span style={{fontSize:13,fontWeight:700,fontFamily:"monospace",color:"#F59E0B"}}>{fmt(b.amount, (b.currency || 'INR') as Currency)}</span>
-                            <button 
-                              onClick={() => toggleDone("bill", bills.indexOf(b))}
-                              style={{background:THEME.accent,color:"#fff",border:"none",borderRadius:6,padding:"6px 10px",fontSize:11,fontWeight:600}}
-                            >✓</button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Mobile: Portfolio Breakdown */}
-                <div style={{background:THEME.cardBgAlt,borderRadius:14,padding:"14px"}}>
-                  <div style={{fontSize:12,fontWeight:700,color:THEME.textLight,marginBottom:12}}>Portfolio by Type</div>
-                  {(() => {
-                    const types = ['FD', 'Saving', 'Credit Card', 'Loan', 'Other'];
-                    const typeColors: Record<string, string> = { FD: '#3B82F6', Saving: '#10B981', 'Credit Card': '#EF4444', Loan: '#F59E0B', Other: '#8B5CF6' };
-                    const typeAmounts = types.map(t => ({
-                      type: t,
-                      amount: accounts.filter(a => (t === 'Other' ? !types.slice(0, -1).includes(a.type || '') : a.type === t))
-                        .reduce((s, a) => s + convertCurrency(Number(a.amount) || 0, (a.currency || 'INR') as Currency, targetCurrency, exchangeRates), 0)
-                    })).filter(t => t.amount !== 0);
-                    const total = typeAmounts.reduce((s, t) => s + Math.abs(t.amount), 0);
-                    
-                    return (
-                      <div style={{display:"flex",flexDirection:"column",gap:8}}>
-                        {typeAmounts.map(t => (
-                          <div key={t.type} style={{display:"flex",alignItems:"center",gap:10}}>
-                            <div style={{width:10,height:10,borderRadius:3,background:typeColors[t.type] || '#8B5CF6',flexShrink:0}} />
-                            <div style={{flex:1,fontSize:12,color:THEME.text}}>{t.type}</div>
-                            <div style={{fontSize:13,fontFamily:"monospace",fontWeight:600,color:t.amount < 0 ? "#EF4444" : THEME.text}}>{fmt(t.amount, targetCurrency)}</div>
-                          </div>
-                        ))}
-                      </div>
-                    );
-                  })()}
-                </div>
-
-                {/* Mobile: Portfolio value over time */}
-                <div style={{background:THEME.cardBg,borderRadius:14,padding:"14px",border:`1px solid ${THEME.border}`}}>
-                  <button
-                    onClick={() => setShowPortfolioHistory(!showPortfolioHistory)}
-                    style={{width:"100%",padding:0,background:"transparent",border:"none",cursor:"pointer",display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:showPortfolioHistory ? 12 : 0}}
-                  >
-                    <div style={{display:"flex",alignItems:"center",gap:6}}>
-                      <span style={{fontSize:11,color:THEME.textMuted,transition:"transform 0.2s",transform:showPortfolioHistory?"rotate(90deg)":"rotate(0deg)"}}>▶</span>
-                      <span style={{fontSize:12,fontWeight:700,color:THEME.text}}>📈 Portfolio value over time</span>
-                    </div>
-                    {portfolioHistoryChartData.length > 0 && (
-                      <span style={{fontSize:10,color:THEME.textLight,background:THEME.cardBgAlt,padding:"2px 8px",borderRadius:8}}>{portfolioHistorySnapshotCount} snapshots</span>
-                    )}
-                  </button>
-                  {showPortfolioHistory && (
-                    portfolioHistoryChartData.length === 0 ? (
-                      <div style={{fontSize:11,color:THEME.textLight,padding:"12px 0",textAlign:"center"}}>Edit balances or add accounts to build history. Each save records a snapshot.</div>
-                    ) : (
-                      <ResponsiveContainer width="100%" height={200}>
-                        <AreaChart data={portfolioHistoryChartData} margin={{top:4,right:4,left:4,bottom:4}}>
-                          <defs>
-                            <linearGradient id="mobilePortfolioArea" x1="0" y1="0" x2="0" y2="1">
-                              <stop offset="5%" stopColor="#10B981" stopOpacity={0.4} />
-                              <stop offset="95%" stopColor="#10B981" stopOpacity={0} />
-                            </linearGradient>
-                          </defs>
-                          <CartesianGrid strokeDasharray="3 3" stroke={THEME.border} />
-                          <XAxis dataKey="timestamp" type="number" domain={portfolioHistoryXDomain} tick={{fill:THEME.textLight,fontSize:9}} axisLine={false} tickLine={false} tickFormatter={(ts) => new Date(ts).toLocaleString('en-IN', { month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' })} />
-                          <YAxis domain={portfolioHistoryYDomain} tick={{fill:THEME.textLight,fontSize:9}} axisLine={false} tickLine={false} tickFormatter={v => fmt(v, targetCurrency)} />
-                          <Tooltip
-                            content={({ active, payload, label }) => {
-                              if (!active || !payload?.length) return null;
-                              const p = payload[0]?.payload;
-                              return (
-                                <div style={{background:THEME.cardBgAlt,border:`1px solid ${THEME.border}`,borderRadius:8,padding:"8px 12px",fontSize:11,minWidth:140}}>
-                                  <div style={{color:THEME.textMuted,marginBottom:4}}>{p?.fullDate ? fmtDate(p.fullDate) : label}</div>
-                                  <div style={{fontWeight:600,color:"#10B981"}}>Accounts: {fmt(p?.totalAccountValue ?? 0, targetCurrency)}</div>
-                                  <div style={{fontWeight:600,color:"#3B82F6"}}>Deposits: {fmt(p?.totalDepositValue ?? 0, targetCurrency)}</div>
-                                  {p?.source && <div style={{color:THEME.textLight,fontSize:10,marginTop:4}}>{p.source}</div>}
-                                </div>
-                              );
-                            }}
-                          />
-                          <Area type="monotone" dataKey="totalAccountValue" stroke="#10B981" strokeWidth={2} fill="url(#mobilePortfolioArea)" name="Total value">
-                            <LabelList dataKey="totalAccountValue" position="top" formatter={(v: number) => fmt(v, targetCurrency)} style={{fontSize:9,fill:THEME.textLight}} />
-                          </Area>
-                        </AreaChart>
-                      </ResponsiveContainer>
-                    )
-                  )}
-                  {showPortfolioHistory && portfolioHistoryChartData.length > 0 && (
-                    <button type="button" onClick={clearPortfolioHistory} style={{marginTop:10,background:"transparent",border:"none",color:THEME.textLight,fontSize:11,cursor:"pointer",textDecoration:"underline"}}>Clear all chart history</button>
-                  )}
-                </div>
-              </>
-            ) : (
-            /* ═══ DESKTOP OVERVIEW ═══ */
-            <>
-            {/* Currency Toggle Bar */}
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",background:THEME.cardBg,borderRadius:10,padding:"8px 14px",border:`1px solid ${THEME.border}`,flexWrap:"wrap",gap:8}}>
-              <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
-                <span style={{fontSize:10,color:"#6B7280",fontWeight:600}}>VIEW:</span>
-                <div style={{display:"flex",gap:4}}>
-                  <button
-                    onClick={() => { setDisplayCurrency('ORIGINAL'); persist(deposits, accounts, bills, actions, goals, exchangeRates, 'ORIGINAL', totalValueHistory); }}
-                    style={{
-                      background: displayCurrency === 'ORIGINAL' ? THEME.accent : THEME.cardBgAlt,
-                      color: displayCurrency === 'ORIGINAL' ? '#FFFFFF' : THEME.textMuted,
-                      border: 'none',
-                      padding: '4px 10px',
-                      borderRadius: 6,
-                      fontSize: 11,
-                      fontWeight: 600,
-                      cursor: 'pointer'
-                    }}
-                  >
-                    🌐 Mixed
-                  </button>
-                  {(['INR', 'USD', 'EUR', 'GBP'] as const).map(cur => (
-                    <button
-                      key={cur}
-                      onClick={() => { setDisplayCurrency(cur); persist(deposits, accounts, bills, actions, goals, exchangeRates, cur, totalValueHistory); }}
-                      style={{
-                        background: displayCurrency === cur ? THEME.accent : THEME.cardBgAlt,
-                        color: displayCurrency === cur ? '#FFFFFF' : THEME.textMuted,
-                        border: 'none',
-                        padding: '4px 10px',
-                        borderRadius: 6,
-                        fontSize: 11,
-                        fontWeight: 600,
-                        cursor: 'pointer'
-                      }}
-                    >
-                      {CURRENCY_SYMBOLS[cur]} {cur}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <button
-                onClick={() => setShowRatesModal(true)}
-                style={{background:THEME.cardBgAlt,color:THEME.textMuted,border:"none",padding:"4px 10px",borderRadius:6,fontSize:10,fontWeight:600,cursor:"pointer",display:"flex",alignItems:"center",gap:4}}
-              >
-                ⚙️ Rates
-              </button>
-            </div>
-            
-            {/* Quick Stats Row */}
-            <div style={{display:"grid",gridTemplateColumns:"repeat(4, 1fr)",gap:8}}>
-              <div style={{background:THEME.cardBg,borderRadius:10,padding:"10px 8px",textAlign:"center",border:`1px solid ${THEME.border}`}}>
-                <div style={{fontSize:20,fontWeight:800,color:"#3B82F6"}}>{deposits.length}</div>
-                <div style={{fontSize:9,color:"#6B7280",textTransform:"uppercase",fontWeight:600}}>Deposits</div>
-              </div>
-              <div style={{background:THEME.cardBg,borderRadius:10,padding:"10px 8px",textAlign:"center",border:`1px solid ${THEME.border}`}}>
-                <div style={{fontSize:20,fontWeight:800,color:"#10B981"}}>{accounts.length}</div>
-                <div style={{fontSize:9,color:"#6B7280",textTransform:"uppercase",fontWeight:600}}>Accounts</div>
-              </div>
-              <div style={{background:THEME.cardBg,borderRadius:10,padding:"10px 8px",textAlign:"center",border:`1px solid ${THEME.border}`}}>
-                <div style={{fontSize:20,fontWeight:800,color:"#F59E0B"}}>{bills.filter(b=>!b.done).length}</div>
-                <div style={{fontSize:9,color:"#6B7280",textTransform:"uppercase",fontWeight:600}}>Bills Due</div>
-              </div>
-              <div style={{background:THEME.cardBg,borderRadius:10,padding:"10px 8px",textAlign:"center",border:`1px solid ${THEME.border}`}}>
-                <div style={{fontSize:20,fontWeight:800,color:upcoming30Days.length>0?"#EF4444":THEME.textMuted}}>{upcoming30Days.length}</div>
-                <div style={{fontSize:9,color:"#6B7280",textTransform:"uppercase",fontWeight:600}}>Actions</div>
-              </div>
-            </div>
-
-            {/* Portfolio Summary - Professional Card Layout with Currency Conversion */}
-            {(() => {
-              const accountTotal = sumConverted(accounts);
-              const fdTotal = accounts.filter(a => a.type === "FD").reduce((s, a) => 
-                s + convertCurrency(Number(a.amount) || 0, (a.currency || 'INR') as Currency, targetCurrency, exchangeRates), 0);
-              const savingsTotal = accounts.filter(a => a.type === "Saving").reduce((s, a) => 
-                s + convertCurrency(Number(a.amount) || 0, (a.currency || 'INR') as Currency, targetCurrency, exchangeRates), 0);
-              const otherTotal = accountTotal - fdTotal - savingsTotal;
-              
-              const segments = [
-                { label: "Fixed Deposits", amount: fdTotal, color: "#3B82F6", pct: accountTotal ? (fdTotal/accountTotal)*100 : 0 },
-                { label: "Savings", amount: savingsTotal, color: "#10B981", pct: accountTotal ? (savingsTotal/accountTotal)*100 : 0 },
-                ...(otherTotal > 0 ? [{ label: "Other", amount: otherTotal, color: "#8B5CF6", pct: accountTotal ? (otherTotal/accountTotal)*100 : 0 }] : [])
-              ];
-              
-              return (
-                <div style={{background:THEME.cardBg,borderRadius:16,border:`1px solid ${THEME.border}`,overflow:"hidden"}}>
-                  {/* Header with Total */}
-                  <div style={{padding:"16px 18px",borderBottom:`1px solid ${THEME.border}`,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                    <div>
-                      <div style={{fontSize:11,color:THEME.textMuted,fontWeight:500,letterSpacing:"0.5px"}}>TOTAL PORTFOLIO ({displayCurrency === 'ORIGINAL' ? 'Mixed → INR' : targetCurrency})</div>
-                      <div style={{fontSize:26,fontWeight:800,color:THEME.text,fontFamily:"monospace",marginTop:4}}>{fmt(accountTotal, targetCurrency)}</div>
-                    </div>
-                    <div style={{textAlign:"right"}}>
-                      <div style={{fontSize:10,color:THEME.textMuted}}>{accounts.length} accounts</div>
-                    </div>
-                  </div>
-                  
-                  {/* Allocation Bar */}
-                  {accountTotal > 0 && (
-                    <div style={{padding:"0 18px"}}>
-                      <div style={{display:"flex",height:8,borderRadius:4,overflow:"hidden",background:THEME.cardBgAlt}}>
-                        {segments.map((seg, i) => (
-                          <div 
-                            key={seg.label} 
-                            style={{
-                              width:`${seg.pct}%`,
-                              background:seg.color,
-                              transition:"width 0.3s ease"
-                            }} 
-                            title={`${seg.label}: ${seg.pct.toFixed(1)}%`}
-                          />
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                  
-                  {/* Breakdown Cards */}
-                  <div style={{display:"grid",gridTemplateColumns:`repeat(${segments.length}, 1fr)`,gap:1,background:THEME.border,marginTop:12}}>
-                    {segments.map((seg, i) => (
-                      <div key={seg.label} style={{background:THEME.cardBg,padding:"12px 14px",textAlign:"center"}}>
-                        <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:6,marginBottom:6}}>
-                          <div style={{width:8,height:8,borderRadius:2,background:seg.color}}/>
-                          <span style={{fontSize:10,color:THEME.textMuted,fontWeight:500,textTransform:"uppercase",letterSpacing:"0.3px"}}>{seg.label}</span>
-                        </div>
-                        <div style={{fontSize:16,fontWeight:700,color:THEME.text,fontFamily:"monospace"}}>{fmt(seg.amount, targetCurrency)}</div>
-                        <div style={{fontSize:10,color:seg.color,fontWeight:600,marginTop:2}}>{seg.pct.toFixed(1)}%</div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              );
-            })()}
-
-            {/* Portfolio value over time - Desktop */}
-            <div style={{background:THEME.cardBg,borderRadius:12,border:`1px solid ${THEME.border}`,overflow:"hidden"}}>
-              <button
-                onClick={() => setShowPortfolioHistory(!showPortfolioHistory)}
-                style={{width:"100%",padding:"10px 14px",background:"transparent",border:"none",cursor:"pointer",display:"flex",justifyContent:"space-between",alignItems:"center"}}
-              >
-                <div style={{display:"flex",alignItems:"center",gap:8}}>
-                  <span style={{fontSize:10,color:"#6B7280",transition:"transform 0.2s",transform:showPortfolioHistory?"rotate(90deg)":"rotate(0deg)"}}>▶</span>
-                  <span style={{fontSize:11,fontWeight:700,color:"#E5E7EB",textTransform:"uppercase"}}>📈 Portfolio value over time</span>
-                </div>
-                {portfolioHistoryChartData.length > 0 && (
-                  <span style={{fontSize:10,color:"#6B7280",background:THEME.cardBgAlt,padding:"2px 8px",borderRadius:10}}>{portfolioHistorySnapshotCount} snapshots</span>
-                )}
-              </button>
-              {showPortfolioHistory && (
-                <div style={{padding:"0 14px 14px",borderTop:`1px solid ${THEME.border}`}}>
-                  {portfolioHistoryChartData.length === 0 ? (
-                    <div style={{color:THEME.textMuted,padding:20,textAlign:"center",fontSize:12}}>Edit balances or add accounts to build history. Each save records a snapshot.</div>
-                  ) : (
-                    <>
-                      <ResponsiveContainer width="100%" height={260}>
-                        <LineChart data={portfolioHistoryChartData} margin={{top:8,right:8,left:8,bottom:8}}>
-                          <CartesianGrid strokeDasharray="3 3" stroke="#1F2937" />
-                          <XAxis dataKey="timestamp" type="number" domain={portfolioHistoryXDomain} tick={{fill:THEME.textLight,fontSize:11}} axisLine={false} tickLine={false} tickFormatter={(ts) => new Date(ts).toLocaleString('en-IN', { month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' })} />
-                          <YAxis domain={portfolioHistoryYDomain} tick={{fill:"#6B7280",fontSize:11}} axisLine={false} tickLine={false} tickFormatter={v => fmt(v, targetCurrency)} />
-                          <Tooltip
-                            content={({ active, payload }) => {
-                              if (!active || !payload?.length) return null;
-                              const p = payload[0]?.payload;
-                              return (
-                                <div style={{background:THEME.cardBgAlt,border:`1px solid ${THEME.border}`,borderRadius:8,padding:"10px 14px",fontSize:12,minWidth:180}}>
-                                  <div style={{color:THEME.textMuted,marginBottom:6}}>{p?.fullDate ? fmtDate(p.fullDate) : ''}</div>
-                                  <div style={{fontWeight:600,color:"#10B981"}}>Accounts total: {fmt(p?.totalAccountValue ?? 0, targetCurrency)}</div>
-                                  <div style={{fontWeight:600,color:"#3B82F6"}}>Deposits total: {fmt(p?.totalDepositValue ?? 0, targetCurrency)}</div>
-                                  {p?.source && <div style={{color:THEME.textLight,fontSize:11,marginTop:6}}>Source: {p.source}</div>}
-                                </div>
-                              );
-                            }}
-                          />
-                          <Legend wrapperStyle={{fontSize:11,color:THEME.textLight}} />
-                          <Line type="monotone" dataKey="totalAccountValue" name="Account total" stroke="#10B981" strokeWidth={2} dot={{r:3}} activeDot={{r:5}}>
-                            <LabelList dataKey="totalAccountValue" position="top" formatter={(v: number) => fmt(v, targetCurrency)} style={{fontSize:10,fill:THEME.textLight}} />
-                          </Line>
-                          {portfolioHistoryChartData.some(p => Number(p.totalDepositValue) !== 0) && (
-                            <Line type="monotone" dataKey="totalDepositValue" name="Deposit total (FD)" stroke="#3B82F6" strokeWidth={2} dot={{r:3}} activeDot={{r:5}}>
-                              <LabelList dataKey="totalDepositValue" position="bottom" formatter={(v: number) => fmt(v, targetCurrency)} style={{fontSize:10,fill:THEME.textLight}} />
-                            </Line>
-                          )}
-                        </LineChart>
-                      </ResponsiveContainer>
-                      <div style={{marginTop:12,display:"flex",flexDirection:"column",gap:8}}>
-                        <button type="button" onClick={clearPortfolioHistory} style={{alignSelf:"flex-start",background:"transparent",border:"none",color:THEME.textLight,fontSize:11,cursor:"pointer",textDecoration:"underline"}}>Clear all chart history</button>
-                        <div style={{fontSize:10,color:THEME.textMuted,marginBottom:4}}>Remove a snapshot:</div>
-                        <div style={{display:"flex",flexDirection:"column",gap:4,maxHeight:120,overflowY:"auto"}}>
-                          {[...portfolioHistoryChartData].filter(p => !p.isProjected).reverse().slice(0, 10).map((p) => (
-                            <div key={p.fullDate} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"4px 8px",background:THEME.cardBgAlt,borderRadius:6,fontSize:11}}>
-                              <span style={{color:THEME.text}}>{fmtDate(p.fullDate)} · {fmt(p.totalAccountValue, targetCurrency)}{p.source ? ` (${p.source})` : ''}</span>
-                              <button type="button" onClick={() => deletePortfolioHistoryEntry(p.fullDate)} title="Remove this snapshot" style={{background:"none",border:"none",cursor:"pointer",padding:2,color:THEME.textLight,fontSize:12}}>🗑</button>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    </>
-                  )}
-                </div>
-              )}
-            </div>
-
-            {/* Next 30 Days - Collapsible */}
-            {(maturingSoonDeposits.length > 0 || actionsDue30.length > 0) && (
-              <div style={{background:THEME.cardBg,borderRadius:12,border:`1px solid ${THEME.border}`,overflow:"hidden"}}>
-                <button 
-                  onClick={()=>setShow30Days(!show30Days)} 
-                  style={{width:"100%",padding:"10px 14px",background:"transparent",border:"none",cursor:"pointer",display:"flex",justifyContent:"space-between",alignItems:"center"}}
-                >
-                  <div style={{display:"flex",alignItems:"center",gap:8}}>
-                    <span style={{fontSize:10,color:"#6B7280",transition:"transform 0.2s",transform:show30Days?"rotate(90deg)":"rotate(0deg)"}}>▶</span>
-                    <span style={{fontSize:11,fontWeight:700,color:"#F59E0B",textTransform:"uppercase"}}>⚡ Next 30 Days</span>
-                  </div>
-                  <div style={{fontSize:10,color:"#6B7280",background:THEME.cardBgAlt,padding:"2px 8px",borderRadius:10}}>{maturingSoonDeposits.length} FD · {actionsDue30.length} actions</div>
-                </button>
-                {show30Days && (
-                  <div style={{maxHeight:320,overflowY:"auto",borderTop:"1px solid #1F2937"}}>
-                    {maturingSoonDeposits.length > 0 && (
-                      <>
-                        <div style={{padding:"8px 14px",fontSize:10,color:"#6B7280",background:"#1F2937",fontWeight:600}}>💰 Maturing Soon — from Deposits (Maturity date)</div>
-                        {maturingSoonDeposits.map((item, i) => (
-                          <div key={`m-${i}`} style={{padding:"10px 14px",borderBottom:"1px solid #1F2937",display:"flex",alignItems:"center",gap:10}}>
-                            <div style={{width:32,height:32,borderRadius:8,display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,background:"rgba(239,68,68,0.15)",color:"#EF4444"}}>💰</div>
-                            <div style={{flex:1,minWidth:0}}>
-                              <div style={{fontSize:12,fontWeight:600,color:THEME.text}}>{item.title} · {item.bank}</div>
-                              <div style={{fontSize:10,color:"#6B7280"}}>Maturity date: {fmtDate(item.date)}{item.amount ? ` · ${fmt(Number(item.amount), (item.currency || 'INR') as Currency)}` : ''}</div>
-                            </div>
-                            <div style={{textAlign:"right",fontSize:11,fontWeight:700,color:item.days<=7?"#EF4444":"#F59E0B"}}>
-                              {item.days >= 0 ? `${item.days}d left` : `${-item.days}d overdue`}
-                            </div>
-                          </div>
-                        ))}
-                      </>
-                    )}
-                    {actionsDue30.length > 0 && (
-                      <>
-                        <div style={{padding:"8px 14px",fontSize:10,color:"#6B7280",background:"#1F2937",fontWeight:600}}>📋 Actions due — from More → Actions (Due date)</div>
-                        {actionsDue30.map((item, i) => (
-                          <div key={`a-${i}`} style={{padding:"10px 14px",borderBottom:"1px solid #1F2937",display:"flex",alignItems:"center",gap:10}}>
-                            <div style={{width:32,height:32,borderRadius:8,display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,background:"rgba(245,158,11,0.15)",color:"#F59E0B"}}>📋</div>
-                            <div style={{flex:1,minWidth:0}}>
-                              <div style={{fontSize:12,fontWeight:600,color:THEME.text}}>{item.title}</div>
-                              <div style={{fontSize:10,color:"#6B7280"}}>Due date: {fmtDate(item.date)}{item.bank ? ` · ${item.bank}` : ''}</div>
-                            </div>
-                            <div style={{textAlign:"right",fontSize:11,fontWeight:700,color:item.days<=0?"#EF4444":"#F59E0B"}}>
-                              {item.days >= 0 ? `${item.days}d left` : `${-item.days}d overdue`}
-                            </div>
-                          </div>
-                        ))}
-                      </>
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
-            
-            {maturingSoonDeposits.length === 0 && actionsDue30.length === 0 && (
-              <div style={{background:THEME.cardBg,borderRadius:12,padding:"16px",textAlign:"center",border:`1px solid ${THEME.border}`}}>
-                <div style={{fontSize:24,marginBottom:6}}>✅</div>
-                <div style={{fontSize:12,color:"#10B981",fontWeight:600}}>All Clear!</div>
-                <div style={{fontSize:11,color:"#6B7280"}}>No FDs maturing and no actions due in the next 30 days</div>
-              </div>
-            )}
-
-            {/* FD Projections - Theme Aligned */}
-            <div style={{background:THEME.cardBg,borderRadius:16,border:`1px solid ${THEME.border}`,overflow:"hidden"}}>
-              <div style={{padding:"12px 18px",borderBottom:`1px solid ${THEME.border}`}}>
-                <div style={{fontSize:11,color:THEME.textMuted,fontWeight:500,letterSpacing:"0.5px"}}>FD PROJECTIONS (1 YEAR) - {displayCurrency === 'ORIGINAL' ? 'Mixed → INR' : targetCurrency}</div>
-              </div>
-              <div style={{display:"grid",gridTemplateColumns:"repeat(3, 1fr)",gap:1,background:THEME.border}}>
-                <div style={{background:THEME.cardBg,padding:"14px 16px",textAlign:"center"}}>
-                  <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:6,marginBottom:6}}>
-                    <div style={{width:8,height:8,borderRadius:2,background:"#3B82F6"}}/>
-                    <span style={{fontSize:10,color:THEME.textMuted,fontWeight:500,textTransform:"uppercase",letterSpacing:"0.3px"}}>Invested</span>
-                  </div>
-                  <div style={{fontSize:18,fontWeight:700,color:THEME.text,fontFamily:"monospace"}}>{fmt(totalInvested, targetCurrency)}</div>
-                  <div style={{fontSize:10,color:THEME.textMuted,marginTop:4}}>{deposits.length + accounts.filter(a=>a.type==="FD").length} FDs</div>
-                </div>
-                <div style={{background:THEME.cardBg,padding:"14px 16px",textAlign:"center"}}>
-                  <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:6,marginBottom:6}}>
-                    <div style={{width:8,height:8,borderRadius:2,background:"#10B981"}}/>
-                    <span style={{fontSize:10,color:THEME.textMuted,fontWeight:500,textTransform:"uppercase",letterSpacing:"0.3px"}}>Maturity</span>
-                  </div>
-                  <div style={{fontSize:18,fontWeight:700,color:THEME.text,fontFamily:"monospace"}}>{fmt(totalMaturity, targetCurrency)}</div>
-                  <div style={{fontSize:10,color:THEME.textMuted,marginTop:4}}>projected value</div>
-                </div>
-                <div style={{background:THEME.cardBg,padding:"14px 16px",textAlign:"center"}}>
-                  <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:6,marginBottom:6}}>
-                    <div style={{width:8,height:8,borderRadius:2,background:"#F59E0B"}}/>
-                    <span style={{fontSize:10,color:THEME.textMuted,fontWeight:500,textTransform:"uppercase",letterSpacing:"0.3px"}}>Est. Gain</span>
-                  </div>
-                  <div style={{fontSize:18,fontWeight:700,color:THEME.success,fontFamily:"monospace"}}>{fmt(totalMaturity-totalInvested, targetCurrency)}</div>
-                  <div style={{fontSize:10,color:THEME.success,fontWeight:600,marginTop:4}}>{totalInvested?`+${(((totalMaturity-totalInvested)/totalInvested)*100).toFixed(1)}%`:""}</div>
-                </div>
-              </div>
-            </div>
-            
-            {/* Net Worth Breakdown - Collapsible with Currency Conversion */}
-            {(() => {
-              const netWorth = netWorthConverted;
-              const byType: Record<string, number> = {};
-              accounts.forEach(a => {
-                const t = a.type || 'Other';
-                byType[t] = (byType[t] || 0) + convertCurrency(Number(a.amount) || 0, (a.currency || 'INR') as Currency, targetCurrency, exchangeRates);
-              });
-              const byBank: Record<string, number> = {};
-              accounts.forEach(a => {
-                byBank[a.bank] = (byBank[a.bank] || 0) + convertCurrency(Number(a.amount) || 0, (a.currency || 'INR') as Currency, targetCurrency, exchangeRates);
-              });
-              
-              return (
-                <div style={{background:THEME.cardBg,borderRadius:12,border:`1px solid ${THEME.border}`,overflow:"hidden"}}>
-                  <button 
-                    onClick={() => setExpandedBanks(prev => prev.has('_networth') ? new Set([...prev].filter(k => k !== '_networth')) : new Set([...prev, '_networth']))}
-                    style={{width:"100%",padding:"10px 14px",background:"transparent",border:"none",cursor:"pointer",display:"flex",justifyContent:"space-between",alignItems:"center"}}
-                  >
-                    <div style={{display:"flex",alignItems:"center",gap:8}}>
-                      <span style={{fontSize:10,color:"#6B7280",transition:"transform 0.2s",transform:expandedBanks.has('_networth')?"rotate(90deg)":"rotate(0deg)"}}>▶</span>
-                      <span style={{fontSize:11,fontWeight:700,color:THEME.textLight,textTransform:"uppercase"}}>💎 Net Worth ({displayCurrency === 'ORIGINAL' ? 'Mixed → INR' : targetCurrency})</span>
-                    </div>
-                    <span style={{fontSize:12,color:THEME.text,fontFamily:"monospace",fontWeight:700}}>{fmt(netWorth, targetCurrency)}</span>
-                  </button>
-                  {expandedBanks.has('_networth') && (
-                    <div style={{borderTop:"1px solid #1F2937",padding:14,display:"flex",flexDirection:"column",gap:12}}>
-                      {/* Assets vs Liabilities Summary */}
-                      {(() => {
-                        const totalAssets = Object.values(byType).filter(v => v > 0).reduce((s, v) => s + v, 0);
-                        const totalLiabilities = Math.abs(Object.values(byType).filter(v => v < 0).reduce((s, v) => s + v, 0));
-                        return (
-                          <div style={{display:"flex",gap:12,marginBottom:4}}>
-                            <div style={{flex:1,background:"#064E3B30",borderRadius:6,padding:8,borderLeft:"3px solid #10B981"}}>
-                              <div style={{fontSize:9,color:"#6B7280",textTransform:"uppercase"}}>Assets</div>
-                              <div style={{fontSize:14,fontWeight:700,color:"#10B981",fontFamily:"monospace"}}>{fmt(totalAssets, targetCurrency)}</div>
-                            </div>
-                            <div style={{flex:1,background:"#7F1D1D30",borderRadius:6,padding:8,borderLeft:"3px solid #EF4444"}}>
-                              <div style={{fontSize:9,color:"#6B7280",textTransform:"uppercase"}}>Liabilities</div>
-                              <div style={{fontSize:14,fontWeight:700,color:"#EF4444",fontFamily:"monospace"}}>{fmt(totalLiabilities, targetCurrency)}</div>
-                            </div>
-                          </div>
-                        );
-                      })()}
-                      
-                      {/* By Account Type */}
-                      <div>
-                        <div style={{fontSize:11,fontWeight:700,color:THEME.textMuted,marginBottom:8}}>📊 By Account Type</div>
-                        <div style={{display:"flex",flexDirection:"column",gap:6}}>
-                          {Object.entries(byType).sort((a,b) => b[1] - a[1]).map(([type, amt]) => {
-                            const isNegative = amt < 0;
-                            const typeColor = isNegative ? "#EF4444" : 
-                              type === "FD" ? "#3B82F6" : type === "Saving" ? "#10B981" : type === "Credit Card" ? "#EF4444" : 
-                              type === "401K" ? "#F59E0B" : type === "Stock" ? "#8B5CF6" : "#6366F1";
-                            // For bar width: use absolute value relative to total assets (for positive) or total liabilities (for negative)
-                            const totalAssets = Object.values(byType).filter(v => v > 0).reduce((s, v) => s + v, 0);
-                            const totalLiabilities = Math.abs(Object.values(byType).filter(v => v < 0).reduce((s, v) => s + v, 0));
-                            const barBase = isNegative ? totalLiabilities : totalAssets;
-                            const barPct = barBase > 0 ? (Math.abs(amt) / barBase) * 100 : 0;
-                            // For percentage display: show as % of net worth
-                            const pctOfNetWorth = netWorth !== 0 ? ((amt / netWorth) * 100) : 0;
-                            
-                            return (
-                              <div key={type} style={{display:"flex",alignItems:"center",gap:10}}>
-                                <div style={{flex:1}}>
-                                  <div style={{display:"flex",justifyContent:"space-between",marginBottom:3}}>
-                                    <span style={{fontSize:11,color:THEME.text}}>{type} {isNegative && <span style={{fontSize:9,color:"#EF4444"}}>(Liability)</span>}</span>
-                                    <span style={{fontSize:11,color:isNegative ? "#EF4444" : THEME.text,fontWeight:600,fontFamily:"monospace"}}>{fmt(amt, targetCurrency)}</span>
-                                  </div>
-                                  <div style={{background:THEME.cardBgAlt,borderRadius:3,height:5,overflow:"hidden"}}>
-                                    <div style={{width:`${Math.min(barPct, 100)}%`,height:"100%",background:typeColor,borderRadius:3}}/>
-                                  </div>
-                                </div>
-                                <span style={{fontSize:10,color:isNegative ? "#EF4444" : "#6B7280",minWidth:35,textAlign:"right"}}>{pctOfNetWorth.toFixed(0)}%</span>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                      
-                      {/* Bank Concentration */}
-                      <div>
-                        <div style={{fontSize:11,fontWeight:700,color:THEME.textMuted,marginBottom:8}}>🏦 Bank Concentration</div>
-                        <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"repeat(4, 1fr)",gap:6}}>
-                          {Object.entries(byBank).sort((a,b) => b[1] - a[1]).slice(0, 8).map(([bank, amt]) => {
-                            const isNegative = amt < 0;
-                            const pctOfNetWorth = netWorth !== 0 ? ((amt / netWorth) * 100) : 0;
-                            return (
-                              <div key={bank} style={{background:THEME.cardBgAlt,borderRadius:6,padding:8,borderLeft:`2px solid ${isNegative ? "#EF4444" : getBankColor(bank)}`}}>
-                                <div style={{fontSize:10,color:THEME.textMuted,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{bank}</div>
-                                <div style={{fontSize:12,fontWeight:700,color:isNegative ? "#EF4444" : THEME.text,fontFamily:"monospace"}}>{fmt(amt, targetCurrency)}</div>
-                                <div style={{fontSize:9,color:isNegative ? "#EF4444" : getBankColor(bank)}}>{pctOfNetWorth.toFixed(0)}%</div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              );
-            })()}
-            </>
-            )}
-          </div>
+          <BankOverviewTab
+            theme={THEME}
+            isMobile={isMobile}
+            deposits={deposits}
+            accounts={accounts}
+            bills={bills}
+            actions={actions}
+            goals={goals}
+            displayCurrency={displayCurrency}
+            setDisplayCurrency={setDisplayCurrency}
+            exchangeRates={exchangeRates}
+            targetCurrency={targetCurrency}
+            netWorthConverted={netWorthConverted}
+            sumConverted={sumConverted}
+            totalInvested={totalInvested}
+            totalMaturity={totalMaturity}
+            depositsPrincipalConverted={depositsTablePrincipalConverted}
+            maturingSoonDeposits={maturingSoonDeposits}
+            actionsDue30={actionsDue30}
+            overviewActionsCount={overviewActionsCount}
+            portfolioHistoryChartData={portfolioHistoryChartData}
+            portfolioHistoryXDomain={portfolioHistoryXDomain}
+            portfolioHistoryYDomain={portfolioHistoryYDomain}
+            portfolioHistorySnapshotCount={portfolioHistorySnapshotCount}
+            showPortfolioHistory={showPortfolioHistory}
+            setShowPortfolioHistory={setShowPortfolioHistory}
+            clearPortfolioHistory={clearPortfolioHistory}
+            deletePortfolioHistoryEntry={deletePortfolioHistoryEntry}
+            setShowRatesModal={setShowRatesModal}
+            show30Days={show30Days}
+            setShow30Days={setShow30Days}
+            expandedBanks={expandedBanks}
+            setExpandedBanks={setExpandedBanks}
+            setTab={setTab}
+            persist={persist}
+            totalValueHistory={totalValueHistory}
+            toggleDone={toggleDone}
+            getBankColor={getBankColor}
+          />
         )}
-        
+
         {/* ══ TIMELINE TAB ═══════════════════════════════════════════ */}
         {tab === "timeline" && (
           <BankTimelineTab
@@ -1851,546 +1294,30 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
         )}
 
         {/* ══ DEPOSITS TAB - Table with Collapsible Bank Groups ═══════════ */}
-        {tab === "deposits" && (() => {
-          // Group deposits by bank for collapsible headers
-          const groupedDeps: Record<string, { deps: typeof filtered; indices: number[]; total: number }> = {};
-          filtered.forEach((d) => {
-            const origIdx = deposits.indexOf(d);
-            if (!groupedDeps[d.bank]) groupedDeps[d.bank] = { deps: [], indices: [], total: 0 };
-            groupedDeps[d.bank].deps.push(d);
-            groupedDeps[d.bank].indices.push(origIdx);
-            groupedDeps[d.bank].total += Number(d.deposit) || 0;
-          });
-          // Sort by total deposited amount (highest first)
-          const depBankNames = Object.keys(groupedDeps).sort((a, b) => groupedDeps[b].total - groupedDeps[a].total);
-          
-          const toggleDepBank = (bankName: string) => {
-            setExpandedBanks(prev => {
-              const next = new Set(prev);
-              const key = `dep_${bankName}`;
-              if (next.has(key)) next.delete(key);
-              else next.add(key);
-              return next;
-            });
-          };
-          
-          const allExpanded = depBankNames.every(b => expandedBanks.has(`dep_${b}`));
-          
-          return (
-            <div>
-              {/* ═══ MOBILE DEPOSITS VIEW ═══ */}
-              {isMobile ? (
-                <div style={{display:"flex",flexDirection:"column",gap:12}}>
-                  {/* Mobile: Summary Header */}
-                  <div style={{background:THEME.headerBg,borderRadius:14,padding:"16px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                    <div>
-                      <div style={{fontSize:10,color:"rgba(255,255,255,0.7)",fontWeight:500}}>TOTAL INVESTED</div>
-                      <div style={{fontSize:22,fontWeight:800,color:"#fff",fontFamily:"monospace"}}>{fmt(filtered.reduce((s, d) => s + (Number(d.deposit) || 0), 0))}</div>
-                    </div>
-                    <div style={{textAlign:"right"}}>
-                      <div style={{fontSize:10,color:THEME.textMuted,fontWeight:500}}>MATURITY</div>
-                      <div style={{fontSize:22,fontWeight:800,color:THEME.accent,fontFamily:"monospace"}}>{fmt(filtered.reduce((s, d) => s + (Number(d.maturityAmt) || Number(d.deposit) || 0), 0))}</div>
-                    </div>
-                  </div>
-                  
-                  {/* Mobile: Search */}
-                  <input placeholder="🔍 Search deposits..." value={search} onChange={e => setSearch(e.target.value)} style={{...inputSt,padding:"12px 14px",borderRadius:10,fontSize:14}} />
-                  
-                  {/* Mobile: Bank Filter Pills */}
-                  <div style={{display:"flex",gap:6,overflowX:"auto",paddingBottom:4,WebkitOverflowScrolling:"touch"}}>
-                    <button onClick={() => setFilterBank("All")} style={{background:filterBank === "All" ? "#3B82F6" : THEME.cardBgAlt,color:filterBank === "All" ? "#FFF" : THEME.textMuted,border:"none",borderRadius:20,padding:"8px 14px",fontSize:12,fontWeight:600,flexShrink:0}}>All ({deposits.length})</button>
-                    {depBankNames.map(b => (
-                      <button key={b} onClick={() => setFilterBank(b)} style={{background:filterBank === b ? getBankColor(b) : THEME.cardBgAlt,color:filterBank === b ? "#FFF" : THEME.textMuted,border:"none",borderRadius:20,padding:"8px 14px",fontSize:12,fontWeight:600,flexShrink:0,display:"flex",alignItems:"center",gap:4}}>
-                        <div style={{width:8,height:8,borderRadius:"50%",background:getBankColor(b)}} />
-                        {b} ({groupedDeps[b]?.deps.length || 0})
-                      </button>
-                    ))}
-                  </div>
-                  
-                  {/* Mobile: Deposit Cards */}
-                  {filtered.length === 0 ? (
-                    <div style={{padding:40,textAlign:"center",color:"#6B7280"}}>No deposits found</div>
-                  ) : (
-                    <div style={{display:"flex",flexDirection:"column",gap:10}}>
-                      {filtered.map((d, idx) => {
-                        const origIdx = deposits.indexOf(d);
-                        const days = daysUntil(d.maturityDate);
-                        const color = getBankColor(d.bank);
-                        const urgency = days === null ? "none" : days < 0 ? "expired" : days <= 7 ? "urgent" : days <= 30 ? "soon" : "none";
-                        return (
-                          <div 
-                            key={idx} 
-                            style={{
-                              background:THEME.cardBgAlt,
-                              borderRadius:14,
-                              borderLeft:`4px solid ${color}`,
-                              padding:"14px",
-                              opacity: d.done ? 0.6 : 1
-                            }}
-                          >
-                            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:10}}>
-                              <div>
-                                <div style={{fontSize:15,fontWeight:700,color:THEME.text}}>{d.bank}</div>
-                                <div style={{fontSize:11,color:"#6B7280",marginTop:2}}>{d.type || "FD"} {d.depositId && `• ${d.depositId}`}</div>
-                              </div>
-                              {days !== null && !d.done && (
-                                <div style={{
-                                  background: urgency === "urgent" ? "#fef2f2" : urgency === "soon" ? "#fef9c3" : urgency === "expired" ? "#f3f4f6" : THEME.cardBgAlt,
-                                  color: urgency === "urgent" ? "#dc2626" : urgency === "soon" ? "#ca8a04" : urgency === "expired" ? THEME.textLight : THEME.textMuted,
-                                  padding:"4px 10px",
-                                  borderRadius:20,
-                                  fontSize:11,
-                                  fontWeight:600
-                                }}>
-                                  {days < 0 ? "Matured" : `${days}d`}
-                                </div>
-                              )}
-                              {d.done && <span style={{fontSize:11,color:"#34D399",fontWeight:600}}>✓ Done</span>}
-                            </div>
-                            
-                            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-end"}}>
-                              <div>
-                                <div style={{fontSize:11,color:"#6B7280"}}>Invested</div>
-                                <div style={{fontSize:18,fontWeight:700,fontFamily:"monospace",color:THEME.text}}>{fmt(d.deposit)}</div>
-                                {d.roi && <div style={{fontSize:11,color:THEME.accent,marginTop:2}}>{(Number(d.roi) * 100).toFixed(2)}% pa</div>}
-                              </div>
-                              <div style={{textAlign:"right"}}>
-                                <div style={{fontSize:11,color:"#6B7280"}}>Maturity</div>
-                                <div style={{fontSize:18,fontWeight:700,fontFamily:"monospace",color:THEME.accent}}>{fmt(d.maturityAmt || d.deposit)}</div>
-                                <div style={{fontSize:10,color:THEME.textLight,marginTop:2}}>{fmtDate(d.maturityDate)}</div>
-                              </div>
-                            </div>
-                            {d.nextAction && !d.done && (
-                              <div style={{fontSize:11,color:"#2563EB",marginTop:10,fontWeight:600}}>📌 Next: {d.nextAction}</div>
-                            )}
-                            
-                            {/* Mobile: Action Buttons */}
-                            <div style={{display:"flex",gap:8,marginTop:12,paddingTop:12,borderTop:`1px solid ${THEME.border}`}}>
-                              <button 
-                                onClick={() => toggleDone("deposit", origIdx)} 
-                                style={{flex:1,background:d.done ? "#dcfce7" : THEME.cardBgAlt,color:d.done ? "#34D399" : THEME.textLight,border:"none",borderRadius:8,padding:"10px",fontSize:12,fontWeight:600}}
-                              >
-                                {d.done ? "↩ Undo" : "✓ Mark Done"}
-                              </button>
-                              <button 
-                                onClick={() => openEdit("deposit", origIdx)} 
-                                style={{background:"#1D4ED820",color:"#60A5FA",border:"none",borderRadius:8,padding:"10px 14px",fontSize:12}}
-                              >✏️</button>
-                              <button 
-                                onClick={() => deleteRow("deposit", origIdx)} 
-                                style={{background:"#7F1D1D20",color:"#FCA5A5",border:"none",borderRadius:8,padding:"10px 14px",fontSize:12}}
-                              >🗑</button>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              ) : (
-              /* ═══ DESKTOP DEPOSITS VIEW ═══ */
-              <>
-              {/* Search & Filter - Sticky on scroll */}
-              <div style={{position:"sticky",top:0,zIndex:10,background:THEME.cardBg,padding:"12px 0",marginBottom:8}}>
-                <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
-                  {/* View Mode Toggle */}
-                  <div style={{display:"flex",gap:1,background:THEME.cardBg,borderRadius:6,padding:2,border:`1px solid ${THEME.border}`}}>
-                    <button
-                      onClick={() => setDepositsViewMode('cards')}
-                      style={{background:depositsViewMode === 'cards' ? '#238636' : 'transparent',color:depositsViewMode === 'cards' ? '#FFF' : '#6B7280',border:'none',padding:'4px 10px',borderRadius:4,fontSize:10,fontWeight:600,cursor:'pointer'}}
-                      title="Card view grouped by bank"
-                    >
-                      ▦ Cards
-                    </button>
-                    <button
-                      onClick={() => setDepositsViewMode('grouped')}
-                      style={{background:depositsViewMode === 'grouped' ? '#238636' : 'transparent',color:depositsViewMode === 'grouped' ? '#FFF' : '#6B7280',border:'none',padding:'4px 10px',borderRadius:4,fontSize:10,fontWeight:600,cursor:'pointer'}}
-                      title="Grid view grouped by bank"
-                    >
-                      ▤ By Bank
-                    </button>
-                    <button
-                      onClick={() => setDepositsViewMode('flat')}
-                      style={{background:depositsViewMode === 'flat' ? '#238636' : 'transparent',color:depositsViewMode === 'flat' ? '#FFF' : '#6B7280',border:'none',padding:'4px 10px',borderRadius:4,fontSize:10,fontWeight:600,cursor:'pointer'}}
-                      title="Flat grid view - all rows"
-                    >
-                      ≡ All
-                    </button>
-                  </div>
-                  <input placeholder="🔍 Search..." value={search} onChange={e => setSearch(e.target.value)} style={{...inputSt,flex:isMobile?1:"none",width:isMobile?"auto":180,minWidth:120}} />
-                  <div style={{display:"flex",gap:4,flexWrap:"wrap",flex:isMobile?undefined:1}}>
-                    <button onClick={() => setFilterBank("All")} style={{background:filterBank === "All" ? "#3B82F6" : THEME.cardBgAlt,color:filterBank === "All" ? "#FFF" : THEME.textMuted,border:"none",borderRadius:16,padding:"5px 10px",fontSize:10,fontWeight:600,cursor:"pointer"}}>All</button>
-                    {banks.map(b => (
-                      <button key={b} onClick={() => setFilterBank(b)} style={{background:filterBank === b ? getBankColor(b) : THEME.cardBgAlt,color:filterBank === b ? "#FFF" : THEME.textMuted,border:"none",borderRadius:16,padding:"5px 10px",fontSize:10,fontWeight:600,cursor:"pointer"}}>{b}</button>
-                    ))}
-                  </div>
-                  <button 
-                    onClick={() => {
-                      const allKeys = depBankNames.map(b => `dep_${b}`);
-                      setExpandedBanks(prev => allExpanded ? new Set([...prev].filter(k => !k.startsWith('dep_'))) : new Set([...prev, ...allKeys]));
-                    }}
-                    style={{background:THEME.cardBgAlt,color:THEME.textMuted,border:`1px solid ${THEME.border}`,borderRadius:6,padding:"5px 10px",fontSize:10,fontWeight:600,cursor:"pointer"}}
-                  >
-                    {allExpanded ? "Collapse" : "Expand"}
-                  </button>
-                  {!isMobile && <button onClick={() => openAdd("deposit")} style={{marginLeft:"auto",background:THEME.accent,color:"#fff",border:"none",borderRadius:6,padding:"6px 14px",fontSize:11,fontWeight:600,cursor:"pointer"}}>+ Add</button>}
-                </div>
-              </div>
-
-              {/* ═══ GROUPED GRID VIEW - By Bank ═══ */}
-              {depositsViewMode === 'grouped' && (
-              <div style={{background:THEME.cardBgAlt,borderRadius:12,overflow:"hidden",border:`1px solid ${THEME.border}`}}>
-                <div style={{overflowX:"auto",scrollbarWidth:"thin",scrollbarColor:`${THEME.border} ${THEME.bg}`}}>
-                  <table style={{width:"100%",borderCollapse:"collapse",fontSize:11}}>
-                    <thead><tr style={{background:THEME.cardBg,borderBottom:`1px solid ${THEME.border}`}}>
-                      {["Bank/ID","Type","Owner","Nominee","Invested","ROI","Maturity ₹","Start","Maturity","Days","Duration","Next","Action",""].map(h => (
-                        <th key={h} style={{padding:"8px 10px",textAlign:"left",color:THEME.textMuted,fontWeight:600,fontSize:10,whiteSpace:"nowrap"}}>{h}</th>
-                      ))}
-                    </tr></thead>
-                    <tbody>
-                      {filtered.length === 0 ? (
-                        <tr><td colSpan={14} style={{padding:32,textAlign:"center",color:THEME.textMuted}}>No deposits found</td></tr>
-                      ) : (
-                        depBankNames.map(bankName => {
-                          const { deps: bankDeps, indices } = groupedDeps[bankName];
-                          const color = getBankColor(bankName);
-                          const totalDeposited = bankDeps.reduce((s, d) => s + (Number(d.deposit) || 0), 0);
-                          const totalMaturityAmt = bankDeps.reduce((s, d) => s + (Number(d.maturityAmt) || Number(d.deposit) || 0), 0);
-                          const isExpanded = expandedBanks.has(`dep_${bankName}`);
-                          const isSingleRow = bankDeps.length === 1;
-                          const singleDep = isSingleRow ? bankDeps[0] : null;
-                          // Find common values across all deposits in this bank
-                          const commonNominee = bankDeps.every(d => d.nominee === bankDeps[0]?.nominee) ? bankDeps[0]?.nominee : null;
-                          const commonType = bankDeps.every(d => d.type === bankDeps[0]?.type) ? bankDeps[0]?.type : null;
-                          const commonOwner = bankDeps.every(d => (d.accountOwner || "") === (bankDeps[0]?.accountOwner || ""))
-                            ? bankDeps[0]?.accountOwner
-                            : null;
-                          
-                          return (
-                            <React.Fragment key={bankName}>
-                              {/* Bank Header Row - Clickable - Shows details if single row or common fields */}
-                              <tr 
-                                onClick={() => toggleDepBank(bankName)}
-                                style={{background:`${color}15`,cursor:"pointer",borderBottom:`1px solid ${THEME.border}`}}
-                              >
-                                <td style={{padding:"8px 10px"}}>
-                                  <div style={{display:"flex",alignItems:"center",gap:8}}>
-                                    <span style={{fontSize:10,color:"#6B7280",transition:"transform 0.2s",transform:isExpanded?"rotate(90deg)":"rotate(0deg)"}}>▶</span>
-                                    <div style={{width:10,height:10,borderRadius:"50%",background:color}} />
-                                    <span style={{fontWeight:700,color:THEME.text,fontSize:12}}>{bankName}</span>
-                                    <span style={{color:"#6B7280",fontSize:10}}>({bankDeps.length} FD{bankDeps.length > 1 ? "s" : ""})</span>
-                                  </div>
-                                  {isSingleRow && singleDep?.depositId && <div style={{fontSize:9,color:"#484F58",fontFamily:"monospace",marginLeft:30}}>{singleDep.depositId}</div>}
-                                </td>
-                                <td style={{padding:"8px 10px",color:THEME.textLight,fontSize:10}}>{isSingleRow ? (singleDep?.type || "FD") : (commonType || "—")}</td>
-                                <td style={{padding:"8px 10px",color:THEME.text,fontSize:10,maxWidth:90,overflow:"hidden",textOverflow:"ellipsis"}} title={isSingleRow ? singleDep?.accountOwner : commonOwner || ""}>{isSingleRow ? (singleDep?.accountOwner || "—") : (commonOwner || (bankDeps.length > 1 ? "Various" : "—"))}</td>
-                                <td style={{padding:"8px 10px",color:THEME.text,fontSize:10}}>{isSingleRow ? (singleDep?.nominee || "—") : (commonNominee || (bankDeps.length > 1 ? "Various" : "—"))}</td>
-                                <td style={{padding:"8px 10px",fontFamily:"monospace",fontWeight:700,color:THEME.text,fontSize:11}}>{fmt(totalDeposited)}</td>
-                                <td style={{padding:"8px 10px",fontFamily:"monospace",color:THEME.accent,fontWeight:600,fontSize:10}}>{isSingleRow && singleDep?.roi ? (Number(singleDep.roi) * 100).toFixed(2) + "%" : "—"}</td>
-                                <td style={{padding:"8px 10px",fontFamily:"monospace",fontWeight:700,color:THEME.accent,fontSize:11}}>{fmt(totalMaturityAmt)}</td>
-                                <td style={{padding:"8px 10px",color:THEME.textLight,whiteSpace:"nowrap",fontSize:10}}>{isSingleRow ? fmtDate(singleDep?.startDate) : "—"}</td>
-                                <td style={{padding:"8px 10px",whiteSpace:"nowrap"}}>
-                                  {isSingleRow ? (
-                                    <div style={{display:"flex",alignItems:"center",gap:4}}>
-                                      <span style={{color:THEME.text,fontSize:10}}>{fmtDate(singleDep?.maturityDate)}</span>
-                                      <UrgencyBadge days={daysUntil(singleDep?.maturityDate)} />
-                                    </div>
-                                  ) : "—"}
-                                </td>
-                                <td style={{padding:"8px 10px",color:THEME.textLight,fontSize:10,fontFamily:"monospace"}}>{isSingleRow ? (() => { const dm = daysUntil(singleDep?.maturityDate); return dm === null ? "—" : dm < 0 ? "0" : String(dm); })() : "—"}</td>
-                                <td style={{padding:"8px 10px",color:"#6B7280",fontSize:9}}>{isSingleRow ? (singleDep?.duration || "—") : "—"}</td>
-                                <td style={{padding:"8px 10px",color:isSingleRow && singleDep?.nextAction && !singleDep.done ? "#F59E0B" : THEME.textLight,fontSize:9,maxWidth:72,overflow:"hidden",textOverflow:"ellipsis",fontWeight:isSingleRow && singleDep?.nextAction && !singleDep.done ? 600 : 400}} title={isSingleRow ? (singleDep?.nextAction || "") : ""}>{isSingleRow ? (singleDep?.nextAction ? (singleDep.done ? "✓ " : "⚡ ") + singleDep.nextAction : "—") : "—"}</td>
-                                <td style={{padding:"8px 10px",color:THEME.textLight,fontSize:9,maxWidth:80,overflow:"hidden",textOverflow:"ellipsis"}}>{isSingleRow ? (singleDep?.maturityAction || "—") : "—"}</td>
-                                <td style={{padding:"8px 10px",whiteSpace:"nowrap"}}>
-                                  {isSingleRow && (
-                                    <>
-                                      <button onClick={(e) => { e.stopPropagation(); toggleDone("deposit", indices[0]); }} style={{background:singleDep?.done ? "#238636" : THEME.cardBgAlt,color:singleDep?.done ? "#fff" : THEME.textMuted,border:"none",borderRadius:4,padding:"2px 6px",fontSize:9,cursor:"pointer",marginRight:3,fontWeight:600}}>{singleDep?.done ? "↩" : "✓"}</button>
-                                      <button onClick={(e) => { e.stopPropagation(); openEdit("deposit", indices[0]); }} style={{background:THEME.cardBgAlt,color:"#2563eb",border:"none",borderRadius:4,padding:"2px 6px",fontSize:9,cursor:"pointer",marginRight:3}}>✏️</button>
-                                      <button onClick={(e) => { e.stopPropagation(); deleteRow("deposit", indices[0]); }} style={{background:THEME.cardBgAlt,color:"#F85149",border:"none",borderRadius:4,padding:"2px 6px",fontSize:9,cursor:"pointer"}}>🗑</button>
-                                    </>
-                                  )}
-                                </td>
-                              </tr>
-                              
-                              {/* Deposit Rows - Show when expanded */}
-                              {isExpanded && bankDeps.map((d, j) => {
-                                const origIdx = indices[j];
-                                const days = daysUntil(d.maturityDate);
-                                const daysCell = days === null ? "—" : days < 0 ? "0" : String(days);
-                                return (
-                                  <tr key={`${bankName}-${j}`} style={{borderBottom:`1px solid ${THEME.border}`,background:d.done ? "rgba(46,160,67,0.05)" : days != null && days < 0 ? "rgba(110,118,129,0.1)" : days != null && days <= 90 ? "rgba(248,81,73,0.05)" : "transparent",opacity:d.done ? 0.6 : 1}}>
-                                    <td style={{padding:"8px 10px",paddingLeft:32}}>
-                                      <div style={{fontSize:9,color:"#484F58",fontFamily:"monospace"}}>{d.depositId || "—"}</div>
-                                    </td>
-                                    <td style={{padding:"8px 10px",color:THEME.textLight,fontSize:10}}>{d.type || "FD"}</td>
-                                    <td style={{padding:"8px 10px",color:THEME.text,fontSize:10,maxWidth:90,overflow:"hidden",textOverflow:"ellipsis"}} title={d.accountOwner || ""}>{d.accountOwner || "—"}</td>
-                                    <td style={{padding:"8px 10px",color:THEME.text,fontSize:10}}>{d.nominee || "—"}</td>
-                                    <td style={{padding:"8px 10px",fontFamily:"monospace",fontWeight:600,color:THEME.text,fontSize:11}}>{fmt(d.deposit)}</td>
-                                    <td style={{padding:"8px 10px",fontFamily:"monospace",color:THEME.accent,fontWeight:600,fontSize:10}}>{d.roi ? (Number(d.roi) * 100).toFixed(2) + "%" : "—"}</td>
-                                    <td style={{padding:"8px 10px",fontFamily:"monospace",fontWeight:600,color:THEME.accent,fontSize:11}}>{fmt(d.maturityAmt || d.deposit)}</td>
-                                    <td style={{padding:"8px 10px",color:THEME.textLight,whiteSpace:"nowrap",fontSize:10}}>{fmtDate(d.startDate)}</td>
-                                    <td style={{padding:"8px 10px",whiteSpace:"nowrap"}}>
-                                      <div style={{display:"flex",alignItems:"center",gap:4}}>
-                                        <span style={{color:THEME.text,fontSize:10}}>{fmtDate(d.maturityDate)}</span>
-                                        <UrgencyBadge days={days} />
-                                      </div>
-                                    </td>
-                                    <td style={{padding:"8px 10px",color:THEME.textLight,fontSize:10,fontFamily:"monospace"}}>{daysCell}</td>
-                                    <td style={{padding:"8px 10px",color:"#6B7280",fontSize:9}}>{d.duration || "—"}</td>
-                                    <td style={{padding:"8px 10px",color:d.nextAction && !d.done ? "#F59E0B" : THEME.textLight,fontSize:9,maxWidth:72,overflow:"hidden",textOverflow:"ellipsis",fontWeight:d.nextAction && !d.done ? 600 : 400}} title={d.nextAction || ""}>{d.nextAction ? (d.done ? "✓ " : "⚡ ") + d.nextAction : "—"}</td>
-                                    <td style={{padding:"8px 10px",color:THEME.textLight,fontSize:9,maxWidth:80,overflow:"hidden",textOverflow:"ellipsis"}} title={d.maturityAction}>{d.maturityAction || "—"}</td>
-                                    <td style={{padding:"8px 10px",whiteSpace:"nowrap"}}>
-                                      <button onClick={() => toggleDone("deposit", origIdx)} style={{background:d.done ? "#238636" : THEME.cardBgAlt,color:d.done ? "#fff" : THEME.textMuted,border:"none",borderRadius:4,padding:"2px 6px",fontSize:9,cursor:"pointer",marginRight:3,fontWeight:600}}>{d.done ? "↩" : "✓"}</button>
-                                      <button onClick={() => openEdit("deposit", origIdx)} style={{background:THEME.cardBgAlt,color:"#2563eb",border:"none",borderRadius:4,padding:"2px 6px",fontSize:9,cursor:"pointer",marginRight:3}}>✏️</button>
-                                      <button onClick={() => deleteRow("deposit", origIdx)} style={{background:THEME.cardBgAlt,color:"#F85149",border:"none",borderRadius:4,padding:"2px 6px",fontSize:9,cursor:"pointer"}}>🗑</button>
-                                    </td>
-                                  </tr>
-                                );
-                              })}
-                            </React.Fragment>
-                          );
-                        })
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-              )}
-
-              {/* ═══ FLAT GRID VIEW - All Rows ═══ */}
-              {depositsViewMode === 'flat' && (
-              <div style={{background:THEME.cardBgAlt,borderRadius:12,overflow:"hidden",border:`1px solid ${THEME.border}`}}>
-                <div style={{overflowX:"auto",scrollbarWidth:"thin",scrollbarColor:`${THEME.border} ${THEME.bg}`}}>
-                  <table style={{width:"100%",borderCollapse:"collapse",fontSize:11}}>
-                    <thead><tr style={{background:THEME.cardBg,borderBottom:`1px solid ${THEME.border}`}}>
-                      {["Bank","ID","Type","Owner","Nominee","Invested","ROI","Maturity ₹","Start","Maturity","Days","Duration","Next","Action",""].map(h => (
-                        <th key={h} style={{padding:"8px 10px",textAlign:"left",color:THEME.textMuted,fontWeight:600,fontSize:10,whiteSpace:"nowrap"}}>{h}</th>
-                      ))}
-                    </tr></thead>
-                    <tbody>
-                      {filtered.length === 0 ? (
-                        <tr><td colSpan={15} style={{padding:32,textAlign:"center",color:THEME.textMuted}}>No deposits found</td></tr>
-                      ) : (
-                        filtered.map((d, idx) => {
-                          const origIdx = deposits.indexOf(d);
-                          const days = daysUntil(d.maturityDate);
-                          const color = getBankColor(d.bank);
-                          const daysCell = days === null ? "—" : days < 0 ? "0" : String(days);
-                          return (
-                            <tr key={idx} style={{borderBottom:`1px solid ${THEME.border}`,background:d.done ? "rgba(46,160,67,0.05)" : days != null && days < 0 ? "rgba(110,118,129,0.1)" : days != null && days <= 90 ? "rgba(248,81,73,0.05)" : "transparent",opacity:d.done ? 0.6 : 1}}>
-                              <td style={{padding:"8px 10px"}}>
-                                <div style={{display:"flex",alignItems:"center",gap:6}}>
-                                  <div style={{width:8,height:8,borderRadius:"50%",background:color}} />
-                                  <span style={{fontWeight:600,color:THEME.text,fontSize:11}}>{d.bank}</span>
-                                </div>
-                              </td>
-                              <td style={{padding:"8px 10px",fontSize:9,color:"#484F58",fontFamily:"monospace"}}>{d.depositId || "—"}</td>
-                              <td style={{padding:"8px 10px",color:THEME.textLight,fontSize:10}}>{d.type || "FD"}</td>
-                              <td style={{padding:"8px 10px",color:THEME.text,fontSize:10,maxWidth:88,overflow:"hidden",textOverflow:"ellipsis"}} title={d.accountOwner || ""}>{d.accountOwner || "—"}</td>
-                              <td style={{padding:"8px 10px",color:THEME.text,fontSize:10}}>{d.nominee || "—"}</td>
-                              <td style={{padding:"8px 10px",fontFamily:"monospace",fontWeight:600,color:THEME.text,fontSize:11}}>{fmt(d.deposit)}</td>
-                              <td style={{padding:"8px 10px",fontFamily:"monospace",color:THEME.accent,fontWeight:600,fontSize:10}}>{d.roi ? (Number(d.roi) * 100).toFixed(2) + "%" : "—"}</td>
-                              <td style={{padding:"8px 10px",fontFamily:"monospace",fontWeight:600,color:THEME.accent,fontSize:11}}>{fmt(d.maturityAmt || d.deposit)}</td>
-                              <td style={{padding:"8px 10px",color:THEME.textLight,whiteSpace:"nowrap",fontSize:10}}>{fmtDate(d.startDate)}</td>
-                              <td style={{padding:"8px 10px",whiteSpace:"nowrap"}}>
-                                <div style={{display:"flex",alignItems:"center",gap:4}}>
-                                  <span style={{color:THEME.text,fontSize:10}}>{fmtDate(d.maturityDate)}</span>
-                                  <UrgencyBadge days={days} />
-                                </div>
-                              </td>
-                              <td style={{padding:"8px 10px",color:THEME.textLight,fontSize:10,fontFamily:"monospace"}}>{daysCell}</td>
-                              <td style={{padding:"8px 10px",color:"#6B7280",fontSize:9}}>{d.duration || "—"}</td>
-                              <td style={{padding:"8px 10px",color:d.nextAction && !d.done ? "#F59E0B" : THEME.textLight,fontSize:9,maxWidth:72,overflow:"hidden",textOverflow:"ellipsis",fontWeight:d.nextAction && !d.done ? 600 : 400}} title={d.nextAction || ""}>{d.nextAction ? (d.done ? "✓ " : "⚡ ") + d.nextAction : "—"}</td>
-                              <td style={{padding:"8px 10px",color:THEME.textLight,fontSize:9,maxWidth:80,overflow:"hidden",textOverflow:"ellipsis"}} title={d.maturityAction}>{d.maturityAction || "—"}</td>
-                              <td style={{padding:"8px 10px",whiteSpace:"nowrap"}}>
-                                <button onClick={() => toggleDone("deposit", origIdx)} style={{background:d.done ? "#238636" : THEME.cardBgAlt,color:d.done ? "#fff" : THEME.textMuted,border:"none",borderRadius:4,padding:"2px 6px",fontSize:9,cursor:"pointer",marginRight:3,fontWeight:600}}>{d.done ? "↩" : "✓"}</button>
-                                <button onClick={() => openEdit("deposit", origIdx)} style={{background:THEME.cardBgAlt,color:"#2563eb",border:"none",borderRadius:4,padding:"2px 6px",fontSize:9,cursor:"pointer",marginRight:3}}>✏️</button>
-                                <button onClick={() => deleteRow("deposit", origIdx)} style={{background:THEME.cardBgAlt,color:"#F85149",border:"none",borderRadius:4,padding:"2px 6px",fontSize:9,cursor:"pointer"}}>🗑</button>
-                              </td>
-                            </tr>
-                          );
-                        })
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-              )}
-
-              {/* ═══ CARDS VIEW - Grouped by Bank ═══ */}
-              {depositsViewMode === 'cards' && (
-                <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(340px,1fr))",gap:12,alignItems:"start"}}>
-                  {filtered.length === 0 ? (
-                    <div style={{gridColumn:"1/-1",padding:32,textAlign:"center",color:THEME.textMuted}}>No deposits found</div>
-                  ) : (
-                    depBankNames.map(bankName => {
-                      const { deps: bankDeps, indices } = groupedDeps[bankName];
-                      const color = getBankColor(bankName);
-                      const totalDeposited = bankDeps.reduce((s, d) => s + (Number(d.deposit) || 0), 0);
-                      const totalMaturityAmt = bankDeps.reduce((s, d) => s + (Number(d.maturityAmt) || Number(d.deposit) || 0), 0);
-                      const isExpanded = expandedBanks.has(`dep_card_${bankName}`);
-                      
-                      const toggleCardBank = () => {
-                        setExpandedBanks(prev => {
-                          const next = new Set(prev);
-                          const key = `dep_card_${bankName}`;
-                          if (next.has(key)) next.delete(key);
-                          else next.add(key);
-                          return next;
-                        });
-                      };
-                      
-                      return (
-                        <div key={bankName} style={{background:THEME.cardBgAlt,borderRadius:12,borderTop:`1px solid ${color}30`,borderRight:`1px solid ${color}30`,borderBottom:`1px solid ${color}30`,borderLeft:`3px solid ${color}`,overflow:"hidden"}}>
-                          {/* Bank Header - Clickable */}
-                          <div 
-                            onClick={toggleCardBank}
-                            style={{padding:"12px 14px",background:`${color}10`,cursor:"pointer",display:"flex",justifyContent:"space-between",alignItems:"center"}}
-                          >
-                            <div style={{display:"flex",alignItems:"center",gap:10}}>
-                              <span style={{fontSize:10,color:"#6B7280",transition:"transform 0.2s",transform:isExpanded?"rotate(90deg)":"rotate(0deg)"}}>▶</span>
-                              <div>
-                                <div style={{fontSize:14,fontWeight:700,color:"#F3F4F6"}}>{bankName}</div>
-                                <div style={{fontSize:10,color:THEME.textLight}}>{bankDeps.length} FD{bankDeps.length > 1 ? "s" : ""}</div>
-                              </div>
-                            </div>
-                            <div style={{textAlign:"right"}}>
-                              <div style={{fontSize:12,fontWeight:600,fontFamily:"monospace",color:THEME.textLight}}>Inv: {fmt(totalDeposited)}</div>
-                              <div style={{fontSize:14,fontWeight:800,fontFamily:"monospace",color:THEME.accent}}>Mat: {fmt(totalMaturityAmt)}</div>
-                            </div>
-                          </div>
-                          
-                          {/* Deposits List - Collapsible */}
-                          {isExpanded && (
-                            <div style={{borderTop:`1px solid ${color}20`}}>
-                              {bankDeps.map((d, j) => {
-                                const origIdx = indices[j];
-                                const days = daysUntil(d.maturityDate);
-                                const urgency = days === null ? "none" : days < 0 ? "expired" : days <= 7 ? "urgent" : days <= 30 ? "soon" : days <= 90 ? "warning" : "none";
-                                return (
-                                  <div key={j} style={{padding:"10px 14px",borderBottom:j < bankDeps.length - 1 ? `1px solid ${THEME.border}` : "none",background:d.done ? "rgba(46,160,67,0.05)" : urgency === "expired" ? "rgba(110,118,129,0.1)" : urgency === "urgent" ? "rgba(248,81,73,0.05)" : "transparent",opacity:d.done ? 0.6 : 1}}>
-                                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
-                                      <div style={{flex:1}}>
-                                        <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
-                                          {d.depositId && <span style={{fontSize:9,color:"#484F58",fontFamily:"monospace"}}>{d.depositId}</span>}
-                                          <span style={{background:"#1D4ED820",color:"#60A5FA",padding:"2px 6px",borderRadius:4,fontSize:9,fontWeight:600}}>{d.type || "FD"}</span>
-                                          {d.accountOwner && <span style={{fontSize:9,color:"#9CA3AF"}}>Owner: {d.accountOwner}</span>}
-                                          {d.nominee && <span style={{fontSize:9,color:"#6B7280"}}>👤 {d.nominee}</span>}
-                                          {d.done && <span style={{fontSize:9,color:"#34D399"}}>✓ Done</span>}
-                                        </div>
-                                        <div style={{display:"flex",alignItems:"baseline",gap:12,marginTop:6,flexWrap:"wrap"}}>
-                                          <div>
-                                            <span style={{fontSize:9,color:"#6B7280"}}>Invested</span>
-                                            <div style={{fontSize:13,fontWeight:700,fontFamily:"monospace",color:THEME.text}}>{fmt(d.deposit)}</div>
-                                          </div>
-                                          <div>
-                                            <span style={{fontSize:9,color:"#6B7280"}}>ROI</span>
-                                            <div style={{fontSize:11,fontWeight:600,fontFamily:"monospace",color:THEME.accent}}>{d.roi ? (Number(d.roi) * 100).toFixed(2) + "%" : "—"}</div>
-                                          </div>
-                                          <div>
-                                            <span style={{fontSize:9,color:"#6B7280"}}>Maturity</span>
-                                            <div style={{fontSize:13,fontWeight:700,fontFamily:"monospace",color:THEME.accent}}>{fmt(d.maturityAmt || d.deposit)}</div>
-                                          </div>
-                                        </div>
-                                        {d.balanceHistory?.length > 0 && (() => {
-                                          const latest = d.balanceHistory[d.balanceHistory.length - 1];
-                                          const prev = latest.previousAmount != null ? `${fmt(latest.previousAmount, (d.currency || 'INR') as Currency)} → ` : '';
-                                          return (
-                                            <div style={{fontSize:10,color:"#6B7280",marginTop:4}} title={d.balanceHistory.map((h: { date: string; amount: number; previousAmount?: number; source?: string }) => `${new Date(h.date).toLocaleString()}: ${h.previousAmount != null ? fmt(h.previousAmount, (d.currency || 'INR') as Currency) + ' → ' : ''}${fmt(h.amount, (d.currency || 'INR') as Currency)} ${h.source || ''}`).join('\n')}>
-                                              📅 Updated {new Date(latest.date).toLocaleDateString(undefined, { dateStyle: 'short' })} · {prev}{fmt(latest.amount, (d.currency || 'INR') as Currency)} {latest.source && <span style={{color:"#9CA3AF"}}>({latest.source})</span>}
-                                            </div>
-                                          );
-                                        })()}
-                                        <div style={{display:"flex",gap:12,marginTop:6,fontSize:10,color:THEME.textLight}}>
-                                          <span>{fmtDate(d.startDate)} → {fmtDate(d.maturityDate)}</span>
-                                          {d.duration && <span style={{color:"#6B7280"}}>{d.duration}</span>}
-                                          <UrgencyBadge days={days} />
-                                        </div>
-                                        {d.nextAction && !d.done && <div style={{fontSize:10,color:"#2563EB",marginTop:4,fontWeight:600}}>📌 {d.nextAction}</div>}
-                                        {d.maturityAction && <div style={{fontSize:10,color:"#F59E0B",marginTop:4}}>⚡ {d.maturityAction}</div>}
-                                      </div>
-                                      <div style={{display:"flex",gap:4,flexShrink:0}}>
-                                        <button onClick={(e) => { e.stopPropagation(); toggleDone("deposit", origIdx); }} style={{background:d.done ? "#dcfce7" : THEME.cardBgAlt,color:d.done ? "#34D399" : "#6B7280",border:`1px solid ${d.done ? "#16a34a" : THEME.border}`,borderRadius:5,padding:"2px 6px",fontSize:10,cursor:"pointer",fontWeight:700}}>{d.done ? "↩" : "✓"}</button>
-                                        <button onClick={(e) => { e.stopPropagation(); openEdit("deposit", origIdx); }} style={{background:"#1D4ED820",color:"#60A5FA",border:"1px solid #1D4ED840",borderRadius:5,padding:"2px 5px",fontSize:10,cursor:"pointer"}}>✏️</button>
-                                        <button onClick={(e) => { e.stopPropagation(); deleteRow("deposit", origIdx); }} style={{background:"#7F1D1D20",color:"#FCA5A5",border:"1px solid #7F1D1D40",borderRadius:5,padding:"2px 5px",fontSize:10,cursor:"pointer"}}>🗑</button>
-                                      </div>
-                                    </div>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })
-                  )}
-                </div>
-              )}
-
-              {/* Summary Footer */}
-              <div style={{display:"flex",justifyContent:isMobile?"center":"flex-end",gap:8,marginTop:12,flexWrap:"wrap"}}>
-                <div style={{background:THEME.cardBgAlt,borderRadius:8,padding:"8px 14px",border:`1px solid ${THEME.border}`,fontSize:11}}>Invested: <strong style={{fontFamily:"monospace",color:THEME.text}}>{fmt(filtered.reduce((s, d) => s + (Number(d.deposit) || 0), 0))}</strong></div>
-                <div style={{background:THEME.cardBgAlt,borderRadius:8,padding:"8px 14px",border:`1px solid ${THEME.border}`,fontSize:11}}>Maturity: <strong style={{fontFamily:"monospace",color:THEME.accent}}>{fmt(filtered.reduce((s, d) => s + (Number(d.maturityAmt) || Number(d.deposit) || 0), 0))}</strong></div>
-              </div>
-
-              {/* By Bank Chart - Below data */}
-              <div style={{background:THEME.cardBg,borderRadius:12,border:`1px solid ${THEME.border}`,padding:14,marginTop:16}}>
-                <div style={{fontSize:12,fontWeight:700,color:THEME.textLight,marginBottom:10}}>🏦 Deposits by Bank</div>
-                {typePieData.length === 0 ? (
-                  <div style={{color:THEME.textMuted,padding:20,textAlign:"center"}}>No data</div>
-                ) : (
-                  <>
-                    <ResponsiveContainer width="100%" height={160}>
-                      <PieChart>
-                        <Pie 
-                          data={typePieData} 
-                          cx="50%" 
-                          cy="50%" 
-                          outerRadius={60} 
-                          paddingAngle={3} 
-                          dataKey="value"
-                          label={({name, percent}) => `${name.slice(0, 8)} ${(percent * 100).toFixed(0)}%`}
-                          labelLine={false}
-                        >
-                          {typePieData.map((e, i) => <Cell key={i} fill={e.color} stroke="#111827" strokeWidth={2} />)}
-                        </Pie>
-                        <Tooltip 
-                          formatter={(v: any) => fmt(v)} 
-                          contentStyle={{background:THEME.cardBgAlt,border:"1px solid ${THEME.border}",borderRadius:8,fontSize:12}} 
-                        />
-                      </PieChart>
-                    </ResponsiveContainer>
-                    <button 
-                      onClick={() => setShowLegend(prev => prev.has('dep_type') ? new Set([...prev].filter(k => k !== 'dep_type')) : new Set([...prev, 'dep_type']))}
-                      style={{marginTop:6,background:THEME.cardBgAlt,border:`1px solid ${THEME.border}`,color:THEME.textLight,padding:"4px 12px",borderRadius:6,fontSize:11,cursor:"pointer",display:"flex",alignItems:"center",gap:6}}
-                    >
-                      <span style={{fontSize:10,transition:"transform 0.2s",transform:showLegend.has('dep_type')?"rotate(90deg)":"rotate(0deg)"}}>▶</span>
-                      Legend ({typePieData.length})
-                    </button>
-                    {showLegend.has('dep_type') && (
-                      <div style={{display:"flex",flexWrap:"wrap",gap:6,marginTop:8}}>
-                        {typePieData.map((e, i) => {
-                          const total = typePieData.reduce((s, x) => s + x.value, 0);
-                          const pct = total ? (e.value / total) * 100 : 0;
-                          return (
-                            <div key={i} style={{display:"flex",alignItems:"center",gap:4,fontSize:11,background:THEME.cardBgAlt,padding:"3px 8px",borderRadius:12}}>
-                              <div style={{width:8,height:8,borderRadius:"50%",background:e.color}} />
-                              <span style={{color:"#D1D5DB"}}>{e.name}</span>
-                              <span style={{color:e.color,fontWeight:600}}>{fmt(e.value)}</span>
-                              <span style={{color:THEME.textLight,fontSize:10}}>({pct.toFixed(1)}%)</span>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </>
-                )}
-              </div>
-              </>
-              )}
-            </div>
-          );
-        })()}
+                {tab === "deposits" && (
+          <BankDepositsTab
+            theme={THEME}
+            deposits={deposits}
+            filtered={filtered}
+            banks={banks}
+            isMobile={isMobile}
+            search={search}
+            setSearch={setSearch}
+            filterBank={filterBank}
+            setFilterBank={setFilterBank}
+            depositsViewMode={depositsViewMode}
+            setDepositsViewMode={setDepositsViewMode}
+            expandedBanks={expandedBanks}
+            setExpandedBanks={setExpandedBanks}
+            showLegend={showLegend}
+            setShowLegend={setShowLegend}
+            typePieData={typePieData}
+            openAdd={openAdd}
+            openEdit={openEdit}
+            deleteRow={deleteRow}
+            toggleDone={toggleDone}
+          />
+        )}
 
         {/* ══ ACCOUNTS TAB - Grouped by Bank (Collapsible) ═══════════════ */}
         {tab === "accounts" && (() => {
@@ -2442,8 +1369,20 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
             }
           });
           
-          // Sort by converted total (INR) for proper comparison across currencies
-          const bankNames = Object.keys(grouped).sort((a, b) => grouped[b].sortTotal - grouped[a].sortTotal);
+          // Sort accounts within each bank (label order), then rebuild indices for edit/delete
+          Object.values(grouped).forEach((g) => {
+            g.accounts.sort((a, b) => {
+              const ka = [a.type || '', a.holders || '', a.bank || ''].join('\0');
+              const kb = [b.type || '', b.holders || '', b.bank || ''].join('\0');
+              return ka.localeCompare(kb, undefined, { sensitivity: 'base' });
+            });
+            g.indices = g.accounts.map((acc) => accounts.indexOf(acc));
+          });
+
+          // Bank sections A–Z (matches “Banks” list under the pie chart)
+          const bankNames = Object.keys(grouped).sort((a, b) =>
+            a.localeCompare(b, undefined, { sensitivity: 'base' })
+          );
           
           const toggleBank = (bankName: string) => {
             setExpandedBanks(prev => {
@@ -3258,131 +2197,19 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
 
         {/* ══ BILLS TAB ══════════════════════════════════════════════ */}
         {tab === "bills" && (
-          <div>
-            {/* ═══ MOBILE BILLS VIEW ═══ */}
-            {isMobile ? (
-              <div style={{display:"flex",flexDirection:"column",gap:12}}>
-                {/* Mobile: Summary Header */}
-                <div style={{background:THEME.headerBg,borderRadius:14,padding:"16px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                  <div>
-                    <div style={{fontSize:10,color:"rgba(255,255,255,0.7)",fontWeight:500}}>PENDING BILLS</div>
-                    <div style={{fontSize:28,fontWeight:800,color:"#fff"}}>{bills.filter(b => !b.done).length}</div>
-                  </div>
-                  <div style={{textAlign:"right"}}>
-                    <div style={{fontSize:10,color:"rgba(255,255,255,0.85)",fontWeight:500}}>TOTAL DUE</div>
-                    <div style={{fontSize:20,fontWeight:800,color:"#FCD34D",fontFamily:"monospace"}}>{fmt(bills.filter(b => !b.done).reduce((s, b) => s + convertCurrency(Number(b.amount) || 0, (b.currency || 'INR') as Currency, targetCurrency, exchangeRates), 0), targetCurrency)}</div>
-                  </div>
-                </div>
-                
-                {/* Mobile: Filter Tabs */}
-                <div style={{display:"flex",gap:8}}>
-                  <button 
-                    onClick={() => setShowDone(false)}
-                    style={{flex:1,background:!showDone ? "#F59E0B" : THEME.cardBgAlt,color:!showDone ? "#000" : THEME.textLight,border:"none",borderRadius:10,padding:"10px",fontSize:13,fontWeight:600}}
-                  >
-                    Pending ({bills.filter(b => !b.done).length})
-                  </button>
-                  <button 
-                    onClick={() => setShowDone(true)}
-                    style={{flex:1,background:showDone ? "#10B981" : THEME.cardBgAlt,color:showDone ? "#FFF" : THEME.textLight,border:"none",borderRadius:10,padding:"10px",fontSize:13,fontWeight:600}}
-                  >
-                    Paid ({bills.filter(b => b.done).length})
-                  </button>
-                </div>
-                
-                {/* Mobile: Bills List */}
-                {bills.length === 0 ? (
-                  <div style={{padding:40,textAlign:"center",color:"#6B7280"}}>No bills tracked yet</div>
-                ) : (
-                  <div style={{display:"flex",flexDirection:"column",gap:10}}>
-                    {bills.filter(b => showDone ? b.done : !b.done).map((bill, i) => {
-                      const origIdx = bills.indexOf(bill);
-                      return (
-                        <div 
-                          key={i}
-                          style={{
-                            background:THEME.cardBgAlt,
-                            borderRadius:14,
-                            padding:"14px",
-                            borderLeft:`4px solid ${bill.done ? "#10B981" : "#F59E0B"}`,
-                            opacity: bill.done ? 0.7 : 1
-                          }}
-                        >
-                          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:8}}>
-                            <div style={{flex:1}}>
-                              <div style={{fontSize:15,fontWeight:700,color:bill.done ? "#6B7280" : THEME.text,textDecoration:bill.done ? "line-through" : "none"}}>{bill.name}</div>
-                              <div style={{fontSize:12,color:"#6B7280",marginTop:4}}>{bill.freq}</div>
-                            </div>
-                            {bill.amount && (
-                              <div style={{fontSize:18,fontWeight:800,fontFamily:"monospace",color:bill.done ? "#6B7280" : "#F59E0B"}}>{fmt(bill.amount, (bill.currency || 'INR') as Currency)}</div>
-                            )}
-                          </div>
-                          
-                            {bill.due && (
-                            <div style={{fontSize:12,color:THEME.textLight,marginBottom:10}}>Due: {bill.due}</div>
-                          )}
-                          {bill.nextAction && !bill.done && (
-                            <div style={{fontSize:11,color:"#2563EB",marginBottom:10,fontWeight:600}}>📌 Next: {bill.nextAction}</div>
-                          )}
-                          
-                          {/* Mobile: Action Buttons */}
-                          <div style={{display:"flex",gap:8,paddingTop:10,borderTop:`1px solid ${THEME.border}`}}>
-                            <button 
-                              onClick={() => toggleDone("bill", origIdx)} 
-                              style={{flex:1,background:bill.done ? "#dcfce7" : "#F59E0B20",color:bill.done ? "#34D399" : "#F59E0B",border:"none",borderRadius:8,padding:"10px",fontSize:12,fontWeight:600}}
-                            >
-                              {bill.done ? "↩ Unpaid" : "✓ Mark Paid"}
-                            </button>
-                            <button 
-                              onClick={() => openEdit("bill", origIdx)} 
-                              style={{background:"#1D4ED820",color:"#60A5FA",border:"none",borderRadius:8,padding:"10px 14px",fontSize:12}}
-                            >✏️</button>
-                            <button 
-                              onClick={() => deleteRow("bill", origIdx)} 
-                              style={{background:"#7F1D1D20",color:"#FCA5A5",border:"none",borderRadius:8,padding:"10px 14px",fontSize:12}}
-                            >🗑</button>
-                          </div>
-                        </div>
-                      );
-                    })}
-                    {bills.filter(b => showDone ? b.done : !b.done).length === 0 && (
-                      <div style={{padding:30,textAlign:"center",color:"#6B7280",fontSize:13}}>
-                        {showDone ? "No paid bills yet" : "All bills are paid! 🎉"}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            ) : (
-            /* ═══ DESKTOP BILLS VIEW ═══ */
-            <>
-            <div style={{display:"flex",justifyContent:"flex-end",marginBottom:14}}>
-              <button onClick={() => openAdd("bill")} style={{background:"linear-gradient(135deg,#065F46,#059669)",color:"#fff",border:"none",borderRadius:9,padding:"7px 16px",fontSize:12,fontWeight:700,cursor:"pointer"}}>+ Add Bill</button>
-            </div>
-            {bills.length === 0 ? (
-              <EmptyState icon="📋" title="No Bills Tracked" description="Add recurring bills and subscriptions to never miss a payment" action="+ Add Bill" onAction={() => openAdd("bill")} />
-            ) : (
-              <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(260px,1fr))",gap:12}}>
-                {bills.map((bill, i) => (
-                  <div key={i} style={{background:THEME.cardBgAlt,borderRadius:12,padding:16,border:`1px solid ${THEME.border}`,opacity:bill.done ? 0.55 : 1}}>
-                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:8}}>
-                      <div style={{fontWeight:700,color:bill.done ? THEME.textMuted : THEME.text,fontSize:14,textDecoration:bill.done ? "line-through" : "none",flex:1}}>{bill.name}</div>
-                      <button onClick={() => toggleDone("bill", i)} style={{background:bill.done ? "#dcfce7" : THEME.cardBgAlt,color:bill.done ? "#34D399" : "#6B7280",border:`1px solid ${bill.done ? "#16a34a" : THEME.border}`,borderRadius:6,padding:"2px 8px",fontSize:10,cursor:"pointer",fontWeight:700}}>{bill.done ? "↩" : "✓"}</button>
-                    </div>
-                    {bill.amount && <div style={{fontSize:15,fontWeight:800,fontFamily:"monospace",color:THEME.text,marginBottom:4}}>{fmt(bill.amount, (bill.currency || 'INR') as Currency)}</div>}
-                    {bill.nextAction && !bill.done && <div style={{fontSize:11,color:"#2563EB",fontWeight:600,marginBottom:4}}>📌 {bill.nextAction}</div>}
-                    <div style={{fontSize:11,color:THEME.textMuted,marginBottom:6}}>{bill.freq} · Due: {bill.due || "—"}</div>
-                    <div style={{display:"flex",gap:6,marginTop:8}}>
-                      <button onClick={() => openEdit("bill", i)} style={{background:"#1D4ED820",color:"#60A5FA",border:"1px solid #1D4ED840",borderRadius:7,padding:"3px 8px",fontSize:11,cursor:"pointer"}}>✏️</button>
-                      <button onClick={() => deleteRow("bill", i)} style={{background:"#7F1D1D20",color:"#FCA5A5",border:"1px solid #7F1D1D40",borderRadius:7,padding:"3px 8px",fontSize:11,cursor:"pointer"}}>🗑</button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-            </>
-            )}
-          </div>
+          <BankBillsTab
+            theme={THEME}
+            bills={bills}
+            isMobile={isMobile}
+            showDone={showDone}
+            setShowDone={setShowDone}
+            targetCurrency={targetCurrency}
+            exchangeRates={exchangeRates}
+            openAdd={openAdd}
+            openEdit={openEdit}
+            deleteRow={deleteRow}
+            toggleDone={toggleDone}
+          />
         )}
       </div>
 

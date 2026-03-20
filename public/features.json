@@ -1,0 +1,115 @@
+{
+  "appName": "Leo Planner",
+  "canonicalUrl": "https://leo-planner.vercel.app/",
+  "summary": "Productivity PWA with tasks, voice, calendar, journal, analytics, encrypted Safe (passwords, documents, full bank records), and optional group sharing.",
+  "categories": [
+    {
+      "id": "tasks_today",
+      "title": "Tasks & Today",
+      "items": [
+        "Today view with uniform, priority-sized, and masonry layouts",
+        "Priorities, tags, categories, recurring and custom schedules",
+        "Hold, pause, spillover, dependencies; assign tasks to group members"
+      ]
+    },
+    {
+      "id": "voice_ai",
+      "title": "Voice & Smart Hub",
+      "items": [
+        "Create tasks, events, and journal entries by voice",
+        "Smart Hub shortcuts and command history"
+      ]
+    },
+    {
+      "id": "safe_core",
+      "title": "Safe — encrypted vault",
+      "items": [
+        "Master password, session timeout, auto-lock",
+        "Password entries, secure notes, document vaults",
+        "Tags, categories, filters, import/export",
+        "Share selected entries; review pending financial imports"
+      ]
+    },
+    {
+      "id": "financial",
+      "title": "Bank Records (inside Safe)",
+      "items": [
+        "Deposits, accounts, bills, actions, savings goals",
+        "Overview, accounts by bank, timeline, maturity alerts",
+        "Multi-currency display and user-set exchange rates",
+        "Excel import/export; portfolio and value-over-time charts"
+      ]
+    },
+    {
+      "id": "groups",
+      "title": "Groups & sharing",
+      "items": [
+        "Sharing groups with email invitations",
+        "Group members and optional finance chat from Safe"
+      ]
+    },
+    {
+      "id": "calendar_events",
+      "title": "Calendar & events",
+      "items": [
+        "Birthdays, anniversaries, holidays, recurring events",
+        "Rich holiday content; import .ics from Google Calendar"
+      ]
+    },
+    {
+      "id": "journal",
+      "title": "Journal",
+      "items": [
+        "Daily entries, mood levels, custom tags",
+        "Search, filters, journaling streaks"
+      ]
+    },
+    {
+      "id": "analytics",
+      "title": "Analytics & insights",
+      "items": [
+        "Completion and time patterns; monthly views",
+        "Tag analytics and habit-style tracking"
+      ]
+    },
+    {
+      "id": "routines_goals",
+      "title": "Routines & goals",
+      "items": [
+        "Routine templates and custom routines",
+        "Resolutions and savings goals alongside financial data"
+      ]
+    },
+    {
+      "id": "items_todo",
+      "title": "Items & quick to-do",
+      "items": [
+        "Gift cards, subscriptions, warranties, milestones",
+        "Lightweight to-do list separate from main tasks"
+      ]
+    },
+    {
+      "id": "focus",
+      "title": "Focus & time",
+      "items": [
+        "Countdown timer, stopwatch, focus sessions tied to tasks"
+      ]
+    },
+    {
+      "id": "integrations",
+      "title": "Integrations",
+      "items": [
+        "Google Calendar (.ics), Google Tasks, Apple Reminders, Todoist"
+      ]
+    },
+    {
+      "id": "personalization_pwa",
+      "title": "Themes, avatars & PWA",
+      "items": [
+        "15 themes; dozens of emoji avatar categories",
+        "Install as PWA; mobile layout with bottom navigation",
+        "Cloud sync via Supabase when authenticated"
+      ]
+    }
+  ]
+}

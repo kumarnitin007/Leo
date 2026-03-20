@@ -1124,12 +1124,55 @@ const SafeView: React.FC = () => {
         </div>
       </div>
 
-      {/* Tab Navigation - Mobile-friendly */}
+      {/* Tab Navigation — Financial first, then Passwords, then Documents */}
       <div className="safe-tabs-wrapper" style={{
         display: 'flex',
         gap: '0.75rem',
         marginBottom: '1.5rem'
       }}>
+        <button
+          onClick={() => setActiveTab('financial')}
+          className="safe-tab"
+          style={{
+            flex: 1,
+            padding: '0.75rem 1rem',
+            backgroundColor: activeTab === 'financial' ? '#3b82f6' : 'rgba(255,255,255,0.5)',
+            color: activeTab === 'financial' ? 'white' : '#6b7280',
+            border: activeTab === 'financial' ? 'none' : '2px solid rgba(0,0,0,0.1)',
+            borderRadius: '12px',
+            cursor: 'pointer',
+            fontSize: '0.875rem',
+            fontWeight: 600,
+            transition: 'all 0.3s ease',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: '0.25rem',
+            position: 'relative'
+          }}
+        >
+          <span style={{ fontSize: '1.25rem' }}>🏦</span>
+          <span>Financial</span>
+          {pendingImportsCount > 0 && (
+            <span style={{
+              position: 'absolute',
+              top: '-4px',
+              right: '-4px',
+              background: '#f59e0b',
+              color: 'white',
+              fontSize: '0.65rem',
+              fontWeight: 700,
+              padding: '2px 6px',
+              borderRadius: '10px',
+              minWidth: '18px',
+              textAlign: 'center',
+              boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+              animation: 'pulse 2s infinite'
+            }}>
+              {pendingImportsCount}
+            </span>
+          )}
+        </button>
         <button
           onClick={() => setActiveTab('entries')}
           className="safe-tab"
@@ -1175,49 +1218,6 @@ const SafeView: React.FC = () => {
         >
           <span style={{ fontSize: '1.25rem' }}>📄</span>
           <span>Documents</span>
-        </button>
-        <button
-          onClick={() => setActiveTab('financial')}
-          className="safe-tab"
-          style={{
-            flex: 1,
-            padding: '0.75rem 1rem',
-            backgroundColor: activeTab === 'financial' ? '#3b82f6' : 'rgba(255,255,255,0.5)',
-            color: activeTab === 'financial' ? 'white' : '#6b7280',
-            border: activeTab === 'financial' ? 'none' : '2px solid rgba(0,0,0,0.1)',
-            borderRadius: '12px',
-            cursor: 'pointer',
-            fontSize: '0.875rem',
-            fontWeight: 600,
-            transition: 'all 0.3s ease',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            gap: '0.25rem',
-            position: 'relative'
-          }}
-        >
-          <span style={{ fontSize: '1.25rem' }}>🏦</span>
-          <span>Financial</span>
-          {pendingImportsCount > 0 && (
-            <span style={{
-              position: 'absolute',
-              top: '-4px',
-              right: '-4px',
-              background: '#f59e0b',
-              color: 'white',
-              fontSize: '0.65rem',
-              fontWeight: 700,
-              padding: '2px 6px',
-              borderRadius: '10px',
-              minWidth: '18px',
-              textAlign: 'center',
-              boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
-              animation: 'pulse 2s infinite'
-            }}>
-              {pendingImportsCount}
-            </span>
-          )}
         </button>
       </div>
 

@@ -167,6 +167,19 @@ const AboutModal: React.FC<AboutModalProps> = ({ show, onClose }) => {
                       trends (track habits like "late night sleep" or "social meetings")!
                     </p>
                   </div>
+                  <div style={{ background: 'linear-gradient(to right, #e0f2fe, #bae6fd)', padding: '1rem', borderRadius: '0.75rem', border: '1px solid #38bdf8' }}>
+                    <p style={{ fontWeight: 'bold', margin: '0 0 0.5rem 0', fontSize: '1rem' }}>🔐 Safe — encrypted vault</p>
+                    <p style={{ fontSize: '0.875rem', margin: 0, color: '#374151', lineHeight: '1.5' }}>
+                      Open <strong>Safe</strong> from the main menu for a client-side encrypted vault protected by a{' '}
+                      <strong>master password</strong>, with <strong>auto-lock</strong> and a session timeout you control.
+                      Store <strong>passwords and secure records</strong>, keep <strong>encrypted notes</strong> on entries,
+                      and file away sensitive <strong>documents</strong> in vaults. The <strong>Financial</strong> workspace
+                      covers bank <strong>accounts, deposits, bills, actions,</strong> and <strong>savings goals</strong>—plus
+                      imports and portfolio-style views. Organize with <strong>tags and categories</strong>, use{' '}
+                      <strong>import/export</strong>, optionally <strong>share</strong> entries with people you trust, and
+                      pair with <strong>Groups</strong> for finance chat with your household or team.
+                    </p>
+                  </div>
                   <div style={{ background: 'linear-gradient(to right, #fce7f3, #fda4af)', padding: '1rem', borderRadius: '0.75rem', border: '1px solid #fb7185' }}>
                     <p style={{ fontWeight: 'bold', margin: '0 0 0.5rem 0', fontSize: '1rem' }}>🎯 Task Templates & Routines</p>
                     <p style={{ fontSize: '0.875rem', margin: 0, color: '#374151', lineHeight: '1.5' }}>
@@ -189,17 +202,18 @@ const AboutModal: React.FC<AboutModalProps> = ({ show, onClose }) => {
                     </p>
                   </div>
                   <div style={{ background: 'linear-gradient(to right, #cffafe, #a5f3fc)', padding: '1rem', borderRadius: '0.75rem', border: '1px solid #67e8f9' }}>
-                    <p style={{ fontWeight: 'bold', margin: '0 0 0.5rem 0', fontSize: '1rem' }}>🎨 10 Beautiful Themes</p>
+                    <p style={{ fontWeight: 'bold', margin: '0 0 0.5rem 0', fontSize: '1rem' }}>🎨 15 Beautiful Themes</p>
                     <p style={{ fontSize: '0.875rem', margin: 0, color: '#374151', lineHeight: '1.5' }}>
-                      Mint Fresh, Purple Dream, Ocean Breeze, Sunset Glow, Forest Green, Cherry Blossom, Golden Hour, 
-                      Midnight Blue, Lavender Fields, Autumn Leaves. Instant theme switching!
+                      Leo Planner, Purple Dream, Ocean Breeze, Sunset Glow, Forest Green, Cherry Blossom, Golden Hour,
+                      Midnight Blue, Lavender Fields, Autumn Leaves, Mint Fresh, Corporate Navy, Executive Slate,
+                      Professional Charcoal, and Banker Burgundy. Instant theme switching from Settings!
                     </p>
                   </div>
                   <div style={{ background: 'linear-gradient(to right, #fecaca, #fca5a5)', padding: '1rem', borderRadius: '0.75rem', border: '1px solid #f87171' }}>
-                    <p style={{ fontWeight: 'bold', margin: '0 0 0.5rem 0', fontSize: '1rem' }}>🎭 50+ Avatars</p>
+                    <p style={{ fontWeight: 'bold', margin: '0 0 0.5rem 0', fontSize: '1rem' }}>🎭 48 Emoji Avatars</p>
                     <p style={{ fontSize: '0.875rem', margin: 0, color: '#374151', lineHeight: '1.5' }}>
-                      Personalize with emoji avatars across 6 categories: Smileys, Animals, Food, Activities, Travel, Objects. 
-                      Your avatar shows everywhere!
+                      Personalize your profile with emoji avatars across six categories: Animals, People, Objects, Nature,
+                      Food, and Sports. Your choice shows across the app!
                     </p>
                   </div>
                   <div style={{ background: 'linear-gradient(to right, #d1fae5, #a7f3d0)', padding: '1rem', borderRadius: '0.75rem', border: '1px solid #6ee7b7' }}>
@@ -217,10 +231,12 @@ const AboutModal: React.FC<AboutModalProps> = ({ show, onClose }) => {
                     </p>
                   </div>
                   <div style={{ background: 'linear-gradient(to right, #fed7aa, #fdba74)', padding: '1rem', borderRadius: '0.75rem', border: '1px solid #fb923c' }}>
-                    <p style={{ fontWeight: 'bold', margin: '0 0 0.5rem 0', fontSize: '1rem' }}>👥 Family Accounts (Coming Soon)</p>
+                    <p style={{ fontWeight: 'bold', margin: '0 0 0.5rem 0', fontSize: '1rem' }}>👥 Groups &amp; sharing</p>
                     <p style={{ fontSize: '0.875rem', margin: 0, color: '#374151', lineHeight: '1.5' }}>
-                      Invite family members, share tasks, assign tasks to others, and collaborate on household routines. 
-                      Perfect for families!
+                      Open <strong>Groups</strong> from the main menu to create sharing groups, invite people by email,
+                      accept or send invitations, and manage members—great for families or teams. From <strong>Safe</strong>,
+                      you can use <strong>finance group chat</strong> to coordinate deposits and accounts with your group.
+                      Task assignment to group members is available where you set it up on a task.
                     </p>
                   </div>
                 </div>
