@@ -5,6 +5,16 @@
 import { read, utils, writeFile, type WorkBook } from "xlsx";
 import type { BankAccount, Bill, Currency, Deposit, DepositCategory } from "../types/bankRecords";
 
+const IMPORT_CURRENCIES = new Set<Currency>(["INR", "USD", "EUR", "GBP"]);
+
+function normalizeImportCurrency(val: unknown): Currency {
+  const u =
+    val == null || String(val).trim() === ""
+      ? "INR"
+      : String(val).trim().toUpperCase();
+  return IMPORT_CURRENCIES.has(u as Currency) ? (u as Currency) : "INR";
+}
+
 const MS_PER_DAY = 86400000;
 const EXCEL_EPOCH_OFFSET = 25569;
 
@@ -177,6 +187,10 @@ export function parseBankRecordsWorkbook(
         const s = headerNorm(x);
         return s.includes("linked") && s.includes("account");
       });
+      const cNextAct = h.findIndex((x) => {
+        const s = headerNorm(x);
+        return s.includes("next") && s.includes("action");
+      });
       const cNotes = colExact("notes");
 
       for (let i = hIdx + 1; i < rows.length; i++) {
@@ -198,7 +212,6 @@ export function parseBankRecordsWorkbook(
           }
           if (["skip", "archive", "draft", "ignore", "old", "inactive"].includes(status)) continue;
         }
-        const currencyVal = cCur >= 0 && r[cCur] ? r[cCur].toString().trim().toUpperCase() : "INR";
         const ownerStr =
           cOwner >= 0 && r[cOwner] != null && String(r[cOwner]).trim() !== "" ? String(r[cOwner]).trim() : "";
         const autoY =
@@ -208,6 +221,8 @@ export function parseBankRecordsWorkbook(
         const rawCat = cCat >= 0 && r[cCat] ? String(r[cCat]).trim() : "";
         const categoryVal: DepositCategory =
           rawCat && catSet.has(rawCat as DepositCategory) ? (rawCat as DepositCategory) : "General Savings";
+        const hasDepositCurrencyCell =
+          cCur >= 0 && r[cCur] != null && String(r[cCur]).trim() !== "";
         newDeposits.push({
           bank,
           type: cT >= 0 && r[cT] ? r[cT].toString() : "Fixed Deposit",
@@ -221,13 +236,16 @@ export function parseBankRecordsWorkbook(
           maturityDate: cellToYMD(cMD >= 0 ? r[cMD] : null) || "",
           duration: cDu >= 0 && r[cDu] ? r[cDu].toString() : "",
           maturityAction: cMatAct >= 0 && r[cMatAct] ? r[cMatAct].toString() : "",
-          currency: currencyVal as Currency,
+          ...(hasDepositCurrencyCell
+            ? { currency: normalizeImportCurrency(r[cCur]) }
+            : {}),
           done: false,
           lastBalanceUpdatedAt: cellToISOStartOfDay(cUpd >= 0 ? r[cUpd] : null),
           category: categoryVal,
           tdsPercent: cTds >= 0 && r[cTds] != null ? parseFloat(String(r[cTds])) || "" : "",
           autoRenewal: autoY,
           linkedAccount: cLink >= 0 && r[cLink] ? r[cLink].toString() : "",
+          ...(cNextAct >= 0 ? { nextAction: r[cNextAct] != null ? String(r[cNextAct]).trim() : "" } : {}),
           notes: cNotes >= 0 && r[cNotes] ? r[cNotes].toString() : "",
         });
       }
@@ -382,7 +400,12 @@ export function parseBankRecordsWorkbook(
         col("Email"),
       ];
       const cStatus = h.findIndex((x) => x && x.toString().toLowerCase().trim() === "status");
-      const cCur = h.findIndex((x) => x && x.toString().toLowerCase().trim() === "currency");
+      const cCur = h.findIndex((x) => headerNorm(x) === "currency");
+      const cNextBill = h.findIndex((x) => {
+        if (!x) return false;
+        const s = headerNorm(x);
+        return s.includes("next") && s.includes("action");
+      });
 
       for (let i = hIdx + 1; i < rows.length; i++) {
         const r = rows[i] as unknown[];
@@ -399,7 +422,8 @@ export function parseBankRecordsWorkbook(
           }
           if (["skip", "archive", "draft", "ignore", "old", "inactive"].includes(status)) continue;
         }
-        const currencyVal = cCur >= 0 && r[cCur] ? r[cCur].toString().trim().toUpperCase() : "INR";
+        const hasBillCurrencyCell =
+          cCur >= 0 && r[cCur] != null && String(r[cCur]).trim() !== "";
         newBills.push({
           name,
           freq: r[cF]?.toString() || "Monthly",
@@ -408,7 +432,8 @@ export function parseBankRecordsWorkbook(
           priority: r[cP]?.toString() || "Normal",
           phone: r[cPh]?.toString() || "",
           email: r[cE]?.toString() || "",
-          currency: currencyVal as Currency,
+          ...(hasBillCurrencyCell ? { currency: normalizeImportCurrency(r[cCur]) } : {}),
+          ...(cNextBill >= 0 ? { nextAction: r[cNextBill] != null ? String(r[cNextBill]).trim() : "" } : {}),
           done: false,
         });
       }
@@ -470,8 +495,9 @@ export async function downloadBankRecordsTemplate(filename = "BankRecords_Templa
     [""],
     ["💰 CURRENCY SUPPORT:"],
     ["- Supported currencies: INR (₹), USD ($), EUR (€), GBP (£)"],
-    ["- Add a 'Currency' column with values: INR, USD, EUR, or GBP"],
-    ["- If no currency specified, INR is assumed"],
+    ["- Deposits, Banks, and Bills sheets: use a Currency column header (exact match after spacing) — values INR, USD, EUR, or GBP; blank or unknown defaults to INR"],
+    ["- Bills row amounts display in the app using that row’s currency"],
+    ["- Next Action column (Deposits, Bills, Banks): text appears under Actions tab; edit the row to change or clear"],
     [""],
     ["See Deposits / Banks / Bills sheets for column order and examples."],
     [""],
@@ -503,6 +529,7 @@ export async function downloadBankRecordsTemplate(filename = "BankRecords_Templa
     "TDS Percent",
     "Auto Renewal",
     "Linked Account",
+    "Next Action",
     "Notes",
     "Days to Mature",
   ];
@@ -528,6 +555,7 @@ export async function downloadBankRecordsTemplate(filename = "BankRecords_Templa
       10,
       "Yes",
       "ICICI Savings A/C",
+      "",
       "Auto renewal enabled",
       "",
     ],
@@ -551,6 +579,7 @@ export async function downloadBankRecordsTemplate(filename = "BankRecords_Templa
       0,
       "No",
       "",
+      "Review Form 16",
       "Under 80C limit",
       "",
     ],
@@ -573,6 +602,7 @@ export async function downloadBankRecordsTemplate(filename = "BankRecords_Templa
       "General Savings",
       0,
       "No",
+      "",
       "",
       "Not imported (ARCHIVE)",
       "",
@@ -684,15 +714,16 @@ export async function downloadBankRecordsTemplate(filename = "BankRecords_Templa
     "Priority",
     "Phone",
     "Email",
+    "Next Action",
     "Currency",
     "Category",
     "Auto Pay",
   ];
   const billsData = [
     billsHeaders,
-    ["KEEP", "Electricity Bill", "Monthly", 2500, "15th", "High", "1800-123-456", "support@power.com", "INR", "Utility", "No"],
-    ["ACTIVE", "Internet - Airtel", "Monthly", 999, "1st", "Normal", "1800-987-654", "support@airtel.com", "INR", "Utility", "Yes"],
-    ["SKIP", "Old Subscription", "Monthly", 0, "", "Low", "", "", "INR", "", "This row will NOT be imported"],
+    ["KEEP", "Electricity Bill", "Monthly", 2500, "15th", "High", "1800-123-456", "support@power.com", "Compare plans", "INR", "Utility", "No"],
+    ["ACTIVE", "Internet - Airtel", "Monthly", 999, "1st", "Normal", "1800-987-654", "support@airtel.com", "", "INR", "Utility", "Yes"],
+    ["SKIP", "Old Subscription", "Monthly", 0, "", "Low", "", "", "", "INR", "", "This row will NOT be imported"],
   ];
 
   const wb = utils.book_new();

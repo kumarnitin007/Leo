@@ -12,26 +12,42 @@ interface FeaturesPageProps {
 const FEATURES = [
   {
     icon: '📋',
-    title: 'Smart Tasks',
-    description: 'Organize daily tasks with priorities, tags, and recurring schedules',
+    title: 'Smart Tasks & Today',
+    description:
+      'Today view, priorities, tags, recurring tasks, and quick capture from the + menu',
     color: '#3B82F6',
+  },
+  {
+    icon: '🎤',
+    title: 'Voice & Smart Hub',
+    description:
+      'Speak to create tasks, events, and more; Smart hub for AI-assisted shortcuts and voice history',
+    color: '#A855F7',
   },
   {
     icon: '🔒',
     title: 'Password Safe',
-    description: 'AES-256 encrypted vault for passwords, notes, and sensitive documents',
+    description:
+      'AES-256 encrypted vault for passwords, secure notes, and sensitive documents—unlocked with your master password',
     color: '#10B981',
   },
   {
     icon: '🏦',
-    title: 'Financial Tracker',
-    description: 'Track FDs, bank accounts, bills, and set savings goals',
+    title: 'Financial Dashboard (in Safe)',
+    description:
+      'Fixed deposits, bank accounts, bills, and action items; multi-currency with exchange rates; Excel import/export; portfolio overview and value-over-time; maturity timeline—all encrypted with your Safe data',
     color: '#8B5CF6',
+  },
+  {
+    icon: '📊',
+    title: 'Analytics & Reports',
+    description: 'Insights and trends, daily history, and monthly calendar views across your activity',
+    color: '#6366F1',
   },
   {
     icon: '📅',
     title: 'Calendar & Events',
-    description: 'Plan events, set reminders, and never miss important dates',
+    description: 'Plan events, set reminders, and keep important dates in one place',
     color: '#F59E0B',
   },
   {
@@ -43,31 +59,25 @@ const FEATURES = [
   {
     icon: '⏱️',
     title: 'Focus Timer',
-    description: 'Pomodoro-style timer to boost productivity and track focus time',
+    description: 'Pomodoro-style timer to boost productivity and track focus sessions',
     color: '#EF4444',
   },
   {
     icon: '🎯',
     title: 'Goals & Resolutions',
-    description: 'Set yearly goals with milestones and track your progress',
+    description: 'Yearly goals with milestones—plus savings goals alongside your financial dashboard in Safe',
     color: '#06B6D4',
   },
   {
     icon: '👨‍👩‍👧‍👦',
-    title: 'Family Sharing',
-    description: 'Share financial info securely with family via encrypted group chat',
+    title: 'Family & Groups',
+    description: 'Encrypted group spaces—including optional shared finance context from the Safe section',
     color: '#0D9488',
   },
   {
     icon: '🌙',
-    title: 'Dark Mode',
-    description: 'Easy on the eyes with automatic or manual dark theme',
-    color: '#6366F1',
-  },
-  {
-    icon: '📱',
-    title: 'Mobile First',
-    description: 'Fully responsive design that works great on any device',
+    title: 'Themes & every device',
+    description: 'Light and dark themes with a layout tuned for phones, tablets, and desktop',
     color: '#14B8A6',
   },
 ];
@@ -143,7 +153,7 @@ const FeaturesPage: React.FC<FeaturesPageProps> = ({ onBackToLogin }) => {
           fontSize: isMobile ? '1rem' : '1.25rem',
           opacity: 0.9,
         }}>
-          Everything you need to organize your day, secure your data, and track your goals
+          Tasks, voice, calendar, analytics, encrypted Safe—and a full financial workspace inside it
         </p>
       </div>
 

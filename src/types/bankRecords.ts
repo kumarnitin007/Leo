@@ -48,6 +48,8 @@ export interface Deposit {
   maturityDate: string;
   duration: string;
   maturityAction: string;
+  /** Follow-up task (shown on Actions tab); separate from maturity action text */
+  nextAction?: string;
   done: boolean;
   // New fields
   currency?: Currency;
@@ -108,6 +110,8 @@ export interface Bill {
   category?: string;
   autoPay?: boolean;
   lastPaid?: string;
+  /** Follow-up task (shown on Actions tab) */
+  nextAction?: string;
   // Future: sharing support
   sharedWith?: string[];
 }
