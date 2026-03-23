@@ -3,7 +3,8 @@
  * Keeps column-mapping logic out of BankDashboard.tsx.
  */
 import { read, utils, writeFile, type WorkBook } from "xlsx";
-import type { BankAccount, Bill, Currency, Deposit, DepositCategory } from "../types/bankRecords";
+import type { ActionItem, BankAccount, Bill, Currency, Deposit, DepositCategory } from "../types/bankRecords";
+import { extractDateFromTitle } from "../bank/actionDateParse";
 
 const IMPORT_CURRENCIES = new Set<Currency>(["INR", "USD", "EUR", "GBP"]);
 
@@ -41,13 +42,17 @@ export function bankAccountMatchesDeleteKey(a: BankAccount, del: DeleteAccountKe
   });
 }
 
+export type DeleteActionKey = { title: string; bank: string };
+
 export interface BankRecordsExcelParseResult {
   newDeposits: Deposit[];
   newAccounts: BankAccount[];
   newBills: Bill[];
+  newActions: ActionItem[];
   deleteDeposits: DeleteDepositKey[];
   deleteAccounts: DeleteAccountKey[];
   deleteBills: DeleteBillKey[];
+  deleteActions: DeleteActionKey[];
 }
 
 const EXCEL_EPOCH_MS = Date.UTC(1899, 11, 30);
@@ -118,9 +123,11 @@ export function parseBankRecordsWorkbook(
   const newDeposits: Deposit[] = [];
   const newAccounts: BankAccount[] = [];
   const newBills: Bill[] = [];
+  const newActions: ActionItem[] = [];
   const deleteDeposits: DeleteDepositKey[] = [];
   const deleteAccounts: DeleteAccountKey[] = [];
   const deleteBills: DeleteBillKey[] = [];
+  const deleteActions: DeleteActionKey[] = [];
 
   const catSet = new Set(depositCategories);
 
@@ -187,8 +194,17 @@ export function parseBankRecordsWorkbook(
         const s = headerNorm(x);
         return s.includes("linked") && s.includes("account");
       });
+      const cNextDue = h.findIndex((x) => {
+        const s = headerNorm(x);
+        return (
+          (s.includes("next") && s.includes("action") && s.includes("due")) ||
+          s === "next action due date" ||
+          s === "action due date"
+        );
+      });
       const cNextAct = h.findIndex((x) => {
         const s = headerNorm(x);
+        if (s.includes("due")) return false;
         return s.includes("next") && s.includes("action");
       });
       const cNotes = colExact("notes");
@@ -223,6 +239,7 @@ export function parseBankRecordsWorkbook(
           rawCat && catSet.has(rawCat as DepositCategory) ? (rawCat as DepositCategory) : "General Savings";
         const hasDepositCurrencyCell =
           cCur >= 0 && r[cCur] != null && String(r[cCur]).trim() !== "";
+        const nextDueYmd = cNextDue >= 0 ? cellToYMD(r[cNextDue]) : null;
         newDeposits.push({
           bank,
           type: cT >= 0 && r[cT] ? r[cT].toString() : "Fixed Deposit",
@@ -246,6 +263,7 @@ export function parseBankRecordsWorkbook(
           autoRenewal: autoY,
           linkedAccount: cLink >= 0 && r[cLink] ? r[cLink].toString() : "",
           ...(cNextAct >= 0 ? { nextAction: r[cNextAct] != null ? String(r[cNextAct]).trim() : "" } : {}),
+          ...(nextDueYmd ? { nextActionDueDate: nextDueYmd } : {}),
           notes: cNotes >= 0 && r[cNotes] ? r[cNotes].toString() : "",
         });
       }
@@ -267,8 +285,17 @@ export function parseBankRecordsWorkbook(
       const cA = colExact("amount");
       const cT = colExact("type");
       const cOl = colIncludes("online");
+      const cNextDueAcc = h.findIndex((x) => {
+        const s = headerNorm(x);
+        return (
+          (s.includes("next") && s.includes("action") && s.includes("due")) ||
+          s === "next action due date" ||
+          s === "action due date"
+        );
+      });
       const cAc = h.findIndex((x) => {
         const s = headerNorm(x);
+        if (s.includes("due")) return false;
         return s.includes("next") && s.includes("action");
       });
       const cR = colIncludes("roi");
@@ -358,6 +385,7 @@ export function parseBankRecordsWorkbook(
         let holders = holdersForDelete;
         if (!holders && cN1 < 0 && cN2 < 0) holders = "";
 
+        const nextDueBankYmd = cNextDueAcc >= 0 ? cellToYMD(r[cNextDueAcc]) : null;
         newAccounts.push({
           bank,
           type: cT >= 0 && r[cT] ? r[cT].toString() : "Saving",
@@ -370,6 +398,7 @@ export function parseBankRecordsWorkbook(
           detail: "",
           notes: notesCombined,
           nextAction: cAc >= 0 && r[cAc] ? r[cAc].toString() : "",
+          ...(nextDueBankYmd ? { nextActionDueDate: nextDueBankYmd } : {}),
           currency: currencyVal as Currency,
           hidden: hiddenVal,
           done: doneFromChecked,
@@ -401,9 +430,19 @@ export function parseBankRecordsWorkbook(
       ];
       const cStatus = h.findIndex((x) => x && x.toString().toLowerCase().trim() === "status");
       const cCur = h.findIndex((x) => headerNorm(x) === "currency");
+      const cNextBillDue = h.findIndex((x) => {
+        if (!x) return false;
+        const s = headerNorm(x);
+        return (
+          (s.includes("next") && s.includes("action") && s.includes("due")) ||
+          s === "next action due date" ||
+          s === "action due date"
+        );
+      });
       const cNextBill = h.findIndex((x) => {
         if (!x) return false;
         const s = headerNorm(x);
+        if (s.includes("due")) return false;
         return s.includes("next") && s.includes("action");
       });
 
@@ -424,6 +463,7 @@ export function parseBankRecordsWorkbook(
         }
         const hasBillCurrencyCell =
           cCur >= 0 && r[cCur] != null && String(r[cCur]).trim() !== "";
+        const nextDueBillYmd = cNextBillDue >= 0 ? cellToYMD(r[cNextBillDue]) : null;
         newBills.push({
           name,
           freq: r[cF]?.toString() || "Monthly",
@@ -434,13 +474,96 @@ export function parseBankRecordsWorkbook(
           email: r[cE]?.toString() || "",
           ...(hasBillCurrencyCell ? { currency: normalizeImportCurrency(r[cCur]) } : {}),
           ...(cNextBill >= 0 ? { nextAction: r[cNextBill] != null ? String(r[cNextBill]).trim() : "" } : {}),
+          ...(nextDueBillYmd ? { nextActionDueDate: nextDueBillYmd } : {}),
           done: false,
         });
       }
     }
   }
 
-  return { newDeposits, newAccounts, newBills, deleteDeposits, deleteAccounts, deleteBills };
+  // ── Actions (manual action items; optional sheet) ──
+  if (wb.SheetNames.includes("Actions")) {
+    const rows = utils.sheet_to_json(wb.Sheets["Actions"], { header: 1, defval: null }) as unknown[][];
+    const hIdx = rows.findIndex(
+      (row) =>
+        row &&
+        row.some((x) => x != null && headerNorm(x) === "title") &&
+        row.some((x) => x != null && headerNorm(x) === "bank")
+    );
+    if (hIdx >= 0) {
+      const h = rows[hIdx];
+      const colExact = (name: string) =>
+        h.findIndex((x) => x != null && headerNorm(x) === name.toLowerCase());
+      const cTitle = colExact("title");
+      const cBank = colExact("bank");
+      const cNote = colExact("note");
+      const cPri = colExact("priority");
+      let cDue = colExact("next action due date");
+      if (cDue < 0) {
+        cDue = h.findIndex((x) => {
+          if (!x) return false;
+          const s = headerNorm(x);
+          return (s.includes("next") && s.includes("action") && s.includes("due")) || s === "action due date";
+        });
+      }
+      if (cDue < 0) cDue = colExact("due date");
+      const cStatus = colExact("status");
+      const cDone = h.findIndex((x) => {
+        if (!x) return false;
+        const s = headerNorm(x);
+        return s === "done" || s === "completed" || s === "checked";
+      });
+
+      for (let i = hIdx + 1; i < rows.length; i++) {
+        const r = rows[i] as unknown[];
+        if (!r || cTitle < 0 || r[cTitle] == null || String(r[cTitle]).trim() === "") continue;
+        const title = String(r[cTitle]).trim();
+        const bank = cBank >= 0 && r[cBank] != null ? String(r[cBank]).trim() : "";
+        const titleLower = title.toLowerCase();
+        if (titleLower.includes("total") || titleLower.includes("grand") || titleLower.includes("sum")) continue;
+        if (cStatus >= 0 && r[cStatus]) {
+          const status = String(r[cStatus]).toLowerCase().trim();
+          if (status === "delete" || status === "remove") {
+            deleteActions.push({ title, bank });
+            continue;
+          }
+          if (["skip", "archive", "draft", "ignore", "old", "inactive"].includes(status)) continue;
+        }
+        const dueCell = cDue >= 0 ? cellToYMD(r[cDue]) : null;
+        const fromTitle = extractDateFromTitle(title);
+        const dateStr = dueCell || fromTitle || "";
+        const chkRaw =
+          cDone >= 0 && r[cDone] != null && String(r[cDone]).trim() !== ""
+            ? String(r[cDone]).toLowerCase().trim()
+            : "";
+        const doneFromChecked = ["yes", "true", "1", "y", "✓", "x", "done"].includes(chkRaw);
+        const priRaw = cPri >= 0 && r[cPri] != null ? String(r[cPri]).trim() : "";
+        const priorityVal =
+          priRaw && ["Low", "Medium", "High", "Urgent"].includes(priRaw)
+            ? (priRaw as ActionItem["priority"])
+            : undefined;
+        newActions.push({
+          title,
+          bank,
+          date: dateStr,
+          note: cNote >= 0 && r[cNote] != null ? String(r[cNote]).trim() : "",
+          done: doneFromChecked,
+          ...(priorityVal ? { priority: priorityVal } : {}),
+        });
+      }
+    }
+  }
+
+  return {
+    newDeposits,
+    newAccounts,
+    newBills,
+    newActions,
+    deleteDeposits,
+    deleteAccounts,
+    deleteBills,
+    deleteActions,
+  };
 }
 
 function applyHeaderStyle(ws: Record<string, unknown>, numCols: number) {
@@ -474,12 +597,12 @@ export async function downloadBankRecordsTemplate(filename = "BankRecords_Templa
     [""],
     ["⚠️ IMPORTANT RULES:"],
     ["1. Use the column names below — import finds the header row automatically (rows above it are ignored)"],
-    ["2. Only Deposits, Banks, and Bills sheets are processed"],
+    ["2. Deposits, Banks, Bills, and Actions sheets are processed (Actions is optional)"],
     ["3. DO NOT include 'Total' or 'Grand Total' rows - they will be skipped automatically"],
     ["4. Optional: add a cell comment on any header for your own notes (not read by the app today)"],
     [""],
     ["📝 HOW TO USE:"],
-    ["1. Fill in your data in the Deposits, Banks, and Bills sheets"],
+    ["1. Fill in your data in the Deposits, Banks, Bills, and (optional) Actions sheets"],
     ["2. Delete the example rows or modify them with your data"],
     ["3. Save the file as .xlsx"],
     ["4. Import it using the Import button in the app"],
@@ -490,16 +613,18 @@ export async function downloadBankRecordsTemplate(filename = "BankRecords_Templa
     ["- DELETE or REMOVE → Matching record is DELETED from dashboard"],
     ["- ACTIVE, KEEP, or blank → Imported/updated normally"],
     ["- HIDE (Banks only) → Imported with hidden: true (Other Accounts). HIDE on Deposits/Bills is ignored (still imported visible)"],
-    ["- DELETE uses: Deposits → Bank+DepositID; Banks → Bank+Type+Holders+Account Number; Bills → Name"],
+    ["- DELETE uses: Deposits → Bank+DepositID; Banks → Bank+Type+Holders+Account Number; Bills → Name; Actions → Title+Bank"],
     ["- Banks: Same bank + type + holders on multiple rows (e.g. two SCSS) need different Account Number values or the import merges into one row — fill Account Number for each"],
     [""],
     ["💰 CURRENCY SUPPORT:"],
     ["- Supported currencies: INR (₹), USD ($), EUR (€), GBP (£)"],
     ["- Deposits, Banks, and Bills sheets: use a Currency column header (exact match after spacing) — values INR, USD, EUR, or GBP; blank or unknown defaults to INR"],
     ["- Bills row amounts display in the app using that row’s currency"],
-    ["- Next Action column (Deposits, Bills, Banks): text appears under Actions tab; edit the row to change or clear"],
+    ["- Next Action (Deposits, Bills, Banks): task text shown on Actions tab as a linked row; edit the source row to change"],
+    ["- Next Action Due Date (Deposits, Bills, Banks): optional calendar date for that follow-up; also parsed from the task text if empty (e.g. Till May 25, 2025-06-01)"],
+    ["- Actions sheet: manual tasks (Title + Bank). Merge/update by Title+Bank. Next Action Due Date column preferred; if blank, a date is parsed from Title when possible"],
     [""],
-    ["See Deposits / Banks / Bills sheets for column order and examples."],
+    ["See Deposits / Banks / Bills / Actions sheets for column order and examples."],
     [""],
     ["💡 TIPS:"],
     ["- Dates: Use Excel date format (select cell > Format as Date)"],
@@ -530,6 +655,7 @@ export async function downloadBankRecordsTemplate(filename = "BankRecords_Templa
     "Auto Renewal",
     "Linked Account",
     "Next Action",
+    "Next Action Due Date",
     "Notes",
     "Days to Mature",
   ];
@@ -556,6 +682,7 @@ export async function downloadBankRecordsTemplate(filename = "BankRecords_Templa
       "Yes",
       "ICICI Savings A/C",
       "",
+      "",
       "Auto renewal enabled",
       "",
     ],
@@ -580,6 +707,7 @@ export async function downloadBankRecordsTemplate(filename = "BankRecords_Templa
       "No",
       "",
       "Review Form 16",
+      dateToExcel("2025-03-15"),
       "Under 80C limit",
       "",
     ],
@@ -604,6 +732,7 @@ export async function downloadBankRecordsTemplate(filename = "BankRecords_Templa
       "No",
       "",
       "",
+      "",
       "Not imported (ARCHIVE)",
       "",
     ],
@@ -617,6 +746,7 @@ export async function downloadBankRecordsTemplate(filename = "BankRecords_Templa
     "Type",
     "Currency",
     "Next Action",
+    "Next Action Due Date",
     "Account Owner",
     "Nominee",
     "Online",
@@ -642,6 +772,7 @@ export async function downloadBankRecordsTemplate(filename = "BankRecords_Templa
       "Saving",
       "INR",
       "Update KYC",
+      dateToExcel("2025-04-01"),
       "Rahul Kumar",
       "Priya Kumar",
       "Yes",
@@ -665,6 +796,7 @@ export async function downloadBankRecordsTemplate(filename = "BankRecords_Templa
       "Current",
       "INR",
       "",
+      "",
       "Kumar Enterprises",
       "",
       "Yes",
@@ -687,6 +819,7 @@ export async function downloadBankRecordsTemplate(filename = "BankRecords_Templa
       0,
       "Saving",
       "INR",
+      "",
       "",
       "Old Account",
       "",
@@ -715,15 +848,39 @@ export async function downloadBankRecordsTemplate(filename = "BankRecords_Templa
     "Phone",
     "Email",
     "Next Action",
+    "Next Action Due Date",
     "Currency",
     "Category",
     "Auto Pay",
   ];
   const billsData = [
     billsHeaders,
-    ["KEEP", "Electricity Bill", "Monthly", 2500, "15th", "High", "1800-123-456", "support@power.com", "Compare plans", "INR", "Utility", "No"],
-    ["ACTIVE", "Internet - Airtel", "Monthly", 999, "1st", "Normal", "1800-987-654", "support@airtel.com", "", "INR", "Utility", "Yes"],
-    ["SKIP", "Old Subscription", "Monthly", 0, "", "Low", "", "", "", "INR", "", "This row will NOT be imported"],
+    ["KEEP", "Electricity Bill", "Monthly", 2500, "15th", "High", "1800-123-456", "support@power.com", "Compare plans", dateToExcel("2025-03-10"), "INR", "Utility", "No"],
+    ["ACTIVE", "Internet - Airtel", "Monthly", 999, "1st", "Normal", "1800-987-654", "support@airtel.com", "", "", "INR", "Utility", "Yes"],
+    ["SKIP", "Old Subscription", "Monthly", 0, "", "Low", "", "", "", "", "INR", "", "This row will NOT be imported"],
+  ];
+
+  const actionsHeaders = ["Status", "Title", "Bank", "Next Action Due Date", "Note", "Priority", "Done"];
+  const actionsData = [
+    actionsHeaders,
+    [
+      "ACTIVE",
+      "Renew locker agreement",
+      "SBI",
+      dateToExcel("2025-04-15"),
+      "Visit branch with ID",
+      "High",
+      "No",
+    ],
+    [
+      "ACTIVE",
+      "Till May 25 — confirm nominee",
+      "DCU",
+      "",
+      "Parsed date from title if Due Date empty",
+      "Medium",
+      "No",
+    ],
   ];
 
   const wb = utils.book_new();
@@ -734,10 +891,10 @@ export async function downloadBankRecordsTemplate(filename = "BankRecords_Templa
 
   const wsDeposits = utils.aoa_to_sheet(depositsData);
   wsDeposits["!cols"] = Array.from({ length: depositsHeaders.length }, (_, i) => ({
-    wch: [1, 7, 11].includes(i) ? 12 : i === 19 ? 14 : [8, 10].includes(i) ? 12 : 11,
+    wch: [1, 7, 11].includes(i) ? 12 : i === 20 ? 14 : [8, 10].includes(i) ? 12 : 11,
   }));
   for (let r = 2; r <= 4; r++) {
-    ["B", "H", "L"].forEach((col) => {
+    ["B", "H", "L", "T"].forEach((col) => {
       const c = col + r;
       if (wsDeposits[c]) (wsDeposits[c] as { z?: string }).z = "yyyy-mm-dd";
     });
@@ -756,10 +913,12 @@ export async function downloadBankRecordsTemplate(filename = "BankRecords_Templa
   for (let r = 2; r <= 4; r++) {
     const b = "B" + r;
     if (wsBanks[b]) (wsBanks[b] as { z?: string }).z = "yyyy-mm-dd";
+    const h = "H" + r;
+    if (wsBanks[h]) (wsBanks[h] as { z?: string }).z = "yyyy-mm-dd";
     const d = "D" + r;
     if (wsBanks[d]) (wsBanks[d] as { z?: string }).z = "#,##0";
-    const k = "K" + r;
-    if (wsBanks[k]) (wsBanks[k] as { z?: string }).z = "0.00%";
+    const l = "L" + r;
+    if (wsBanks[l]) (wsBanks[l] as { z?: string }).z = "0.00%";
   }
   applyHeaderStyle(wsBanks as Record<string, unknown>, banksHeaders.length);
   utils.book_append_sheet(wb, wsBanks, "Banks");
@@ -774,16 +933,29 @@ export async function downloadBankRecordsTemplate(filename = "BankRecords_Templa
     { wch: 10 },
     { wch: 15 },
     { wch: 25 },
-    { wch: 10 },
     { wch: 14 },
+    { wch: 12 },
+    { wch: 14 },
+    { wch: 10 },
     { wch: 10 },
   ];
   for (let r = 2; r <= 4; r++) {
     const c = "D" + r;
     if (wsBills[c]) (wsBills[c] as { z?: string }).z = "#,##0.00";
+    const j = "J" + r;
+    if (wsBills[j]) (wsBills[j] as { z?: string }).z = "yyyy-mm-dd";
   }
   applyHeaderStyle(wsBills as Record<string, unknown>, billsHeaders.length);
   utils.book_append_sheet(wb, wsBills, "Bills");
+
+  const wsActions = utils.aoa_to_sheet(actionsData);
+  wsActions["!cols"] = Array.from({ length: actionsHeaders.length }, (_, i) => ({ wch: i === 1 ? 28 : i === 4 ? 24 : 12 }));
+  for (let r = 2; r <= 3; r++) {
+    const d = "D" + r;
+    if (wsActions[d]) (wsActions[d] as { z?: string }).z = "yyyy-mm-dd";
+  }
+  applyHeaderStyle(wsActions as Record<string, unknown>, actionsHeaders.length);
+  utils.book_append_sheet(wb, wsActions, "Actions");
 
   writeFile(wb, filename);
 }

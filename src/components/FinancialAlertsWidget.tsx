@@ -7,7 +7,23 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { useTheme } from '../contexts/ThemeContext';
+
+/** One cached alert row (home dashboard preview; amounts may appear in description) */
+export interface CachedFinancialAlert {
+  title: string;
+  description: string;
+  daysUntil: number;
+  severity: 'urgent' | 'warning' | 'info';
+  type: string;
+  /** Bank / institution name when relevant */
+  bankName?: string;
+  /** Bill / subscription name (bills) */
+  billName?: string;
+  /** FD product line: type · duration · id */
+  fdDetail?: string;
+  /** Short label for layout C: e.g. "FD maturity", "Bill", "Task" */
+  kindLabel?: string;
+}
 
 // Cached summary stored by BankDashboard (non-sensitive)
 export interface FinancialAlertsSummary {
@@ -21,16 +37,18 @@ export interface FinancialAlertsSummary {
   warningCount: number;
   pendingBills: number;
   pendingActions: number;
-  alerts: Array<{
-    title: string;
-    description: string;
-    daysUntil: number;
-    severity: 'urgent' | 'warning' | 'info';
-    type: string;
-  }>;
+  alerts: CachedFinancialAlert[];
 }
 
+/** Preview layouts on home — pick one to keep later; stored in localStorage */
+export type FinancialAlertsLayoutMode =
+  | 'standard'
+  | 'bankFirst'
+  | 'typeTags'
+  | 'oneLine';
+
 const CACHE_KEY = 'leo_financial_alerts_cache';
+const LAYOUT_MODE_KEY = 'leo_financial_alerts_layout_mode';
 
 // Call this from BankDashboard to update cache
 export function updateFinancialAlertsCache(summary: FinancialAlertsSummary) {
@@ -56,25 +74,57 @@ function getFinancialAlertsCache(): FinancialAlertsSummary | null {
   }
 }
 
+function getLayoutMode(): FinancialAlertsLayoutMode {
+  try {
+    const v = localStorage.getItem(LAYOUT_MODE_KEY) as FinancialAlertsLayoutMode | null;
+    if (v === 'standard' || v === 'bankFirst' || v === 'typeTags' || v === 'oneLine') return v;
+  } catch {
+    /* ignore */
+  }
+  return 'standard';
+}
+
+function persistLayoutModePreference(mode: FinancialAlertsLayoutMode) {
+  try {
+    localStorage.setItem(LAYOUT_MODE_KEY, mode);
+  } catch {
+    /* ignore */
+  }
+}
+
+function fallbackKindLabel(alert: CachedFinancialAlert): string {
+  if (alert.kindLabel) return alert.kindLabel;
+  if (alert.type === 'maturity') return 'FD maturity';
+  if (alert.type === 'bill' || alert.type === 'bill_due') return 'Bill';
+  return 'Task';
+}
+
 interface FinancialAlertsWidgetProps {
   onNavigateToSafe?: () => void;
 }
 
-function formatAmount(n: number): string {
-  const abs = Math.abs(n);
-  const sign = n < 0 ? '-' : '';
-  if (abs >= 10000000) return sign + '₹' + (abs / 10000000).toFixed(2) + ' Cr';
-  if (abs >= 100000) return sign + '₹' + (abs / 100000).toFixed(2) + ' L';
-  if (abs >= 1000) return sign + '₹' + (abs / 1000).toFixed(1) + ' K';
-  return sign + '₹' + abs.toLocaleString('en-IN', { maximumFractionDigits: 2 });
-}
+const LAYOUT_OPTIONS: { id: FinancialAlertsLayoutMode; label: string; hint: string }[] = [
+  { id: 'standard', label: 'A · Standard', hint: 'Title + detail' },
+  { id: 'bankFirst', label: 'B · Bank first', hint: 'Bank / bill name on top' },
+  { id: 'typeTags', label: 'C · Tags', hint: 'Kind + lines' },
+  { id: 'oneLine', label: 'D · One line', hint: 'Compact' },
+];
 
 const FinancialAlertsWidget: React.FC<FinancialAlertsWidgetProps> = ({
   onNavigateToSafe
 }) => {
-  const { theme } = useTheme();
   const [summary, setSummary] = useState<FinancialAlertsSummary | null>(null);
   const [expanded, setExpanded] = useState(false);
+  const [layoutMode, setLayoutModeState] = useState<FinancialAlertsLayoutMode>(() =>
+    typeof window !== 'undefined' ? getLayoutMode() : 'standard'
+  );
+  /** When list is long, show 4 until user expands */
+  const [showAllAlerts, setShowAllAlerts] = useState(false);
+
+  const applyLayoutMode = (mode: FinancialAlertsLayoutMode) => {
+    setLayoutModeState(mode);
+    persistLayoutModePreference(mode);
+  };
 
   useEffect(() => {
     // Load cached summary
@@ -89,12 +139,24 @@ const FinancialAlertsWidget: React.FC<FinancialAlertsWidgetProps> = ({
     return () => window.removeEventListener('storage', handleStorage);
   }, []);
 
+  useEffect(() => {
+    if (!expanded) setShowAllAlerts(false);
+  }, [expanded]);
+
   // Don't render if no cached summary
   if (!summary) {
     return null;
   }
 
   const { urgentCount, warningCount, alerts } = summary;
+  const visibleAlerts = showAllAlerts || alerts.length <= 4 ? alerts : alerts.slice(0, 4);
+  const hiddenCount = alerts.length > 4 ? alerts.length - 4 : 0;
+
+  const primaryIdentifier = (a: CachedFinancialAlert) =>
+    (a.bankName && a.bankName.trim()) ||
+    (a.billName && a.billName.trim()) ||
+    (a.fdDetail && a.fdDetail.trim()) ||
+    '';
 
   const getSeverityColor = (severity: string) => {
     switch (severity) {
@@ -112,10 +174,34 @@ const FinancialAlertsWidget: React.FC<FinancialAlertsWidgetProps> = ({
     }
   };
 
+  const renderDaysBadge = (alert: CachedFinancialAlert) => {
+    if (alert.daysUntil >= 0) {
+      return (
+        <div
+          style={{
+            background: getSeverityColor(alert.severity),
+            color: '#fff',
+            padding: '3px 10px',
+            borderRadius: 10,
+            fontSize: 11,
+            fontWeight: 700,
+            whiteSpace: 'nowrap',
+          }}
+        >
+          {alert.daysUntil === 0 ? 'Today' : `${alert.daysUntil}d`}
+        </div>
+      );
+    }
+    return (
+      <div style={{ fontSize: 10, color: 'rgba(0,0,0,0.35)' }}>No date</div>
+    );
+  };
+
   const getTypeIcon = (type: string) => {
     switch (type) {
       case 'maturity': return '💰';
-      case 'bill_due': return '📋';
+      case 'bill_due':
+      case 'bill': return '📋';
       case 'action': return '⚡';
       case 'goal_milestone': return '🎯';
       default: return '💡';
@@ -205,75 +291,306 @@ const FinancialAlertsWidget: React.FC<FinancialAlertsWidgetProps> = ({
           background: 'rgba(255,255,255,0.4)',
           borderTop: '1px solid rgba(0,0,0,0.05)'
         }}>
+          {/* Layout preview selector — compare A–D, then remove extras once you pick */}
+          <div
+            style={{
+              padding: '10px 12px',
+              borderBottom: '1px solid rgba(0,0,0,0.06)',
+              background: 'rgba(255,255,255,0.5)',
+            }}
+          >
+            <div style={{ fontSize: 10, fontWeight: 600, color: 'rgba(0,0,0,0.45)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+              Preview layout — tap one to compare
+            </div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+              {LAYOUT_OPTIONS.map((opt) => (
+                <button
+                  key={opt.id}
+                  type="button"
+                  title={opt.hint}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    applyLayoutMode(opt.id);
+                  }}
+                  style={{
+                    padding: '6px 10px',
+                    borderRadius: 8,
+                    border: layoutMode === opt.id ? '2px solid #b45309' : '1px solid rgba(0,0,0,0.12)',
+                    background: layoutMode === opt.id ? 'rgba(180,83,9,0.12)' : 'rgba(255,255,255,0.8)',
+                    fontSize: 11,
+                    fontWeight: layoutMode === opt.id ? 700 : 500,
+                    color: '#1a1a2e',
+                    cursor: 'pointer',
+                  }}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
           {/* Alerts List - Primary content */}
           {alerts.length > 0 ? (
             <div>
-              {alerts.slice(0, 4).map((alert, i) => (
-                <div 
-                  key={i}
+              {visibleAlerts.map((alert, i) => {
+                const hasDividerBelow = i < visibleAlerts.length - 1;
+                const rowBg =
+                  alert.severity === 'urgent'
+                    ? 'rgba(220,38,38,0.06)'
+                    : alert.severity === 'warning'
+                      ? 'rgba(217,119,6,0.06)'
+                      : 'transparent';
+                const iconBg =
+                  alert.type === 'maturity'
+                    ? 'rgba(220,38,38,0.1)'
+                    : alert.type === 'bill'
+                      ? 'rgba(217,119,6,0.1)'
+                      : 'rgba(59,130,246,0.1)';
+                const kind = fallbackKindLabel(alert);
+                const idLine = primaryIdentifier(alert);
+
+                if (layoutMode === 'bankFirst') {
+                  const topLine = alert.bankName?.trim() || alert.billName?.trim() || (alert.type === 'maturity' ? alert.fdDetail?.split('·')[0]?.trim() : '') || '—';
+                  return (
+                    <div
+                      key={i}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'flex-start',
+                        gap: 10,
+                        padding: '10px 16px',
+                        borderBottom: hasDividerBelow ? '1px solid rgba(0,0,0,0.05)' : 'none',
+                        background: rowBg,
+                      }}
+                    >
+                      <div
+                        style={{
+                          width: 32,
+                          height: 32,
+                          borderRadius: 8,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontSize: 14,
+                          background: iconBg,
+                          flexShrink: 0,
+                          marginTop: 2,
+                        }}
+                      >
+                        {getTypeIcon(alert.type)}
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 12, fontWeight: 700, color: '#0f766e', marginBottom: 2 }}>{topLine}</div>
+                        <div style={{ fontSize: 13, fontWeight: 600, color: '#1a1a2e', lineHeight: 1.35 }}>{alert.title}</div>
+                        <div style={{ fontSize: 11, color: 'rgba(0,0,0,0.55)', marginTop: 2 }}>
+                          {[alert.fdDetail, alert.description].filter(Boolean).join(' · ')}
+                        </div>
+                      </div>
+                      <div style={{ textAlign: 'right', flexShrink: 0 }}>{renderDaysBadge(alert)}</div>
+                    </div>
+                  );
+                }
+
+                if (layoutMode === 'typeTags') {
+                  return (
+                    <div
+                      key={i}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'flex-start',
+                        gap: 10,
+                        padding: '10px 16px',
+                        borderBottom: hasDividerBelow ? '1px solid rgba(0,0,0,0.05)' : 'none',
+                        background: rowBg,
+                      }}
+                    >
+                      <div
+                        style={{
+                          width: 32,
+                          height: 32,
+                          borderRadius: 8,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontSize: 14,
+                          background: iconBg,
+                          flexShrink: 0,
+                          marginTop: 2,
+                        }}
+                      >
+                        {getTypeIcon(alert.type)}
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginBottom: 4 }}>
+                          <span
+                            style={{
+                              fontSize: 9,
+                              fontWeight: 700,
+                              textTransform: 'uppercase',
+                              letterSpacing: '0.06em',
+                              padding: '2px 8px',
+                              borderRadius: 6,
+                              background: getSeverityBg(alert.severity),
+                              color: getSeverityColor(alert.severity),
+                            }}
+                          >
+                            {kind}
+                          </span>
+                          {idLine ? (
+                            <span style={{ fontSize: 11, fontWeight: 600, color: '#0f766e' }}>{idLine}</span>
+                          ) : null}
+                        </div>
+                        <div style={{ fontSize: 13, fontWeight: 600, color: '#1a1a2e', lineHeight: 1.35 }}>{alert.title}</div>
+                        <div style={{ fontSize: 11, color: 'rgba(0,0,0,0.5)' }}>
+                          {alert.type === 'maturity' && alert.fdDetail
+                            ? `${alert.fdDetail} · ${alert.description}`
+                            : alert.description}
+                        </div>
+                      </div>
+                      <div style={{ textAlign: 'right', flexShrink: 0 }}>{renderDaysBadge(alert)}</div>
+                    </div>
+                  );
+                }
+
+                if (layoutMode === 'oneLine') {
+                  const parts = [
+                    kind,
+                    alert.bankName?.trim(),
+                    alert.billName?.trim(),
+                    alert.fdDetail?.trim(),
+                    alert.title?.trim(),
+                  ].filter(Boolean) as string[];
+                  const uniq: string[] = [];
+                  parts.forEach((p) => {
+                    if (!uniq.some((u) => u === p)) uniq.push(p);
+                  });
+                  const line = uniq.join(' · ');
+                  return (
+                    <div
+                      key={i}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 8,
+                        padding: '8px 16px',
+                        borderBottom: hasDividerBelow ? '1px solid rgba(0,0,0,0.05)' : 'none',
+                        background: rowBg,
+                      }}
+                    >
+                      <span style={{ fontSize: 14, flexShrink: 0 }}>{getTypeIcon(alert.type)}</span>
+                      <div
+                        style={{
+                          flex: 1,
+                          minWidth: 0,
+                          fontSize: 12,
+                          fontWeight: 500,
+                          color: '#1a1a2e',
+                          whiteSpace: 'nowrap',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                        }}
+                        title={line}
+                      >
+                        {line}
+                      </div>
+                      {renderDaysBadge(alert)}
+                    </div>
+                  );
+                }
+
+                /* standard */
+                return (
+                  <div
+                    key={i}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 10,
+                      padding: '10px 16px',
+                      borderBottom: hasDividerBelow ? '1px solid rgba(0,0,0,0.05)' : 'none',
+                      background: rowBg,
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: 32,
+                        height: 32,
+                        borderRadius: 8,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: 14,
+                        background: iconBg,
+                        flexShrink: 0,
+                      }}
+                    >
+                      {getTypeIcon(alert.type)}
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div
+                        style={{
+                          fontSize: 13,
+                          fontWeight: 600,
+                          color: '#1a1a2e',
+                          whiteSpace: 'nowrap',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                        }}
+                      >
+                        {alert.title}
+                      </div>
+                      <div style={{ fontSize: 11, color: 'rgba(0,0,0,0.55)', lineHeight: 1.35 }}>
+                        {alert.type === 'maturity' && (alert.bankName || alert.fdDetail) ? (
+                          <>
+                            <span style={{ fontWeight: 600, color: '#0f766e' }}>
+                              {[alert.bankName, alert.fdDetail].filter(Boolean).join(' · ')}
+                            </span>
+                            {alert.description ? <span>{' · '}{alert.description}</span> : null}
+                          </>
+                        ) : alert.type === 'bill' && alert.billName ? (
+                          <>
+                            <span style={{ fontWeight: 600, color: '#0f766e' }}>{alert.billName}</span>
+                            {alert.description ? <span>{' · '}{alert.description}</span> : null}
+                          </>
+                        ) : (
+                          <>
+                            {alert.bankName ? (
+                              <span style={{ fontWeight: 600, color: '#0f766e' }}>{alert.bankName}</span>
+                            ) : null}
+                            {alert.bankName && alert.description ? ' · ' : null}
+                            {alert.description}
+                          </>
+                        )}
+                      </div>
+                    </div>
+                    <div style={{ textAlign: 'right', flexShrink: 0 }}>{renderDaysBadge(alert)}</div>
+                  </div>
+                );
+              })}
+              {hiddenCount > 0 && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setShowAllAlerts((v) => !v);
+                  }}
                   style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 10,
-                    padding: '10px 16px',
-                    borderBottom: i < Math.min(3, alerts.length - 1) ? '1px solid rgba(0,0,0,0.05)' : 'none',
-                    background: alert.severity === 'urgent' ? 'rgba(220,38,38,0.06)' : alert.severity === 'warning' ? 'rgba(217,119,6,0.06)' : 'transparent'
+                    width: '100%',
+                    padding: '8px 16px 10px',
+                    border: 'none',
+                    borderTop: '1px solid rgba(0,0,0,0.06)',
+                    background: 'rgba(255,255,255,0.35)',
+                    fontSize: 12,
+                    fontWeight: 600,
+                    color: '#b45309',
+                    cursor: 'pointer',
+                    textAlign: 'center',
                   }}
                 >
-                  <div style={{
-                    width: 32,
-                    height: 32,
-                    borderRadius: 8,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontSize: 14,
-                    background: alert.type === 'maturity' ? 'rgba(220,38,38,0.1)' : alert.type === 'bill' ? 'rgba(217,119,6,0.1)' : 'rgba(59,130,246,0.1)',
-                    flexShrink: 0
-                  }}>
-                    {getTypeIcon(alert.type)}
-                  </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ 
-                      fontSize: 13, 
-                      fontWeight: 600, 
-                      color: '#1a1a2e',
-                      whiteSpace: 'nowrap',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis'
-                    }}>
-                      {alert.title}
-                    </div>
-                    <div style={{ fontSize: 11, color: 'rgba(0,0,0,0.5)' }}>
-                      {alert.description}
-                    </div>
-                  </div>
-                  <div style={{ 
-                    textAlign: 'right',
-                    flexShrink: 0
-                  }}>
-                    {alert.daysUntil >= 0 ? (
-                      <div style={{ 
-                        background: getSeverityColor(alert.severity),
-                        color: '#fff',
-                        padding: '3px 10px',
-                        borderRadius: 10,
-                        fontSize: 11,
-                        fontWeight: 700,
-                        whiteSpace: 'nowrap'
-                      }}>
-                        {alert.daysUntil === 0 ? 'Today' : `${alert.daysUntil}d`}
-                      </div>
-                    ) : (
-                      <div style={{ fontSize: 10, color: 'rgba(0,0,0,0.35)' }}>No date</div>
-                    )}
-                  </div>
-                </div>
-              ))}
-              {alerts.length > 4 && (
-                <div style={{ padding: '6px 16px', fontSize: 11, color: 'rgba(0,0,0,0.4)', textAlign: 'center' }}>
-                  +{alerts.length - 4} more
-                </div>
+                  {showAllAlerts ? 'Show less' : `+${hiddenCount} more — tap to expand`}
+                </button>
               )}
             </div>
           ) : (
@@ -282,28 +599,6 @@ const FinancialAlertsWidget: React.FC<FinancialAlertsWidgetProps> = ({
             </div>
           )}
 
-          {/* Quick Stats - Secondary */}
-          <div style={{ 
-            display: 'flex', 
-            justifyContent: 'space-around',
-            padding: '10px 16px',
-            borderTop: '1px solid rgba(0,0,0,0.05)',
-            background: 'rgba(255,255,255,0.3)'
-          }}>
-            <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: 14, fontWeight: 700, color: '#1a1a2e' }}>{formatAmount(summary.totalInvested)}</div>
-              <div style={{ fontSize: 9, color: 'rgba(0,0,0,0.45)', textTransform: 'uppercase' }}>Invested</div>
-            </div>
-            <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: 14, fontWeight: 700, color: '#047857' }}>{formatAmount(summary.totalMaturity)}</div>
-              <div style={{ fontSize: 9, color: 'rgba(0,0,0,0.45)', textTransform: 'uppercase' }}>Maturity</div>
-            </div>
-            <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: 14, fontWeight: 700, color: summary.gainPercent >= 0 ? '#047857' : '#dc2626' }}>{summary.gainPercent >= 0 ? '+' : ''}{summary.gainPercent.toFixed(1)}%</div>
-              <div style={{ fontSize: 9, color: 'rgba(0,0,0,0.45)', textTransform: 'uppercase' }}>Gain</div>
-            </div>
-          </div>
-
           {/* View All Button */}
           {onNavigateToSafe && (
             <button
@@ -311,9 +606,12 @@ const FinancialAlertsWidget: React.FC<FinancialAlertsWidgetProps> = ({
               style={{
                 width: '100%',
                 padding: '10px 16px',
+                borderTop: '1px solid rgba(0,0,0,0.08)',
                 background: '#b45309',
                 color: '#fff',
-                border: 'none',
+                borderLeft: 'none',
+                borderRight: 'none',
+                borderBottom: 'none',
                 fontSize: 12,
                 fontWeight: 600,
                 cursor: 'pointer'

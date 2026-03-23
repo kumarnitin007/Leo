@@ -46,6 +46,36 @@ export type ActionDue30Overview = {
   sourceField: string;
 };
 
+/** Single timeline for Overview “Next 30 days”: maturities, manual actions, linked next-actions (sorted by days). */
+export type Next30DayRow =
+  | {
+      kind: "maturity";
+      title: string;
+      bank: string;
+      date: string;
+      days: number;
+      amount?: string;
+      currency?: string;
+      sourceField: string;
+    }
+  | {
+      kind: "manual";
+      title: string;
+      bank: string;
+      date: string;
+      days: number;
+      sourceField: string;
+    }
+  | {
+      kind: "linked";
+      title: string;
+      bank: string;
+      date: string;
+      days: number;
+      sourceField: string;
+      linkedSource: "account" | "deposit" | "bill";
+    };
+
 export type DisplayCurrencyMode = "ORIGINAL" | "INR" | "USD" | "EUR" | "GBP";
 
 export interface BankOverviewTabProps {
@@ -66,8 +96,8 @@ export interface BankOverviewTabProps {
   totalMaturity: number;
   /** Sum of Deposits tab principals (converted) — for Overview mobile tile */
   depositsPrincipalConverted: number;
-  maturingSoonDeposits: MaturingSoonDepositOverview[];
-  actionsDue30: ActionDue30Overview[];
+  /** Maturities + manual due + linked next-actions (≤30d), sorted by days remaining */
+  next30DaysUnified: Next30DayRow[];
   /** Pending manual actions + linked next-actions (matches Actions tab default) */
   overviewActionsCount: number;
   portfolioHistoryChartData: PortfolioHistoryChartPoint[];
@@ -116,8 +146,7 @@ export function BankOverviewTab({
   totalInvested,
   totalMaturity,
   depositsPrincipalConverted,
-  maturingSoonDeposits,
-  actionsDue30,
+  next30DaysUnified,
   overviewActionsCount,
   portfolioHistoryChartData,
   portfolioHistoryXDomain,
@@ -186,57 +215,66 @@ export function BankOverviewTab({
               <div style={{fontSize:11,color:"#6B7280",fontWeight:600,marginTop:4}}>Bills</div>
               <div style={{fontSize:12,color:"#F59E0B",fontFamily:"monospace",marginTop:6}}>{fmt(bills.filter(b=>!b.done).reduce((s,b)=>s+convertCurrency(Number(b.amount)||0,(b.currency||'INR') as Currency,targetCurrency,exchangeRates),0), targetCurrency)}</div>
             </div>
-            <div style={{background:THEME.cardBg,borderRadius:14,padding:"16px",border:`1px solid ${maturingSoonDeposits.length > 0 ? '#7F1D1D' : THEME.border}`,textAlign:"center"}}>
-              <div style={{fontSize:28,fontWeight:800,color:maturingSoonDeposits.length > 0 ? "#EF4444" : "#6B7280"}}>{maturingSoonDeposits.length}</div>
-              <div style={{fontSize:11,color:"#6B7280",fontWeight:600,marginTop:4}}>Maturing Soon</div>
-              <div style={{fontSize:10,color:THEME.textLight,marginTop:6}}>Deposits · Next 30 days</div>
+            <div style={{background:THEME.cardBg,borderRadius:14,padding:"16px",border:`1px solid ${next30DaysUnified.length > 0 ? '#7F1D1D' : THEME.border}`,textAlign:"center"}}>
+              <div style={{fontSize:28,fontWeight:800,color:next30DaysUnified.length > 0 ? "#EF4444" : "#6B7280"}}>{next30DaysUnified.length}</div>
+              <div style={{fontSize:11,color:"#6B7280",fontWeight:600,marginTop:4}}>Next 30 days</div>
+              <div style={{fontSize:10,color:THEME.textLight,marginTop:6}}>Maturities &amp; due actions</div>
             </div>
           </div>
 
-          {/* Mobile: Maturing Soon — Deposits table (maturityDate) */}
-          {maturingSoonDeposits.length > 0 && (
+          {/* Mobile: Next 30 days — maturities + manual + linked next-actions (sorted by days) */}
+          {next30DaysUnified.length > 0 && (
             <div style={{background:THEME.cardBg,borderRadius:14,padding:"14px",border:"1px solid #7F1D1D"}}>
-              <div style={{fontSize:12,fontWeight:700,color:"#EF4444",marginBottom:12,display:"flex",alignItems:"center",gap:6}}>
-                <span>⚡</span> Maturing Soon ({maturingSoonDeposits.length} deposit{maturingSoonDeposits.length !== 1 ? "s" : ""})
+              <div style={{fontSize:12,fontWeight:700,color:"#F59E0B",marginBottom:8,display:"flex",alignItems:"center",gap:6}}>
+                <span>⚡</span> Next 30 days ({next30DaysUnified.length})
+              </div>
+              <div style={{fontSize:10,color:THEME.textLight,marginBottom:10}}>
+                Sorted by days left — includes deposit maturities, Actions due dates, and linked <strong>Next action</strong> rows (accounts / deposits / bills).
               </div>
               <div style={{display:"flex",flexDirection:"column",gap:10}}>
-                {maturingSoonDeposits.map((d, i) => (
-                  <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"12px",background:THEME.cardBgAlt,borderRadius:10,borderLeft:`3px solid ${d.days <= 7 ? '#EF4444' : '#F59E0B'}`}}>
-                    <div>
-                      <div style={{fontSize:13,fontWeight:600,color:THEME.text}}>{d.bank} · {d.title}</div>
-                      <div style={{fontSize:11,color:THEME.textLight}}>{d.sourceField}: {fmtDate(d.date)}</div>
-                    </div>
-                    <div style={{textAlign:"right"}}>
-                      <div style={{fontSize:14,fontWeight:700,fontFamily:"monospace",color:THEME.accent}}>{d.amount ? fmt(d.amount, (d.currency || 'INR') as Currency) : '—'}</div>
-                      <div style={{fontSize:10,color:d.days <= 7 ? '#EF4444' : '#F59E0B',fontWeight:600}}>
-                        {d.days >= 0 ? `${d.days}d left` : `${-d.days}d overdue`}
+                {next30DaysUnified.map((row, i) => {
+                  const isMat = row.kind === "maturity";
+                  const border = isMat ? (row.days <= 7 ? "#EF4444" : "#F59E0B") : row.days <= 0 ? "#EF4444" : "#F59E0B";
+                  return (
+                    <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"12px",background:THEME.cardBgAlt,borderRadius:10,borderLeft:`3px solid ${border}`}}>
+                      <div style={{minWidth:0,flex:1}}>
+                        <div style={{fontSize:13,fontWeight:600,color:THEME.text}}>
+                          {isMat ? `${row.bank} · ${row.title}` : row.title}
+                        </div>
+                        <div style={{fontSize:11,color:THEME.textLight}}>
+                          {isMat && (
+                            <>
+                              {row.sourceField}: {fmtDate(row.date)}
+                              {row.amount ? ` · ${fmt(Number(row.amount), (row.currency || "INR") as Currency)}` : ""}
+                            </>
+                          )}
+                          {row.kind === "manual" && (
+                            <>
+                              {row.sourceField}: {fmtDate(row.date)}
+                              {row.bank ? ` · ${row.bank}` : ""}
+                            </>
+                          )}
+                          {row.kind === "linked" && (
+                            <>
+                              {row.sourceField}: {fmtDate(row.date)}
+                              {row.bank ? ` · ${row.bank}` : ""}
+                            </>
+                          )}
+                        </div>
+                      </div>
+                      <div style={{textAlign:"right",marginLeft:8}}>
+                        {isMat && (
+                          <div style={{fontSize:14,fontWeight:700,fontFamily:"monospace",color:THEME.accent}}>
+                            {row.amount ? fmt(row.amount, (row.currency || "INR") as Currency) : "—"}
+                          </div>
+                        )}
+                        <div style={{fontSize:10,color:row.days <= 7 && isMat ? "#EF4444" : row.days <= 0 && !isMat ? "#EF4444" : "#F59E0B",fontWeight:600}}>
+                          {row.days >= 0 ? `${row.days}d left` : `${-row.days}d overdue`}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Mobile: Actions due (uses actions[].date - e.g. loan payment due dates) */}
-          {actionsDue30.length > 0 && (
-            <div style={{background:THEME.cardBg,borderRadius:14,padding:"14px",border:"1px solid #92400E"}}>
-              <div style={{fontSize:12,fontWeight:700,color:"#F59E0B",marginBottom:12,display:"flex",alignItems:"center",gap:6}}>
-                <span>📋</span> Actions due ({actionsDue30.length})
-              </div>
-              <div style={{fontSize:10,color:THEME.textLight,marginBottom:8}}>Uses <strong>Due date</strong> from Safe → More → Actions</div>
-              <div style={{display:"flex",flexDirection:"column",gap:10}}>
-                {actionsDue30.map((d, i) => (
-                  <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"12px",background:THEME.cardBgAlt,borderRadius:10,borderLeft:`3px solid ${d.days <= 0 ? '#EF4444' : '#F59E0B'}`}}>
-                    <div>
-                      <div style={{fontSize:13,fontWeight:600,color:THEME.text}}>{d.title}</div>
-                      <div style={{fontSize:11,color:THEME.textLight}}>{d.sourceField}: {fmtDate(d.date)}{d.bank ? ` · ${d.bank}` : ''}</div>
-                    </div>
-                    <div style={{fontSize:10,color:d.days <= 0 ? '#EF4444' : '#F59E0B',fontWeight:600}}>
-                      {d.days >= 0 ? `${d.days}d left` : `${-d.days}d overdue`}
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}
@@ -555,8 +593,8 @@ export function BankOverviewTab({
         )}
       </div>
 
-      {/* Next 30 Days - Collapsible */}
-      {(maturingSoonDeposits.length > 0 || actionsDue30.length > 0) && (
+      {/* Next 30 Days - Collapsible (single list: maturities + manual + linked next-actions, by days left) */}
+      {next30DaysUnified.length > 0 && (
         <div style={{background:THEME.cardBg,borderRadius:12,border:`1px solid ${THEME.border}`,overflow:"hidden"}}>
           <button 
             onClick={()=>setShow30Days(!show30Days)} 
@@ -566,50 +604,48 @@ export function BankOverviewTab({
               <span style={{fontSize:10,color:"#6B7280",transition:"transform 0.2s",transform:show30Days?"rotate(90deg)":"rotate(0deg)"}}>▶</span>
               <span style={{fontSize:11,fontWeight:700,color:"#F59E0B",textTransform:"uppercase"}}>⚡ Next 30 Days</span>
             </div>
-            <div style={{fontSize:10,color:"#6B7280",background:THEME.cardBgAlt,padding:"2px 8px",borderRadius:10}}>{maturingSoonDeposits.length} deposits · {actionsDue30.length} actions</div>
+            <div style={{fontSize:10,color:"#6B7280",background:THEME.cardBgAlt,padding:"2px 8px",borderRadius:10}}>
+              {next30DaysUnified.filter((r) => r.kind === "maturity").length} deposits ·{" "}
+              {next30DaysUnified.filter((r) => r.kind === "manual" || r.kind === "linked").length} actions
+            </div>
           </button>
           {show30Days && (
             <div style={{maxHeight:320,overflowY:"auto",borderTop:"1px solid #1F2937"}}>
-              {maturingSoonDeposits.length > 0 && (
-                <>
-                  <div style={{padding:"8px 14px",fontSize:10,color:"#6B7280",background:"#1F2937",fontWeight:600}}>💰 Maturing Soon — from Deposits (Maturity date)</div>
-                  {maturingSoonDeposits.map((item, i) => (
-                    <div key={`m-${i}`} style={{padding:"10px 14px",borderBottom:"1px solid #1F2937",display:"flex",alignItems:"center",gap:10}}>
-                      <div style={{width:32,height:32,borderRadius:8,display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,background:"rgba(239,68,68,0.15)",color:"#EF4444"}}>💰</div>
-                      <div style={{flex:1,minWidth:0}}>
-                        <div style={{fontSize:12,fontWeight:600,color:THEME.text}}>{item.title} · {item.bank}</div>
-                        <div style={{fontSize:10,color:"#6B7280"}}>Maturity date: {fmtDate(item.date)}{item.amount ? ` · ${fmt(Number(item.amount), (item.currency || 'INR') as Currency)}` : ''}</div>
-                      </div>
-                      <div style={{textAlign:"right",fontSize:11,fontWeight:700,color:item.days<=7?"#EF4444":"#F59E0B"}}>
-                        {item.days >= 0 ? `${item.days}d left` : `${-item.days}d overdue`}
-                      </div>
+              <div style={{padding:"8px 14px",fontSize:10,color:"#6B7280",background:"#1F2937",fontWeight:600}}>
+                Sorted by days left — maturities, manual due dates, linked Next action
+              </div>
+              {next30DaysUnified.map((item, i) => {
+                const isMat = item.kind === "maturity";
+                const isLinked = item.kind === "linked";
+                const icon = isMat ? "💰" : isLinked ? "⚡" : "📋";
+                const iconBg = isMat ? "rgba(239,68,68,0.15)" : "rgba(245,158,11,0.15)";
+                const iconColor = isMat ? "#EF4444" : "#F59E0B";
+                const titleLine = isMat ? `${item.title} · ${item.bank}` : item.title;
+                const subLine = isMat
+                  ? `Maturity date: ${fmtDate(item.date)}${item.amount ? ` · ${fmt(Number(item.amount), (item.currency || "INR") as Currency)}` : ""}`
+                  : item.kind === "manual"
+                    ? `Due date: ${fmtDate(item.date)}${item.bank ? ` · ${item.bank}` : ""}`
+                    : `${item.sourceField}: ${fmtDate(item.date)}${item.bank ? ` · ${item.bank}` : ""}`;
+                const urgency = isMat ? item.days <= 7 : item.days <= 0;
+                return (
+                  <div key={`n30-${i}`} style={{padding:"10px 14px",borderBottom:"1px solid #1F2937",display:"flex",alignItems:"center",gap:10}}>
+                    <div style={{width:32,height:32,borderRadius:8,display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,background:iconBg,color:iconColor}}>{icon}</div>
+                    <div style={{flex:1,minWidth:0}}>
+                      <div style={{fontSize:12,fontWeight:600,color:THEME.text}}>{titleLine}</div>
+                      <div style={{fontSize:10,color:"#6B7280"}}>{subLine}</div>
                     </div>
-                  ))}
-                </>
-              )}
-              {actionsDue30.length > 0 && (
-                <>
-                  <div style={{padding:"8px 14px",fontSize:10,color:"#6B7280",background:"#1F2937",fontWeight:600}}>📋 Actions due — from More → Actions (Due date)</div>
-                  {actionsDue30.map((item, i) => (
-                    <div key={`a-${i}`} style={{padding:"10px 14px",borderBottom:"1px solid #1F2937",display:"flex",alignItems:"center",gap:10}}>
-                      <div style={{width:32,height:32,borderRadius:8,display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,background:"rgba(245,158,11,0.15)",color:"#F59E0B"}}>📋</div>
-                      <div style={{flex:1,minWidth:0}}>
-                        <div style={{fontSize:12,fontWeight:600,color:THEME.text}}>{item.title}</div>
-                        <div style={{fontSize:10,color:"#6B7280"}}>Due date: {fmtDate(item.date)}{item.bank ? ` · ${item.bank}` : ''}</div>
-                      </div>
-                      <div style={{textAlign:"right",fontSize:11,fontWeight:700,color:item.days<=0?"#EF4444":"#F59E0B"}}>
-                        {item.days >= 0 ? `${item.days}d left` : `${-item.days}d overdue`}
-                      </div>
+                    <div style={{textAlign:"right",fontSize:11,fontWeight:700,color:urgency ? "#EF4444" : "#F59E0B"}}>
+                      {item.days >= 0 ? `${item.days}d left` : `${-item.days}d overdue`}
                     </div>
-                  ))}
-                </>
-              )}
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
       )}
       
-      {maturingSoonDeposits.length === 0 && actionsDue30.length === 0 && (
+      {next30DaysUnified.length === 0 && (
         <div style={{background:THEME.cardBg,borderRadius:12,padding:"16px",textAlign:"center",border:`1px solid ${THEME.border}`}}>
           <div style={{fontSize:24,marginBottom:6}}>✅</div>
           <div style={{fontSize:12,color:"#10B981",fontWeight:600}}>All Clear!</div>

@@ -186,7 +186,13 @@ const mapRowToVoiceCommandLog = (row: Record<string, unknown>): VoiceCommandLog 
     extractedRecurrenceHuman: row.extracted_recurrence_human as string | null | undefined,
     extractedDuration: row.extracted_duration as number | null | undefined,
     extractedLocation: row.extracted_location as string | null | undefined,
-    extractedAttendees: (row.extracted_attendees as string[]) || [],
+    extractedAttendees: (() => {
+      const plural = row.extracted_attendees as string[] | string | null | undefined;
+      if (Array.isArray(plural)) return plural;
+      const singular = (row as Record<string, unknown>).extracted_attendee as string | null | undefined;
+      if (singular != null && singular !== '') return [String(singular)];
+      return [];
+    })(),
     processingDurationMs: row.processing_duration_ms as number | null | undefined,
     overallConfidence: row.overall_confidence === null || row.overall_confidence === undefined ? undefined : Number(row.overall_confidence),
     confidenceBreakdown: row.confidence_breakdown as VoiceCommandLog['confidenceBreakdown'],
@@ -265,7 +271,13 @@ export class VoiceCommandDatabaseService {
         extracted_recurrence_human: (commandData as any).extractedRecurrenceHuman,
         extracted_duration: (commandData as any).extractedDuration,
         extracted_location: (commandData as any).extractedLocation,
-        extracted_attendees: (commandData as any).extractedAttendees || [],
+        extracted_attendees: (() => {
+          const a = (commandData as any).extractedAttendees;
+          const b = (commandData as any).extractedAttendee;
+          if (Array.isArray(a)) return a;
+          if (b != null && b !== '') return [String(b)];
+          return [];
+        })(),
         created_item_type: (commandData as any).createdItemType,
         created_item_id: (commandData as any).createdItemId || null,
         created_item_data: (commandData as any).createdItemData,
@@ -377,6 +389,7 @@ export class VoiceCommandDatabaseService {
         extractedRecurrenceHuman: 'extracted_recurrence_human',
         extractedDuration: 'extracted_duration',
         extractedLocation: 'extracted_location',
+        extractedAttendee: 'extracted_attendees',
         extractedAttendees: 'extracted_attendees',
         overallConfidence: 'overall_confidence',
         confidenceBreakdown: 'confidence_breakdown',
@@ -419,6 +432,8 @@ export class VoiceCommandDatabaseService {
           payload['session_id'] = (updates as any).sessionId;
         } else if (k === 'language') {
           payload['language'] = (updates as any).language;
+        } else if (k === 'extracted_attendee') {
+          payload['extracted_attendees'] = (updates as any)[k];
         } else {
           // allow unknown fields to be set directly
           payload[k] = (updates as any)[k];

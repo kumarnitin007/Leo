@@ -3,6 +3,7 @@
  * accounts, deposits, and bills (no duplicate persistence).
  */
 import type { BankAccount, Bill, Deposit } from "../types/bankRecords";
+import { extractDateFromTitle } from "./actionDateParse";
 
 export type LinkedActionSource = "account" | "deposit" | "bill";
 
@@ -12,12 +13,25 @@ export interface LinkedNextActionRow {
   title: string;
   bank: string;
   note: string;
-  /** Best-effort date for urgency (deposit maturity, etc.) */
+  /** Best-effort due date for urgency: explicit Excel field, title parse, or deposit maturity */
   date: string;
 }
 
 function trimNext(s: string | undefined): string {
   return (s || "").trim();
+}
+
+/** Resolve linked-row calendar date: explicit Next Action Due Date > title parse > fallback (e.g. FD maturity). */
+function resolveLinkedDate(
+  nextDue: string | undefined,
+  title: string,
+  fallback: string
+): string {
+  const explicit = trimNext(nextDue);
+  if (explicit) return explicit;
+  const fromTitle = extractDateFromTitle(title);
+  if (fromTitle) return fromTitle;
+  return trimNext(fallback);
 }
 
 /** Collect non-empty Next Action text from records that are not marked done. */
@@ -37,7 +51,7 @@ export function collectLinkedNextActions(
       title: t,
       bank: a.bank || "",
       note: [a.type, a.holders].filter(Boolean).join(" · "),
-      date: "",
+      date: resolveLinkedDate(a.nextActionDueDate, t, ""),
     });
   });
 
@@ -50,7 +64,7 @@ export function collectLinkedNextActions(
       title: t,
       bank: d.bank || "",
       note: [d.type, d.depositId].filter(Boolean).join(" · "),
-      date: d.maturityDate || "",
+      date: resolveLinkedDate(d.nextActionDueDate, t, d.maturityDate || ""),
     });
   });
 
@@ -63,7 +77,7 @@ export function collectLinkedNextActions(
       title: t,
       bank: "",
       note: `Bill: ${b.name}`,
-      date: "",
+      date: resolveLinkedDate(b.nextActionDueDate, t, ""),
     });
   });
 

@@ -50,6 +50,8 @@ export interface Deposit {
   maturityAction: string;
   /** Follow-up task (shown on Actions tab); separate from maturity action text */
   nextAction?: string;
+  /** Optional due date for Next Action (Excel: Next Action Due Date); used for urgency on Actions tab */
+  nextActionDueDate?: string;
   done: boolean;
   // New fields
   currency?: Currency;
@@ -81,6 +83,8 @@ export interface BankAccount {
   /** Combined Limits / Extra Info / Info 1–2 from Excel; labeled lines */
   notes?: string;
   nextAction: string;
+  /** Optional due date for Next Action (Excel: Next Action Due Date) */
+  nextActionDueDate?: string;
   done: boolean;
   // New fields
   currency?: Currency;
@@ -112,6 +116,8 @@ export interface Bill {
   lastPaid?: string;
   /** Follow-up task (shown on Actions tab) */
   nextAction?: string;
+  /** Optional due date for Next Action (Excel: Next Action Due Date) */
+  nextActionDueDate?: string;
   // Future: sharing support
   sharedWith?: string[];
 }

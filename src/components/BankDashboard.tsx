@@ -56,7 +56,7 @@ import { BankTimelineTab } from './bank/BankTimelineTab';
 import { BankActionsTab } from './bank/BankActionsTab';
 import { BankDepositsTab } from './bank/BankDepositsTab';
 import { BankBillsTab } from './bank/BankBillsTab';
-import { BankOverviewTab } from './bank/BankOverviewTab';
+import { BankOverviewTab, type Next30DayRow } from './bank/BankOverviewTab';
 import { collectLinkedNextActions } from '../bank/bankLinkedActions';
 import type { PortfolioHistoryChartPoint } from '../bank/bankDashboardTypes';
 
@@ -116,6 +116,8 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
   const [showRatesModal, setShowRatesModal] = useState(false);
   const [accountsViewMode, setAccountsViewMode] = useState<'cards' | 'grouped' | 'flat'>('cards');
   const [depositsViewMode, setDepositsViewMode] = useState<'cards' | 'grouped' | 'flat'>('grouped');
+  const [billsViewMode, setBillsViewMode] = useState<'cards' | 'grouped'>('cards');
+  const [actionsViewMode, setActionsViewMode] = useState<'cards' | 'grouped'>('cards');
   const [showAllAccounts, setShowAllAccounts] = useState(false); // false = hide accounts marked as hidden
   const [search, setSearch] = useState("");
   const [showDone, setShowDone] = useState(false);
@@ -352,9 +354,15 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
         const severity = days <= 7 ? 'urgent' : days <= 14 ? 'warning' : 'info';
         if (severity === 'urgent') urgentCount++;
         if (severity === 'warning') warningCount++;
+        const fdDetail = [d.type, d.duration, d.depositId].filter(Boolean).join(' · ');
+        const bank = (d.bank || '').trim() || (d.depositId || '').trim() || 'FD';
         alertsList.push({
-          title: `${d.bank || d.depositId || d.type || 'FD'} Maturing`,
-          description: fmt(Number(d.maturityAmt)||Number(d.deposit), d.currency),
+          title: `${bank} · ${(d.type || 'FD').trim()} maturing`,
+          description: fmt(Number(d.maturityAmt) || Number(d.deposit), d.currency),
+          bankName: d.bank || '',
+          billName: undefined,
+          fdDetail: fdDetail || undefined,
+          kindLabel: 'FD maturity',
           daysUntil: days,
           severity,
           type: 'maturity'
@@ -362,36 +370,35 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
       }
     });
     
-    // Account next actions (like "Check Mama DOB")
-    accounts.forEach(a => {
-      if (a.done || !(a.nextAction || '').trim()) return;
+    // Linked next-actions (accounts / deposits / bills) — same rows as Actions tab; use resolved date for days left
+    const linkedAlerts = collectLinkedNextActions(accounts, deposits, bills);
+    linkedAlerts.forEach((row) => {
+      const days = row.date && String(row.date).trim() ? daysUntil(row.date) : null;
+      const hasDate = days !== null;
+      let severity: 'urgent' | 'warning' | 'info' = 'info';
+      if (hasDate && days !== null) {
+        if (days < 0 || days <= 7) severity = 'urgent';
+        else if (days <= 14) severity = 'warning';
+      }
+      if (severity === 'urgent') urgentCount++;
+      if (severity === 'warning') warningCount++;
+      const description =
+        row.source === 'bill'
+          ? row.note
+          : [row.bank, row.note].filter(Boolean).join(' · ') || row.title;
+      const billName =
+        row.source === 'bill' ? row.note.replace(/^Bill:\s*/, '').trim() : undefined;
+      const kindLabel =
+        row.source === 'account' ? 'Account task' : row.source === 'deposit' ? 'FD task' : 'Bill task';
       alertsList.push({
-        title: a.nextAction.trim(),
-        description: a.bank,
-        daysUntil: -1,
-        severity: 'info',
-        type: 'action'
-      });
-    });
-
-    deposits.forEach(d => {
-      if (d.done || !(d.nextAction || '').trim()) return;
-      alertsList.push({
-        title: d.nextAction!.trim(),
-        description: d.bank || d.depositId || '',
-        daysUntil: -1,
-        severity: 'info',
-        type: 'action'
-      });
-    });
-
-    bills.forEach(b => {
-      if (b.done || !(b.nextAction || '').trim()) return;
-      alertsList.push({
-        title: b.nextAction!.trim(),
-        description: `Bill: ${b.name}`,
-        daysUntil: -1,
-        severity: 'info',
+        title: row.title,
+        description,
+        bankName: row.bank || '',
+        billName: billName || undefined,
+        fdDetail: row.note || undefined,
+        kindLabel,
+        daysUntil: hasDate ? days! : -1,
+        severity,
         type: 'action'
       });
     });
@@ -406,7 +413,11 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
         if (severity === 'warning') warningCount++;
         alertsList.push({
           title: a.title,
-          description: a.bank || a.note || '',
+          description: [a.bank, a.note].filter(Boolean).join(' · '),
+          bankName: a.bank || '',
+          billName: undefined,
+          fdDetail: undefined,
+          kindLabel: 'Reminder',
           daysUntil: days,
           severity,
           type: 'action'
@@ -414,7 +425,11 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
       } else if (!a.date) {
         alertsList.push({
           title: a.title,
-          description: a.bank || a.note || '',
+          description: [a.bank, a.note].filter(Boolean).join(' · '),
+          bankName: a.bank || '',
+          billName: undefined,
+          fdDetail: undefined,
+          kindLabel: 'Reminder',
           daysUntil: -1,
           severity: 'info',
           type: 'action'
@@ -427,7 +442,11 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
       if (b.done) return;
       alertsList.push({
         title: `Pay ${b.name}`,
-        description: b.amount ? fmt(Number(b.amount), b.currency) : b.due || '',
+        description: [b.freq, b.due, b.amount ? fmt(Number(b.amount), b.currency) : ''].filter(Boolean).join(' · '),
+        bankName: '',
+        billName: b.name,
+        fdDetail: undefined,
+        kindLabel: 'Bill',
         daysUntil: -1,
         severity: b.priority === 'High' || b.priority === 'Urgent' ? 'warning' : 'info',
         type: 'bill'
@@ -435,16 +454,18 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
       if (b.priority === 'High' || b.priority === 'Urgent') warningCount++;
     });
     
-    // Sort: urgent first, then warning, then by days (dated items first, undated last)
+    // Sort: soonest due / fewest days first; undated last; tie-break by severity
+    const sevOrder = { urgent: 0, warning: 1, info: 2 };
     alertsList.sort((a, b) => {
-      const sevOrder = { urgent: 0, warning: 1, info: 2 };
-      const sevDiff = sevOrder[a.severity] - sevOrder[b.severity];
-      if (sevDiff !== 0) return sevDiff;
-      // Dated items before undated
-      if (a.daysUntil === -1 && b.daysUntil === -1) return 0;
-      if (a.daysUntil === -1) return 1;
-      if (b.daysUntil === -1) return -1;
-      return a.daysUntil - b.daysUntil;
+      const undated = (x: number) => x === -1;
+      if (undated(a.daysUntil) && undated(b.daysUntil)) {
+        return sevOrder[a.severity] - sevOrder[b.severity];
+      }
+      if (undated(a.daysUntil)) return 1;
+      if (undated(b.daysUntil)) return -1;
+      const byDays = a.daysUntil - b.daysUntil;
+      if (byDays !== 0) return byDays;
+      return sevOrder[a.severity] - sevOrder[b.severity];
     });
     
     const summary: FinancialAlertsSummary = {
@@ -514,10 +535,15 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
         newDeposits,
         newAccounts,
         newBills,
+        newActions,
         deleteDeposits,
         deleteAccounts,
         deleteBills,
+        deleteActions,
       } = parseBankRecordsWorkbook(wb, CATEGORIES);
+
+      const actionMergeKey = (a: ActionItem) =>
+        `${a.title.trim().toLowerCase()}|${a.bank.trim().toLowerCase()}`;
 
       // ── Smart Merge Logic ──
       let addedCount = 0;
@@ -561,6 +587,19 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
         );
         if (idx >= 0) {
           mergedBills.splice(idx, 1);
+          deletedCount++;
+        }
+      });
+
+      let mergedActions = [...actions];
+      deleteActions.forEach(del => {
+        const idx = mergedActions.findIndex(
+          a =>
+            a.title.trim().toLowerCase() === del.title.trim().toLowerCase() &&
+            a.bank.trim().toLowerCase() === del.bank.trim().toLowerCase()
+        );
+        if (idx >= 0) {
+          mergedActions.splice(idx, 1);
           deletedCount++;
         }
       });
@@ -658,11 +697,23 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
           addedCount++;
         }
       });
+
+      newActions.forEach(newAct => {
+        const key = actionMergeKey(newAct);
+        const existingIdx = mergedActions.findIndex(a => actionMergeKey(a) === key);
+        if (existingIdx >= 0) {
+          mergedActions[existingIdx] = { ...mergedActions[existingIdx], ...newAct };
+          updatedCount++;
+        } else {
+          mergedActions.push(newAct);
+          addedCount++;
+        }
+      });
       
       // Save merged data
-      save(mergedDeposits, mergedAccounts, mergedBills, actions, undefined, { recordTotalValue: true, totalValueSource: 'Excel import' });
+      save(mergedDeposits, mergedAccounts, mergedBills, mergedActions, undefined, { recordTotalValue: true, totalValueSource: 'Excel import' });
       
-      alert(`✅ Excel imported!\n📊 ${addedCount} new records added\n✏️ ${updatedCount} records updated\n🗑️ ${deletedCount} records deleted\n📁 Total: ${mergedDeposits.length} deposits, ${mergedAccounts.length} accounts, ${mergedBills.length} bills`);
+      alert(`✅ Excel imported!\n📊 ${addedCount} new records added\n✏️ ${updatedCount} records updated\n🗑️ ${deletedCount} records deleted\n📁 Total: ${mergedDeposits.length} deposits, ${mergedAccounts.length} accounts, ${mergedBills.length} bills, ${mergedActions.length} actions`);
       
     } catch (e) {
       console.error('Excel import failed:', e);
@@ -1085,43 +1136,62 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
     return true;
   });
 
-  // ── Maturing Soon: ONLY Fixed Deposits (deposits table) with maturityDate in next 30 days ──
-  const maturingSoonDeposits: Array<{ type: 'maturity'; title: string; bank: string; date: string; days: number; amount?: string; currency?: string; sourceField: string }> = [];
-  deposits.forEach(d => {
-    if (d.done) return;
-    const days = daysUntil(d.maturityDate);
-    if (days !== null && days >= 0 && days <= 30) {
-      maturingSoonDeposits.push({
-        type: 'maturity',
-        title: `${d.type || 'FD'} matures`,
-        bank: d.bank || d.depositId || d.type || 'Unnamed',
-        date: d.maturityDate,
+  // ── Next 30 days: FD maturities + manual actions (due) + linked Next action rows (resolved date) ──
+  const next30DaysUnified = useMemo(() => {
+    const rows: Next30DayRow[] = [];
+    deposits.forEach((d) => {
+      if (d.done) return;
+      const days = daysUntil(d.maturityDate);
+      if (days !== null && days >= 0 && days <= 30) {
+        rows.push({
+          kind: 'maturity',
+          title: `${d.type || 'FD'} matures`,
+          bank: d.bank || d.depositId || d.type || 'Unnamed',
+          date: d.maturityDate,
+          days,
+          amount: String(d.maturityAmt),
+          currency: d.currency || 'INR',
+          sourceField: 'Maturity date',
+        });
+      }
+    });
+    actions.forEach((a) => {
+      if (a.done) return;
+      const days = daysUntil(a.date);
+      if (days !== null && days <= 30) {
+        rows.push({
+          kind: 'manual',
+          title: a.title,
+          bank: a.bank || '',
+          date: a.date,
+          days,
+          sourceField: 'Due date',
+        });
+      }
+    });
+    linkedFromRecords.forEach((row) => {
+      if (!row.date || !String(row.date).trim()) return;
+      const days = daysUntil(row.date);
+      if (days === null || days > 30) return;
+      const sourceField =
+        row.source === 'account'
+          ? 'Account · Next action'
+          : row.source === 'deposit'
+            ? 'Deposit · Next action'
+            : 'Bill · Next action';
+      rows.push({
+        kind: 'linked',
+        title: row.title,
+        bank: row.bank,
+        date: row.date,
         days,
-        amount: String(d.maturityAmt),
-        currency: d.currency || 'INR',
-        sourceField: 'Maturity date',
+        sourceField,
+        linkedSource: row.source,
       });
-    }
-  });
-  maturingSoonDeposits.sort((a, b) => a.days - b.days);
-
-  // ── Actions due: action items with date in next 30 days or overdue (uses actions[].date) ──
-  const actionsDue30: Array<{ type: 'action'; title: string; bank: string; date: string; days: number; sourceField: string }> = [];
-  actions.forEach(a => {
-    if (a.done) return;
-    const days = daysUntil(a.date);
-    if (days !== null && days <= 30) {
-      actionsDue30.push({
-        type: 'action',
-        title: a.title,
-        bank: a.bank || '',
-        date: a.date,
-        days,
-        sourceField: 'Due date',
-      });
-    }
-  });
-  actionsDue30.sort((a, b) => a.days - b.days);
+    });
+    rows.sort((x, y) => x.days - y.days);
+    return rows;
+  }, [deposits, actions, linkedFromRecords]);
 
   // ── Render ───────────────────────────────────────────────────────────────
   if (loading) {
@@ -1237,8 +1307,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
             totalInvested={totalInvested}
             totalMaturity={totalMaturity}
             depositsPrincipalConverted={depositsTablePrincipalConverted}
-            maturingSoonDeposits={maturingSoonDeposits}
-            actionsDue30={actionsDue30}
+            next30DaysUnified={next30DaysUnified}
             overviewActionsCount={overviewActionsCount}
             portfolioHistoryChartData={portfolioHistoryChartData}
             portfolioHistoryXDomain={portfolioHistoryXDomain}
@@ -1282,6 +1351,9 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
             linkedFromRecords={linkedFromRecords}
             showDone={showDone}
             setShowDone={setShowDone}
+            isMobile={isMobile}
+            actionsViewMode={actionsViewMode}
+            setActionsViewMode={setActionsViewMode}
             onToggleActionDone={(idx) => toggleDone("action", idx)}
             onEditAction={(idx) => openEdit("action", idx)}
             onDeleteAction={(idx) => deleteRow("action", idx)}
@@ -2203,6 +2275,8 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
             isMobile={isMobile}
             showDone={showDone}
             setShowDone={setShowDone}
+            billsViewMode={billsViewMode}
+            setBillsViewMode={setBillsViewMode}
             targetCurrency={targetCurrency}
             exchangeRates={exchangeRates}
             openAdd={openAdd}

@@ -28,6 +28,8 @@ interface VoiceCommandButtonProps {
   userId?: string; // For fetching history
   onNavigateToHistory?: () => void; // Navigate to history screen
   showFloatingButton?: boolean; // If false, only modal (opened via ref). Default true.
+  /** @see VoiceCommandModal intentMode — default `choose_first` (pick category then speak) */
+  voiceIntentMode?: 'choose_first' | 'auto';
 }
 
 const VoiceCommandButton = forwardRef<VoiceCommandButtonHandle, VoiceCommandButtonProps>(({ 
@@ -39,6 +41,7 @@ const VoiceCommandButton = forwardRef<VoiceCommandButtonHandle, VoiceCommandButt
   userId,
   onNavigateToHistory,
   showFloatingButton = true,
+  voiceIntentMode,
 }, ref) => {
   const [showModal, setShowModal] = useState(isModalMode);
   const [isHovered, setIsHovered] = useState(false);
@@ -89,6 +92,7 @@ const VoiceCommandButton = forwardRef<VoiceCommandButtonHandle, VoiceCommandButt
         onPrefillAndNavigate={onPrefillAndNavigate}
         showHistoryButton={!!userId}
         onHistoryClick={handleHistoryClick}
+        intentMode={voiceIntentMode}
       />
     );
   }
@@ -166,6 +170,7 @@ const VoiceCommandButton = forwardRef<VoiceCommandButtonHandle, VoiceCommandButt
         onPrefillAndNavigate={onPrefillAndNavigate}
         showHistoryButton={!!userId}
         onHistoryClick={handleHistoryClick}
+        intentMode={voiceIntentMode}
       />
 
       <style>{`

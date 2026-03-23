@@ -71,15 +71,23 @@ export class VoiceCommandService {
     this.speech.abort();
   }
 
-  async listenAndParse(): Promise<ParsedCommand> {
+  /**
+   * @param lockedIntent When set (e.g. user picked a category first), skip intent classification
+   * and treat the utterance as that intent—improves accuracy vs guessing from text alone.
+   */
+  async listenAndParse(lockedIntent?: IntentType): Promise<ParsedCommand> {
     const { transcript, confidence: sttConfidence } = await this.speech.transcribeOnce();
 
-    const intent = await this.classifier.classify(transcript);
+    const intent = lockedIntent
+      ? { type: lockedIntent, confidence: 1, method: 'RULES' as const }
+      : await this.classifier.classify(transcript);
     const entities = this.extractor.extract(transcript);
 
-    // simple overall confidence
+    // simple overall confidence — when intent is user-locked, weight entities + STT more
     const entityAvg = entities.length ? entities.reduce((s,e)=>s+e.confidence,0)/entities.length : 0.5;
-    const overall = Math.max(0.1, Math.min(1, (intent.confidence * 0.6) + (entityAvg * 0.3) + (sttConfidence * 0.1)));
+    const overall = lockedIntent
+      ? Math.max(0.15, Math.min(1, entityAvg * 0.72 + sttConfidence * 0.28))
+      : Math.max(0.1, Math.min(1, (intent.confidence * 0.6) + (entityAvg * 0.3) + (sttConfidence * 0.1)));
 
     const parsed = {
       transcript,
