@@ -138,7 +138,7 @@ export class VoiceCommandRepository {
     if (!client) throw new Error('Supabase client not configured');
 
     try {
-      const { data, error } = await client.from(this.table).select('id').eq('user_id', userId).eq('intent_type', intentType).order('created_at', { ascending: false }).limit(200);
+      const { data, error } = await client.from(this.table).select('id').eq('user_id', userId).eq('detected_category', intentType).order('created_at', { ascending: false }).limit(200);
       if (error) throw error;
       const ids = (data || []).map((r: { id?: string }) => r.id).filter(Boolean) as string[];
       const results = await Promise.all(ids.map(id => dbService.getCommandById(id)));
@@ -245,7 +245,7 @@ export class VoiceCommandRepository {
       const ors: string[] = [];
       keywords.forEach(k => {
         const esc = k.replace(/%/g, '\\%').replace(/'/g, "''");
-        ors.push(`raw_transcript.ilike.%${esc}%`);
+        ors.push(`raw_text.ilike.%${esc}%`);
         ors.push(`extracted_title.ilike.%${esc}%`);
       });
       const orExpr = ors.join(',');
@@ -266,8 +266,8 @@ export class VoiceCommandRepository {
 
     try {
       let q = client.from(this.table).select('id', { count: 'exact', head: false }).eq('user_id', userId) as any;
-      if (filters?.intentType) q = q.eq('intent_type', filters.intentType);
-      if (filters?.entityType) q = q.eq('entity_type', filters.entityType);
+      if (filters?.intentType) q = q.eq('detected_category', filters.intentType);
+      // entity_type not on lean voice log table
       if (filters?.outcome) q = q.eq('outcome', filters.outcome);
       if (filters?.dateFrom) q = q.gte('created_at', filters.dateFrom.toISOString());
       if (filters?.dateTo) q = q.lte('created_at', filters.dateTo.toISOString());

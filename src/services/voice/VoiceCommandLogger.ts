@@ -18,6 +18,7 @@ export class VoiceCommandLogger {
       const priorityEntity = cmd.entities.find(e => e.type === 'PRIORITY');
       const tagEntities = cmd.entities.filter(e => e.type === 'TAG');
 
+      const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
       await this.client.from('myday_voice_command_logs').insert([{
         user_id: userId,
         session_id: `session_${Date.now()}`,
@@ -25,12 +26,13 @@ export class VoiceCommandLogger {
         detected_category: cmd.intent.type,
         extracted_title: titleEntity?.normalizedValue || titleEntity?.value || null,
         extracted_priority: priorityEntity?.normalizedValue || priorityEntity?.value || null,
-        extracted_tags: tagEntities.length > 0 ? tagEntities.map(t => t.normalizedValue || t.value) : null,
+        extracted_tags: tagEntities.length > 0 ? tagEntities.map(t => t.normalizedValue || t.value) : [],
         memo_date: dateEntity?.normalizedValue || dateEntity?.value || null,
         memo_time: timeEntity?.normalizedValue || timeEntity?.value || null,
         overall_confidence: cmd.overallConfidence,
         entities: cmd.entities,
         outcome,
+        expires_at: expiresAt,
         timestamp: new Date().toISOString()
       }]);
     } catch (err) {

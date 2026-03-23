@@ -137,6 +137,56 @@ const encryptTranscript = (text: string): string => {
   }
 };
 
+/** Combined RRULE + human label stored in single `extracted_recurrence` text when DB has no human column */
+const COMBINED_RECURRENCE_SEP = ' | ';
+
+function splitCombinedRecurrence(raw: string | null | undefined): { recurrence?: string; human?: string } {
+  if (raw == null || raw === '') return {};
+  const s = String(raw);
+  const i = s.indexOf(COMBINED_RECURRENCE_SEP);
+  if (i === -1) return { recurrence: s };
+  return {
+    recurrence: s.slice(0, i).trim() || undefined,
+    human: s.slice(i + COMBINED_RECURRENCE_SEP.length).trim() || undefined,
+  };
+}
+
+function mergeRecurrenceForDb(rr: string | null | undefined, human: string | null | undefined): string | null {
+  const h = human != null && String(human).trim() !== '' ? String(human).trim() : '';
+  const r = rr != null && String(rr).trim() !== '' ? String(rr).trim() : '';
+  if (r && h) return `${r}${COMBINED_RECURRENCE_SEP}${h}`;
+  if (r) return r;
+  if (h) return h;
+  return null;
+}
+
+/** Columns that exist on production Supabase `myday_voice_command_logs` (lean schema). Inserts/updates must not reference other names. */
+const LEAN_VOICE_LOG_COLUMNS = new Set([
+  'user_id',
+  'session_id',
+  'raw_text',
+  'detected_category',
+  'extracted_title',
+  'extracted_priority',
+  'extracted_tags',
+  'extracted_recurrence',
+  'memo_date',
+  'memo_time',
+  'overall_confidence',
+  'confidence_breakdown',
+  'entities',
+  'outcome',
+  'created_item_id',
+  'created_item_type',
+  'user_corrections',
+  'search_keywords',
+  'expires_at',
+  'timestamp',
+  'extracted_attendees',
+  'updated_at',
+  'created_at',
+]);
+
 /** Decode UTF-8-safe base64 back to string. */
 const decryptTranscript = (encrypted: string): string => {
   try {
@@ -158,6 +208,15 @@ const decryptTranscript = (encrypted: string): string => {
  * Helper: map DB row (snake_case) to VoiceCommandLog (camelCase)
  */
 const mapRowToVoiceCommandLog = (row: Record<string, unknown>): VoiceCommandLog => {
+  const rawCombined =
+    (row.raw_text != null && row.raw_text !== ''
+      ? String(row.raw_text)
+      : row.raw_transcript_encrypted
+        ? decryptTranscript(String(row.raw_transcript))
+        : String(row.raw_transcript ?? '')) as string;
+  const recSplit = splitCombinedRecurrence(row.extracted_recurrence as string | null | undefined);
+  const legacyHuman = (row as Record<string, unknown>).extracted_recurrence_human as string | null | undefined;
+
   return {
     id: String(row.id),
     userId: (row.user_id as string | null) || null,
@@ -165,15 +224,15 @@ const mapRowToVoiceCommandLog = (row: Record<string, unknown>): VoiceCommandLog 
     createdAt: (row.created_at as string) || new Date().toISOString(),
     updatedAt: (row.updated_at as string) || new Date().toISOString(),
     expiresAt: (row.expires_at as string) || new Date().toISOString(),
-    rawTranscript: (row.raw_transcript_encrypted ? decryptTranscript(String(row.raw_transcript)) : String(row.raw_transcript)) as string,
-    rawTranscriptEncrypted: !!row.raw_transcript_encrypted,
+    rawTranscript: rawCombined,
+    rawTranscriptEncrypted: !!(row.raw_transcript_encrypted && row.raw_text == null),
     language: row.language as string | undefined,
-    intentType: row.intent_type as VoiceCommandLog['intentType'],
+    intentType: ((row.detected_category ?? row.intent_type) as VoiceCommandLog['intentType']) || 'UNKNOWN',
     intentConfidence: row.intent_confidence === null || row.intent_confidence === undefined ? undefined : Number(row.intent_confidence),
     intentMethod: row.intent_method as VoiceCommandLog['intentMethod'],
     intentAlternatives: row.intent_alternatives,
     entityType: row.entity_type as VoiceCommandLog['entityType'],
-    entities: (row.entities || []) as Entity[],
+    entities: (Array.isArray(row.entities) ? row.entities : []) as Entity[],
     memoDate: (row.memo_date as string | null) || null,
     memoDateExpression: row.memo_date_expression as string | null | undefined,
     memoTime: row.memo_time as string | null | undefined,
@@ -182,8 +241,11 @@ const mapRowToVoiceCommandLog = (row: Record<string, unknown>): VoiceCommandLog 
     extractedTitle: row.extracted_title as string | null | undefined,
     extractedPriority: row.extracted_priority as VoiceCommandLog['extractedPriority'],
     extractedTags: (row.extracted_tags as string[]) || [],
-    extractedRecurrence: row.extracted_recurrence as string | null | undefined,
-    extractedRecurrenceHuman: row.extracted_recurrence_human as string | null | undefined,
+    extractedRecurrence:
+      legacyHuman != null && !(String(row.extracted_recurrence ?? '').includes(COMBINED_RECURRENCE_SEP))
+        ? (row.extracted_recurrence as string | null | undefined) ?? undefined
+        : recSplit.recurrence ?? (row.extracted_recurrence as string | null | undefined) ?? undefined,
+    extractedRecurrenceHuman: recSplit.human ?? legacyHuman ?? undefined,
     extractedDuration: row.extracted_duration as number | null | undefined,
     extractedLocation: row.extracted_location as string | null | undefined,
     extractedAttendees: (() => {
@@ -243,46 +305,48 @@ export class VoiceCommandDatabaseService {
     if (!client) throw new Error('Supabase client not configured');
 
     try {
-      const encrypted = encryptTranscript(String(commandData.rawTranscript || ''));
       const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(); // 30 days
       const sessionId = (commandData as any).sessionId || `scan-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
+      const d = commandData as Record<string, unknown>;
+      const memoDateRaw = d.memoDate as string | Date | null | undefined;
+      const memo_date =
+        memoDateRaw == null
+          ? null
+          : typeof memoDateRaw === 'string'
+            ? memoDateRaw
+            : new Date(memoDateRaw as Date).toISOString().slice(0, 10);
 
       const row: Record<string, unknown> = {
-        user_id: (commandData as any).userId || null,
+        user_id: d.userId || null,
         session_id: sessionId,
-        raw_transcript: encrypted,
-        raw_transcript_encrypted: true,
-        language: (commandData as any).language || 'en-US',
-        intent_type: (commandData as any).intentType,
-        intent_confidence: (commandData as any).intentConfidence,
-        intent_method: (commandData as any).intentMethod,
-        intent_alternatives: (commandData as any).intentAlternatives,
-        // entity_type not in DB schema - omit from insert
-        entities: (commandData as any).entities || [],
-        memo_date: (commandData as any).memoDate ? new Date((commandData as any).memoDate).toISOString() : null,
-        memo_date_expression: (commandData as any).memoDateExpression,
-        memo_time: (commandData as any).memoTime,
-        memo_time_expression: (commandData as any).memoTimeExpression,
-        // all_day_event: (commandData as any).allDayEvent || false, // Column doesn't exist in schema
-        extracted_title: (commandData as any).extractedTitle,
-        extracted_priority: (commandData as any).extractedPriority,
-        extracted_tags: (commandData as any).extractedTags || [],
-        extracted_recurrence: (commandData as any).extractedRecurrence,
-        extracted_recurrence_human: (commandData as any).extractedRecurrenceHuman,
-        extracted_duration: (commandData as any).extractedDuration,
-        extracted_location: (commandData as any).extractedLocation,
+        raw_text: String(d.rawTranscript ?? ''),
+        detected_category: d.intentType,
+        extracted_title: d.extractedTitle ?? null,
+        extracted_priority: d.extractedPriority ?? null,
+        extracted_tags: Array.isArray(d.extractedTags) ? d.extractedTags : [],
+        extracted_recurrence: mergeRecurrenceForDb(
+          d.extractedRecurrence as string | null | undefined,
+          d.extractedRecurrenceHuman as string | null | undefined
+        ),
+        memo_date,
+        memo_time: (d.memoTime as string | null | undefined) ?? null,
+        overall_confidence: d.overallConfidence ?? null,
+        confidence_breakdown: d.confidenceBreakdown ?? null,
+        entities: d.entities || [],
+        outcome: d.outcome || 'PENDING',
+        created_item_id: d.createdItemId || null,
+        created_item_type: d.createdItemType || null,
+        user_corrections: d.userCorrections ?? [],
+        search_keywords: d.searchKeywords ?? [],
+        expires_at: expiresAt,
         extracted_attendees: (() => {
-          const a = (commandData as any).extractedAttendees;
-          const b = (commandData as any).extractedAttendee;
+          const a = d.extractedAttendees;
+          const b = d.extractedAttendee;
           if (Array.isArray(a)) return a;
           if (b != null && b !== '') return [String(b)];
           return [];
         })(),
-        created_item_type: (commandData as any).createdItemType,
-        created_item_id: (commandData as any).createdItemId || null,
-        created_item_data: (commandData as any).createdItemData,
-        outcome: (commandData as any).outcome || 'PENDING',
-        expires_at: expiresAt,
+        timestamp: new Date().toISOString(),
       };
 
       const { data, error } = await client
@@ -364,85 +428,68 @@ export class VoiceCommandDatabaseService {
 
     try {
       const payload: Record<string, unknown> = { updated_at: new Date().toISOString() };
+      const u = updates as Record<string, unknown>;
 
-      if (updates.rawTranscript !== undefined) {
-        payload.raw_transcript = encryptTranscript(String(updates.rawTranscript || ''));
-        payload.raw_transcript_encrypted = true;
+      if (u.rawTranscript !== undefined) {
+        payload.raw_text = String(u.rawTranscript ?? '');
       }
 
-      // Map known camelCase keys to snake_case
+      // Lean Supabase columns only (see LEO_DB_SCHEMA.schema — myday_voice_command_logs)
       const mapping: Record<string, string> = {
-        intentType: 'intent_type',
-        intentConfidence: 'intent_confidence',
-        intentMethod: 'intent_method',
-        entityType: 'entity_type',
+        intentType: 'detected_category',
         entities: 'entities',
         memoDate: 'memo_date',
-        memoDateExpression: 'memo_date_expression',
         memoTime: 'memo_time',
-        memoTimeExpression: 'memo_time_expression',
-        // allDayEvent: 'all_day_event', // Column doesn't exist in schema
         extractedTitle: 'extracted_title',
         extractedPriority: 'extracted_priority',
         extractedTags: 'extracted_tags',
-        extractedRecurrence: 'extracted_recurrence',
-        extractedRecurrenceHuman: 'extracted_recurrence_human',
-        extractedDuration: 'extracted_duration',
-        extractedLocation: 'extracted_location',
         extractedAttendee: 'extracted_attendees',
         extractedAttendees: 'extracted_attendees',
         overallConfidence: 'overall_confidence',
         confidenceBreakdown: 'confidence_breakdown',
-        isValid: 'is_valid',
-        missingFields: 'missing_fields',
-        validationErrors: 'validation_errors',
-        needsUserInput: 'needs_user_input',
         userCorrections: 'user_corrections',
-        confirmationShown: 'confirmation_shown',
-        userConfirmed: 'user_confirmed',
-        // userEdited: 'user_edited', // Column doesn't exist in schema
         outcome: 'outcome',
-        // failureReason: 'failure_reason', // Column doesn't exist in schema
-        retryCount: 'retry_count',
         createdItemType: 'created_item_type',
         createdItemId: 'created_item_id',
-        createdItemData: 'created_item_data',
-        fuzzyMatchUsed: 'fuzzy_match_used',
-        fuzzyMatchScore: 'fuzzy_match_score',
         searchKeywords: 'search_keywords',
-        contextData: 'context_data',
-        learnedFromHistory: 'learned_from_history',
-        userPatternMatched: 'user_pattern_matched',
-        customVocabularyUsed: 'custom_vocabulary_used',
-        deviceType: 'device_type',
-        deviceOs: 'device_os',
-        appVersion: 'app_version',
-        modelVersion: 'model_version',
-        containsPii: 'contains_pii',
-        anonymized: 'anonymized',
       };
 
-      for (const [k, v] of Object.entries(updates as any)) {
-        if (k === 'rawTranscript') continue; // handled above
-        if ((mapping as any)[k]) {
-          payload[(mapping as any)[k]] = (updates as any)[k];
+      for (const [k, v] of Object.entries(u)) {
+        if (k === 'id' || k === 'rawTranscript') continue;
+        if (k === 'extractedRecurrence' || k === 'extractedRecurrenceHuman') continue;
+        if (mapping[k]) {
+          const col = mapping[k];
+          if (col === 'memo_date' && v != null && typeof v !== 'string') {
+            payload[col] = new Date(v as Date).toISOString().slice(0, 10);
+          } else {
+            payload[col] = v;
+          }
         } else if (k === 'userId') {
-          payload['user_id'] = (updates as any).userId;
+          payload['user_id'] = u.userId;
         } else if (k === 'sessionId') {
-          payload['session_id'] = (updates as any).sessionId;
-        } else if (k === 'language') {
-          payload['language'] = (updates as any).language;
+          payload['session_id'] = u.sessionId;
         } else if (k === 'extracted_attendee') {
-          payload['extracted_attendees'] = (updates as any)[k];
-        } else {
-          // allow unknown fields to be set directly
-          payload[k] = (updates as any)[k];
+          payload['extracted_attendees'] = u.extracted_attendee;
+        }
+      }
+
+      if (u.extractedRecurrence !== undefined || u.extractedRecurrenceHuman !== undefined) {
+        payload['extracted_recurrence'] = mergeRecurrenceForDb(
+          u.extractedRecurrence as string | null | undefined,
+          u.extractedRecurrenceHuman as string | null | undefined
+        );
+      }
+
+      const filtered: Record<string, unknown> = {};
+      for (const [key, val] of Object.entries(payload)) {
+        if (LEAN_VOICE_LOG_COLUMNS.has(key)) {
+          filtered[key] = val;
         }
       }
 
       const { error } = await client
         .from(this.tableName)
-        .update(payload)
+        .update(filtered)
         .eq('id', commandId);
 
       if (error) {
@@ -641,14 +688,14 @@ export class VoiceCommandDatabaseService {
     try {
       let q = client.from(this.tableName).select('*').eq('user_id', userId);
 
-      if (filters?.intentType) q = q.eq('intent_type', filters.intentType);
-      if (filters?.entityType) q = q.eq('entity_type', filters.entityType);
+      if (filters?.intentType) q = q.eq('detected_category', filters.intentType);
+      // entity_type not on lean myday_voice_command_logs — intent is detected_category
       if (filters?.dateFrom) q = q.gte('memo_date', (filters.dateFrom as Date).toISOString().slice(0, 10));
       if (filters?.dateTo) q = q.lte('memo_date', (filters.dateTo as Date).toISOString().slice(0, 10));
       if (filters?.outcome) q = q.eq('outcome', filters.outcome);
 
-      // Basic full-text strategy: ilike on raw_transcript and extracted_title
-      q = (q as any).or(`raw_transcript.ilike.%${query}%,extracted_title.ilike.%${query}%`);
+      // Basic full-text strategy: ilike on raw_text and extracted_title (lean schema)
+      q = (q as any).or(`raw_text.ilike.%${query}%,extracted_title.ilike.%${query}%`);
 
       const { data, error } = await q.order('created_at', { ascending: false }).limit(100);
       if (error) {

@@ -58,6 +58,8 @@
 | 37 | MYCT | `myday_comment_templates` | Saved comment templates |
 | **Tags** ||||
 | 38 | MYTAGS | `myday_tags` | User tags and system categories |
+| **Voice / AI** ||||
+| 39 | MYVCL | `myday_voice_command_logs` | Voice command transcripts, parsed intent (`detected_category`), entities, outcomes |
 
 ---
 
@@ -103,6 +105,7 @@
 | MYCR | `myday_comment_reactions` |
 | MYCT | `myday_comment_templates` |
 | MYTAGS | `myday_tags` |
+| MYVCL | `myday_voice_command_logs` |
 
 ---
 
@@ -119,6 +122,45 @@
 | `myday_safe_tags` | `myday_tags` |
 | `myday_gift_cards` | `myday_items` with `category = 'Gift Card'` |
 | `myday_warranties` | `myday_items` with `category = 'Warranty'` |
+| `intent_type`, `raw_transcript` on `myday_voice_command_logs` | Use `detected_category`, `raw_text` (production lean schema) |
+| `extracted_recurrence_human` | Not stored separately — app merges human label into `extracted_recurrence` as `RRULE \| label` when needed |
+
+---
+
+## Voice command logs: `myday_voice_command_logs` (MYVCL)
+
+**Purpose**: Store voice memos / voice commands for history, pending review, and analytics.
+
+**Production (Supabase) column set** — app code (`VoiceCommandDatabaseService`) writes **only** these names:
+
+| Column | Type | Notes |
+|--------|------|--------|
+| `id` | uuid | PK |
+| `user_id` | uuid | Nullable if anonymous |
+| `session_id` | text | |
+| `raw_text` | text | Plain transcript (not `raw_transcript`) |
+| `detected_category` | text | Intent, e.g. `CREATE_TODO`, `CREATE_EVENT` (not `intent_type`) |
+| `extracted_title` | text | |
+| `extracted_priority` | text | |
+| `extracted_tags` | text[] | |
+| `extracted_recurrence` | text | RRULE; optional human suffix: `RRULE \| human readable` |
+| `memo_date` | text | |
+| `memo_time` | text | |
+| `overall_confidence` | numeric | |
+| `confidence_breakdown` | jsonb | |
+| `entities` | jsonb | Parsed entities array |
+| `outcome` | text | e.g. `PENDING`, `SUCCESS` |
+| `created_item_id` | text | |
+| `created_item_type` | text | |
+| `user_corrections` | jsonb | |
+| `search_keywords` | text[] | |
+| `expires_at` | timestamptz | |
+| `timestamp` | timestamptz | Legacy event time |
+| `created_at` | timestamptz | |
+| `updated_at` | timestamptz | |
+| `extracted_attendees` | text[] | |
+
+**Do not** insert legacy names (`intent_type`, `raw_transcript`, `extracted_recurrence_human`, …) unless you add those columns via migration.
 
 ---
 
@@ -208,7 +250,7 @@ SELECT * FROM myday_gift_cards;
 
 ---
 
-**Last Updated**: 2026-03-09  
+**Last Updated**: 2026-03-23  
 **Status**: ✅ VERIFIED
 
 ---
@@ -217,6 +259,7 @@ SELECT * FROM myday_gift_cards;
 
 | Date | Change |
 |------|--------|
+| 2026-03-23 | Added `myday_voice_command_logs` (MYVCL), lean column names vs legacy |
 | 2026-03-09 | Added Reset Safe cleanup section |
 | 2026-03-09 | Added common mistakes: `myday_shared_entries`, `myday_safe_tags` |
 | 2026-03-09 | Added `myday_group_finance_messages` to Group System |
