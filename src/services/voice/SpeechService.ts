@@ -7,6 +7,33 @@ export class SpeechService {
   private recognition: SpeechRecognition | null = null;
   private isListening: boolean = false;
 
+  /**
+   * Hard release: abort + stop + clear handlers. WebKit/Safari often keeps the mic indicator
+   * until recognition is fully torn down — graceful stop alone is not always enough.
+   */
+  forceRelease(): void {
+    const rec = this.recognition;
+    if (!rec) {
+      this.isListening = false;
+      return;
+    }
+    try {
+      rec.abort();
+    } catch {
+      /* InvalidStateError: not started */
+    }
+    try {
+      rec.stop();
+    } catch {
+      /* already stopped */
+    }
+    this.isListening = false;
+    rec.onresult = null;
+    rec.onerror = null;
+    rec.onend = null;
+    rec.onnomatch = null;
+  }
+
   constructor() {
     const Rec = window.SpeechRecognition || window.webkitSpeechRecognition || null;
     if (Rec) {
@@ -21,28 +48,14 @@ export class SpeechService {
    * Stop the speech recognition and release the microphone
    */
   stop(): void {
-    if (this.recognition && this.isListening) {
-      try {
-        this.recognition.stop();
-        this.isListening = false;
-      } catch (err) {
-        console.warn('Error stopping speech recognition:', err);
-      }
-    }
+    this.forceRelease();
   }
 
   /**
    * Abort the speech recognition immediately (for cleanup)
    */
   abort(): void {
-    if (this.recognition && this.isListening) {
-      try {
-        this.recognition.abort();
-        this.isListening = false;
-      } catch (err) {
-        console.warn('Error aborting speech recognition:', err);
-      }
-    }
+    this.forceRelease();
   }
 
   async transcribeOnce(): Promise<{ transcript: string; confidence: number }> {
@@ -53,28 +66,29 @@ export class SpeechService {
     }
 
     // Stop any existing recognition first
-    this.stop();
+    this.forceRelease();
 
     return new Promise((resolve, reject) => {
       const rec = this.recognition;
+      if (!rec) {
+        reject(new Error('Speech recognition not available'));
+        return;
+      }
       let finished = false;
       
-      const cleanup = () => {
-        this.isListening = false;
-        rec.onresult = null;
-        rec.onerror = null;
-        rec.onend = null;
+      const finalize = () => {
+        this.forceRelease();
       };
 
       rec.onresult = (ev: SpeechRecognitionEvent) => {
         try {
           const result = ev.results[0][0];
           finished = true;
-          cleanup();
+          finalize();
           resolve({ transcript: result.transcript, confidence: result.confidence ?? 0.8 });
         } catch (err) {
           finished = true;
-          cleanup();
+          finalize();
           reject(new Error('Speech recognition failed to parse result'));
         }
       };
@@ -91,15 +105,15 @@ export class SpeechService {
           'network': 'Network error during speech recognition.'
         };
         const message = mapping[code] || (typeof code === 'string' && code.length ? String(code) : 'Speech recognition error');
-        this.stop();
         finished = true;
-        cleanup();
+        finalize();
         reject(new Error(message));
       };
       
       rec.onend = () => {
         if (!finished) {
-          cleanup();
+          finished = true;
+          finalize();
           resolve({ transcript: '', confidence: 0 });
         }
       };
@@ -109,11 +123,26 @@ export class SpeechService {
         rec.start();
       } catch (err) {
         this.isListening = false;
-        cleanup();
+        finalize();
         reject(new Error('Unable to start speech recognition. Check microphone permissions.'));
       }
     });
   }
+}
+
+/** One shared instance — Web Speech uses one mic; multiple `SpeechService` instances left Safari holding capture. */
+let sharedSpeechService: SpeechService | null = null;
+
+export function getSharedSpeechService(): SpeechService {
+  if (!sharedSpeechService) {
+    sharedSpeechService = new SpeechService();
+  }
+  return sharedSpeechService;
+}
+
+/** Tear down recognition from any code path (modal, history confirm, hooks share the same instance). */
+export function releaseGlobalSpeechRecognition(): void {
+  getSharedSpeechService().forceRelease();
 }
 
 export default SpeechService;

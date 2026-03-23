@@ -1,6 +1,6 @@
 import IntentClassifier from './IntentClassifier';
 import EntityExtractor from './EntityExtractor';
-import SpeechService from './SpeechService';
+import SpeechService, { getSharedSpeechService } from './SpeechService';
 import VoiceCommandLogger from './VoiceCommandLogger';
 import { ParsedCommand, Entity, IntentType } from './types';
 import * as storage from '../../storage';
@@ -53,7 +53,7 @@ export class VoiceCommandService {
   constructor() {
     this.classifier = new IntentClassifier();
     this.extractor = new EntityExtractor();
-    this.speech = new SpeechService();
+    this.speech = getSharedSpeechService();
     this.logger = new VoiceCommandLogger();
   }
 
@@ -68,7 +68,12 @@ export class VoiceCommandService {
    * Abort any active speech recognition immediately (for cleanup)
    */
   abortListening(): void {
-    this.speech.abort();
+    this.speech.forceRelease();
+  }
+
+  /** Explicit mic / speech session teardown (same as abortListening; use after UI leaves listen state). */
+  releaseSpeechRecognition(): void {
+    this.speech.forceRelease();
   }
 
   /**
@@ -77,6 +82,8 @@ export class VoiceCommandService {
    */
   async listenAndParse(lockedIntent?: IntentType): Promise<ParsedCommand> {
     const { transcript, confidence: sttConfidence } = await this.speech.transcribeOnce();
+    // Extra release for WebKit/Safari — mic indicator can linger after transcribeOnce resolves
+    this.speech.forceRelease();
 
     const intent = lockedIntent
       ? { type: lockedIntent, confidence: 1, method: 'RULES' as const }

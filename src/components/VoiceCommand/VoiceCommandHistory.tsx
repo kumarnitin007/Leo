@@ -13,6 +13,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useTheme } from '../../contexts/ThemeContext';
 import dbService from '../../services/voice/VoiceCommandDatabaseService';
+import { releaseGlobalSpeechRecognition } from '../../services/voice/SpeechService';
 import { VoiceCommandLog, IntentType, Outcome } from '../../types/voice-command-db.types';
 import VoiceCommandSuggestions from './VoiceCommandSuggestions';
 import VoiceCommandAnalytics from './VoiceCommandAnalytics';
@@ -184,13 +185,30 @@ const VoiceCommandHistory: React.FC<VoiceCommandHistoryProps> = ({
     try {
       const VoiceCommandService = (await import('../../services/voice/VoiceCommandService')).default;
       const service = new VoiceCommandService();
+      // Shared SpeechService — release mic if recognition was still active from the voice modal
+      service.releaseSpeechRecognition();
+      const mapSuggestionTypeToIntent = (): IntentType => {
+        switch (suggestion.type) {
+          case 'event':
+            return 'CREATE_EVENT';
+          case 'task':
+            return 'CREATE_TASK';
+          case 'routine':
+            return 'CREATE_ROUTINE';
+          case 'journal':
+            return 'CREATE_JOURNAL';
+          case 'todo':
+            return 'CREATE_TODO';
+          default:
+            return command.intentType || 'CREATE_TODO';
+        }
+      };
+
       const userEdits = {
         title: suggestion.title,
         recurrence: suggestion.recurrence,
         time: suggestion.time,
-        intentType: suggestion.type === 'event' ? 'CREATE_EVENT' : 
-                    suggestion.type === 'task' ? 'CREATE_TASK' :
-                    suggestion.type === 'routine' ? 'CREATE_ROUTINE' : 'CREATE_TODO',
+        intentType: mapSuggestionTypeToIntent(),
       };
       const result = await service.createFromPending(command.id, userId, userEdits);
       if (result.success) {
@@ -214,6 +232,7 @@ const VoiceCommandHistory: React.FC<VoiceCommandHistoryProps> = ({
   };
 
   const handleSuggestionDismiss = () => {
+    releaseGlobalSpeechRecognition();
     setShowSuggestions(false);
     setSuggestionsCommand(null);
   };
@@ -557,7 +576,13 @@ const VoiceCommandHistory: React.FC<VoiceCommandHistoryProps> = ({
               This will add the following to your list:
             </p>
             <ul style={{ margin: '0 0 1.25rem', paddingLeft: '1.25rem', fontSize: '0.95rem', lineHeight: 1.7 }}>
-              <li><strong>Type:</strong> {pendingCreate.suggestion.type === 'event' ? 'Event' : pendingCreate.suggestion.type === 'task' ? 'Task' : pendingCreate.suggestion.type === 'routine' ? 'Routine' : 'List item'}</li>
+              <li><strong>Type:</strong> {{
+                event: 'Event',
+                task: 'Task',
+                routine: 'Routine',
+                journal: 'Journal',
+                todo: 'List item',
+              }[pendingCreate.suggestion.type] || 'List item'}</li>
               <li><strong>Title:</strong> {pendingCreate.suggestion.title}</li>
               {pendingCreate.suggestion.recurrenceLabel && <li><strong>Recurrence:</strong> {pendingCreate.suggestion.recurrenceLabel}</li>}
               {pendingCreate.suggestion.time && <li><strong>Time:</strong> {pendingCreate.suggestion.time}</li>}

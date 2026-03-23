@@ -83,42 +83,53 @@ const VoiceCommandModal: React.FC<VoiceCommandModalProps> = ({
       lockedIntentRef.current = null;
       setState(intentMode === 'auto' ? 'IDLE' : 'CHOOSE_TYPE');
     } else {
-      // Clean up when modal closes - abort any active listening
-      service.abortListening();
+      service.releaseSpeechRecognition();
     }
   }, [isOpen, intentMode]);
 
   // Cleanup on unmount (critical for releasing microphone)
   useEffect(() => {
     return () => {
-      service.abortListening();
+      service.releaseSpeechRecognition();
     };
   }, []);
 
-  // Stop listening when tab becomes hidden or page is about to unload
+  // Whenever we are not actively listening, ensure Web Speech session is torn down (CONFIRM / Safari)
   useEffect(() => {
+    if (!isOpen) return;
+    if (state !== 'LISTENING') {
+      service.releaseSpeechRecognition();
+    }
+  }, [isOpen, state]);
+
+  // Tab close, navigation, or hide: release mic; Safari keeps capture if we only rely on LISTENING
+  useEffect(() => {
+    if (!isOpen) return;
+
     const handleVisibilityChange = () => {
-      if (document.hidden && state === 'LISTENING') {
-        service.abortListening();
-        setState('ERROR');
-        setError('Voice recognition stopped because tab was hidden');
+      if (document.hidden) {
+        service.releaseSpeechRecognition();
+        if (state === 'LISTENING') {
+          setState('ERROR');
+          setError('Voice recognition stopped because tab was hidden');
+        }
       }
     };
 
-    const handleBeforeUnload = () => {
-      service.abortListening();
+    const handlePageLifecycle = () => {
+      service.releaseSpeechRecognition();
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    window.addEventListener('pagehide', handleBeforeUnload);
+    window.addEventListener('beforeunload', handlePageLifecycle);
+    window.addEventListener('pagehide', handlePageLifecycle);
 
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
-      window.removeEventListener('beforeunload', handleBeforeUnload);
-      window.removeEventListener('pagehide', handleBeforeUnload);
+      window.removeEventListener('beforeunload', handlePageLifecycle);
+      window.removeEventListener('pagehide', handlePageLifecycle);
     };
-  }, [state]);
+  }, [isOpen, state]);
 
   /**
    * @param intentOverride Pass an intent to lock (user picked a category), omit to use current lock / auto,
@@ -139,10 +150,12 @@ const VoiceCommandModal: React.FC<VoiceCommandModalProps> = ({
     try {
       const effective = lockedIntentRef.current ?? undefined;
       const result = await service.listenAndParse(effective);
+      service.releaseSpeechRecognition();
       setTranscript(result.transcript);
       setParsed(result);
       setState('CONFIRM');
     } catch (err: unknown) {
+      service.releaseSpeechRecognition();
       const msg = err instanceof Error ? err.message : String(err);
       setError(msg);
       setState('ERROR');
@@ -172,6 +185,7 @@ const VoiceCommandModal: React.FC<VoiceCommandModalProps> = ({
 
   const handleConfirm = async () => {
     if (!parsed) return;
+    service.releaseSpeechRecognition();
 
     setState('EXECUTING');
     try {
@@ -203,6 +217,7 @@ const VoiceCommandModal: React.FC<VoiceCommandModalProps> = ({
 
   /** Discard this understanding and go back to the type picker (or idle in auto mode). */
   const handleRejectFromConfirm = () => {
+    service.releaseSpeechRecognition();
     setError(null);
     setParsed(null);
     setTranscript('');
@@ -216,8 +231,7 @@ const VoiceCommandModal: React.FC<VoiceCommandModalProps> = ({
   };
 
   const handleCancel = () => {
-    // Stop any active speech recognition and release microphone
-    service.abortListening();
+    service.releaseSpeechRecognition();
     setParsed(null);
     setLockedIntent(null);
     lockedIntentRef.current = null;

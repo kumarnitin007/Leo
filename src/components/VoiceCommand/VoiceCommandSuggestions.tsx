@@ -10,7 +10,8 @@ import { VoiceCommandLog } from '../../types/voice-command-db.types';
 import VoiceCommandClarification from './VoiceCommandClarification';
 
 interface Suggestion {
-  type: 'event' | 'task' | 'routine';
+  /** Maps to IntentType in VoiceCommandHistory confirm step */
+  type: 'event' | 'task' | 'routine' | 'todo' | 'journal';
   title: string;
   description: string;
   recurrence?: string;
@@ -41,6 +42,33 @@ const VoiceCommandSuggestions: React.FC<VoiceCommandSuggestionsProps> = ({
     const suggestions: Suggestion[] = [];
     const transcript = (command.rawTranscript || '').toLowerCase();
     const title = command.extractedTitle || command.rawTranscript || 'Untitled';
+
+    // Voice memo flow: user already picked category — honor it before keyword heuristics
+    // (otherwise "dinner with Sarah" for a journal would match "social event" → events only)
+    if (command.intentType === 'CREATE_TODO') {
+      return [
+        {
+          type: 'todo',
+          title,
+          description: title,
+          confidence: command.overallConfidence || 0.85,
+          reasoning: 'List item — matches the category you chose when recording',
+          isRecommended: true,
+        },
+      ];
+    }
+    if (command.intentType === 'CREATE_JOURNAL') {
+      return [
+        {
+          type: 'journal',
+          title,
+          description: title,
+          confidence: command.overallConfidence || 0.85,
+          reasoning: 'Journal entry — matches the category you chose when recording',
+          isRecommended: true,
+        },
+      ];
+    }
     
     // Check for birthday/anniversary keywords
     const isBirthday = /\bbirthday\b/.test(transcript);
@@ -136,16 +164,39 @@ const VoiceCommandSuggestions: React.FC<VoiceCommandSuggestionsProps> = ({
         reasoning: 'Task creation',
         isRecommended: true,
       });
-    } else {
-      // Fallback - generic suggestion
+    } else if (command.intentType === 'CREATE_ROUTINE') {
       suggestions.push({
-        type: 'event',
+        type: 'routine',
         title: title,
         description: title,
-        confidence: command.overallConfidence || 0.7,
-        reasoning: 'Based on voice command',
+        recurrence: command.extractedRecurrence || undefined,
+        recurrenceLabel: command.extractedRecurrenceHuman || 'Custom',
+        confidence: command.overallConfidence || 0.8,
+        reasoning: 'Routine / recurring habit',
         isRecommended: true,
       });
+    } else {
+      // Do not default to calendar event — honor saved intent or fall back to task
+      const intent = command.intentType;
+      if (intent === 'CREATE_ITEM' || intent === 'CREATE_MILESTONE' || intent === 'CREATE_RESOLUTION' || intent === 'CREATE_PINNED_EVENT') {
+        suggestions.push({
+          type: 'task',
+          title: title,
+          description: title,
+          confidence: command.overallConfidence || 0.75,
+          reasoning: `Create from saved intent (${intent})`,
+          isRecommended: true,
+        });
+      } else {
+        suggestions.push({
+          type: 'task',
+          title: title,
+          description: title,
+          confidence: command.overallConfidence || 0.7,
+          reasoning: 'Default: treat as task unless you picked a specific category when recording',
+          isRecommended: true,
+        });
+      }
     }
     
     return suggestions;
@@ -242,7 +293,17 @@ const VoiceCommandSuggestions: React.FC<VoiceCommandSuggestionsProps> = ({
               )}
               
               <div className="suggestion-icon">
-                {suggestion.type === 'event' ? '📅' : suggestion.type === 'task' ? '✅' : '🔄'}
+                {suggestion.type === 'event'
+                  ? '📅'
+                  : suggestion.type === 'task'
+                    ? '✅'
+                    : suggestion.type === 'routine'
+                      ? '🔄'
+                      : suggestion.type === 'journal'
+                        ? '📔'
+                        : suggestion.type === 'todo'
+                          ? '📝'
+                          : '✅'}
               </div>
               
               <div className="suggestion-content">
