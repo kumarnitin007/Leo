@@ -44,11 +44,7 @@ const VOICE_MEMO_OPTIONS: { intent: IntentType; icon: string; label: string; hin
   { intent: 'CREATE_TASK', icon: '✅', label: 'Task', hint: 'Scheduled task or habit', color: '#10b981' },
   { intent: 'CREATE_EVENT', icon: '📅', label: 'Event', hint: 'Calendar event', color: '#3b82f6' },
   { intent: 'CREATE_JOURNAL', icon: '📔', label: 'Journal entry', hint: 'Daily journal', color: '#a855f7' },
-  { intent: 'CREATE_ROUTINE', icon: '🔄', label: 'Routine', hint: 'Recurring habit', color: '#f59e0b' },
   { intent: 'CREATE_ITEM', icon: '📦', label: 'Item', hint: 'Track an item', color: '#06b6d4' },
-  { intent: 'CREATE_MILESTONE', icon: '🎯', label: 'Milestone', hint: 'Goal milestone', color: '#ec4899' },
-  { intent: 'CREATE_RESOLUTION', icon: '🌟', label: 'Resolution', hint: 'Yearly resolution', color: '#f97316' },
-  { intent: 'CREATE_PINNED_EVENT', icon: '📌', label: 'Pinned event', hint: 'Pin to calendar', color: '#ef4444' },
 ];
 
 const service = new VoiceCommandService();

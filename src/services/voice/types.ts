@@ -24,7 +24,8 @@ export type EntityType =
   | 'DESCRIPTION'
   | 'RECURRENCE'
   | 'QUANTITY'
-  | 'PERSON';
+  | 'PERSON'
+  | 'MOOD';
 
 export interface Entity {
   type: EntityType;

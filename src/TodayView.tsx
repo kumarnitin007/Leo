@@ -150,20 +150,21 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
     }
   };
 
-  // Load upcoming TODOs (next 7 days)
+  // Load dashboard list items: due in the next 7 days or overdue (until completed)
   const loadUpcomingTodos = async () => {
     if (isLoadingTodos) return;
     setIsLoadingTodos(true);
     try {
       const [todos, groups] = await Promise.all([getDashboardTodos(), getTodoGroups()]);
       const today = new Date(selectedDate + 'T00:00:00');
-      const nextWeek = new Date(today);
-      nextWeek.setDate(nextWeek.getDate() + 7);
-      
+
+      // Show items due in the next 7 days, plus overdue (still on dashboard until completed)
       const upcoming = todos.filter(todo => {
         if (!todo.dueDate) return false;
         const dueDate = new Date(todo.dueDate + 'T00:00:00');
-        return dueDate >= today && dueDate <= nextWeek;
+        const daysDiff = Math.ceil((dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+        if (daysDiff < 0) return true;
+        return daysDiff <= 7;
       });
       
       setUpcomingTodos(upcoming);
@@ -2141,7 +2142,7 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
                 </div>
                 <div style={{ fontSize: '0.8rem', color: '#b45309' }}>
                   {isTodosExpanded 
-                    ? `${upcomingTodos.length} in next 7 days`
+                    ? `${upcomingTodos.length} due soon or overdue`
                     : 'Tap to view My Lists'}
                 </div>
               </div>
@@ -2173,6 +2174,7 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
                     const todayDate = new Date(selectedDate + 'T00:00:00');
                     const daysUntil = dueDate ? Math.ceil((dueDate.getTime() - todayDate.getTime()) / (1000 * 60 * 60 * 24)) : null;
                     
+                    const isOverdue = daysUntil !== null && daysUntil < 0;
                     return (
                       <div
                         key={todo.id}
@@ -2181,8 +2183,9 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
                           padding: '1rem',
                           borderRadius: '0.75rem',
                           background: 'white',
-                          border: '2px solid #f59e0b',
+                          border: `2px solid ${isOverdue ? '#fecaca' : '#f59e0b'}`,
                           borderLeftWidth: '4px',
+                          borderLeftColor: isOverdue ? '#dc2626' : '#f59e0b',
                           cursor: 'pointer',
                           transition: 'all 0.2s'
                         }}
@@ -2229,6 +2232,16 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
                               <div style={{ fontSize: '0.8rem', color: '#9ca3af' }}>
                                 {dueDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
                               </div>
+                              {daysUntil !== null && daysUntil < 0 && (
+                                <div style={{
+                                  fontSize: '0.75rem',
+                                  color: '#b91c1c',
+                                  fontWeight: 600,
+                                  marginTop: '0.25rem'
+                                }}>
+                                  {daysUntil === -1 ? '1 day overdue' : `${-daysUntil} days overdue`}
+                                </div>
+                              )}
                               {daysUntil !== null && daysUntil >= 0 && (
                                 <div style={{
                                   fontSize: '0.75rem',

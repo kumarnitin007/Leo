@@ -71,7 +71,7 @@ const ViewLoader: React.FC = () => (
   </div>
 );
 
-type View = 'today' | 'tasks-events' | 'items' | 'journal' | 'resolutions' | 'analytics' | 'settings' | 'safe' | 'todo' | 'groups' | 'smart' | 'history';
+type View = 'today' | 'tasks-events' | 'items' | 'journal' | 'resolutions' | 'analytics' | 'settings' | 'safe' | 'todo' | 'groups' | 'smart' | 'history' | 'voice-pending';
 
 /**
  * Main App Content Component
@@ -352,7 +352,19 @@ const AppContent: React.FC = () => {
         return (
           <VoiceCommandHistory 
             key={`history-${key}`} 
+            listMode="all"
             onBack={() => handleNavigate('smart')} 
+            onCreateFromCommand={handleCreateFromVoiceHistory}
+            userId={user?.id}
+          />
+        );
+      case 'voice-pending':
+        return (
+          <VoiceCommandHistory 
+            key={`voice-pending-${key}`} 
+            listMode="pending"
+            onBack={() => handleNavigate('smart')} 
+            onOpenFullHistory={() => handleNavigate('history')}
             onCreateFromCommand={handleCreateFromVoiceHistory}
             userId={user?.id}
           />

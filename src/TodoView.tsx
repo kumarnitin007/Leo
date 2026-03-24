@@ -32,6 +32,24 @@ const PRIORITY_CONFIG: Record<TodoPriority, { color: string; bg: string; label: 
 const GROUP_ICONS = ['📁', '🏠', '💼', '🎯', '📚', '🛒', '🎨', '💪', '🧘', '🎮', '🍕', '✈️', '📧', '💡', '⭐'];
 const GROUP_COLORS = ['#6366f1', '#8b5cf6', '#ec4899', '#ef4444', '#f97316', '#f59e0b', '#10b981', '#14b8a6', '#06b6d4', '#3b82f6'];
 
+/** Avoid 🎤 + "🎤 Voice Memo" in headers and chips when the group icon is already shown separately */
+function stripLeadingGroupIcon(name: string, icon: string | undefined): string {
+  if (!name) return name;
+  let t = name.trim();
+  if (icon && t.startsWith(icon)) {
+    t = t.slice(icon.length).trim();
+  }
+  return t || name;
+}
+
+function isTodoPastDue(dueDate: string | undefined): boolean {
+  if (!dueDate) return false;
+  const d = new Date(dueDate + 'T00:00:00');
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return d < today;
+}
+
 const TodoView: React.FC<TodoViewProps> = () => {
   const { theme } = useTheme();
   
@@ -43,6 +61,8 @@ const TodoView: React.FC<TodoViewProps> = () => {
   
   // UI state
   const [selectedGroups, setSelectedGroups] = useState<Set<string>>(new Set()); // empty = all
+  const [pastDueOnly, setPastDueOnly] = useState(false);
+  const [isMobileViewport, setIsMobileViewport] = useState(false);
   const [showCompleted, setShowCompleted] = useState(true);
   const [showVoiceModal, setShowVoiceModal] = useState(false);
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set()); // Start collapsed
@@ -75,6 +95,14 @@ const TodoView: React.FC<TodoViewProps> = () => {
   useEffect(() => {
     loadData();
     loadAssignableUsers();
+  }, []);
+
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 639px)');
+    const apply = () => setIsMobileViewport(mq.matches);
+    apply();
+    mq.addEventListener('change', apply);
+    return () => mq.removeEventListener('change', apply);
   }, []);
 
   const loadData = async () => {
@@ -202,9 +230,12 @@ const TodoView: React.FC<TodoViewProps> = () => {
     }
   };
 
-  // Filter items based on selected groups
+  // Filter items: completed toggle, optional past-due-only, then group selection
   const filteredItems = items.filter(item => {
     if (!showCompleted && item.isCompleted) return false;
+    if (pastDueOnly) {
+      if (item.isCompleted || !isTodoPastDue(item.dueDate)) return false;
+    }
     if (selectedGroups.size === 0) return true; // All
     if (item.groupId === null || item.groupId === undefined) {
       return selectedGroups.has('ungrouped');
@@ -479,11 +510,14 @@ const TodoView: React.FC<TodoViewProps> = () => {
       }}>
         <span style={{ color: '#6b7280', fontSize: '0.85rem', fontWeight: 500 }}>Filter:</span>
         <button
-          onClick={() => setSelectedGroups(new Set())}
+          onClick={() => {
+            setSelectedGroups(new Set());
+            setPastDueOnly(false);
+          }}
           style={{
             padding: '0.375rem 0.875rem',
-            background: selectedGroups.size === 0 ? theme.colors.primary : '#f3f4f6',
-            color: selectedGroups.size === 0 ? 'white' : '#374151',
+            background: selectedGroups.size === 0 && !pastDueOnly ? theme.colors.primary : '#f3f4f6',
+            color: selectedGroups.size === 0 && !pastDueOnly ? 'white' : '#374151',
             border: 'none',
             borderRadius: '9999px',
             cursor: 'pointer',
@@ -497,8 +531,10 @@ const TodoView: React.FC<TodoViewProps> = () => {
           onClick={() => toggleGroupFilter('ungrouped')}
           style={{
             padding: '0.375rem 0.875rem',
-            background: selectedGroups.has('ungrouped') ? '#6b7280' : '#f3f4f6',
-            color: selectedGroups.has('ungrouped') ? 'white' : '#374151',
+            background:
+              selectedGroups.size === 1 && selectedGroups.has('ungrouped') ? '#6b7280' : '#f3f4f6',
+            color:
+              selectedGroups.size === 1 && selectedGroups.has('ungrouped') ? 'white' : '#374151',
             border: 'none',
             borderRadius: '9999px',
             cursor: 'pointer',
@@ -506,29 +542,26 @@ const TodoView: React.FC<TodoViewProps> = () => {
             fontWeight: 500
           }}
         >
-          📋 Quick Items
+          {isMobileViewport ? '📋 Quick' : '📋 Quick Items'}
         </button>
-        {groups.map(group => (
+        {isMobileViewport && (
           <button
-            key={group.id}
-            onClick={() => toggleGroupFilter(group.id)}
+            type="button"
+            onClick={() => setPastDueOnly(p => !p)}
             style={{
               padding: '0.375rem 0.875rem',
-              background: selectedGroups.has(group.id) ? group.color : '#f3f4f6',
-              color: selectedGroups.has(group.id) ? 'white' : '#374151',
+              background: pastDueOnly ? '#b91c1c' : '#f3f4f6',
+              color: pastDueOnly ? 'white' : '#374151',
               border: 'none',
               borderRadius: '9999px',
               cursor: 'pointer',
               fontSize: '0.8rem',
-              fontWeight: 500,
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.25rem'
+              fontWeight: 500
             }}
           >
-            {group.icon} {group.name}
+            ⚠️ Past due
           </button>
-        ))}
+        )}
       </div>
 
       {/* Options row */}
@@ -637,7 +670,9 @@ const TodoView: React.FC<TodoViewProps> = () => {
                   return !isShared || shareMode === 'editable';
                 })
                 .map(g => (
-                  <option key={g.id} value={g.id}>{g.icon} {g.name}</option>
+                  <option key={g.id} value={g.id}>
+                    {g.icon} {stripLeadingGroupIcon(g.name, g.icon)}
+                  </option>
                 ))}
             </select>
           </div>
@@ -698,7 +733,7 @@ const TodoView: React.FC<TodoViewProps> = () => {
           return (
             <GroupSection
               key={group.id}
-              title={group.name}
+              title={stripLeadingGroupIcon(group.name, group.icon || '📁')}
               icon={group.icon || '📁'}
               color={group.color || '#6366f1'}
               items={groupedItems[group.id] || []}
@@ -734,9 +769,15 @@ const TodoView: React.FC<TodoViewProps> = () => {
           padding: '3rem',
           color: '#9ca3af'
         }}>
-          <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>📝</div>
-          <p style={{ fontSize: '1.1rem', fontWeight: 500 }}>No to-do items yet</p>
-          <p style={{ fontSize: '0.9rem' }}>Add your first item above or use voice input!</p>
+          <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>{pastDueOnly ? '✅' : '📝'}</div>
+          <p style={{ fontSize: '1.1rem', fontWeight: 500 }}>
+            {pastDueOnly ? 'Nothing past due' : 'No to-do items yet'}
+          </p>
+          <p style={{ fontSize: '0.9rem' }}>
+            {pastDueOnly
+              ? 'Incomplete items with a due date before today will show here.'
+              : 'Add your first item above or use voice input!'}
+          </p>
         </div>
       )}
 
@@ -1142,7 +1183,7 @@ const TodoView: React.FC<TodoViewProps> = () => {
                       return !isShared || shareMode === 'editable';
                     })
                     .map(g => (
-                      <option key={g.id} value={g.id}>{g.icon} {g.name}</option>
+                      <option key={g.id} value={g.id}>{g.icon} {stripLeadingGroupIcon(g.name, g.icon)}</option>
                     ))}
                 </select>
               </div>
@@ -1294,46 +1335,67 @@ const GroupSection: React.FC<GroupSectionProps> = ({
           userSelect: 'none'
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
-          <span style={{ fontSize: '1.25rem' }}>{icon}</span>
-          <span style={{ fontWeight: 600, color: '#1f2937' }}>{title}</span>
-          {isShared && sharedBy && (
-            <span style={{
-              background: '#10b981',
-              color: 'white',
-              padding: '0.25rem 0.5rem',
-              borderRadius: '4px',
-              fontSize: '0.65rem',
-              fontWeight: 600
-            }}>
-              🔗 Shared by {sharedBy}
-            </span>
-          )}
-          {isShared && shareMode === 'readonly' && (
-            <span style={{
-              background: '#f59e0b',
-              color: 'white',
-              padding: '0.25rem 0.5rem',
-              borderRadius: '4px',
-              fontSize: '0.65rem',
-              fontWeight: 600
-            }}>
-              👁️ View Only
-            </span>
-          )}
-          <span style={{
-            background: '#e5e7eb',
-            color: '#6b7280',
-            padding: '0.125rem 0.5rem',
-            borderRadius: '9999px',
-            fontSize: '0.75rem',
-            fontWeight: 500
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', minWidth: 0, flex: 1 }}>
+          <span style={{ fontSize: '1.25rem', lineHeight: 1, flexShrink: 0 }}>{icon}</span>
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.5rem',
+            minWidth: 0,
+            flex: 1,
+            flexWrap: 'nowrap',
           }}>
-            {completedCount}/{items.length}
-          </span>
+            <span style={{
+              fontWeight: 600,
+              color: '#1f2937',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+              minWidth: 0,
+            }}>
+              {title}
+            </span>
+            {isShared && sharedBy && (
+              <span style={{
+                background: '#10b981',
+                color: 'white',
+                padding: '0.25rem 0.5rem',
+                borderRadius: '4px',
+                fontSize: '0.65rem',
+                fontWeight: 600,
+                flexShrink: 0,
+              }}>
+                🔗 Shared by {sharedBy}
+              </span>
+            )}
+            {isShared && shareMode === 'readonly' && (
+              <span style={{
+                background: '#f59e0b',
+                color: 'white',
+                padding: '0.25rem 0.5rem',
+                borderRadius: '4px',
+                fontSize: '0.65rem',
+                fontWeight: 600,
+                flexShrink: 0,
+              }}>
+                👁️ View Only
+              </span>
+            )}
+            <span style={{
+              background: '#e5e7eb',
+              color: '#6b7280',
+              padding: '0.125rem 0.5rem',
+              borderRadius: '9999px',
+              fontSize: '0.75rem',
+              fontWeight: 500,
+              flexShrink: 0,
+            }}>
+              {completedCount}/{items.length}
+            </span>
+          </div>
         </div>
         
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexShrink: 0 }}>
           {onShare && (
             <button
               onClick={(e) => { e.stopPropagation(); onShare(); }}

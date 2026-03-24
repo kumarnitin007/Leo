@@ -17,9 +17,25 @@ interface Suggestion {
   recurrence?: string;
   recurrenceLabel?: string;
   time?: string;
+  /** YYYY-MM-DD — list item due, or event/task/journal when set from optional fields */
+  dueDate?: string;
+  date?: string;
+  /** low|medium|high (todo) or LOW|MEDIUM|HIGH|URGENT (task) */
+  priority?: string;
+  /** journal mood */
+  mood?: string;
   confidence: number;
   reasoning: string;
   isRecommended?: boolean;
+}
+
+/** Optional fields the user can fill per suggestion card (2–3 per type) */
+interface SuggestionContextForm {
+  dueDate?: string;
+  date?: string;
+  time?: string;
+  priority?: string;
+  mood?: string;
 }
 
 interface VoiceCommandSuggestionsProps {
@@ -37,6 +53,19 @@ const VoiceCommandSuggestions: React.FC<VoiceCommandSuggestionsProps> = ({
 }) => {
   const [showClarification, setShowClarification] = useState(false);
   const [clarificationQuestions, setClarificationQuestions] = useState<any[]>([]);
+  /** Optional context fields per suggestion row (due date, time, priority, mood, …) */
+  const [contextByIndex, setContextByIndex] = useState<Record<number, SuggestionContextForm>>({});
+
+  const setContextField = (idx: number, patch: Partial<SuggestionContextForm>) => {
+    setContextByIndex((prev) => ({
+      ...prev,
+      [idx]: { ...prev[idx], ...patch },
+    }));
+  };
+
+  const defaultMemoDate = command.memoDate
+    ? String(command.memoDate).split('T')[0]
+    : '';
 
   const generateSuggestions = (): Suggestion[] => {
     const suggestions: Suggestion[] = [];
@@ -268,6 +297,19 @@ const VoiceCommandSuggestions: React.FC<VoiceCommandSuggestionsProps> = ({
     );
   }
 
+  const submitSuggestion = (suggestion: Suggestion, idx: number) => {
+    const c = contextByIndex[idx] || {};
+    const payload: Suggestion = { ...suggestion };
+    if (c.dueDate) payload.dueDate = c.dueDate;
+    if (c.date) payload.date = c.date;
+    if (c.priority) payload.priority = c.priority;
+    if (c.mood) payload.mood = c.mood;
+    if (c.time !== undefined) {
+      payload.time = c.time || undefined;
+    }
+    onSelect(payload);
+  };
+
   return (
     <div className="suggestions-overlay" onClick={(e) => e.target === e.currentTarget && onDismiss()}>
       <div className="suggestions-modal">
@@ -286,7 +328,7 @@ const VoiceCommandSuggestions: React.FC<VoiceCommandSuggestionsProps> = ({
             <div
               key={idx}
               className={`suggestion-card ${suggestion.isRecommended ? 'recommended' : ''}`}
-              onClick={() => onSelect(suggestion)}
+              onClick={() => submitSuggestion(suggestion, idx)}
             >
               {suggestion.isRecommended && (
                 <div className="recommended-badge">⭐ Recommended</div>
@@ -318,6 +360,146 @@ const VoiceCommandSuggestions: React.FC<VoiceCommandSuggestionsProps> = ({
                     <span className="meta-badge">🕐 {suggestion.time}</span>
                   )}
                 </div>
+
+                <div
+                  className="suggestion-context-fields"
+                  onClick={(e) => e.stopPropagation()}
+                  onKeyDown={(e) => e.stopPropagation()}
+                >
+                  {suggestion.type === 'todo' && (
+                    <>
+                      <label className="suggestion-field">
+                        <span>Due date (optional)</span>
+                        <input
+                          type="date"
+                          value={contextByIndex[idx]?.dueDate ?? ''}
+                          onChange={(e) => setContextField(idx, { dueDate: e.target.value })}
+                        />
+                      </label>
+                      <label className="suggestion-field">
+                        <span>Priority (optional)</span>
+                        <select
+                          value={contextByIndex[idx]?.priority ?? ''}
+                          onChange={(e) =>
+                            setContextField(idx, { priority: e.target.value || undefined })
+                          }
+                        >
+                          <option value="">—</option>
+                          <option value="low">Low</option>
+                          <option value="medium">Medium</option>
+                          <option value="high">High</option>
+                        </select>
+                      </label>
+                    </>
+                  )}
+                  {suggestion.type === 'event' && (
+                    <>
+                      <label className="suggestion-field">
+                        <span>Date (optional)</span>
+                        <input
+                          type="date"
+                          value={
+                            contextByIndex[idx]?.date !== undefined
+                              ? contextByIndex[idx].date ?? ''
+                              : defaultMemoDate
+                          }
+                          onChange={(e) => setContextField(idx, { date: e.target.value })}
+                        />
+                      </label>
+                      <label className="suggestion-field">
+                        <span>Time (optional)</span>
+                        <input
+                          type="time"
+                          value={
+                            contextByIndex[idx]?.time !== undefined
+                              ? contextByIndex[idx].time ?? ''
+                              : suggestion.time || ''
+                          }
+                          onChange={(e) => setContextField(idx, { time: e.target.value })}
+                        />
+                      </label>
+                    </>
+                  )}
+                  {suggestion.type === 'task' && (
+                    <>
+                      <label className="suggestion-field">
+                        <span>Do date (optional)</span>
+                        <input
+                          type="date"
+                          value={
+                            contextByIndex[idx]?.date !== undefined
+                              ? contextByIndex[idx].date ?? ''
+                              : defaultMemoDate
+                          }
+                          onChange={(e) => setContextField(idx, { date: e.target.value })}
+                        />
+                      </label>
+                      <label className="suggestion-field">
+                        <span>Priority (optional)</span>
+                        <select
+                          value={contextByIndex[idx]?.priority ?? ''}
+                          onChange={(e) =>
+                            setContextField(idx, { priority: e.target.value || undefined })
+                          }
+                        >
+                          <option value="">—</option>
+                          <option value="LOW">Low</option>
+                          <option value="MEDIUM">Medium</option>
+                          <option value="HIGH">High</option>
+                          <option value="URGENT">Urgent</option>
+                        </select>
+                      </label>
+                    </>
+                  )}
+                  {suggestion.type === 'routine' && (
+                    <label className="suggestion-field suggestion-field-full">
+                      <span>Time of day (optional)</span>
+                      <select
+                        value={contextByIndex[idx]?.time ?? ''}
+                        onChange={(e) =>
+                          setContextField(idx, { time: e.target.value || undefined })
+                        }
+                      >
+                        <option value="">—</option>
+                        <option value="morning">Morning</option>
+                        <option value="afternoon">Afternoon</option>
+                        <option value="evening">Evening</option>
+                      </select>
+                    </label>
+                  )}
+                  {suggestion.type === 'journal' && (
+                    <>
+                      <label className="suggestion-field">
+                        <span>Entry date (optional)</span>
+                        <input
+                          type="date"
+                          value={
+                            contextByIndex[idx]?.date !== undefined
+                              ? contextByIndex[idx].date ?? ''
+                              : defaultMemoDate
+                          }
+                          onChange={(e) => setContextField(idx, { date: e.target.value })}
+                        />
+                      </label>
+                      <label className="suggestion-field">
+                        <span>Mood (optional)</span>
+                        <select
+                          value={contextByIndex[idx]?.mood ?? ''}
+                          onChange={(e) =>
+                            setContextField(idx, { mood: e.target.value || undefined })
+                          }
+                        >
+                          <option value="">—</option>
+                          <option value="great">Great</option>
+                          <option value="good">Good</option>
+                          <option value="okay">Okay</option>
+                          <option value="bad">Bad</option>
+                          <option value="terrible">Terrible</option>
+                        </select>
+                      </label>
+                    </>
+                  )}
+                </div>
                 
                 <p className="suggestion-reasoning">
                   💡 {suggestion.reasoning}
@@ -335,7 +517,14 @@ const VoiceCommandSuggestions: React.FC<VoiceCommandSuggestionsProps> = ({
                 </div>
               </div>
               
-              <button className="create-btn">
+              <button
+                type="button"
+                className="create-btn"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  submitSuggestion(suggestion, idx);
+                }}
+              >
                 Create This →
               </button>
             </div>
@@ -500,6 +689,42 @@ const VoiceCommandSuggestions: React.FC<VoiceCommandSuggestionsProps> = ({
           border-radius: 0.5rem;
           font-size: 0.75rem;
           font-weight: 500;
+        }
+
+        .suggestion-context-fields {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 0.65rem;
+          margin-bottom: 0.75rem;
+        }
+
+        @media (max-width: 480px) {
+          .suggestion-context-fields {
+            grid-template-columns: 1fr;
+          }
+        }
+
+        .suggestion-field-full {
+          grid-column: 1 / -1;
+        }
+
+        .suggestion-field {
+          display: flex;
+          flex-direction: column;
+          gap: 0.35rem;
+          font-size: 0.8rem;
+          color: #4b5563;
+          font-weight: 500;
+        }
+
+        .suggestion-field input[type="date"],
+        .suggestion-field input[type="time"],
+        .suggestion-field select {
+          font-size: 0.9rem;
+          padding: 0.45rem 0.55rem;
+          border-radius: 0.5rem;
+          border: 1px solid #d1d5db;
+          max-width: 100%;
         }
 
         .suggestion-reasoning {

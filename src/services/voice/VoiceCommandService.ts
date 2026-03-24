@@ -361,14 +361,23 @@ export class VoiceCommandService {
           extractedFields['tags'] = { value: userTags, isDefault: userTags.length === 0 };
           extractedFields['createdViaVoice'] = { value: true, isDefault: false };
 
-          // Infer mood from content
+          const moodEntity = parsed.entities.find(e => e.type === 'MOOD');
+          const moodFromUser = moodEntity?.normalizedValue
+            ? String(moodEntity.normalizedValue).toLowerCase()
+            : '';
+
+          // Infer mood from content, or use optional MOOD entity from Review & Create
           let mood: 'great' | 'good' | 'okay' | 'bad' | 'terrible' | undefined;
-          const content = String(contentInfo.value).toLowerCase();
-          if (/great|amazing|wonderful|fantastic|excellent|awesome/.test(content)) mood = 'great';
-          else if (/good|nice|happy|pleased|glad/.test(content)) mood = 'good';
-          else if (/okay|fine|alright|meh/.test(content)) mood = 'okay';
-          else if (/bad|sad|unhappy|frustrated|stressed/.test(content)) mood = 'bad';
-          else if (/terrible|awful|horrible|depressed|miserable/.test(content)) mood = 'terrible';
+          if (['great', 'good', 'okay', 'bad', 'terrible'].includes(moodFromUser)) {
+            mood = moodFromUser as 'great' | 'good' | 'okay' | 'bad' | 'terrible';
+          } else {
+            const content = String(contentInfo.value).toLowerCase();
+            if (/great|amazing|wonderful|fantastic|excellent|awesome/.test(content)) mood = 'great';
+            else if (/good|nice|happy|pleased|glad/.test(content)) mood = 'good';
+            else if (/okay|fine|alright|meh/.test(content)) mood = 'okay';
+            else if (/bad|sad|unhappy|frustrated|stressed/.test(content)) mood = 'bad';
+            else if (/terrible|awful|horrible|depressed|miserable/.test(content)) mood = 'terrible';
+          }
 
           if (mood) extractedFields['mood'] = { value: mood, isDefault: false };
 
@@ -715,10 +724,19 @@ export class VoiceCommandService {
             titleEntity.normalizedValue = userEdits.title;
           }
         }
-        if (userEdits.date) {
-          const dateEntity = parsed.entities.find(e => e.type === 'DATE');
+        const dateFromUser = userEdits.dueDate ?? userEdits.date;
+        if (dateFromUser) {
+          let dateEntity = parsed.entities.find(e => e.type === 'DATE');
           if (dateEntity) {
-            dateEntity.normalizedValue = userEdits.date;
+            dateEntity.normalizedValue = dateFromUser;
+            dateEntity.value = dateFromUser;
+          } else {
+            parsed.entities.push({
+              type: 'DATE' as any,
+              value: dateFromUser,
+              normalizedValue: dateFromUser,
+              confidence: 1.0,
+            });
           }
         }
         if (userEdits.time) {
@@ -743,6 +761,36 @@ export class VoiceCommandService {
               type: 'RECURRENCE' as any,
               value: userEdits.recurrence,
               normalizedValue: userEdits.recurrence,
+              confidence: 1.0,
+            });
+          }
+        }
+        if (userEdits.priority) {
+          const pv = String(userEdits.priority);
+          const priorityEntity = parsed.entities.find(e => e.type === 'PRIORITY');
+          if (priorityEntity) {
+            priorityEntity.normalizedValue = pv;
+            priorityEntity.value = pv;
+          } else {
+            parsed.entities.push({
+              type: 'PRIORITY' as any,
+              value: pv,
+              normalizedValue: pv,
+              confidence: 1.0,
+            });
+          }
+        }
+        if (userEdits.mood) {
+          const mv = String(userEdits.mood);
+          const moodEntity = parsed.entities.find(e => e.type === 'MOOD');
+          if (moodEntity) {
+            moodEntity.normalizedValue = mv;
+            moodEntity.value = mv;
+          } else {
+            parsed.entities.push({
+              type: 'MOOD' as any,
+              value: mv,
+              normalizedValue: mv,
               confidence: 1.0,
             });
           }

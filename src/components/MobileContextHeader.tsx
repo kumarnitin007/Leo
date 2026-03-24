@@ -22,6 +22,8 @@ const viewConfig: Record<string, { title: string; icon: string; color: string }>
   items: { title: 'Items', icon: '📦', color: '#f59e0b' },
   journal: { title: 'Journal', icon: '📔', color: '#8b5cf6' },
   smart: { title: 'Smart Features', icon: '✨', color: '#8b5cf6' },
+  history: { title: 'History', icon: '📋', color: '#f59e0b' },
+  'voice-pending': { title: 'Pending memos', icon: '⏳', color: '#ea580c' },
   resolutions: { title: 'Resolutions', icon: '🎯', color: '#ec4899' },
   analytics: { title: 'Analytics', icon: '📊', color: '#06b6d4' },
   settings: { title: 'Settings', icon: '⚙️', color: '#6b7280' },

@@ -390,7 +390,7 @@ const SmartView: React.FC<SmartViewProps> = ({ onNavigate, onVoicePrefillAndNavi
           </button>
         </div>
 
-        {/* History / Audit Log - last */}
+        {/* Full history / audit */}
         <div
           style={{
             background: 'linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)',
@@ -401,9 +401,9 @@ const SmartView: React.FC<SmartViewProps> = ({ onNavigate, onVoicePrefillAndNavi
           }}
         >
           <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>📋</div>
-          <h2 style={{ fontSize: '1.5rem', fontWeight: 700, margin: '0 0 0.5rem' }}>History & Audit</h2>
+          <h2 style={{ fontSize: '1.5rem', fontWeight: 700, margin: '0 0 0.5rem' }}>History & audit</h2>
           <p style={{ fontSize: '0.95rem', color: '#92400e', marginBottom: '1.5rem' }}>
-            View all your voice commands and image scans. Track what was created and when.
+            Full log of voice commands and image scans — filter by type and status, analytics.
           </p>
           <button
             onClick={() => onNavigate('history')}
@@ -419,7 +419,40 @@ const SmartView: React.FC<SmartViewProps> = ({ onNavigate, onVoicePrefillAndNavi
               fontSize: '1rem'
             }}
           >
-            📜 View History
+            📜 View full history
+          </button>
+        </div>
+
+        {/* Pending memos — needs review / create */}
+        <div
+          style={{
+            background: 'linear-gradient(135deg, #ffedd5 0%, #fed7aa 100%)',
+            borderRadius: '1rem',
+            padding: '2rem',
+            border: '2px solid #ea580c',
+            boxShadow: '0 4px 12px rgba(234, 88, 12, 0.18)'
+          }}
+        >
+          <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>⏳</div>
+          <h2 style={{ fontSize: '1.5rem', fontWeight: 700, margin: '0 0 0.5rem' }}>Pending memos</h2>
+          <p style={{ fontSize: '0.95rem', color: '#9a3412', marginBottom: '1.5rem' }}>
+            Only items still waiting for you to review, edit, or create — same list as ⏳ Pending in full history.
+          </p>
+          <button
+            onClick={() => onNavigate('voice-pending')}
+            style={{
+              width: '100%',
+              padding: '1rem',
+              background: '#ea580c',
+              color: 'white',
+              border: 'none',
+              borderRadius: '0.5rem',
+              fontWeight: 600,
+              cursor: 'pointer',
+              fontSize: '1rem'
+            }}
+          >
+            ⏳ Open pending
           </button>
         </div>
       </div>
