@@ -104,6 +104,8 @@ const VoiceCommandHistory: React.FC<VoiceCommandHistoryProps> = ({
   }, [loadCommands]);
 
   const filteredCommands = commands.filter(cmd => {
+    // Full History screen: pending items belong only on Pending Memo — not listed here
+    if (listMode === 'all' && cmd.outcome === 'PENDING') return false;
     const matchesSearch = searchQuery === '' || 
       cmd.rawTranscript?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       cmd.extractedTitle?.toLowerCase().includes(searchQuery.toLowerCase());
@@ -114,14 +116,17 @@ const VoiceCommandHistory: React.FC<VoiceCommandHistoryProps> = ({
       (filterOutcome === 'OTHER' && cmd.outcome !== 'SUCCESS' && cmd.outcome !== 'PENDING');
     return matchesSearch && matchesIntent && matchesOutcome;
   }).sort((a, b) => {
-    // Sort PENDING commands to the top
-    if (a.outcome === 'PENDING' && b.outcome !== 'PENDING') return -1;
-    if (a.outcome !== 'PENDING' && b.outcome === 'PENDING') return 1;
+    // Sort PENDING commands to the top (Pending Memo screen only)
+    if (listMode === 'pending') {
+      if (a.outcome === 'PENDING' && b.outcome !== 'PENDING') return -1;
+      if (a.outcome !== 'PENDING' && b.outcome === 'PENDING') return 1;
+    }
     // Then by date (newest first)
     return new Date(b.createdAt || '').getTime() - new Date(a.createdAt || '').getTime();
   });
 
   const pendingCount = commands.filter(c => c.outcome === 'PENDING').length;
+  const nonPendingCount = commands.filter(c => c.outcome !== 'PENDING').length;
 
   const groupedByDate = filteredCommands.reduce((groups, cmd) => {
     const date = new Date(cmd.createdAt || '').toLocaleDateString('en-US', {
@@ -281,20 +286,11 @@ const VoiceCommandHistory: React.FC<VoiceCommandHistoryProps> = ({
           <div className="voice-history-title">
             <span className="voice-history-icon">{listMode === 'pending' ? '⏳' : '📋'}</span>
             <div>
-              <h2>
-                {listMode === 'pending' ? (
-                  'Pending memos'
-                ) : (
-                  <>
-                    <span className="voice-history-heading-mobile">History</span>
-                    <span className="voice-history-heading-desktop">Smart Features History</span>
-                  </>
-                )}
-              </h2>
+              <h2>{listMode === 'pending' ? 'Pending Memo' : 'History'}</h2>
               <p>
                 {listMode === 'pending'
                   ? `${pendingCount} awaiting review`
-                  : `${commands.length} voice command${commands.length !== 1 ? 's' : ''} & image scan${commands.length !== 1 ? 's' : ''}`}
+                  : `${nonPendingCount} command${nonPendingCount !== 1 ? 's' : ''} & scan${nonPendingCount !== 1 ? 's' : ''}`}
               </p>
             </div>
           </div>
@@ -361,13 +357,13 @@ const VoiceCommandHistory: React.FC<VoiceCommandHistoryProps> = ({
           {listMode === 'all' && (
             <div className="voice-filter-pills outcome-pills">
               <span style={{ fontSize: '0.75rem', color: '#6b7280', marginRight: '0.5rem' }}>Status:</span>
-              {(['ALL', 'PENDING', 'SUCCESS', 'OTHER'] as const).map(out => (
+              {(['ALL', 'SUCCESS', 'OTHER'] as const).map(out => (
                 <button
                   key={out}
                   className={`filter-pill ${filterOutcome === out ? 'active' : ''}`}
                   onClick={() => setFilterOutcome(out)}
                 >
-                  {out === 'ALL' ? 'All' : out === 'PENDING' ? '⏳ Pending' : out === 'SUCCESS' ? '✓ Implemented' : 'Other'}
+                  {out === 'ALL' ? 'All' : out === 'SUCCESS' ? '✓ Implemented' : 'Other'}
                 </button>
               ))}
             </div>

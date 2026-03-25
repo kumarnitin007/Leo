@@ -6,7 +6,7 @@
  * - Image Scanning (Quick & Smart)
  */
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import VoiceCommandButton, { VoiceCommandButtonHandle } from './components/VoiceCommand/VoiceCommandButton';
 import ImageScanModal, { ScanContextHints } from './components/ImageScanModal';
 import SmartSuggestionsModal from './components/SmartSuggestionsModal';
@@ -37,9 +37,18 @@ const SmartView: React.FC<SmartViewProps> = ({ onNavigate, onVoicePrefillAndNavi
   const [aiScanEnabled, setAiScanEnabled] = useState(false);
   const [showWarning, setShowWarning] = useState(false);
   const [currentScanId, setCurrentScanId] = useState<string | null>(null);
+  const [isMobileViewport, setIsMobileViewport] = useState(false);
 
-  React.useEffect(() => {
+  useEffect(() => {
     loadSettings();
+  }, []);
+
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 639px)');
+    const apply = () => setIsMobileViewport(mq.matches);
+    apply();
+    mq.addEventListener('change', apply);
+    return () => mq.removeEventListener('change', apply);
   }, []);
 
   const loadSettings = async () => {
@@ -266,36 +275,47 @@ const SmartView: React.FC<SmartViewProps> = ({ onNavigate, onVoicePrefillAndNavi
     }
   };
 
+  const cardPad = isMobileViewport ? '1.25rem' : '2rem';
+  const titleRow = (icon: string, label: string, color?: string) => (
+    <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: isMobileViewport ? '0.75rem' : '1rem' }}>
+      <span style={{ fontSize: isMobileViewport ? '1.75rem' : '2.25rem', lineHeight: 1 }}>{icon}</span>
+      <h2 style={{ fontSize: isMobileViewport ? '1.2rem' : '1.5rem', fontWeight: 700, margin: 0, color: color || 'inherit' }}>{label}</h2>
+    </div>
+  );
+
   return (
-    <div className="smart-view" style={{ padding: '2rem', maxWidth: '1200px', margin: '0 auto' }}>
-      {/* Header */}
-      <div style={{ marginBottom: '2rem' }}>
-        <h1 style={{ fontSize: '2.5rem', fontWeight: 800, margin: '0 0 0.5rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-          <span>✨</span>
-          <span>Smart Features</span>
-        </h1>
-        <p style={{ fontSize: '1.1rem', color: '#6b7280', margin: 0 }}>
-          AI-powered tools to help you capture and organize information faster
-        </p>
-      </div>
+    <div className="smart-view" style={{ padding: isMobileViewport ? '1rem' : '2rem', maxWidth: '1200px', margin: '0 auto' }}>
+      {/* Header — mobile uses app bar only (MobileContextHeader) */}
+      {!isMobileViewport && (
+        <div style={{ marginBottom: '2rem' }}>
+          <h1 style={{ fontSize: '2.5rem', fontWeight: 800, margin: '0 0 0.5rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <span>✨</span>
+            <span>Smart Features</span>
+          </h1>
+          <p style={{ fontSize: '1.1rem', color: '#6b7280', margin: 0 }}>
+            AI-powered tools to help you capture and organize information faster
+          </p>
+        </div>
+      )}
 
       {/* Features Grid */}
       <div style={{ display: 'grid', gap: '1.5rem', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))' }}>
-        {/* Voice Commands */}
+        {/* Voice — compact title: mic + "Voice" */}
         <div
           style={{
             background: 'linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%)',
             borderRadius: '1rem',
-            padding: '2rem',
+            padding: cardPad,
             border: '2px solid #3b82f6',
             boxShadow: '0 4px 12px rgba(59, 130, 246, 0.2)'
           }}
         >
-          <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🎤</div>
-          <h2 style={{ fontSize: '1.5rem', fontWeight: 700, margin: '0 0 0.5rem' }}>Voice Commands</h2>
-          <p style={{ fontSize: '0.95rem', color: '#1e40af', marginBottom: '1.5rem' }}>
-            Speak to create tasks, events, journal entries, and more. Just press the button and start talking!
-          </p>
+          {titleRow('🎤', 'Voice', '#1e3a8a')}
+          {!isMobileViewport && (
+            <p style={{ fontSize: '0.95rem', color: '#1e40af', margin: '0 0 1.25rem' }}>
+              Speak to create tasks, events, journal entries, and more. Press the button and start talking.
+            </p>
+          )}
           <VoiceCommandButton
             ref={voiceButtonRef}
             showFloatingButton={false}
@@ -308,17 +328,18 @@ const SmartView: React.FC<SmartViewProps> = ({ onNavigate, onVoicePrefillAndNavi
             onClick={() => voiceButtonRef.current?.open()}
             style={{
               width: '100%',
-              padding: '1rem',
+              padding: isMobileViewport ? '0.75rem' : '1rem',
               background: '#3b82f6',
               color: 'white',
               border: 'none',
               borderRadius: '0.5rem',
               fontWeight: 600,
               cursor: 'pointer',
-              fontSize: '1rem'
+              fontSize: isMobileViewport ? '0.95rem' : '1rem',
+              marginTop: '0.5rem'
             }}
           >
-            🎤 Start Voice Command
+            {isMobileViewport ? '🎤 Start' : '🎤 Start Voice Command'}
           </button>
         </div>
 
@@ -327,29 +348,30 @@ const SmartView: React.FC<SmartViewProps> = ({ onNavigate, onVoicePrefillAndNavi
           style={{
             background: 'linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%)',
             borderRadius: '1rem',
-            padding: '2rem',
+            padding: cardPad,
             border: '2px solid #10b981',
             boxShadow: '0 4px 12px rgba(16, 185, 129, 0.2)'
           }}
         >
-          <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🆓</div>
-          <h2 style={{ fontSize: '1.5rem', fontWeight: 700, margin: '0 0 0.5rem' }}>Quick Scan</h2>
-          <p style={{ fontSize: '0.95rem', color: '#065f46', marginBottom: '1.5rem' }}>
-            Free instant OCR. Scan birthday cards, invitations, handwritten notes, receipts, and more.
-          </p>
+          {titleRow('🆓', 'Quick Scan', '#065f46')}
+          {!isMobileViewport && (
+            <p style={{ fontSize: '0.95rem', color: '#065f46', margin: '0 0 1.25rem' }}>
+              Free instant OCR. Scan birthday cards, invitations, handwritten notes, receipts, and more.
+            </p>
+          )}
           <button
             onClick={() => handleScanClick('quick')}
             disabled={isScanning}
             style={{
               width: '100%',
-              padding: '1rem',
+              padding: isMobileViewport ? '0.75rem' : '1rem',
               background: '#10b981',
               color: 'white',
               border: 'none',
               borderRadius: '0.5rem',
               fontWeight: 600,
               cursor: isScanning ? 'not-allowed' : 'pointer',
-              fontSize: '1rem'
+              fontSize: isMobileViewport ? '0.95rem' : '1rem'
             }}
           >
             {isScanning ? '⏳ Scanning...' : '📸 Start Quick Scan'}
@@ -361,103 +383,107 @@ const SmartView: React.FC<SmartViewProps> = ({ onNavigate, onVoicePrefillAndNavi
           style={{
             background: 'linear-gradient(135deg, #f3e8ff 0%, #e9d5ff 100%)',
             borderRadius: '1rem',
-            padding: '2rem',
+            padding: cardPad,
             border: '2px solid #8b5cf6',
             boxShadow: '0 4px 12px rgba(139, 92, 246, 0.2)'
           }}
         >
-          <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>✨</div>
-          <h2 style={{ fontSize: '1.5rem', fontWeight: 700, margin: '0 0 0.5rem' }}>Smart Scan</h2>
-          <p style={{ fontSize: '0.95rem', color: '#6b21a8', marginBottom: '1.5rem' }}>
-            AI-powered analysis with GPT-4 Vision. Best accuracy for complex images and multiple items.
-          </p>
+          {titleRow('✨', 'Smart Scan', '#6b21a8')}
+          {!isMobileViewport && (
+            <p style={{ fontSize: '0.95rem', color: '#6b21a8', margin: '0 0 1.25rem' }}>
+              AI-powered analysis with GPT-4 Vision. Best accuracy for complex images and multiple items.
+            </p>
+          )}
           <button
             onClick={() => handleScanClick('smart')}
             disabled={isScanning}
             style={{
               width: '100%',
-              padding: '1rem',
+              padding: isMobileViewport ? '0.75rem' : '1rem',
               background: '#8b5cf6',
               color: 'white',
               border: 'none',
               borderRadius: '0.5rem',
               fontWeight: 600,
               cursor: isScanning ? 'not-allowed' : 'pointer',
-              fontSize: '1rem'
+              fontSize: isMobileViewport ? '0.95rem' : '1rem'
             }}
           >
             {isScanning ? '⏳ Scanning...' : '✨ Start Smart Scan'}
           </button>
         </div>
 
-        {/* Full history / audit */}
-        <div
-          style={{
-            background: 'linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)',
-            borderRadius: '1rem',
-            padding: '2rem',
-            border: '2px solid #f59e0b',
-            boxShadow: '0 4px 12px rgba(245, 158, 11, 0.2)'
-          }}
-        >
-          <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>📋</div>
-          <h2 style={{ fontSize: '1.5rem', fontWeight: 700, margin: '0 0 0.5rem' }}>History & audit</h2>
-          <p style={{ fontSize: '0.95rem', color: '#92400e', marginBottom: '1.5rem' }}>
-            Full log of voice commands and image scans — filter by type and status, analytics.
-          </p>
-          <button
-            onClick={() => onNavigate('history')}
-            style={{
-              width: '100%',
-              padding: '1rem',
-              background: '#f59e0b',
-              color: 'white',
-              border: 'none',
-              borderRadius: '0.5rem',
-              fontWeight: 600,
-              cursor: 'pointer',
-              fontSize: '1rem'
-            }}
-          >
-            📜 View full history
-          </button>
-        </div>
-
-        {/* Pending memos — needs review / create */}
+        {/* Pending Memo — above History; items awaiting review only live here */}
         <div
           style={{
             background: 'linear-gradient(135deg, #ffedd5 0%, #fed7aa 100%)',
             borderRadius: '1rem',
-            padding: '2rem',
+            padding: cardPad,
             border: '2px solid #ea580c',
             boxShadow: '0 4px 12px rgba(234, 88, 12, 0.18)'
           }}
         >
-          <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>⏳</div>
-          <h2 style={{ fontSize: '1.5rem', fontWeight: 700, margin: '0 0 0.5rem' }}>Pending memos</h2>
-          <p style={{ fontSize: '0.95rem', color: '#9a3412', marginBottom: '1.5rem' }}>
-            Only items still waiting for you to review, edit, or create — same list as ⏳ Pending in full history.
-          </p>
+          {titleRow('⏳', 'Pending Memo', '#9a3412')}
+          {!isMobileViewport && (
+            <p style={{ fontSize: '0.95rem', color: '#9a3412', margin: '0 0 1.25rem' }}>
+              Voice memos and scans that still need review or create before they are saved to your app.
+            </p>
+          )}
           <button
             onClick={() => onNavigate('voice-pending')}
             style={{
               width: '100%',
-              padding: '1rem',
+              padding: isMobileViewport ? '0.75rem' : '1rem',
               background: '#ea580c',
               color: 'white',
               border: 'none',
               borderRadius: '0.5rem',
               fontWeight: 600,
               cursor: 'pointer',
-              fontSize: '1rem'
+              fontSize: isMobileViewport ? '0.95rem' : '1rem'
             }}
           >
             ⏳ Open pending
           </button>
         </div>
+
+        {/* History — completed / resolved commands and scans (no pending items) */}
+        <div
+          style={{
+            background: 'linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)',
+            borderRadius: '1rem',
+            padding: cardPad,
+            border: '2px solid #f59e0b',
+            boxShadow: '0 4px 12px rgba(245, 158, 11, 0.2)'
+          }}
+        >
+          {titleRow('📋', 'History', '#92400e')}
+          {!isMobileViewport && (
+            <p style={{ fontSize: '0.95rem', color: '#92400e', margin: '0 0 1.25rem' }}>
+              Full log of voice commands and image scans — filter by type and outcome, plus analytics.
+            </p>
+          )}
+          <button
+            onClick={() => onNavigate('history')}
+            style={{
+              width: '100%',
+              padding: isMobileViewport ? '0.75rem' : '1rem',
+              background: '#f59e0b',
+              color: 'white',
+              border: 'none',
+              borderRadius: '0.5rem',
+              fontWeight: 600,
+              cursor: 'pointer',
+              fontSize: isMobileViewport ? '0.95rem' : '1rem'
+            }}
+          >
+            📜 Open history
+          </button>
+        </div>
       </div>
 
-      {/* Info Section */}
+      {/* Info Section — desktop / tablet; mobile keeps focus on action cards */}
+      {!isMobileViewport && (
       <div
         style={{
           marginTop: '2rem',
@@ -479,6 +505,7 @@ const SmartView: React.FC<SmartViewProps> = ({ onNavigate, onVoicePrefillAndNavi
           <div>💊 Prescriptions</div>
         </div>
       </div>
+      )}
 
       {/* Modals */}
       <ImageScanModal

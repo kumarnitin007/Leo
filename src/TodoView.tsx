@@ -405,17 +405,19 @@ const TodoView: React.FC<TodoViewProps> = () => {
         gap: '1rem'
       }}>
         <div>
-          <h1 style={{ 
-            margin: 0, 
-            fontSize: '1.75rem', 
-            display: 'flex', 
-            alignItems: 'center', 
-            gap: '0.5rem',
-            color: theme.colors.text
-          }}>
-            📝 My Lists
-          </h1>
-          <p style={{ margin: '0.25rem 0 0', color: '#6b7280', fontSize: '0.9rem' }}>
+          {!isMobileViewport && (
+            <h1 style={{ 
+              margin: 0, 
+              fontSize: '1.75rem', 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '0.5rem',
+              color: theme.colors.text
+            }}>
+              📝 My Lists
+            </h1>
+          )}
+          <p style={{ margin: isMobileViewport ? '0 0 0.25rem' : '0.25rem 0 0', color: '#6b7280', fontSize: '0.9rem' }}>
             {completedItems} of {totalItems} completed ({progressPercent}%)
           </p>
         </div>
@@ -500,29 +502,35 @@ const TodoView: React.FC<TodoViewProps> = () => {
         }} />
       </div>
 
-      {/* Group filter chips */}
+      {/* Group filter chips — single scrollable row on mobile */}
       <div style={{
         display: 'flex',
         gap: '0.5rem',
-        flexWrap: 'wrap',
+        flexWrap: isMobileViewport ? 'nowrap' : 'wrap',
         marginBottom: '1rem',
-        alignItems: 'center'
+        alignItems: 'center',
+        overflowX: isMobileViewport ? 'auto' : undefined,
+        WebkitOverflowScrolling: 'touch',
+        paddingBottom: isMobileViewport ? '2px' : undefined,
+        maxWidth: '100%'
       }}>
-        <span style={{ color: '#6b7280', fontSize: '0.85rem', fontWeight: 500 }}>Filter:</span>
+        <span style={{ color: '#6b7280', fontSize: isMobileViewport ? '0.8rem' : '0.85rem', fontWeight: 500, flexShrink: 0 }}>Filter:</span>
         <button
           onClick={() => {
             setSelectedGroups(new Set());
             setPastDueOnly(false);
           }}
           style={{
-            padding: '0.375rem 0.875rem',
+            padding: isMobileViewport ? '0.3rem 0.55rem' : '0.375rem 0.875rem',
             background: selectedGroups.size === 0 && !pastDueOnly ? theme.colors.primary : '#f3f4f6',
             color: selectedGroups.size === 0 && !pastDueOnly ? 'white' : '#374151',
             border: 'none',
             borderRadius: '9999px',
             cursor: 'pointer',
-            fontSize: '0.8rem',
-            fontWeight: 500
+            fontSize: isMobileViewport ? '0.75rem' : '0.8rem',
+            fontWeight: 500,
+            flexShrink: 0,
+            whiteSpace: 'nowrap'
           }}
         >
           All
@@ -530,7 +538,7 @@ const TodoView: React.FC<TodoViewProps> = () => {
         <button
           onClick={() => toggleGroupFilter('ungrouped')}
           style={{
-            padding: '0.375rem 0.875rem',
+            padding: isMobileViewport ? '0.3rem 0.55rem' : '0.375rem 0.875rem',
             background:
               selectedGroups.size === 1 && selectedGroups.has('ungrouped') ? '#6b7280' : '#f3f4f6',
             color:
@@ -538,8 +546,10 @@ const TodoView: React.FC<TodoViewProps> = () => {
             border: 'none',
             borderRadius: '9999px',
             cursor: 'pointer',
-            fontSize: '0.8rem',
-            fontWeight: 500
+            fontSize: isMobileViewport ? '0.75rem' : '0.8rem',
+            fontWeight: 500,
+            flexShrink: 0,
+            whiteSpace: 'nowrap'
           }}
         >
           {isMobileViewport ? '📋 Quick' : '📋 Quick Items'}
@@ -547,19 +557,22 @@ const TodoView: React.FC<TodoViewProps> = () => {
         {isMobileViewport && (
           <button
             type="button"
+            title="Past due items"
             onClick={() => setPastDueOnly(p => !p)}
             style={{
-              padding: '0.375rem 0.875rem',
+              padding: '0.3rem 0.5rem',
               background: pastDueOnly ? '#b91c1c' : '#f3f4f6',
               color: pastDueOnly ? 'white' : '#374151',
               border: 'none',
               borderRadius: '9999px',
               cursor: 'pointer',
-              fontSize: '0.8rem',
-              fontWeight: 500
+              fontSize: '0.75rem',
+              fontWeight: 500,
+              flexShrink: 0,
+              whiteSpace: 'nowrap'
             }}
           >
-            ⚠️ Past due
+            ⚠️ Due
           </button>
         )}
       </div>
@@ -579,7 +592,7 @@ const TodoView: React.FC<TodoViewProps> = () => {
             onChange={(e) => setShowCompleted(e.target.checked)}
             style={{ cursor: 'pointer' }}
           />
-          Show completed
+          Completed
         </label>
         {completedItems > 0 && (
           <button

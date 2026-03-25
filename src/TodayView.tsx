@@ -198,33 +198,46 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
     }
   };
 
+  // Clear dashboard extras when signed out (avoid stale data + skip API until session exists)
+  useEffect(() => {
+    if (!authLoading && !user) {
+      setUpcomingTodos([]);
+      setTodoGroups({});
+      setDashboardComments([]);
+    }
+  }, [authLoading, user]);
+
   // Load TODOs when section is expanded OR on initial load if there might be todos
   useEffect(() => {
+    if (authLoading || !user) return;
     if (isTodosExpanded && upcomingTodos.length === 0 && !isLoadingTodos) {
       loadUpcomingTodos();
     }
-  }, [isTodosExpanded]);
+  }, [isTodosExpanded, authLoading, user]);
 
-  // Also try to load todos on mount to check if section should be visible
+  // Also try to load todos on mount to check if section should be visible (after auth ready)
   useEffect(() => {
+    if (authLoading || !user) return;
     if (!isLoadingTodos && upcomingTodos.length === 0) {
       loadUpcomingTodos();
     }
-  }, []);
+  }, [authLoading, user]);
 
   // Load comments when section is expanded
   useEffect(() => {
+    if (authLoading || !user) return;
     if (isCommentsExpanded && dashboardComments.length === 0 && !isLoadingComments) {
       loadDashboardComments();
     }
-  }, [isCommentsExpanded]);
+  }, [isCommentsExpanded, authLoading, user]);
 
-  // Load comments on mount
+  // Load comments on mount (after auth ready)
   useEffect(() => {
+    if (authLoading || !user) return;
     if (!isLoadingComments && dashboardComments.length === 0) {
       loadDashboardComments();
     }
-  }, []);
+  }, [authLoading, user]);
 
   // Load observances when section is expanded
   useEffect(() => {
