@@ -40,6 +40,8 @@ import { CryptoKey, encryptData, decryptData } from '../utils/encryption';
 import { useTheme } from '../contexts/ThemeContext';
 import PendingFinancialImportsModal, { AccountUpdate } from './PendingFinancialImportsModal';
 import { getPendingImportCount, approveFinancialImport } from '../services/pendingFinancialImports';
+import { loadUserSettings } from '../storage';
+import type { FinancialPreferences } from '../types';
 import {
   CURRENCY_SYMBOLS,
   DEFAULT_RATES,
@@ -265,6 +267,14 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
   };
 
   async function loadData() {
+    let profileFin: FinancialPreferences | undefined;
+    try {
+      const us = await loadUserSettings();
+      profileFin = us.financialPreferences;
+    } catch {
+      /* not signed in or offline */
+    }
+
     try {
       if (supabase && userId && encryptionKey) {
         // Load from Supabase
@@ -296,7 +306,11 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
             setGoals(parsed.goals || []);
             setTotalValueHistory(parsed.totalValueHistory || []);
             if (parsed.exchangeRates) setExchangeRates(parsed.exchangeRates);
+            else if (profileFin?.exchangeRates) {
+              setExchangeRates({ ...DEFAULT_RATES, ...profileFin.exchangeRates });
+            }
             if (parsed.displayCurrency) setDisplayCurrency(parsed.displayCurrency);
+            else if (profileFin?.preferredDisplayCurrency) setDisplayCurrency(profileFin.preferredDisplayCurrency);
             else setDisplayCurrency(getDefaultDisplayCurrency());
             console.log('[BankDashboard] ✅ Loaded data from Supabase');
           } catch (decryptError) {
@@ -317,7 +331,9 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
           setAccounts([]);
           setBills([]);
           setActions([]);
-          setDisplayCurrency(getDefaultDisplayCurrency());
+          if (profileFin?.exchangeRates) setExchangeRates({ ...DEFAULT_RATES, ...profileFin.exchangeRates });
+          if (profileFin?.preferredDisplayCurrency) setDisplayCurrency(profileFin.preferredDisplayCurrency);
+          else setDisplayCurrency(getDefaultDisplayCurrency());
         }
       } else {
         // No Supabase/encryption — start empty
@@ -375,7 +391,9 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
           bankName: d.bank || '',
           billName: undefined,
           fdDetail: fdDetail || undefined,
-          kindLabel: 'FD maturity',
+          kindLabel: 'Deposit',
+          dueDateLabel: d.maturityDate ? fmtDate(d.maturityDate) : undefined,
+          amountLabel: fmt(Number(d.maturityAmt) || Number(d.deposit), d.currency),
           daysUntil: days,
           severity,
           type: 'maturity'
@@ -402,7 +420,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
       const billName =
         row.source === 'bill' ? row.note.replace(/^Bill:\s*/, '').trim() : undefined;
       const kindLabel =
-        row.source === 'account' ? 'Account task' : row.source === 'deposit' ? 'FD task' : 'Bill task';
+        row.source === 'account' ? 'Account' : row.source === 'deposit' ? 'Deposit' : 'Bill';
       alertsList.push({
         title: row.title,
         description,
@@ -410,6 +428,8 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
         billName: billName || undefined,
         fdDetail: row.note || undefined,
         kindLabel,
+        dueDateLabel: row.date ? fmtDate(row.date) : undefined,
+        amountLabel: undefined,
         daysUntil: hasDate ? days! : -1,
         severity,
         type: 'action'
@@ -430,7 +450,9 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
           bankName: a.bank || '',
           billName: undefined,
           fdDetail: undefined,
-          kindLabel: 'Reminder',
+          kindLabel: 'Account',
+          dueDateLabel: a.date ? fmtDate(a.date) : undefined,
+          amountLabel: undefined,
           daysUntil: days,
           severity,
           type: 'action'
@@ -442,7 +464,9 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
           bankName: a.bank || '',
           billName: undefined,
           fdDetail: undefined,
-          kindLabel: 'Reminder',
+          kindLabel: 'Account',
+          dueDateLabel: undefined,
+          amountLabel: undefined,
           daysUntil: -1,
           severity: 'info',
           type: 'action'
@@ -460,6 +484,8 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
         billName: b.name,
         fdDetail: undefined,
         kindLabel: 'Bill',
+        dueDateLabel: b.due ? fmtDate(b.due) : undefined,
+        amountLabel: b.amount != null && b.amount !== '' ? fmt(Number(b.amount), b.currency) : undefined,
         daysUntil: -1,
         severity: b.priority === 'High' || b.priority === 'Urgent' ? 'warning' : 'info',
         type: 'bill'
@@ -1204,19 +1230,16 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
     return [minTs - pad, maxTs + pad];
   }, [portfolioHistoryChartData]);
 
-  // Y-axis domain from data (min/max + padding) so growth is visible instead of flat against 0–max
+  // Y-axis domain: stacked chart total = accounts + deposits per snapshot (top of stack)
   const portfolioHistoryYDomain = useMemo((): [number, number] | undefined => {
     if (!portfolioHistoryChartData.length) return undefined;
-    const hasDeposit = portfolioHistoryChartData.some(p => Number(p.totalDepositValue) !== 0);
-    const vals = portfolioHistoryChartData.flatMap(p => {
-      const arr = [Number(p.totalAccountValue) || 0];
-      if (hasDeposit) arr.push(Number(p.totalDepositValue) || 0);
-      return arr;
-    });
-    const dataMin = Math.min(...vals);
-    const dataMax = Math.max(...vals);
+    const totals = portfolioHistoryChartData.map(
+      p => (Number(p.totalAccountValue) || 0) + (Number(p.totalDepositValue) || 0)
+    );
+    const dataMin = Math.min(0, ...totals);
+    const dataMax = Math.max(...totals, 1);
     const range = dataMax - dataMin || 1;
-    const padding = range > 0 ? Math.max(range * 0.1, 1) : Math.max(Math.abs(dataMin) * 0.05, 1);
+    const padding = range > 0 ? Math.max(range * 0.08, 1) : Math.max(Math.abs(dataMin) * 0.05, 1);
     return [dataMin - padding, dataMax + padding];
   }, [portfolioHistoryChartData]);
 

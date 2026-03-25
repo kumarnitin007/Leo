@@ -414,3 +414,26 @@ export const getThemeById = (id: string): Theme => {
  */
 export const DEFAULT_THEME_ID = 'mint-fresh';
 
+/** Legacy DB values (short names) → current theme ids */
+const LEGACY_THEME_ID_MAP: Record<string, string> = {
+  purple: 'purple-dream',
+  ruby: 'routine-ruby',
+  mint: 'mint-fresh',
+  teal: 'ocean-breeze',
+  navy: 'corporate-navy',
+  slate: 'executive-slate',
+  charcoal: 'professional-charcoal',
+  burgundy: 'banker-burgundy',
+};
+
+/**
+ * Normalize theme id from DB/localStorage (handles legacy short names).
+ */
+export const normalizeStoredThemeId = (raw: string | undefined | null): string => {
+  if (!raw) return DEFAULT_THEME_ID;
+  if (themes.some(t => t.id === raw)) return raw;
+  const mapped = LEGACY_THEME_ID_MAP[raw];
+  if (mapped && themes.some(t => t.id === mapped)) return mapped;
+  return DEFAULT_THEME_ID;
+};
+

@@ -21,8 +21,12 @@ export interface CachedFinancialAlert {
   billName?: string;
   /** FD product line: type · duration · id */
   fdDetail?: string;
-  /** Short label for layout C: e.g. "FD maturity", "Bill", "Task" */
+  /** Row type label: Account | Deposit | Bill */
   kindLabel?: string;
+  /** Due date column (formatted) */
+  dueDateLabel?: string;
+  /** Amount column (formatted) */
+  amountLabel?: string;
 }
 
 // Cached summary stored by BankDashboard (non-sensitive)
@@ -44,7 +48,7 @@ export interface FinancialAlertsSummary {
 export type FinancialAlertsLayoutMode =
   | 'standard'
   | 'bankFirst'
-  | 'typeTags'
+  | 'table'
   | 'oneLine';
 
 const CACHE_KEY = 'leo_financial_alerts_cache';
@@ -77,7 +81,8 @@ function getFinancialAlertsCache(): FinancialAlertsSummary | null {
 function getLayoutMode(): FinancialAlertsLayoutMode {
   try {
     const v = localStorage.getItem(LAYOUT_MODE_KEY) as FinancialAlertsLayoutMode | null;
-    if (v === 'standard' || v === 'bankFirst' || v === 'typeTags' || v === 'oneLine') return v;
+    if (v === 'standard' || v === 'bankFirst' || v === 'table' || v === 'oneLine') return v;
+    if (v === 'typeTags') return 'table';
   } catch {
     /* ignore */
   }
@@ -94,9 +99,9 @@ function persistLayoutModePreference(mode: FinancialAlertsLayoutMode) {
 
 function fallbackKindLabel(alert: CachedFinancialAlert): string {
   if (alert.kindLabel) return alert.kindLabel;
-  if (alert.type === 'maturity') return 'FD maturity';
+  if (alert.type === 'maturity') return 'Deposit';
   if (alert.type === 'bill' || alert.type === 'bill_due') return 'Bill';
-  return 'Task';
+  return 'Account';
 }
 
 interface FinancialAlertsWidgetProps {
@@ -106,7 +111,7 @@ interface FinancialAlertsWidgetProps {
 const LAYOUT_OPTIONS: { id: FinancialAlertsLayoutMode; label: string; hint: string }[] = [
   { id: 'standard', label: 'A · Standard', hint: 'Title + detail' },
   { id: 'bankFirst', label: 'B · Bank first', hint: 'Bank / bill name on top' },
-  { id: 'typeTags', label: 'C · Tags', hint: 'Kind + lines' },
+  { id: 'table', label: 'C · Table', hint: 'Bank · Task · Amount · Due' },
   { id: 'oneLine', label: 'D · One line', hint: 'Compact' },
 ];
 
@@ -333,6 +338,37 @@ const FinancialAlertsWidget: React.FC<FinancialAlertsWidgetProps> = ({
           {/* Alerts List - Primary content */}
           {alerts.length > 0 ? (
             <div>
+              {layoutMode === 'table' && (
+                <div
+                  style={{
+                    padding: '6px 12px',
+                    borderBottom: '1px solid rgba(0,0,0,0.08)',
+                    background: 'rgba(255,255,255,0.55)',
+                    overflowX: 'auto',
+                  }}
+                >
+                  <div
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: '72px minmax(80px,1fr) minmax(100px,1.4fr) minmax(72px,1fr) minmax(100px,1.1fr)',
+                      gap: 8,
+                      alignItems: 'center',
+                      fontSize: 9,
+                      fontWeight: 700,
+                      color: 'rgba(0,0,0,0.45)',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.04em',
+                      minWidth: 320,
+                    }}
+                  >
+                    <span>Type</span>
+                    <span>Bank</span>
+                    <span>Task</span>
+                    <span>Amount</span>
+                    <span style={{ textAlign: 'right' }}>Due</span>
+                  </div>
+                </div>
+              )}
               {visibleAlerts.map((alert, i) => {
                 const hasDividerBelow = i < visibleAlerts.length - 1;
                 const rowBg =
@@ -392,63 +428,60 @@ const FinancialAlertsWidget: React.FC<FinancialAlertsWidgetProps> = ({
                   );
                 }
 
-                if (layoutMode === 'typeTags') {
+                if (layoutMode === 'table') {
+                  const bankCol =
+                    alert.bankName?.trim() ||
+                    alert.billName?.trim() ||
+                    '—';
+                  const taskCol = alert.title?.trim() || '—';
+                  const amountCol =
+                    alert.amountLabel?.trim() ||
+                    (alert.type === 'action' && !alert.amountLabel ? '—' : alert.description?.trim()) ||
+                    '—';
+                  const dueText =
+                    alert.dueDateLabel?.trim() ||
+                    (alert.daysUntil >= 0
+                      ? alert.daysUntil === 0
+                        ? 'Today'
+                        : `${alert.daysUntil}d`
+                      : '');
                   return (
                     <div
                       key={i}
                       style={{
-                        display: 'flex',
-                        alignItems: 'flex-start',
-                        gap: 10,
-                        padding: '10px 16px',
-                        borderBottom: hasDividerBelow ? '1px solid rgba(0,0,0,0.05)' : 'none',
+                        padding: '8px 12px',
+                        borderBottom: hasDividerBelow ? '1px solid rgba(0,0,0,0.06)' : 'none',
                         background: rowBg,
+                        overflowX: 'auto',
                       }}
                     >
                       <div
                         style={{
-                          width: 32,
-                          height: 32,
-                          borderRadius: 8,
-                          display: 'flex',
+                          display: 'grid',
+                          gridTemplateColumns: '72px minmax(80px,1fr) minmax(100px,1.4fr) minmax(72px,1fr) minmax(100px,1.1fr)',
+                          gap: 8,
                           alignItems: 'center',
-                          justifyContent: 'center',
-                          fontSize: 14,
-                          background: iconBg,
-                          flexShrink: 0,
-                          marginTop: 2,
+                          fontSize: 11,
+                          minWidth: 320,
                         }}
                       >
-                        {getTypeIcon(alert.type)}
-                      </div>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginBottom: 4 }}>
-                          <span
-                            style={{
-                              fontSize: 9,
-                              fontWeight: 700,
-                              textTransform: 'uppercase',
-                              letterSpacing: '0.06em',
-                              padding: '2px 8px',
-                              borderRadius: 6,
-                              background: getSeverityBg(alert.severity),
-                              color: getSeverityColor(alert.severity),
-                            }}
-                          >
-                            {kind}
-                          </span>
-                          {idLine ? (
-                            <span style={{ fontSize: 11, fontWeight: 600, color: '#0f766e' }}>{idLine}</span>
-                          ) : null}
-                        </div>
-                        <div style={{ fontSize: 13, fontWeight: 600, color: '#1a1a2e', lineHeight: 1.35 }}>{alert.title}</div>
-                        <div style={{ fontSize: 11, color: 'rgba(0,0,0,0.5)' }}>
-                          {alert.type === 'maturity' && alert.fdDetail
-                            ? `${alert.fdDetail} · ${alert.description}`
-                            : alert.description}
+                        <span style={{ fontWeight: 700, color: getSeverityColor(alert.severity), fontSize: 10 }}>
+                          {kind}
+                        </span>
+                        <span style={{ fontWeight: 600, color: '#0f766e', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={bankCol}>
+                          {bankCol}
+                        </span>
+                        <span style={{ color: '#1a1a2e', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={taskCol}>
+                          {taskCol}
+                        </span>
+                        <span style={{ fontFamily: 'monospace', color: '#374151', fontSize: 10 }} title={amountCol}>
+                          {amountCol}
+                        </span>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 6, flexWrap: 'wrap' }}>
+                          {dueText ? <span style={{ color: '#57534e', fontSize: 10 }}>{dueText}</span> : null}
+                          {renderDaysBadge(alert)}
                         </div>
                       </div>
-                      <div style={{ textAlign: 'right', flexShrink: 0 }}>{renderDaysBadge(alert)}</div>
                     </div>
                   );
                 }

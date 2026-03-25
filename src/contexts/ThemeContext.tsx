@@ -12,9 +12,11 @@
  * ```
  */
 
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { Theme, themes, getThemeById, DEFAULT_THEME_ID } from '../constants/themes';
+import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import { Theme, themes, getThemeById, DEFAULT_THEME_ID, normalizeStoredThemeId } from '../constants/themes';
 import { RADIUS, SHADOW, TRANSITION, SPACING } from '../constants/design-tokens';
+import { useAuth } from './AuthContext';
+import { loadUserSettings, saveUserSettings } from '../storage';
 
 // Storage key for theme preference
 const THEME_STORAGE_KEY = 'myday-theme';
@@ -33,11 +35,13 @@ const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
  * Wrap your app with this to enable theme functionality
  */
 export const ThemeProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  // Load saved theme or use default
+  const { user, loading: authLoading } = useAuth();
+
+  // Load saved theme or use default (local first — fast paint)
   const [currentThemeId, setCurrentThemeId] = useState<string>(() => {
     try {
       const saved = localStorage.getItem(THEME_STORAGE_KEY);
-      return saved || DEFAULT_THEME_ID;
+      return normalizeStoredThemeId(saved);
     } catch {
       return DEFAULT_THEME_ID;
     }
@@ -46,17 +50,52 @@ export const ThemeProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   const theme = getThemeById(currentThemeId);
 
   /**
-   * Change the current theme
-   * Saves preference to localStorage for persistence
+   * After sign-in, apply theme from myday_user_settings so it matches other devices.
    */
-  const setTheme = (themeId: string) => {
-    setCurrentThemeId(themeId);
+  useEffect(() => {
+    if (authLoading || !user?.id) return;
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const settings = await loadUserSettings();
+        if (cancelled) return;
+        const tid = normalizeStoredThemeId(settings.theme);
+        setCurrentThemeId(tid);
+        try {
+          localStorage.setItem(THEME_STORAGE_KEY, tid);
+        } catch {
+          /* ignore */
+        }
+      } catch (e) {
+        console.warn('[Theme] Could not load theme from account:', e);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [authLoading, user?.id]);
+
+  /**
+   * Change theme: localStorage + Supabase user settings (when signed in) for cross-device sync.
+   */
+  const setTheme = useCallback((themeId: string) => {
+    const id = themes.some(t => t.id === themeId) ? themeId : DEFAULT_THEME_ID;
+    setCurrentThemeId(id);
     try {
-      localStorage.setItem(THEME_STORAGE_KEY, themeId);
+      localStorage.setItem(THEME_STORAGE_KEY, id);
     } catch (error) {
       console.error('Error saving theme:', error);
     }
-  };
+    void (async () => {
+      try {
+        await saveUserSettings({ theme: id });
+      } catch {
+        // Not signed in or offline — local preference still applies
+      }
+    })();
+  }, []);
 
   /**
    * Apply theme colors and design tokens to CSS variables

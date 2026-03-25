@@ -31,7 +31,7 @@ import Portal from './Portal';
 import { useTheme } from '../contexts/ThemeContext';
 import { useUser } from '../contexts/UserContext';
 import { avatars, AVATAR_CATEGORIES } from '../constants/avatars';
-import { DashboardLayout, TemperatureUnit } from '../types';
+import { DashboardLayout, TemperatureUnit, FinancialPreferences, FinancialDisplayCurrencyPref } from '../types';
 import { getUserSettings, saveUserSettings } from '../storage';
 import { getUserLevel, UserLevelAssignment } from '../services/userLevelService';
 
@@ -54,6 +54,9 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ show, onClose }) => {
   const [dashboardLayout, setDashboardLayout] = useState<DashboardLayout>('uniform');
   const [location, setLocation] = useState<{ zipCode?: string; city?: string; country?: string }>({});
   const [temperatureUnit, setTemperatureUnit] = useState<TemperatureUnit | undefined>(undefined);
+  const [financialPreferences, setFinancialPreferences] = useState<FinancialPreferences>({
+    exchangeRates: { USD: 83, EUR: 90, GBP: 105 },
+  });
   const [userLevel, setUserLevel] = useState<UserLevelAssignment | null>(null);
 
   // Load settings from storage
@@ -66,7 +69,15 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ show, onClose }) => {
         setDashboardLayout(settings.dashboardLayout);
         setLocation(settings.location || {});
         setTemperatureUnit(settings.temperatureUnit);
-        
+        setFinancialPreferences({
+          preferredDisplayCurrency: settings.financialPreferences?.preferredDisplayCurrency,
+          exchangeRates: {
+            USD: settings.financialPreferences?.exchangeRates?.USD ?? 83,
+            EUR: settings.financialPreferences?.exchangeRates?.EUR ?? 90,
+            GBP: settings.financialPreferences?.exchangeRates?.GBP ?? 105,
+          },
+        });
+
         // Load user level
         const level = await getUserLevel();
         setUserLevel(level);
@@ -87,7 +98,13 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ show, onClose }) => {
       console.log('📍 Location to save:', location);
       await setUsername(editingUsername);
       await setEmail(editingEmail);
-      await saveUserSettings({ dashboardLayout, location, temperatureUnit });
+      await saveUserSettings({
+        dashboardLayout,
+        location,
+        temperatureUnit,
+        theme: theme.id,
+        financialPreferences,
+      });
       console.log('✅ Settings saved successfully!');
       onClose();
       // Note: Layout and theme changes apply immediately via context
@@ -484,8 +501,100 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ show, onClose }) => {
                   </button>
                 </div>
                 <small style={{ display: 'block', marginTop: '0.5rem', fontSize: '0.75rem', color: '#6b7280' }}>
-                  {!temperatureUnit ? 'Auto-detected from country (most countries use °C, US uses °F)' : 'Your preference is saved'}
+                  {!temperatureUnit ? 'Auto-detected from country (most countries use °C, US uses °F)' : 'Saved to your profile and synced when signed in'}
                 </small>
+              </div>
+
+              {/* Safe / Financial defaults — same units as Safe → Financial exchange modal (₹ per $, €, £) */}
+              <div style={{ marginTop: '1.5rem', paddingTop: '1rem', borderTop: '1px solid #fbbf24' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem' }}>
+                  <span style={{ fontSize: '1.25rem' }}>🏦</span>
+                  <span style={{ fontSize: '0.95rem', fontWeight: 700, color: '#92400e' }}>Financial dashboard defaults</span>
+                </div>
+                <p style={{ fontSize: '0.8rem', color: '#6b7280', marginBottom: '0.75rem' }}>
+                  Used for <strong>Safe → Financial</strong> when you have not saved rates in that vault yet, or on a new device. Supported display currencies match the dashboard.
+                </p>
+                <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, marginBottom: '0.35rem' }}>Preferred display currency</label>
+                <select
+                  value={financialPreferences.preferredDisplayCurrency || ''}
+                  onChange={(e) =>
+                    setFinancialPreferences((p) => ({
+                      ...p,
+                      preferredDisplayCurrency: (e.target.value || undefined) as FinancialDisplayCurrencyPref | undefined,
+                    }))
+                  }
+                  style={{ width: '100%', padding: '0.5rem 0.75rem', borderRadius: '0.5rem', border: '1px solid #d1d5db', marginBottom: '0.75rem', fontSize: '0.95rem' }}
+                >
+                  <option value="">— Use app default (locale) —</option>
+                  <option value="ORIGINAL">Original (mixed → INR)</option>
+                  <option value="INR">INR (₹)</option>
+                  <option value="USD">USD ($)</option>
+                  <option value="EUR">EUR (€)</option>
+                  <option value="GBP">GBP (£)</option>
+                </select>
+                <div style={{ fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.35rem', color: '#374151' }}>Exchange rates (INR per 1 unit)</div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.5rem' }}>
+                  <div>
+                    <label style={{ fontSize: '0.7rem', color: '#6b7280' }}>1 USD = ₹</label>
+                    <input
+                      type="number"
+                      min={1}
+                      step={0.01}
+                      value={financialPreferences.exchangeRates?.USD ?? 83}
+                      onChange={(e) =>
+                        setFinancialPreferences((p) => ({
+                          ...p,
+                          exchangeRates: {
+                            USD: Number(e.target.value) || 83,
+                            EUR: p.exchangeRates?.EUR ?? 90,
+                            GBP: p.exchangeRates?.GBP ?? 105,
+                          },
+                        }))
+                      }
+                      style={{ width: '100%', padding: '0.4rem', borderRadius: '0.35rem', border: '1px solid #d1d5db' }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '0.7rem', color: '#6b7280' }}>1 EUR = ₹</label>
+                    <input
+                      type="number"
+                      min={1}
+                      step={0.01}
+                      value={financialPreferences.exchangeRates?.EUR ?? 90}
+                      onChange={(e) =>
+                        setFinancialPreferences((p) => ({
+                          ...p,
+                          exchangeRates: {
+                            USD: p.exchangeRates?.USD ?? 83,
+                            EUR: Number(e.target.value) || 90,
+                            GBP: p.exchangeRates?.GBP ?? 105,
+                          },
+                        }))
+                      }
+                      style={{ width: '100%', padding: '0.4rem', borderRadius: '0.35rem', border: '1px solid #d1d5db' }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '0.7rem', color: '#6b7280' }}>1 GBP = ₹</label>
+                    <input
+                      type="number"
+                      min={1}
+                      step={0.01}
+                      value={financialPreferences.exchangeRates?.GBP ?? 105}
+                      onChange={(e) =>
+                        setFinancialPreferences((p) => ({
+                          ...p,
+                          exchangeRates: {
+                            USD: p.exchangeRates?.USD ?? 83,
+                            EUR: p.exchangeRates?.EUR ?? 90,
+                            GBP: Number(e.target.value) || 105,
+                          },
+                        }))
+                      }
+                      style={{ width: '100%', padding: '0.4rem', borderRadius: '0.35rem', border: '1px solid #d1d5db' }}
+                    />
+                  </div>
+                </div>
               </div>
             </div>
 

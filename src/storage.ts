@@ -8,6 +8,7 @@
 
 import { getSupabaseClient } from './lib/supabase';
 import { AppData, Task, TaskCompletion, Event, JournalEntry, Routine, Tag, TagSection, UserSettings, DashboardLayout, Item, SafeEntry, SafeMasterKey, Resolution, ResolutionMilestone, DocumentVault, DocumentVaultEncryptedData } from './types';
+import type { FinancialPreferences, TemperatureUnit } from './types';
 import { getTodayString } from './utils';
 import { hashMasterPassword, generateSalt, verifyMasterPassword as verifyMasterPasswordUtil, deriveKeyFromPassword, encryptData, decryptData } from './utils/encryption';
 import { PerformanceConfig } from './config/performanceConfig';
@@ -1286,7 +1287,7 @@ export const loadUserSettings = async (): Promise<UserSettings> => {
     const { client, userId } = await requireAuth();
     const { data, error } = await client
       .from('myday_user_settings')
-      .select('theme, dashboard_layout, notifications_enabled, location')
+      .select('theme, dashboard_layout, notifications_enabled, location, temperature_unit, financial_preferences')
       .eq('user_id', userId)
       .single();
     
@@ -1296,11 +1297,27 @@ export const loadUserSettings = async (): Promise<UserSettings> => {
     
     if (data) {
       const parsedLocation = data.location ? JSON.parse(data.location) : undefined;
+      let financialPreferences: FinancialPreferences | undefined;
+      if (data.financial_preferences != null) {
+        try {
+          financialPreferences =
+            typeof data.financial_preferences === 'string'
+              ? JSON.parse(data.financial_preferences)
+              : data.financial_preferences;
+        } catch {
+          financialPreferences = undefined;
+        }
+      }
+      const tu = data.temperature_unit as string | undefined;
+      const temperatureUnit: TemperatureUnit | undefined =
+        tu === 'celsius' || tu === 'fahrenheit' ? tu : undefined;
       return {
         theme: data.theme || 'purple',
         dashboardLayout: data.dashboard_layout || 'uniform',
         notifications: data.notifications_enabled ?? true,
-        location: parsedLocation
+        location: parsedLocation,
+        temperatureUnit,
+        financialPreferences,
       };
     }
   } catch (error: any) {
@@ -1312,7 +1329,9 @@ export const loadUserSettings = async (): Promise<UserSettings> => {
         theme: 'purple',
         dashboardLayout: 'uniform',
         notifications: true,
-        location: undefined
+        location: undefined,
+        temperatureUnit: undefined,
+        financialPreferences: undefined,
       };
     }
     // Log other errors
@@ -1324,7 +1343,9 @@ export const loadUserSettings = async (): Promise<UserSettings> => {
     theme: 'purple',
     dashboardLayout: 'uniform',
     notifications: true,
-    location: undefined
+    location: undefined,
+    temperatureUnit: undefined,
+    financialPreferences: undefined,
   };
 };
 
@@ -1340,7 +1361,13 @@ export const saveUserSettings = async (settings: Partial<UserSettings>): Promise
     console.log('💾 Saving location to DB:', settings.location);
     console.log('📦 Stringified location:', dbUpdates.location);
   }
-  
+  if (settings.temperatureUnit !== undefined) {
+    dbUpdates.temperature_unit = settings.temperatureUnit;
+  }
+  if (settings.financialPreferences !== undefined) {
+    dbUpdates.financial_preferences = settings.financialPreferences;
+  }
+
   console.log('🔄 Upserting to myday_user_settings for user:', userId);
   const { error } = await client
     .from('myday_user_settings')
@@ -1379,7 +1406,9 @@ export const getUserSettingsSync = (): UserSettings => {
       theme: 'purple',
       dashboardLayout: 'uniform',
       notifications: true,
-      location: undefined
+      location: undefined,
+      temperatureUnit: undefined,
+      financialPreferences: undefined,
     };
   }
   return JSON.parse(stored);

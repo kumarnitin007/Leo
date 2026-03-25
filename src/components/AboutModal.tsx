@@ -254,6 +254,42 @@ const AboutModal: React.FC<AboutModalProps> = ({ show, onClose }) => {
               </button>
               {isAppsExpanded && (
                 <div style={{ marginTop: '1rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                  {/* Family hub — full marketing & launch page for all apps */}
+                  <div style={{ background: 'linear-gradient(135deg, #ecfdf5 0%, #cffafe 50%, #e0e7ff 100%)', padding: '1rem', borderRadius: '0.75rem', border: '2px solid #14b8a6', boxShadow: '0 2px 8px rgba(20, 184, 166, 0.2)' }}>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '0.75rem', flexWrap: 'wrap', marginBottom: '0.5rem' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <span style={{ fontSize: '1.35rem' }} aria-hidden>🎉</span>
+                        <p style={{ fontWeight: 'bold', margin: 0, fontSize: '1rem', color: '#0f766e' }}>Apps family hub</p>
+                      </div>
+                      <a
+                        href="https://otto-leo-landing.vercel.app/"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{
+                          fontSize: '0.875rem',
+                          fontWeight: 700,
+                          color: '#fff',
+                          background: 'linear-gradient(to right, #0d9488, #0891b2)',
+                          textDecoration: 'none',
+                          padding: '0.45rem 0.85rem',
+                          borderRadius: '0.5rem',
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        Open family page →
+                      </a>
+                    </div>
+                    <p style={{ fontSize: '0.875rem', margin: 0, color: '#374151', lineHeight: '1.55' }}>
+                      Visit the <strong>Your Apps Family</strong> site for a full overview: every app in the suite, short descriptions,
+                      launch links, recommendations if you are not sure where to start, support options, and how one verified account works across products — all in one polished page.
+                    </p>
+                    <p style={{ fontSize: '0.75rem', margin: '0.5rem 0 0 0', color: '#64748b' }}>
+                      <a href="https://otto-leo-landing.vercel.app/" target="_blank" rel="noopener noreferrer" style={{ color: '#0d9488', wordBreak: 'break-all' }}>
+                        otto-leo-landing.vercel.app
+                      </a>
+                    </p>
+                  </div>
+
                   {/* Leo Planner - Current App */}
                   <div style={{ background: 'linear-gradient(to right, #d1fae5, #a7f3d0)', padding: '1rem', borderRadius: '0.75rem', border: '1px solid #6ee7b7' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>

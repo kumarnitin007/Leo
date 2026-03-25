@@ -95,8 +95,6 @@ const AppContent: React.FC = () => {
   const [showVoiceAddModal, setShowVoiceAddModal] = useState(false);
   const [journalPrefillContent, setJournalPrefillContent] = useState<string | undefined>();
   const [journalPrefillMood, setJournalPrefillMood] = useState<'great' | 'good' | 'okay' | 'bad' | 'terrible' | undefined>();
-  const [showNewDropdown, setShowNewDropdown] = useState(false);
-  
   const { theme } = useTheme();
   const { avatar, username } = useUser();
   const { features, loading: levelLoading } = useUserLevel();
@@ -512,82 +510,24 @@ const AppContent: React.FC = () => {
               <span className="nav-icon">🏠</span>
               <span className="nav-text">Home</span>
             </button>
-            <div style={{ position: 'relative', display: 'inline-block' }}>
-              <button
-                className={`nav-button ${(currentView === 'tasks-events' || currentView === 'journal') ? 'active' : ''}`}
-                onClick={() => setShowNewDropdown(prev => !prev)}
-                title="New - Tasks, Journal & more"
-                style={(currentView === 'tasks-events' || currentView === 'journal') ? { backgroundColor: theme.colors.primary } : {}}
-              >
-                <span className="nav-icon">➕</span>
-                <span className="nav-text">New</span>
-                <span style={{ fontSize: '0.65rem', marginLeft: 2 }}>▼</span>
-              </button>
-              {showNewDropdown && (
-                <>
-                  <div
-                    style={{ position: 'fixed', inset: 0, zIndex: 999 }}
-                    onClick={() => setShowNewDropdown(false)}
-                    aria-hidden="true"
-                  />
-                  <div
-                    style={{
-                      position: 'absolute',
-                      top: '100%',
-                      left: 0,
-                      marginTop: 4,
-                      minWidth: 180,
-                      background: theme.colors.cardBg || '#1f2937',
-                      border: `1px solid ${theme.colors.cardBorder || '#374151'}`,
-                      borderRadius: 8,
-                      boxShadow: '0 4px 12px rgba(0,0,0,0.25)',
-                      zIndex: 1000,
-                      overflow: 'hidden',
-                    }}
-                  >
-                    <button
-                      onClick={() => { handleNavigate('tasks-events'); setShowNewDropdown(false); }}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '0.5rem',
-                        width: '100%',
-                        padding: '0.6rem 1rem',
-                        border: 'none',
-                        background: currentView === 'tasks-events' ? (theme.colors.primary + '22') : 'transparent',
-                        color: theme.colors.text,
-                        cursor: 'pointer',
-                        fontSize: '0.9rem',
-                        textAlign: 'left',
-                      }}
-                    >
-                      <span>📋</span>
-                      <span>Tasks & Events</span>
-                    </button>
-                    <button
-                      onClick={() => { handleNavigate('journal'); setShowNewDropdown(false); }}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '0.5rem',
-                        width: '100%',
-                        padding: '0.6rem 1rem',
-                        border: 'none',
-                        borderTop: `1px solid ${theme.colors.cardBorder || '#374151'}`,
-                        background: currentView === 'journal' ? (theme.colors.primary + '22') : 'transparent',
-                        color: theme.colors.text,
-                        cursor: 'pointer',
-                        fontSize: '0.9rem',
-                        textAlign: 'left',
-                      }}
-                    >
-                      <span>📔</span>
-                      <span>Journal</span>
-                    </button>
-                  </div>
-                </>
-              )}
-            </div>
+            <button
+              className={`nav-button ${currentView === 'tasks-events' ? 'active' : ''}`}
+              onClick={() => handleNavigate('tasks-events')}
+              title="Tasks & Events"
+              style={currentView === 'tasks-events' ? { backgroundColor: theme.colors.primary } : {}}
+            >
+              <span className="nav-icon">➕</span>
+              <span className="nav-text">New</span>
+            </button>
+            <button
+              className={`nav-button ${currentView === 'journal' ? 'active' : ''}`}
+              onClick={() => handleNavigate('journal')}
+              title="Journal"
+              style={currentView === 'journal' ? { backgroundColor: theme.colors.primary } : {}}
+            >
+              <span className="nav-icon">📔</span>
+              <span className="nav-text">Journal</span>
+            </button>
             {!features.isDemo && (
               <button
                 className={`nav-button ${currentView === 'smart' ? 'active' : ''}`}
@@ -967,13 +907,13 @@ const AppContent: React.FC = () => {
  */
 const App: React.FC = () => {
   return (
-    <ThemeProvider>
-      <AuthProvider>
+    <AuthProvider>
+      <ThemeProvider>
         <UserProvider>
           <AppContent />
         </UserProvider>
-      </AuthProvider>
-    </ThemeProvider>
+      </ThemeProvider>
+    </AuthProvider>
   );
 };
 

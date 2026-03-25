@@ -106,6 +106,16 @@ export type DashboardLayout = 'uniform' | 'grid-spans' | 'masonry';
 
 export type TemperatureUnit = 'celsius' | 'fahrenheit';
 
+/** Default Safe / Financial dashboard display — matches bank dashboard display currency modes */
+export type FinancialDisplayCurrencyPref = 'ORIGINAL' | 'INR' | 'USD' | 'EUR' | 'GBP';
+
+/** Saved under user profile; seeds Safe Financial when bank file has no rates yet */
+export interface FinancialPreferences {
+  preferredDisplayCurrency?: FinancialDisplayCurrencyPref;
+  /** INR per 1 unit of USD, EUR, GBP (same as Safe exchange-rate modal) */
+  exchangeRates?: { USD: number; EUR: number; GBP: number };
+}
+
 export interface UserSettings {
   dashboardLayout: DashboardLayout;
   theme?: string;
@@ -113,6 +123,7 @@ export interface UserSettings {
   aiScanEnabled?: boolean;
   aiScanWarningShown?: boolean;
   temperatureUnit?: TemperatureUnit;
+  financialPreferences?: FinancialPreferences;
   location?: {
     zipCode?: string;
     city?: string;
