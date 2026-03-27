@@ -1287,7 +1287,7 @@ export const loadUserSettings = async (): Promise<UserSettings> => {
     const { client, userId } = await requireAuth();
     const { data, error } = await client
       .from('myday_user_settings')
-      .select('theme, dashboard_layout, notifications_enabled, location, temperature_unit, financial_preferences')
+      .select('theme, dashboard_layout, notifications_enabled, location, temperature_unit, financial_preferences, ai_opt_in, ai_personality')
       .eq('user_id', userId)
       .single();
     
@@ -1318,6 +1318,8 @@ export const loadUserSettings = async (): Promise<UserSettings> => {
         location: parsedLocation,
         temperatureUnit,
         financialPreferences,
+        aiOptIn: data.ai_opt_in ?? false,
+        aiPersonality: data.ai_personality ?? undefined,
       };
     }
   } catch (error: any) {
@@ -1332,6 +1334,8 @@ export const loadUserSettings = async (): Promise<UserSettings> => {
         location: undefined,
         temperatureUnit: undefined,
         financialPreferences: undefined,
+        aiOptIn: false,
+        aiPersonality: undefined,
       };
     }
     // Log other errors
@@ -1346,6 +1350,8 @@ export const loadUserSettings = async (): Promise<UserSettings> => {
     location: undefined,
     temperatureUnit: undefined,
     financialPreferences: undefined,
+    aiOptIn: false,
+    aiPersonality: undefined,
   };
 };
 
@@ -1366,6 +1372,12 @@ export const saveUserSettings = async (settings: Partial<UserSettings>): Promise
   }
   if (settings.financialPreferences !== undefined) {
     dbUpdates.financial_preferences = settings.financialPreferences;
+  }
+  if (settings.aiOptIn !== undefined) {
+    dbUpdates.ai_opt_in = settings.aiOptIn;
+  }
+  if (settings.aiPersonality !== undefined) {
+    dbUpdates.ai_personality = settings.aiPersonality;
   }
 
   console.log('🔄 Upserting to myday_user_settings for user:', userId);
@@ -1409,6 +1421,8 @@ export const getUserSettingsSync = (): UserSettings => {
       location: undefined,
       temperatureUnit: undefined,
       financialPreferences: undefined,
+      aiOptIn: false,
+      aiPersonality: undefined,
     };
   }
   return JSON.parse(stored);

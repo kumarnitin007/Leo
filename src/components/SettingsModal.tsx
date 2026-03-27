@@ -31,9 +31,11 @@ import Portal from './Portal';
 import { useTheme } from '../contexts/ThemeContext';
 import { useUser } from '../contexts/UserContext';
 import { avatars, AVATAR_CATEGORIES } from '../constants/avatars';
-import { DashboardLayout, TemperatureUnit, FinancialPreferences, FinancialDisplayCurrencyPref } from '../types';
+import { DashboardLayout, TemperatureUnit, FinancialPreferences, FinancialDisplayCurrencyPref, AIPersonality } from '../types';
 import { getUserSettings, saveUserSettings } from '../storage';
 import { getUserLevel, UserLevelAssignment } from '../services/userLevelService';
+import AIUsagePanel from './ai/AIUsagePanel';
+import AIPersonalityProfile from './ai/AIPersonalityProfile';
 
 interface SettingsModalProps {
   show: boolean;
@@ -57,6 +59,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ show, onClose }) => {
   const [financialPreferences, setFinancialPreferences] = useState<FinancialPreferences>({
     exchangeRates: { USD: 83, EUR: 90, GBP: 105 },
   });
+  const [aiOptIn, setAiOptIn] = useState(false);
+  const [aiPersonality, setAiPersonality] = useState<AIPersonality>({});
   const [userLevel, setUserLevel] = useState<UserLevelAssignment | null>(null);
 
   // Load settings from storage
@@ -69,6 +73,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ show, onClose }) => {
         setDashboardLayout(settings.dashboardLayout);
         setLocation(settings.location || {});
         setTemperatureUnit(settings.temperatureUnit);
+        setAiOptIn(settings.aiOptIn ?? false);
+        setAiPersonality(settings.aiPersonality ?? {});
         setFinancialPreferences({
           preferredDisplayCurrency: settings.financialPreferences?.preferredDisplayCurrency,
           exchangeRates: {
@@ -104,6 +110,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ show, onClose }) => {
         temperatureUnit,
         theme: theme.id,
         financialPreferences,
+        aiOptIn,
+        aiPersonality: aiOptIn ? aiPersonality : undefined,
       });
       console.log('✅ Settings saved successfully!');
       onClose();
@@ -633,6 +641,75 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ show, onClose }) => {
                 ))}
               </div>
             </div>
+
+            {/* AI Recommendations Opt-in */}
+            <div style={{ background: 'linear-gradient(to right, #ede9fe, #ddd6fe)', borderRadius: '1rem', padding: '1.5rem', marginBottom: '1.5rem', border: '1px solid #a78bfa' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem' }}>
+                <span style={{ fontSize: '1.5rem' }}>🤖</span>
+                <h3 style={{ fontSize: '1.25rem', fontWeight: 'bold', margin: 0 }}>AI Recommendations</h3>
+              </div>
+              <p style={{ fontSize: '0.875rem', color: '#6b7280', marginBottom: '1rem', lineHeight: 1.5 }}>
+                Enable AI-powered features like morning briefings and journal reflections.
+                When enabled, your tasks, events, journal mood, and recent entries are sent to OpenAI to generate personalised insights.
+                No data is stored externally — responses are saved only in your account.
+              </p>
+              <div
+                onClick={() => setAiOptIn(!aiOptIn)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.75rem',
+                  cursor: 'pointer',
+                  padding: '0.875rem 1rem',
+                  borderRadius: '0.75rem',
+                  border: aiOptIn ? '2px solid #7c3aed' : '2px solid #d1d5db',
+                  background: aiOptIn ? '#f5f3ff' : 'white',
+                  transition: 'all 0.2s',
+                }}
+              >
+                <div style={{
+                  width: 44,
+                  height: 24,
+                  borderRadius: 12,
+                  background: aiOptIn ? '#7c3aed' : '#d1d5db',
+                  position: 'relative',
+                  transition: 'background 0.2s',
+                  flexShrink: 0,
+                }}>
+                  <div style={{
+                    width: 20,
+                    height: 20,
+                    borderRadius: 10,
+                    background: 'white',
+                    position: 'absolute',
+                    top: 2,
+                    left: aiOptIn ? 22 : 2,
+                    transition: 'left 0.2s',
+                    boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+                  }} />
+                </div>
+                <div>
+                  <div style={{ fontSize: '0.95rem', fontWeight: 600, color: aiOptIn ? '#5b21b6' : '#374151' }}>
+                    {aiOptIn ? 'AI features enabled' : 'AI features disabled'}
+                  </div>
+                  <div style={{ fontSize: '0.75rem', color: '#6b7280', marginTop: 2 }}>
+                    {aiOptIn ? 'Leo will provide daily briefings and journal reflections' : 'Toggle on to get personalised AI insights'}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* AI Personality Profile (only when opted in) */}
+            {aiOptIn && (
+              <AIPersonalityProfile personality={aiPersonality} onChange={setAiPersonality} />
+            )}
+
+            {/* AI Usage & Audit (only when AI is opted in) */}
+            {aiOptIn && (
+              <div style={{ marginBottom: '1.5rem' }}>
+                <AIUsagePanel />
+              </div>
+            )}
 
             {/* Buttons */}
             <div style={{ display: 'flex', gap: '1rem' }}>

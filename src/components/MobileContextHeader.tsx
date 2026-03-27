@@ -24,6 +24,7 @@ const viewConfig: Record<string, { title: string; icon: string; color: string }>
   smart: { title: 'Smart Features', icon: '✨', color: '#8b5cf6' },
   history: { title: 'History', icon: '📋', color: '#f59e0b' },
   'voice-pending': { title: 'Pending Memo', icon: '⏳', color: '#ea580c' },
+  'ai-history': { title: 'AI History', icon: '🤖', color: '#818cf8' },
   resolutions: { title: 'Resolutions', icon: '🎯', color: '#ec4899' },
   analytics: { title: 'Analytics', icon: '📊', color: '#06b6d4' },
   settings: { title: 'Settings', icon: '⚙️', color: '#6b7280' },

@@ -33,6 +33,7 @@ const TodoView = lazy(() => import('./TodoView'));
 const SmartView = lazy(() => import('./SmartView'));
 const GroupsManager = lazy(() => import('./components/GroupsManager'));
 const VoiceCommandHistory = lazy(() => import('./components/VoiceCommand/VoiceCommandHistory'));
+const AIHistoryView = lazy(() => import('./components/ai/AIHistoryView'));
 
 // Eagerly loaded components (small, frequently used)
 import SpeedDialFAB from './components/SpeedDialFAB';
@@ -71,7 +72,7 @@ const ViewLoader: React.FC = () => (
   </div>
 );
 
-type View = 'today' | 'tasks-events' | 'items' | 'journal' | 'resolutions' | 'analytics' | 'settings' | 'safe' | 'todo' | 'groups' | 'smart' | 'history' | 'voice-pending';
+type View = 'today' | 'tasks-events' | 'items' | 'journal' | 'resolutions' | 'analytics' | 'settings' | 'safe' | 'todo' | 'groups' | 'smart' | 'history' | 'voice-pending' | 'ai-history';
 
 /**
  * Main App Content Component
@@ -367,6 +368,8 @@ const AppContent: React.FC = () => {
             userId={user?.id}
           />
         );
+      case 'ai-history':
+        return <AIHistoryView key={`ai-history-${key}`} onBack={() => handleNavigate('settings')} />;
       default:
         return <TodayView key={`today-${key}`} onNavigate={handleNavigate} />;
     }
@@ -838,10 +841,10 @@ const AppContent: React.FC = () => {
             onClick: () => handleNavigate('todo'),
           },
           {
-            icon: '👨‍👩‍👧‍👦',
-            label: 'Groups',
-            description: 'Manage family & sharing groups',
-            onClick: () => handleNavigate('groups'),
+            icon: '🤖',
+            label: 'AI History',
+            description: 'View AI spending & transactions',
+            onClick: () => handleNavigate('ai-history'),
           },
           {
             icon: '⏱️',

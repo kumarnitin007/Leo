@@ -28,6 +28,7 @@ import MonthlyView from './MonthlyView';
 import WeatherWidget from './components/WeatherWidget';
 import ResolutionProgressWidget from './components/ResolutionProgressWidget';
 import FinancialAlertsWidget from './components/FinancialAlertsWidget';
+import DailyBriefingCard from './components/DailyBriefingCard';
 import { getDashboardTodos, getTodoGroups, toggleTodoItem } from './services/todoService';
 import { getDashboardComments, dismissCommentFromDashboard } from './services/commentService';
 import { EnrichedCalendarCard } from './components/EnrichedCalendarCard';
@@ -1499,6 +1500,9 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
         onAddTask={handleQuickAddTask}
         onAddEvent={handleQuickAddEvent}
       />
+
+      {/* AI Morning Briefing (tier-gated) */}
+      <DailyBriefingCard />
 
       {isReorderMode && (
         <div className="reorder-instructions" style={{ background: '#eff6ff', border: '2px solid #3b82f6', borderRadius: '12px', padding: '1rem', marginBottom: '1.5rem', textAlign: 'center' }}>

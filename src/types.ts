@@ -116,6 +116,17 @@ export interface FinancialPreferences {
   exchangeRates?: { USD: number; EUR: number; GBP: number };
 }
 
+export interface AIPersonality {
+  favoritePlace?: string;
+  favoriteCharacter?: string;
+  favoriteShow?: string;
+  superhero?: string;
+  favoriteQuote?: string;
+  favoriteHobby?: string;
+  spiritAnimal?: string;
+  favoriteFood?: string;
+}
+
 export interface UserSettings {
   dashboardLayout: DashboardLayout;
   theme?: string;
@@ -124,6 +135,8 @@ export interface UserSettings {
   aiScanWarningShown?: boolean;
   temperatureUnit?: TemperatureUnit;
   financialPreferences?: FinancialPreferences;
+  aiOptIn?: boolean;
+  aiPersonality?: AIPersonality;
   location?: {
     zipCode?: string;
     city?: string;

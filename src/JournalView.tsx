@@ -21,6 +21,7 @@ import {
   importSampleJournals
 } from './storage';
 import { formatDate } from './utils';
+import JournalReflectionCard from './components/JournalReflectionCard';
 
 interface JournalViewProps {
   prefillContent?: string;
@@ -70,6 +71,7 @@ const JournalView: React.FC<JournalViewProps> = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [availableTags, setAvailableTags] = useState<Tag[]>([]);
   const [showRecentEntries, setShowRecentEntries] = useState(false);
+  const [justSaved, setJustSaved] = useState(false);
 
   useEffect(() => {
     const loadTagsAndEntries = async () => {
@@ -87,6 +89,7 @@ const JournalView: React.FC<JournalViewProps> = ({
 
   useEffect(() => {
     loadEntryForDate(selectedDate);
+    setJustSaved(false);
   }, [selectedDate]);
 
   const loadEntries = async () => {
@@ -149,6 +152,7 @@ const JournalView: React.FC<JournalViewProps> = ({
       await loadEntries();
       await loadEntryForDate(selectedDate);
       setIsEditing(false);
+      setJustSaved(true);
     } catch (error) {
       console.error('Error saving journal entry:', error);
       alert('Failed to save journal entry. Please try again.');
@@ -445,6 +449,9 @@ const JournalView: React.FC<JournalViewProps> = ({
                 </button>
               )}
             </div>
+
+            {/* AI Reflection — mobile */}
+            <JournalReflectionCard entry={currentEntry} justSaved={justSaved} />
           </div>
 
           {/* Legacy Desktop Cards - Hidden on mobile via CSS */}
@@ -590,6 +597,11 @@ const JournalView: React.FC<JournalViewProps> = ({
                 ✕ Cancel
               </button>
             )}
+          </div>
+
+          {/* AI Reflection — desktop */}
+          <div className="desktop-only">
+            <JournalReflectionCard entry={currentEntry} justSaved={justSaved} />
           </div>
 
           {/* Recent Entries - Mobile (Collapsible) */}
