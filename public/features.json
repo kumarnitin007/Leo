@@ -1,7 +1,7 @@
 {
   "appName": "Leo Planner",
   "canonicalUrl": "https://leo-planner.vercel.app/",
-  "summary": "Productivity PWA with tasks, voice, calendar, journal, analytics, encrypted Safe (passwords, documents, full bank records), and optional group sharing.",
+  "summary": "Productivity PWA with tasks, voice, calendar, journal, analytics, encrypted Vault (passwords, documents, full bank records), AI assistant, and optional group sharing.",
   "categories": [
     {
       "id": "tasks_today",
@@ -21,8 +21,17 @@
       ]
     },
     {
-      "id": "safe_core",
-      "title": "Safe — encrypted vault",
+      "id": "ai_assistant",
+      "title": "AI Assistant (Leo)",
+      "items": [
+        "Morning briefings, journal reflections, fun personalised quotes",
+        "Full audit trail with token usage and cost tracking",
+        "Content digests for token optimisation"
+      ]
+    },
+    {
+      "id": "vault_core",
+      "title": "Vault — encrypted storage",
       "items": [
         "Master password, session timeout, auto-lock",
         "Password entries, secure notes, document vaults",
@@ -32,7 +41,7 @@
     },
     {
       "id": "financial",
-      "title": "Bank Records (inside Safe)",
+      "title": "Bank & Finance (inside Vault)",
       "items": [
         "Deposits, accounts, bills, actions, savings goals",
         "Overview, accounts by bank, timeline, maturity alerts",
@@ -45,7 +54,7 @@
       "title": "Groups & sharing",
       "items": [
         "Sharing groups with email invitations",
-        "Group members and optional finance chat from Safe"
+        "Group members and optional finance chat from Vault"
       ]
     },
     {
@@ -99,7 +108,8 @@
       "id": "integrations",
       "title": "Integrations",
       "items": [
-        "Google Calendar (.ics), Google Tasks, Apple Reminders, Todoist"
+        "Google Calendar (.ics import), data export",
+        "More connectors planned"
       ]
     },
     {

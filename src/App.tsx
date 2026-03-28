@@ -462,6 +462,14 @@ const AppContent: React.FC = () => {
           <div className="header-actions">
             <button
               className="icon-button"
+              onClick={() => handleNavigate('analytics')}
+              title="Analytics & Reports"
+              style={{ color: currentView === 'analytics' ? theme.colors.primary : theme.colors.primary }}
+            >
+              📊
+            </button>
+            <button
+              className="icon-button"
               onClick={() => handleNavigate('settings')}
               title="Settings & Configuration"
               style={{ color: theme.colors.primary }}
@@ -542,24 +550,15 @@ const AppContent: React.FC = () => {
                 <span className="nav-text">Smart</span>
               </button>
             )}
-            <button
-              className={`nav-button ${currentView === 'analytics' ? 'active' : ''}`}
-              onClick={() => handleNavigate('analytics')}
-              title="Analytics & Reports"
-              style={currentView === 'analytics' ? { backgroundColor: theme.colors.primary } : {}}
-            >
-              <span className="nav-icon">📊</span>
-              <span className="nav-text">Analytics</span>
-            </button>
             {features.canUseSafe && (
               <button
                 className={`nav-button ${currentView === 'safe' ? 'active' : ''}`}
                 onClick={() => handleNavigate('safe')}
-                title="Safe - Encrypted Password Manager"
+                title="Vault - Encrypted Password Manager & Financial Records"
                 style={currentView === 'safe' ? { backgroundColor: theme.colors.primary } : {}}
               >
                 <span className="nav-icon">🔒</span>
-                <span className="nav-text">Safe</span>
+                <span className="nav-text">Vault</span>
               </button>
             )}
           </nav>
@@ -570,6 +569,14 @@ const AppContent: React.FC = () => {
                 <span className="user-name">{username}</span>
               </div>
               <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <button
+                  className="icon-button"
+                  onClick={() => handleNavigate('analytics')}
+                  title="Analytics & Reports"
+                  style={{ color: theme.colors.primary }}
+                >
+                  📊
+                </button>
                 <button
                   className="icon-button"
                   onClick={() => handleNavigate('settings')}
@@ -869,6 +876,12 @@ const AppContent: React.FC = () => {
             label: 'Pinned',
             description: 'Quick access items',
             onClick: () => setShowPinnedModal(true),
+          },
+          {
+            icon: '📊',
+            label: 'Analytics',
+            description: 'Reports & insights',
+            onClick: () => handleNavigate('analytics'),
           },
           {
             icon: '⚙️',

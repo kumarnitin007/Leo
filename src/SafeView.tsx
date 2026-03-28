@@ -958,7 +958,7 @@ const SafeView: React.FC = () => {
               // Reload the page to reset all state and show master password setup
               window.location.reload();
             } else {
-              alert('Failed to reset Safe. Please try again.');
+              alert('Failed to reset Vault. Please try again.');
             }
           }}
         />

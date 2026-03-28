@@ -168,9 +168,9 @@ const AboutModal: React.FC<AboutModalProps> = ({ show, onClose }) => {
                     </p>
                   </div>
                   <div style={{ background: 'linear-gradient(to right, #e0f2fe, #bae6fd)', padding: '1rem', borderRadius: '0.75rem', border: '1px solid #38bdf8' }}>
-                    <p style={{ fontWeight: 'bold', margin: '0 0 0.5rem 0', fontSize: '1rem' }}>🔐 Safe — encrypted vault</p>
+                    <p style={{ fontWeight: 'bold', margin: '0 0 0.5rem 0', fontSize: '1rem' }}>🔐 Vault — encrypted storage</p>
                     <p style={{ fontSize: '0.875rem', margin: 0, color: '#374151', lineHeight: '1.5' }}>
-                      Open <strong>Safe</strong> from the main menu for a client-side encrypted vault protected by a{' '}
+                      Open <strong>Vault</strong> from the main menu for a client-side encrypted vault protected by a{' '}
                       <strong>master password</strong>, with <strong>auto-lock</strong> and a session timeout you control.
                       Store <strong>passwords and secure records</strong>, keep <strong>encrypted notes</strong> on entries,
                       and file away sensitive <strong>documents</strong> in vaults. The <strong>Financial</strong> workspace
@@ -234,7 +234,7 @@ const AboutModal: React.FC<AboutModalProps> = ({ show, onClose }) => {
                     <p style={{ fontWeight: 'bold', margin: '0 0 0.5rem 0', fontSize: '1rem' }}>👥 Groups &amp; sharing</p>
                     <p style={{ fontSize: '0.875rem', margin: 0, color: '#374151', lineHeight: '1.5' }}>
                       Open <strong>Groups</strong> from the main menu to create sharing groups, invite people by email,
-                      accept or send invitations, and manage members—great for families or teams. From <strong>Safe</strong>,
+                      accept or send invitations, and manage members—great for families or teams. From <strong>Vault</strong>,
                       you can use <strong>finance group chat</strong> to coordinate deposits and accounts with your group.
                       Task assignment to group members is available where you set it up on a task.
                     </p>

@@ -56,6 +56,7 @@ export {
 // Journal module
 export {
   getJournalEntries,
+  getJournalEntriesForDate,
   saveJournalEntry,
   updateJournalEntry,
   deleteJournalEntry,

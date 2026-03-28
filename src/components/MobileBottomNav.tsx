@@ -37,10 +37,10 @@ const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
       <button
         className={`bottom-nav-btn ${currentView === 'safe' ? 'active' : ''}`}
         onClick={() => onNavigate('safe')}
-        aria-label="Safe"
+        aria-label="Vault"
       >
         <span className="bottom-nav-icon">🔒</span>
-        <span className="bottom-nav-label">Safe</span>
+        <span className="bottom-nav-label">Vault</span>
       </button>
 
       <button

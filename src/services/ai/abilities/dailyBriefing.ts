@@ -147,6 +147,41 @@ function buildUserMessage(
 
 // ── Public API ───────────────────────────────────────────────────────
 
+/**
+ * Gather user context and build the prompt that would be sent to OpenAI.
+ * Does NOT call the API — useful for previewing / copying into ChatGPT.
+ */
+export async function previewBriefingQuery(
+  userName: string, _userId: string, financialAlerts?: string[],
+): Promise<{ systemPrompt: string; userMessage: string }> {
+  const today = getTodayString();
+  const [dashData, journalEntries, upcomingEvents, freshDigests] = await Promise.all([
+    loadDashboardData(today, 7), getJournalEntries(), getUpcomingEvents(7), loadFreshDigests(_userId),
+  ]);
+
+  const tasksToday = dashData.tasks.map(t => ({
+    name: t.name,
+    status: dashData.completions.some(c => c.taskId === t.id && c.date === today) ? 'done' : 'pending',
+  }));
+
+  const last7 = Array.from({ length: 7 }, (_, i) => { const d = new Date(); d.setDate(d.getDate() - i); return formatDate(d); });
+  const completionRate7d = Math.round((dashData.completions.filter(c => last7.includes(c.date)).length / ((dashData.tasks.length || 1) * 7)) * 100);
+
+  const recentJournals = journalEntries
+    .filter(j => j.date >= last7[last7.length - 1])
+    .sort((a, b) => b.date.localeCompare(a.date))
+    .slice(0, 5)
+    .map(j => ({ date: j.date, mood: j.mood, snippet: snippet(j.content) }));
+  const moodTrend = computeMoodTrend(recentJournals.map(j => j.mood));
+  const eventList = upcomingEvents.map(e => ({ name: e.event.name, date: e.date, daysUntil: e.daysUntil }));
+
+  const needsDigests = missingDigestSources(freshDigests).length > 0;
+  return {
+    systemPrompt: buildSystemPrompt(needsDigests),
+    userMessage: buildUserMessage(userName, today, tasksToday, eventList, recentJournals, financialAlerts || [], completionRate7d, moodTrend, freshDigests),
+  };
+}
+
 export async function getDailyBriefing(
   userName: string, userId: string, financialAlerts?: string[],
 ): Promise<DailyBriefingResult> {

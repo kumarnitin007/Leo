@@ -12,7 +12,7 @@ import { JournalEntry } from '../types';
 import { useAuth } from '../contexts/AuthContext';
 import { useUserLevel } from '../hooks/useUserLevel';
 import { getUserSettings } from '../storage';
-import { getJournalReflection, JournalReflectionResult } from '../services/ai/abilities/journalReflection';
+import { getJournalReflection, previewReflectionQuery, JournalReflectionResult } from '../services/ai/abilities/journalReflection';
 import AIQueryViewerModal from './ai/AIQueryViewerModal';
 
 interface Props {
@@ -36,6 +36,8 @@ const JournalReflectionCard: React.FC<Props> = ({ entry, justSaved }) => {
   const [error, setError] = useState<string | null>(null);
   const [collapsed, setCollapsed] = useState(false);
   const [showQuery, setShowQuery] = useState(false);
+  const [previewQuery, setPreviewQuery] = useState<{ systemPrompt: string; userMessage: string } | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
 
   useEffect(() => {
     getUserSettings().then(s => setAiOptIn(s.aiOptIn ?? false)).catch(() => setAiOptIn(false));
@@ -62,16 +64,35 @@ const JournalReflectionCard: React.FC<Props> = ({ entry, justSaved }) => {
     }
   }, [user?.id, entry?.date, entry?.content, entry?.mood, userName]);
 
+  const handlePreviewQuery = useCallback(async () => {
+    if (!user?.id || !entry?.content) return;
+    if (reflection?.lastQuery) {
+      setPreviewQuery(reflection.lastQuery);
+      setShowQuery(true);
+      return;
+    }
+    setPreviewLoading(true);
+    try {
+      const q = await previewReflectionQuery(userName, user.id, { date: entry.date, content: entry.content, mood: entry.mood });
+      setPreviewQuery(q);
+      setShowQuery(true);
+    } catch { /* no-op */ }
+    finally { setPreviewLoading(false); }
+  }, [user?.id, entry, userName, reflection?.lastQuery]);
+
+  const isLocalDev = import.meta.env.DEV;
+
   useEffect(() => {
-    if (justSaved && entry?.content && aiOptIn && features.canUseAI) {
+    if (justSaved && entry?.content && aiOptIn && features.canUseAI && !isLocalDev) {
       fetchReflection();
     }
-  }, [justSaved, entry?.date, aiOptIn, features.canUseAI]);
+  }, [justSaved, entry?.date, aiOptIn, features.canUseAI, isLocalDev]);
 
   if (levelLoading || !features.canUseAI || aiOptIn === null || !aiOptIn) return null;
   if (!entry?.content && !reflection) return null;
 
   const obs = OBSERVATION_STYLES[reflection?.moodObservation || 'stable'] || OBSERVATION_STYLES.stable;
+  const queryData = reflection?.lastQuery || previewQuery;
 
   return (
     <div style={{
@@ -96,12 +117,12 @@ const JournalReflectionCard: React.FC<Props> = ({ entry, justSaved }) => {
           )}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          {reflection?.lastQuery && !loading && (
+          {!loading && entry?.content && (
             <span
-              onClick={(e) => { e.stopPropagation(); setShowQuery(true); }}
-              style={{ fontSize: 12, cursor: 'pointer', opacity: 0.6 }}
-              title="View AI query"
-            >🔍</span>
+              onClick={(e) => { e.stopPropagation(); handlePreviewQuery(); }}
+              style={{ fontSize: 12, cursor: 'pointer', opacity: previewLoading ? 0.3 : 0.6 }}
+              title="View AI query — copy to ChatGPT"
+            >{previewLoading ? '⏳' : '🔍'}</span>
           )}
           {reflection?.usage && !loading && (
             <span style={{ fontSize: 9, color: '#6B7280', fontFamily: 'monospace' }}>
@@ -128,12 +149,17 @@ const JournalReflectionCard: React.FC<Props> = ({ entry, justSaved }) => {
             </div>
           )}
           {error && !loading && (
-            <div style={{ padding: '10px 0', color: '#FCA5A5', fontSize: 12 }}>
-              {error}
-              <button onClick={fetchReflection} style={{
-                marginLeft: 8, background: 'transparent', border: '1px solid #FCA5A540',
-                color: '#FCA5A5', borderRadius: 6, padding: '2px 10px', fontSize: 11, cursor: 'pointer',
-              }}>Retry</button>
+            <div style={{ padding: '10px 0', fontSize: 12 }}>
+              <div style={{ color: '#FCA5A5', marginBottom: 8 }}>
+                {error}
+                <button onClick={fetchReflection} style={{
+                  marginLeft: 8, background: 'transparent', border: '1px solid #FCA5A540',
+                  color: '#FCA5A5', borderRadius: 6, padding: '2px 10px', fontSize: 11, cursor: 'pointer',
+                }}>Retry</button>
+              </div>
+              <div style={{ color: '#6B7280', fontSize: 11 }}>
+                Tip: Click 🔍 above to preview the exact prompt — paste it into ChatGPT to test for free.
+              </div>
             </div>
           )}
           {reflection && !loading && (
@@ -172,15 +198,15 @@ const JournalReflectionCard: React.FC<Props> = ({ entry, justSaved }) => {
         </div>
       )}
 
-      {reflection?.lastQuery && (
+      {queryData && (
         <AIQueryViewerModal
           show={showQuery}
           onClose={() => setShowQuery(false)}
           abilityLabel="Journal Reflection"
           abilityIcon="✨"
-          systemPrompt={reflection.lastQuery.systemPrompt}
-          userMessage={reflection.lastQuery.userMessage}
-          usage={reflection.usage}
+          systemPrompt={queryData.systemPrompt}
+          userMessage={queryData.userMessage}
+          usage={reflection?.usage}
         />
       )}
 

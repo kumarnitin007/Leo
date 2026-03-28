@@ -88,11 +88,19 @@ export interface Event {
   createdAt: string;
 }
 
+export type MoodType = 'great' | 'good' | 'okay' | 'bad' | 'terrible';
+
 export interface JournalEntry {
   id: string;
   date: string; // YYYY-MM-DD
   content: string;
-  mood?: 'great' | 'good' | 'okay' | 'bad' | 'terrible';
+  mood?: MoodType;
+  energyLevel?: 1 | 2 | 3 | 4 | 5;
+  weather?: string;
+  activity?: string[];
+  location?: string;
+  wordCount?: number;
+  entryTime?: string; // HH:MM (24h)
   tags?: string[]; // Array of tag IDs
   isFavorite?: boolean;
   createdViaVoice?: boolean;
@@ -101,6 +109,12 @@ export interface JournalEntry {
   createdAt: string;
   updatedAt: string;
 }
+
+export const JOURNAL_ACTIVITIES = [
+  'exercise', 'work', 'reading', 'social', 'family', 'cooking',
+  'travel', 'meditation', 'music', 'creative', 'shopping', 'learning',
+  'gaming', 'nature', 'cleaning', 'self-care',
+] as const;
 
 export type DashboardLayout = 'uniform' | 'grid-spans' | 'masonry';
 

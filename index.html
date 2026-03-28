@@ -80,13 +80,13 @@
         "Tasks: priorities, tags, categories, recurring and advanced scheduling",
         "Tasks: assign to group members; hold, pause, spillover, dependencies",
         "Voice commands and Smart Hub with command history",
-        "Encrypted Safe: master password, auto-lock, AES-256 client-side encryption",
-        "Safe: password entries, secure notes, document vaults, tags and filters",
-        "Safe: import/export; share selected entries; pending financial import review",
+        "Encrypted Vault: master password, auto-lock, AES-256 client-side encryption",
+        "Vault: password entries, secure notes, document vaults, tags and filters",
+        "Vault: import/export; share selected entries; pending financial import review",
         "Bank Records: deposits, accounts, bills, action items, savings goals",
         "Bank Records: overview, timeline, multi-currency (INR, USD, EUR, GBP) and exchange rates",
         "Bank Records: Excel import/export, maturity alerts, portfolio over time",
-        "Groups: create groups, email invites, members, finance group chat from Safe",
+        "Groups: create groups, email invites, members, finance group chat from Vault",
         "Events: birthdays, anniversaries, holidays; Google Calendar .ics import",
         "Journal: mood, custom tags, search, streaks",
         "Analytics: completion trends, calendar views, tag insights, habits",
@@ -106,7 +106,7 @@
     <script type="application/json" id="leo-planner-features-manifest">
     {
       "appName": "Leo Planner",
-      "summary": "Productivity PWA with tasks, voice, calendar, journal, analytics, encrypted Safe (passwords, documents, full bank records), and optional group sharing.",
+      "summary": "Productivity PWA with tasks, voice, calendar, journal, analytics, encrypted Vault (passwords, documents, full bank records), AI assistant, and optional group sharing.",
       "categories": [
         {
           "id": "tasks_today",
@@ -127,7 +127,7 @@
         },
         {
           "id": "safe_core",
-          "title": "Safe — encrypted vault",
+          "title": "Vault — encrypted storage",
           "items": [
             "Master password, session timeout, auto-lock",
             "Password entries, secure notes, document vaults",
@@ -137,7 +137,7 @@
         },
         {
           "id": "financial",
-          "title": "Bank Records (inside Safe)",
+          "title": "Bank & Finance (inside Vault)",
           "items": [
             "Deposits, accounts, bills, actions, savings goals",
             "Overview, accounts by bank, timeline, maturity alerts",
@@ -150,7 +150,7 @@
           "title": "Groups & sharing",
           "items": [
             "Sharing groups with email invitations",
-            "Group members and optional finance chat from Safe"
+            "Group members and optional finance chat from Vault"
           ]
         },
         {
@@ -351,7 +351,7 @@
             </article>
 
             <article class="leo-feature-card">
-              <h3>🔐 Safe — encrypted vault</h3>
+              <h3>🔐 Vault — encrypted storage</h3>
               <p>Client-side encrypted storage for secrets and files—unlocked with your master password.</p>
               <ul>
                 <li>Master password, session length, auto-lock</li>
@@ -362,8 +362,8 @@
             </article>
 
             <article class="leo-feature-card">
-              <h3>💰 Bank Records (in Safe)</h3>
-              <p>Full financial workspace: deposits, accounts, bills, and goals—encrypted with Safe.</p>
+              <h3>💰 Bank & Finance (in Vault)</h3>
+              <p>Full financial workspace: deposits, accounts, bills, and goals—encrypted inside Vault.</p>
               <ul>
                 <li>Deposits, accounts, bills, actions, savings goals</li>
                 <li>Overview, by-bank views, timeline, maturity alerts</li>
@@ -374,11 +374,11 @@
 
             <article class="leo-feature-card">
               <h3>👥 Groups &amp; sharing</h3>
-              <p>Households or teams: invites, members, and optional finance chat from Safe.</p>
+              <p>Households or teams: invites, members, and optional finance chat from Vault.</p>
               <ul>
                 <li>Create groups; invite by email</li>
                 <li>Manage members and invitations</li>
-                <li>Finance group chat when using Safe</li>
+                <li>Finance group chat when using Vault</li>
               </ul>
             </article>
 

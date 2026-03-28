@@ -67,7 +67,7 @@ const SafeLockScreen: React.FC<SafeLockScreenProps> = ({ entryCount, onUnlock, i
       textAlign: 'center'
     }}>
       <div style={{ fontSize: '5rem', marginBottom: '1rem', lineHeight: 1 }}>🦁</div>
-      <h1 style={{ margin: 0, fontSize: '2rem', marginBottom: '0.5rem' }}>Leo's Safe is Locked</h1>
+      <h1 style={{ margin: 0, fontSize: '2rem', marginBottom: '0.5rem' }}>Leo's Vault is Locked</h1>
       <p style={{ margin: '0.5rem 0', opacity: 0.7, fontSize: '1.125rem' }}>
         Leo the Lion is guarding your secrets
       </p>
@@ -138,7 +138,7 @@ const SafeLockScreen: React.FC<SafeLockScreenProps> = ({ entryCount, onUnlock, i
             cursor: isUnlocking || !password ? 'not-allowed' : 'pointer'
           }}
         >
-          {isUnlocking ? 'Unlocking...' : '🔓 Unlock Safe'}
+          {isUnlocking ? 'Unlocking...' : '🔓 Unlock Vault'}
         </button>
       </form>
 
@@ -183,7 +183,7 @@ const SafeLockScreen: React.FC<SafeLockScreenProps> = ({ entryCount, onUnlock, i
               cursor: 'pointer'
             }}
           >
-            Enter Safe (Demo)
+            Enter Vault (Demo)
           </button>
         )}
 
@@ -253,9 +253,9 @@ const SafeLockScreen: React.FC<SafeLockScreenProps> = ({ entryCount, onUnlock, i
             textAlign: 'center',
           }}>
             <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>⚠️</div>
-            <h2 style={{ margin: '0 0 1rem 0', color: '#dc2626' }}>Reset Safe?</h2>
+            <h2 style={{ margin: '0 0 1rem 0', color: '#dc2626' }}>Reset Vault?</h2>
             <p style={{ margin: '0 0 1rem 0', color: '#374151', lineHeight: 1.6 }}>
-              This will <strong>permanently delete</strong> all your Safe data:
+              This will <strong>permanently delete</strong> all your Vault data:
             </p>
             <ul style={{ 
               textAlign: 'left', 

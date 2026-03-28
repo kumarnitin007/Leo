@@ -10,7 +10,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useUserLevel } from '../hooks/useUserLevel';
 import { getUserSettings } from '../storage';
-import { getDailyBriefing, refreshDailyBriefing, DailyBriefingResult } from '../services/ai/abilities/dailyBriefing';
+import { getDailyBriefing, refreshDailyBriefing, previewBriefingQuery, DailyBriefingResult } from '../services/ai/abilities/dailyBriefing';
 import AIQueryViewerModal from './ai/AIQueryViewerModal';
 
 const TONE_STYLES: Record<string, { bg: string; border: string; accent: string; icon: string }> = {
@@ -29,6 +29,8 @@ const DailyBriefingCard: React.FC = () => {
   const [collapsed, setCollapsed] = useState(false);
   const [aiOptIn, setAiOptIn] = useState<boolean | null>(null);
   const [showQuery, setShowQuery] = useState(false);
+  const [previewQuery, setPreviewQuery] = useState<{ systemPrompt: string; userMessage: string } | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
 
   useEffect(() => {
     getUserSettings().then(s => setAiOptIn(s.aiOptIn ?? false)).catch(() => setAiOptIn(false));
@@ -66,15 +68,34 @@ const DailyBriefingCard: React.FC = () => {
     }
   }, [user?.id, userName]);
 
+  const handlePreviewQuery = useCallback(async () => {
+    if (!user?.id) return;
+    if (briefing?.lastQuery) {
+      setPreviewQuery(briefing.lastQuery);
+      setShowQuery(true);
+      return;
+    }
+    setPreviewLoading(true);
+    try {
+      const q = await previewBriefingQuery(userName, user.id);
+      setPreviewQuery(q);
+      setShowQuery(true);
+    } catch { /* no-op */ }
+    finally { setPreviewLoading(false); }
+  }, [user?.id, userName, briefing?.lastQuery]);
+
+  const isLocalDev = import.meta.env.DEV;
+
   useEffect(() => {
-    if (!levelLoading && features.canUseAI && aiOptIn && user?.id) {
+    if (!levelLoading && features.canUseAI && aiOptIn && user?.id && !isLocalDev) {
       loadBriefing();
     }
-  }, [levelLoading, features.canUseAI, aiOptIn, user?.id, loadBriefing]);
+  }, [levelLoading, features.canUseAI, aiOptIn, user?.id, loadBriefing, isLocalDev]);
 
   if (levelLoading || !features.canUseAI || aiOptIn === null || !aiOptIn) return null;
 
   const tone = TONE_STYLES[briefing?.tone || 'neutral'] || TONE_STYLES.neutral;
+  const queryData = briefing?.lastQuery || previewQuery;
 
   return (
     <div style={{
@@ -105,12 +126,12 @@ const DailyBriefingCard: React.FC = () => {
           </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          {briefing?.lastQuery && !loading && (
+          {!loading && (
             <span
-              onClick={(e) => { e.stopPropagation(); setShowQuery(true); }}
-              style={{ fontSize: 13, cursor: 'pointer', opacity: 0.6 }}
-              title="View AI query"
-            >🔍</span>
+              onClick={(e) => { e.stopPropagation(); handlePreviewQuery(); }}
+              style={{ fontSize: 13, cursor: 'pointer', opacity: previewLoading ? 0.3 : 0.6 }}
+              title="View AI query — copy to ChatGPT"
+            >{previewLoading ? '⏳' : '🔍'}</span>
           )}
           {briefing && !loading && (
             <span
@@ -139,12 +160,17 @@ const DailyBriefingCard: React.FC = () => {
             </div>
           )}
           {error && !loading && (
-            <div style={{ padding: '12px 0', color: '#F87171', fontSize: 12 }}>
-              {error}
-              <button onClick={loadBriefing} style={{
-                marginLeft: 8, background: 'transparent', border: '1px solid #F8717140',
-                color: '#F87171', borderRadius: 6, padding: '2px 10px', fontSize: 11, cursor: 'pointer',
-              }}>Retry</button>
+            <div style={{ padding: '12px 0', fontSize: 12 }}>
+              <div style={{ color: '#F87171', marginBottom: 8 }}>
+                {error}
+                <button onClick={loadBriefing} style={{
+                  marginLeft: 8, background: 'transparent', border: '1px solid #F8717140',
+                  color: '#F87171', borderRadius: 6, padding: '2px 10px', fontSize: 11, cursor: 'pointer',
+                }}>Retry</button>
+              </div>
+              <div style={{ color: '#6B7280', fontSize: 11 }}>
+                Tip: Click 🔍 above to preview the exact prompt — paste it into ChatGPT to test for free.
+              </div>
             </div>
           )}
           {briefing && !loading && (
@@ -166,21 +192,34 @@ const DailyBriefingCard: React.FC = () => {
           )}
           {!briefing && !loading && !error && (
             <div style={{ padding: '12px 0', color: '#6B7280', fontSize: 12 }}>
-              Your morning briefing will appear here. Add tasks and journal entries to get personalised insights.
+              {isLocalDev ? (
+                <>
+                  <div style={{ marginBottom: 6 }}>API routes are not available in local dev. Click 🔍 above to preview the prompt, then paste it into ChatGPT to test.</div>
+                  <button
+                    onClick={loadBriefing}
+                    style={{
+                      background: 'transparent', border: '1px solid #4B556340', color: '#9CA3AF',
+                      borderRadius: 8, padding: '4px 14px', fontSize: 11, cursor: 'pointer',
+                    }}
+                  >Try API anyway</button>
+                </>
+              ) : (
+                'Your morning briefing will appear here. Add tasks and journal entries to get personalised insights.'
+              )}
             </div>
           )}
         </div>
       )}
 
-      {briefing?.lastQuery && (
+      {queryData && (
         <AIQueryViewerModal
           show={showQuery}
           onClose={() => setShowQuery(false)}
           abilityLabel="Morning Briefing"
           abilityIcon="☀️"
-          systemPrompt={briefing.lastQuery.systemPrompt}
-          userMessage={briefing.lastQuery.userMessage}
-          usage={briefing.usage}
+          systemPrompt={queryData.systemPrompt}
+          userMessage={queryData.userMessage}
+          usage={briefing?.usage}
         />
       )}
 

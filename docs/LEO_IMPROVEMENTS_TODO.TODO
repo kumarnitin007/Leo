@@ -1,7 +1,7 @@
 # Leo App - Improvements Tracker
 
-> **Last Updated**: March 12, 2026  
-> **Status Legend**: ⬜ Pending | 🟡 In Progress | ✅ Completed | ❌ Cancelled
+> **Last Updated**: March 26, 2026  
+> **Status Legend**: ⬜ Pending | 🟡 In Progress | ✅ Completed | ❌ Cancelled | ⏸️ Deferred
 
 ---
 
@@ -15,11 +15,13 @@
 | UX - Mobile Enhancements | 5 | 1 | 0 | 4 |
 | UX - Polish | 3 | 0 | 0 | 3 |
 | Bugs / Fixes | 3 | 0 | 0 | 3 |
-| New Features | 2 | 0 | 0 | 2 |
+| New Features | 8 | 0 | 0 | 8 |
+| AI Framework | 8 | 3 | 0 | 5 |
+| Landing Page / Branding | 4 | 1 | 0 | 3 |
 | Code Refactoring | 21 | 2 | 1 | 16 | (2 deferred)
 | Performance | 10 | 0 | 0 | 10 |
 | Security | 10 | 0 | 0 | 10 |
-| **TOTAL** | **69** | **3** | **1** | **63** | (2 deferred)
+| **TOTAL** | **87** | **7** | **1** | **67** | (2 deferred)
 
 ---
 
@@ -436,6 +438,38 @@
   - UI shows context fields after image preview, before scan button
   - ScanContextHints interface exported from ImageScanModal
   - detectFinancialData() added to imageParser for quick scan financial detection
+
+### FEAT-003: AI Opt-In Toggle in User Settings
+- **Status**: ✅ Completed
+- **Priority**: 🔴 Critical
+- **Files**: `src/components/SettingsModal.tsx`, `src/types.ts`, `src/storage.ts`, `supabase/migrations/20260326_ai_opt_in.sql`
+- **Issue**: AI features should be explicitly opt-in, not forced on users. Must be default-off.
+- **Solution**: Added `aiOptIn` boolean to UserSettings (default false). Toggle in Settings → AI Recommendations. All AI components check both tier and opt-in status.
+- **Completed Date**: 2026-03-26
+
+### FEAT-004: AI Content Digests / Token Optimisation
+- **Status**: ✅ Completed
+- **Priority**: 🟡 Medium
+- **Files**: `supabase/migrations/20260326_ai_digests.sql`, `src/services/ai/aiDigestService.ts`
+- **Issue**: Every AI call was sending raw user data, wasting tokens and increasing costs.
+- **Solution**: `myday_ai_digests` table stores compact summaries of user data. Digest service handles CRUD, freshness checks, missing-source detection. Digests visible to users in AI Usage Panel.
+- **Completed Date**: 2026-03-26
+
+### FEAT-005: AI Query Viewer (Copy Prompt for ChatGPT)
+- **Status**: ✅ Completed
+- **Priority**: 🟡 Medium
+- **Files**: `src/components/ai/AIQueryViewerModal.tsx`
+- **Issue**: Users wanted to test/refine AI prompts in ChatGPT before paying for API calls.
+- **Solution**: "View Query" button on AI cards and audit log entries opens modal showing exact system prompt + user message + token/cost info. One-click copy-to-clipboard.
+- **Completed Date**: 2026-03-26
+
+### FEAT-006: Stacked Area Chart in Account Overview
+- **Status**: ✅ Completed
+- **Priority**: 🟢 Low
+- **Files**: `src/components/BankDashboard.tsx`
+- **Issue**: Account Overview section needed a visual chart showing accounts + deposits over time.
+- **Solution**: Added stacked area chart (Recharts) in the "Vault → Financial → Account Overview" section, displaying cumulative account balances and deposits over time.
+- **Completed Date**: 2026-03-26
 
 ---
 
@@ -865,6 +899,115 @@
 
 ---
 
+## 🤖 AI Framework
+
+### AI-001: AI Framework Architecture
+- **Status**: ✅ Completed
+- **Priority**: 🔴 Critical
+- **Files**: `src/services/ai/types.ts`, `src/services/ai/abilityRegistry.ts`, `src/services/ai/aiClient.ts`, `src/services/ai/aiAuditService.ts`, `src/services/ai/aiDigestService.ts`, `src/services/ai/index.ts`
+- **Issue**: AI abilities (briefing, reflection) were monolithic, no audit trail, no cost tracking, no extensibility.
+- **Solution**: Created modular AI framework with central client, ability registry, audit service, digest service, and shared types. Every AI call flows through aiClient → audit log. New abilities added in 3 steps.
+- **Completed Date**: 2026-03-26
+- **Notes**: Framework structure: types.ts (shared types), abilityRegistry.ts (ability catalog + pricing), aiClient.ts (central caller), aiAuditService.ts (read/write audit), aiDigestService.ts (content digest CRUD)
+
+### AI-002: Morning Briefing Ability
+- **Status**: ✅ Completed
+- **Priority**: 🔴 Critical
+- **Files**: `src/services/ai/abilities/dailyBriefing.ts`, `api/daily-briefing.ts`, `src/components/DailyBriefingCard.tsx`
+- **Issue**: Users had no personalised daily overview of tasks, events, mood, and finances.
+- **Solution**: AI-powered morning briefing on TodayView dashboard. Gated: tier + opt-in. 3-layer caching (session, DB, API). Content digests for token optimisation. Fun quotes.
+- **Completed Date**: 2026-03-26
+- **Notes**: Uses gpt-4o-mini. Includes personality-aware prompts and fun_quote field.
+
+### AI-003: Journal Reflection Ability
+- **Status**: ✅ Completed
+- **Priority**: 🟡 Medium
+- **Files**: `src/services/ai/abilities/journalReflection.ts`, `api/journal-reflect.ts`, `src/components/JournalReflectionCard.tsx`
+- **Issue**: Users wanted feedback after journaling — mood pattern recognition, micro-suggestions, tomorrow's prompt.
+- **Solution**: AI reflection card shown after saving a journal entry. References specific phrases, notices mood trends, includes fun quote.
+- **Completed Date**: 2026-03-26
+
+### AI-004: AI Audit Log & Cost Tracking
+- **Status**: ✅ Completed
+- **Priority**: 🔴 Critical
+- **Files**: `supabase/migrations/20260326_ai_audit_log.sql`, `src/services/ai/aiAuditService.ts`
+- **Issue**: No visibility into AI call costs or history.
+- **Solution**: `myday_ai_audit_log` table captures every call: ability, full request/response, tokens, cost (USD), duration, success/failure. RLS-protected.
+- **Completed Date**: 2026-03-26
+
+### AI-005: AI History & Spending Screen
+- **Status**: ✅ Completed
+- **Priority**: 🟡 Medium
+- **Files**: `src/components/ai/AIHistoryView.tsx`, `src/components/ai/AIQueryViewerModal.tsx`, `src/components/ai/AIUsagePanel.tsx`
+- **Issue**: Users had no way to see AI transaction history, spending, or review past prompts.
+- **Solution**: Dedicated AI History view with summary cards (calls, tokens, spend, projected monthly), daily spending chart, ability breakdown, full transaction log with "Query" button to view exact prompts.
+- **Completed Date**: 2026-03-26
+
+### AI-006: AI Personality Profile & Fun Quotes
+- **Status**: ⬜ Pending (UI built, awaiting OpenAI connection)
+- **Priority**: 🟡 Medium
+- **Files**: `src/components/ai/AIPersonalityProfile.tsx`, `supabase/migrations/20260326_ai_personality_profile.sql`, `src/types.ts`, `src/storage.ts`
+- **Issue**: AI responses were generic — no personal flavour.
+- **Solution**: Optional personality fields in Settings (favourite place, character, show, superhero, hobby, food, spirit animal, quote). Passed to AI prompts for personalised references and fun quotes. All responses include a "fun_quote" field.
+- **Completed Date**: 2026-03-26
+- **Notes**: Requires OpenAI API key to be set up and prompts to be tested in ChatGPT first.
+
+### AI-007: Build Real Integrations (Google Tasks, Todoist, etc.)
+- **Status**: ⬜ Pending
+- **Priority**: 🟡 Medium
+- **Files**: `src/IntegrationsView.tsx`
+- **Issue**: IntegrationsView lists Google Tasks, Apple Reminders, Todoist, IFTTT, Zapier — but none are actually connected. All show 'disconnected' with a config modal that only saves to localStorage.
+- **Solution**: Either build real OAuth-based integrations or remove misleading entries. Current working integration is only Google Calendar .ics file import.
+- **Completed Date**: -
+- **Notes**: Features page updated to honestly say "More connectors planned"
+
+### AI-008: Add Energy Level Field to Journal
+- **Status**: ⬜ Pending
+- **Priority**: 🟢 Low
+- **Files**: `src/types.ts`, `src/JournalView.tsx`, AI prompts
+- **Issue**: AI reflections could be more insightful with energy level data alongside mood.
+- **Solution**: Add optional `energyLevel` field (1-5) to JournalEntry. Show as quick selector in journal editor. Include in AI prompts for richer analysis.
+- **Completed Date**: -
+
+---
+
+## 🎨 Landing Page / Branding
+
+### LP-001: Value Proposition at Top
+- **Status**: ✅ Completed
+- **Priority**: 🟡 Medium
+- **Files**: `src/components/FeaturesPage.tsx`
+- **Issue**: 13 feature cards with no clear value summary — first-time visitors overwhelmed.
+- **Solution**: Added clear one-liner: "Your all-in-one daily planner: tasks, finances, journal, and an encrypted vault — all in one place."
+- **Completed Date**: 2026-03-26
+
+### LP-002: "Free & Open Source" Badge Prominent
+- **Status**: ✅ Completed
+- **Priority**: 🟡 Medium
+- **Files**: `src/components/FeaturesPage.tsx`
+- **Issue**: Free/open-source selling point was buried at bottom in small text.
+- **Solution**: Added prominent pill badge directly under tagline: "✨ 100% Free & Open Source"
+- **Completed Date**: 2026-03-26
+
+### LP-003: Rename "Safe" to "Vault"
+- **Status**: ✅ Completed
+- **Priority**: 🟡 Medium
+- **Files**: `src/App.tsx`, `src/components/MobileBottomNav.tsx`, `src/components/MobileContextHeader.tsx`, `src/components/SafeLockScreen.tsx`, `src/SafeView.tsx`, `src/components/AboutModal.tsx`, `src/components/FeaturesPage.tsx`, `index.html`, `public/features.json`
+- **Issue**: "Safe" naming was confusing — Bank Records nested inside "Safe" wasn't obvious.
+- **Solution**: Renamed all user-facing labels from "Safe" to "Vault". Internal code identifiers (SafeView, SafeEntry, etc.) kept unchanged to avoid massive refactoring.
+- **Completed Date**: 2026-03-26
+
+### LP-004: Add Screenshots or Demo Preview
+- **Status**: ⬜ Pending
+- **Priority**: 🟡 Medium
+- **Files**: `src/components/FeaturesPage.tsx`
+- **Issue**: No preview of the actual UI on the landing page — just feature bullets. A screenshot or GIF would increase trust.
+- **Solution**: User to provide 2-3 screenshots (Home view, Vault, Journal). Then add a carousel or grid layout to the features page.
+- **Completed Date**: -
+- **Notes**: Requires user-provided screenshots before implementation.
+
+---
+
 ## 📝 Change Log
 
 | Date | ID | Change | By |
@@ -933,3 +1076,13 @@
 | 2026-03-11 | CR-002h | Extracted settings module (user settings, onboarding, task order) to storage/settings.ts | AI |
 | 2026-03-11 | CR-002i | Extracted dashboard module (loadData, loadDashboardData, helpers) to storage/dashboard.ts | AI |
 | 2026-03-11 | CR-002 | Completed storage.ts modularization: 9 modules created, Safe/demo deferred | AI |
+| 2026-03-26 | AI-001 | Built modular AI framework: types, registry, client, audit, digest services | AI |
+| 2026-03-26 | AI-002 | Implemented daily briefing ability with personality, fun quotes, caching | AI |
+| 2026-03-26 | AI-003 | Implemented journal reflection ability with empathetic prompts | AI |
+| 2026-03-26 | AI-004 | Created myday_ai_audit_log table + RLS + audit service | AI |
+| 2026-03-26 | AI-005 | Built AI History screen with spending chart, ability breakdown, query viewer | AI |
+| 2026-03-26 | AI-006 | Built AI Personality Profile in Settings (optional, collapsible) | AI |
+| 2026-03-26 | LP-001 | Added value proposition at top of features page | AI |
+| 2026-03-26 | LP-002 | Moved "Free & Open Source" badge to prominent position | AI |
+| 2026-03-26 | LP-003 | Renamed "Safe" to "Vault" across all user-facing labels | AI |
+| 2026-03-26 | - | Clarified integration statuses on features page (only .ics import working) | AI |

@@ -13,17 +13,18 @@ interface FeaturesPageProps {
 const FEATURES = [
   { icon: '📋', title: 'Tasks & Today', description: 'Multiple layouts, tags, priorities, recurring rules, hold/pause, assign to groups.', color: '#3B82F6' },
   { icon: '🎤', title: 'Voice & Smart Hub', description: 'Voice capture for tasks, events, journal; shortcuts and history.', color: '#A855F7' },
-  { icon: '🔐', title: 'Safe — vault', description: 'Master password, auto-lock, AES-256; passwords, notes, documents, tags, import/export.', color: '#10B981' },
-  { icon: '🏦', title: 'Bank Records', description: 'Deposits, accounts, bills, actions, goals; multi-currency, Excel, charts—in Safe.', color: '#8B5CF6' },
-  { icon: '👥', title: 'Groups', description: 'Email invites, members, finance chat from Safe.', color: '#0D9488' },
+  { icon: '🤖', title: 'AI Assistant (Leo)', description: 'Morning briefings, journal reflections, fun quotes — personalised by your interests.', color: '#818CF8' },
+  { icon: '🔐', title: 'Vault', description: 'Master password, auto-lock, AES-256; passwords, notes, documents, tags, import/export.', color: '#10B981' },
+  { icon: '🏦', title: 'Bank & Finance', description: 'Deposits, accounts, bills, actions, goals; multi-currency, Excel, charts — inside Vault.', color: '#8B5CF6' },
+  { icon: '👥', title: 'Groups', description: 'Email invites, members, finance chat from Vault.', color: '#0D9488' },
   { icon: '📅', title: 'Calendar & events', description: 'Birthdays, holidays, recurring dates; .ics import.', color: '#F59E0B' },
   { icon: '📓', title: 'Journal', description: 'Mood, tags, search, streaks.', color: '#EC4899' },
   { icon: '📊', title: 'Analytics', description: 'Trends, calendar history, tag insights.', color: '#6366F1' },
   { icon: '🎯', title: 'Routines & goals', description: 'Routine templates, resolutions, savings goals.', color: '#06B6D4' },
   { icon: '🎁', title: 'Items & quick to-do', description: 'Gift cards, subscriptions, warranties; separate quick list.', color: '#F97316' },
   { icon: '⏱️', title: 'Focus timer', description: 'Countdown, stopwatch, task-linked sessions.', color: '#EF4444' },
-  { icon: '🔌', title: 'Integrations', description: 'Google Calendar, Google Tasks, Apple Reminders, Todoist.', color: '#64748B' },
-  { icon: '🎨', title: 'Themes & PWA', description: '15 themes, emoji avatars; install app; Supabase sync; home financial alerts.', color: '#14B8A6' },
+  { icon: '🔌', title: 'Integrations', description: 'Google Calendar, .ics import, data export. More connectors planned.', color: '#64748B' },
+  { icon: '🎨', title: 'Themes & PWA', description: '15 themes, emoji avatars; install as app; Supabase sync; home financial alerts.', color: '#14B8A6' },
 ];
 
 const FeaturesPage: React.FC<FeaturesPageProps> = ({ onBackToLogin }) => {
@@ -92,13 +93,35 @@ const FeaturesPage: React.FC<FeaturesPageProps> = ({ onBackToLogin }) => {
         }}>
           Leo - Your Life Organizer
         </h1>
+
+        {/* Value proposition */}
         <p style={{
-          margin: '0.5rem 0 0 0',
-          fontSize: isMobile ? '1rem' : '1.25rem',
-          opacity: 0.9,
+          margin: '0.75rem auto 0',
+          fontSize: isMobile ? '1rem' : '1.2rem',
+          opacity: 0.95,
+          maxWidth: 560,
+          lineHeight: 1.6,
         }}>
-          Tasks, voice, calendar, analytics, encrypted Safe—and a full financial workspace inside it
+          Your all-in-one daily planner: tasks, finances, journal, and an encrypted vault — all in one place.
         </p>
+
+        {/* Free & open-source badge */}
+        <div style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: 8,
+          marginTop: isMobile ? '0.75rem' : '1rem',
+          padding: '0.4rem 1.25rem',
+          background: 'rgba(255,255,255,0.2)',
+          backdropFilter: 'blur(8px)',
+          borderRadius: '2rem',
+          border: '1px solid rgba(255,255,255,0.3)',
+        }}>
+          <span style={{ fontSize: '1rem' }}>✨</span>
+          <span style={{ fontSize: isMobile ? '0.85rem' : '0.95rem', fontWeight: 700, letterSpacing: '0.3px' }}>
+            100% Free &amp; Open Source
+          </span>
+        </div>
       </div>
 
       {/* Features Grid */}

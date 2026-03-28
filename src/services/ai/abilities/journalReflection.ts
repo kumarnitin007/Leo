@@ -102,6 +102,39 @@ function buildUserMessage(
 
 // ── Public API ───────────────────────────────────────────────────────
 
+/**
+ * Build the prompt that would be sent to OpenAI without calling the API.
+ * Useful for previewing / copying into ChatGPT.
+ */
+export async function previewReflectionQuery(
+  userName: string,
+  userId: string,
+  entry: { date: string; content: string; mood?: string },
+): Promise<{ systemPrompt: string; userMessage: string }> {
+  const today = getTodayString();
+  const [allEntries, dashData, freshDigests] = await Promise.all([
+    getJournalEntries(), loadDashboardData(today, 7), loadFreshDigests(userId),
+  ]);
+  const last7 = Array.from({ length: 7 }, (_, i) => { const d = new Date(); d.setDate(d.getDate() - i); return formatDate(d); });
+  const recentEntries = allEntries
+    .filter(j => j.date !== entry.date && j.date >= last7[last7.length - 1])
+    .sort((a, b) => b.date.localeCompare(a.date)).slice(0, 5)
+    .map(j => ({ date: j.date, mood: j.mood, snippet: snippet(j.content) }));
+  const moodTrend = computeMoodTrend([...recentEntries.map(e => e.mood), entry.mood]);
+  const tasksToday = dashData.tasks.map(t => ({
+    name: t.name,
+    status: dashData.completions.some(c => c.taskId === t.id && c.date === today) ? 'done' : 'pending',
+  }));
+  const completionRate7d = Math.round(
+    (dashData.completions.filter(c => last7.includes(c.date)).length / ((dashData.tasks.length || 1) * 7)) * 100
+  );
+  const needsDigests = missingDigestSources(freshDigests, ['journal', 'tasks']).length > 0;
+  return {
+    systemPrompt: buildSystemPrompt(needsDigests),
+    userMessage: buildUserMessage(userName, entry, recentEntries, moodTrend, tasksToday, completionRate7d, freshDigests),
+  };
+}
+
 export async function getJournalReflection(
   userName: string,
   userId: string,
