@@ -1,5 +1,5 @@
-import { applyRateLimit, RATE_LIMITS } from './_utils/rateLimit';
-import { handleApiError, createErrorResponse } from './_utils/errorHandler';
+import { applyRateLimit, RATE_LIMITS } from './_utils/rateLimit.js';
+import { handleApiError, createErrorResponse } from './_utils/errorHandler.js';
 
 /**
  * POST /api/daily-briefing

@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { randomBytes, pbkdf2Sync, randomUUID } from 'crypto';
-import { applyRateLimit, RATE_LIMITS } from './_utils/rateLimit';
-import { handleApiError, createErrorResponse } from './_utils/errorHandler';
+import { applyRateLimit, RATE_LIMITS } from './_utils/rateLimit.js';
+import { handleApiError, createErrorResponse } from './_utils/errorHandler.js';
 
 // Simple Vercel serverless handler for demo login
 // Expects server env vars (no VITE_ prefix): SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, DEMO_EMAIL, DEMO_PASSWORD, DEMO_SAFE_PASSWORD (optional)

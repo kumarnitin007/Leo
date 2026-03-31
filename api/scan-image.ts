@@ -1,6 +1,6 @@
 import { ExtractedItem } from '../src/services/imageScanning/types';
-import { applyRateLimit, RATE_LIMITS } from './_utils/rateLimit';
-import { handleApiError, createErrorResponse } from './_utils/errorHandler';
+import { applyRateLimit, RATE_LIMITS } from './_utils/rateLimit.js';
+import { handleApiError, createErrorResponse } from './_utils/errorHandler.js';
 
 // OpenAI GPT-4 Vision API endpoint
 // Expects: OPENAI_API_KEY in environment variables
