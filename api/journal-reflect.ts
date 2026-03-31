@@ -1,5 +1,5 @@
-import { applyRateLimit } from './utils/rateLimit';
-import { handleApiError, createErrorResponse } from './utils/errorHandler';
+import { applyRateLimit } from './_utils/rateLimit';
+import { handleApiError, createErrorResponse } from './_utils/errorHandler';
 
 /**
  * POST /api/journal-reflect

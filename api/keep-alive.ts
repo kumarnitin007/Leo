@@ -5,7 +5,7 @@
  * Supabase free tier from pausing due to inactivity.
  */
 
-import { handleApiError, createErrorResponse } from './utils/errorHandler';
+import { handleApiError, createErrorResponse } from './_utils/errorHandler';
 
 export default async function handler(req: any, res: any) {
   // Verify this is called by Vercel Cron (optional security)
