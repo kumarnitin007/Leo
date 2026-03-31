@@ -84,14 +84,6 @@ const DailyBriefingCard: React.FC = () => {
     finally { setPreviewLoading(false); }
   }, [user?.id, userName, briefing?.lastQuery]);
 
-  const isLocalDev = import.meta.env.DEV;
-
-  useEffect(() => {
-    if (!levelLoading && features.canUseAI && aiOptIn && user?.id && !isLocalDev) {
-      loadBriefing();
-    }
-  }, [levelLoading, features.canUseAI, aiOptIn, user?.id, loadBriefing, isLocalDev]);
-
   if (levelLoading || !features.canUseAI || aiOptIn === null || !aiOptIn) return null;
 
   const tone = TONE_STYLES[briefing?.tone || 'neutral'] || TONE_STYLES.neutral;
@@ -161,15 +153,27 @@ const DailyBriefingCard: React.FC = () => {
           )}
           {error && !loading && (
             <div style={{ padding: '12px 0', fontSize: 12 }}>
-              <div style={{ color: '#F87171', marginBottom: 8 }}>
-                {error}
-                <button onClick={loadBriefing} style={{
-                  marginLeft: 8, background: 'transparent', border: '1px solid #F8717140',
-                  color: '#F87171', borderRadius: 6, padding: '2px 10px', fontSize: 11, cursor: 'pointer',
-                }}>Retry</button>
+              <div style={{
+                color: '#FCA5A5', background: '#7F1D1D30', borderRadius: 8,
+                padding: '8px 12px', marginBottom: 8, lineHeight: 1.5,
+              }}>
+                <div style={{ fontWeight: 600, marginBottom: 4 }}>Failed to generate briefing</div>
+                <div style={{ fontSize: 11, color: '#FCA5A5', opacity: 0.85 }}>{error}</div>
+                {error.includes('500') && (
+                  <div style={{ fontSize: 10, color: '#9CA3AF', marginTop: 4 }}>
+                    Likely cause: OPENAI_API_KEY not set in Vercel environment variables.
+                  </div>
+                )}
               </div>
-              <div style={{ color: '#6B7280', fontSize: 11 }}>
-                Tip: Click 🔍 above to preview the exact prompt — paste it into ChatGPT to test for free.
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button onClick={loadBriefing} style={{
+                  background: 'transparent', border: '1px solid #F8717140',
+                  color: '#F87171', borderRadius: 6, padding: '4px 12px', fontSize: 11, cursor: 'pointer',
+                }}>Retry</button>
+                <button onClick={handlePreviewQuery} style={{
+                  background: 'transparent', border: '1px solid #4B556340',
+                  color: '#9CA3AF', borderRadius: 6, padding: '4px 12px', fontSize: 11, cursor: 'pointer',
+                }}>{previewLoading ? '⏳' : '🔍'} View Prompt (free)</button>
               </div>
             </div>
           )}
@@ -191,21 +195,27 @@ const DailyBriefingCard: React.FC = () => {
             </>
           )}
           {!briefing && !loading && !error && (
-            <div style={{ padding: '12px 0', color: '#6B7280', fontSize: 12 }}>
-              {isLocalDev ? (
-                <>
-                  <div style={{ marginBottom: 6 }}>API routes are not available in local dev. Click 🔍 above to preview the prompt, then paste it into ChatGPT to test.</div>
-                  <button
-                    onClick={loadBriefing}
-                    style={{
-                      background: 'transparent', border: '1px solid #4B556340', color: '#9CA3AF',
-                      borderRadius: 8, padding: '4px 14px', fontSize: 11, cursor: 'pointer',
-                    }}
-                  >Try API anyway</button>
-                </>
-              ) : (
-                'Your morning briefing will appear here. Add tasks and journal entries to get personalised insights.'
-              )}
+            <div style={{ padding: '12px 0', fontSize: 12 }}>
+              <div style={{ color: '#9CA3AF', marginBottom: 10 }}>
+                Your morning briefing will appear here. Click Generate to get personalised insights, or 🔍 to preview the prompt.
+              </div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button
+                  onClick={loadBriefing}
+                  style={{
+                    background: '#4338CA', border: 'none', color: 'white',
+                    borderRadius: 8, padding: '6px 16px', fontSize: 12, fontWeight: 600,
+                    cursor: 'pointer', transition: 'opacity 0.15s',
+                  }}
+                >▶ Generate Briefing</button>
+                <button
+                  onClick={handlePreviewQuery}
+                  style={{
+                    background: 'transparent', border: '1px solid #4B556340', color: '#9CA3AF',
+                    borderRadius: 8, padding: '6px 14px', fontSize: 12, cursor: 'pointer',
+                  }}
+                >{previewLoading ? '⏳' : '🔍'} View Prompt</button>
+              </div>
             </div>
           )}
         </div>

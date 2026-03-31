@@ -80,13 +80,8 @@ const JournalReflectionCard: React.FC<Props> = ({ entry, justSaved }) => {
     finally { setPreviewLoading(false); }
   }, [user?.id, entry, userName, reflection?.lastQuery]);
 
-  const isLocalDev = import.meta.env.DEV;
-
-  useEffect(() => {
-    if (justSaved && entry?.content && aiOptIn && features.canUseAI && !isLocalDev) {
-      fetchReflection();
-    }
-  }, [justSaved, entry?.date, aiOptIn, features.canUseAI, isLocalDev]);
+  // Reflection is on-demand — user clicks Generate or 🔍 to preview.
+  // No auto-call to avoid unwanted API charges.
 
   if (levelLoading || !features.canUseAI || aiOptIn === null || !aiOptIn) return null;
   if (!entry?.content && !reflection) return null;
@@ -150,15 +145,27 @@ const JournalReflectionCard: React.FC<Props> = ({ entry, justSaved }) => {
           )}
           {error && !loading && (
             <div style={{ padding: '10px 0', fontSize: 12 }}>
-              <div style={{ color: '#FCA5A5', marginBottom: 8 }}>
-                {error}
-                <button onClick={fetchReflection} style={{
-                  marginLeft: 8, background: 'transparent', border: '1px solid #FCA5A540',
-                  color: '#FCA5A5', borderRadius: 6, padding: '2px 10px', fontSize: 11, cursor: 'pointer',
-                }}>Retry</button>
+              <div style={{
+                color: '#FCA5A5', background: '#7F1D1D30', borderRadius: 8,
+                padding: '8px 12px', marginBottom: 8, lineHeight: 1.5,
+              }}>
+                <div style={{ fontWeight: 600, marginBottom: 4 }}>Failed to generate reflection</div>
+                <div style={{ fontSize: 11, opacity: 0.85 }}>{error}</div>
+                {error.includes('500') && (
+                  <div style={{ fontSize: 10, color: '#9CA3AF', marginTop: 4 }}>
+                    Likely cause: OPENAI_API_KEY not set in Vercel environment variables.
+                  </div>
+                )}
               </div>
-              <div style={{ color: '#6B7280', fontSize: 11 }}>
-                Tip: Click 🔍 above to preview the exact prompt — paste it into ChatGPT to test for free.
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button onClick={fetchReflection} style={{
+                  background: 'transparent', border: '1px solid #FCA5A540',
+                  color: '#FCA5A5', borderRadius: 6, padding: '4px 12px', fontSize: 11, cursor: 'pointer',
+                }}>Retry</button>
+                <button onClick={handlePreviewQuery} style={{
+                  background: 'transparent', border: '1px solid #4338CA40',
+                  color: '#818CF8', borderRadius: 6, padding: '4px 12px', fontSize: 11, cursor: 'pointer',
+                }}>{previewLoading ? '⏳' : '🔍'} View Prompt (free)</button>
               </div>
             </div>
           )}
@@ -192,8 +199,22 @@ const JournalReflectionCard: React.FC<Props> = ({ entry, justSaved }) => {
               )}
             </>
           )}
-          {!reflection && !loading && !error && justSaved && (
-            <div style={{ padding: '10px 0', color: '#6366F1', fontSize: 12 }}>Generating your reflection...</div>
+          {!reflection && !loading && !error && (
+            <div style={{ padding: '10px 0', fontSize: 12 }}>
+              <div style={{ color: '#A5B4FC', marginBottom: 8 }}>
+                {justSaved ? 'Entry saved! Generate an AI reflection?' : 'Get AI-powered insights on this entry.'}
+              </div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button onClick={fetchReflection} style={{
+                  background: '#4338CA', border: 'none', color: 'white',
+                  borderRadius: 8, padding: '6px 16px', fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                }}>▶ Generate Reflection</button>
+                <button onClick={handlePreviewQuery} style={{
+                  background: 'transparent', border: '1px solid #4338CA40', color: '#818CF8',
+                  borderRadius: 8, padding: '6px 14px', fontSize: 12, cursor: 'pointer',
+                }}>{previewLoading ? '⏳' : '🔍'} View Prompt</button>
+              </div>
+            </div>
           )}
         </div>
       )}

@@ -3,6 +3,7 @@ import react from '@vitejs/plugin-react'
 import { readFileSync } from 'fs'
 import { fileURLToPath } from 'url'
 import { dirname, join } from 'path'
+import viteApiPlugin from './vite-api-plugin'
 
 // Get __dirname equivalent for ES modules
 const __filename = fileURLToPath(import.meta.url)
@@ -17,7 +18,7 @@ const buildDate = new Date().toISOString().split('T')[0]
 const buildTime = new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' })
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), viteApiPlugin()],
   server: {
     hmr: {
       overlay: true, // Show errors in browser overlay

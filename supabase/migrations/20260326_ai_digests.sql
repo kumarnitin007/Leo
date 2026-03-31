@@ -31,9 +31,10 @@ create table if not exists myday_ai_digests (
   updated_at timestamptz not null default now()
 );
 
--- Fast lookups: today's briefing for a user
-create index if not exists idx_ai_digests_user_type_date
-  on myday_ai_digests (user_id, digest_type, response_date);
+-- Unique constraint for upsert (one cached response per user+type+date)
+alter table myday_ai_digests
+  add constraint uq_ai_digests_user_type_date
+  unique (user_id, digest_type, response_date);
 
 -- Fast lookups: content digests by source
 create index if not exists idx_ai_digests_user_source

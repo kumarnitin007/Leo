@@ -43,19 +43,26 @@ export default async function handler(req: any, res: any) {
 
   const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
   if (!OPENAI_API_KEY) {
+    console.error('[journal-reflect] OPENAI_API_KEY not configured');
     return res.status(500).json(createErrorResponse('CONFIG_ERROR', 'AI service not configured'));
   }
 
   try {
-    const body: ReflectRequest = req.body;
+    const body: ReflectRequest = req.body || {};
 
     if (!body.currentEntry?.content) {
       return res.status(400).json(createErrorResponse('VALIDATION_ERROR', 'Journal content is required'));
     }
 
-    const personalityBlock = body.personality
+    const recentEntries = body.recentEntries || [];
+    const todayTasks = body.todayTasks || [];
+    const completionRate7d = body.completionRate7d ?? 0;
+    const moodTrend = body.moodTrend || 'stable';
+    const personality = body.personality && typeof body.personality === 'object' ? body.personality : null;
+
+    const personalityBlock = personality
       ? `\nPERSONALISATION HINTS (weave naturally — don't force):
-${Object.entries(body.personality).filter(([_, v]) => v).map(([k, v]) => `- ${k}: ${v}`).join('\n')}\n`
+${Object.entries(personality).filter(([_, v]) => v).map(([k, v]) => `- ${k}: ${v}`).join('\n')}\n`
       : '';
 
     const systemPrompt = `You are Leo, the empathetic AI companion inside the MyDay journal.
@@ -90,20 +97,22 @@ Respond ONLY with valid JSON:
     );
 
     const sections: string[] = [];
-    sections.push(`User: ${body.userName}`);
+    sections.push(`User: ${body.userName || 'User'}`);
     sections.push(`Today's entry (${body.currentEntry.date}, mood: ${body.currentEntry.mood || 'not set'}):\n"${body.currentEntry.content}"`);
 
     if (digestMap.has('journal')) {
       sections.push(`[Past journal digest – covers to ${digestMap.get('journal')!.coversTo}]\n${digestMap.get('journal')!.digest}`);
-    } else if (body.recentEntries.length > 0) {
-      sections.push(`Recent entries (mood trend: ${body.moodTrend}):\n${body.recentEntries.map(e => `- ${e.date} [${e.mood || '?'}]: ${e.snippet}`).join('\n')}`);
+    } else if (recentEntries.length > 0) {
+      sections.push(`Recent entries (mood trend: ${moodTrend}):\n${recentEntries.map(e => `- ${e.date} [${e.mood || '?'}]: ${e.snippet}`).join('\n')}`);
     }
 
     if (digestMap.has('tasks')) {
       sections.push(`[Tasks digest – covers to ${digestMap.get('tasks')!.coversTo}]\n${digestMap.get('tasks')!.digest}`);
-    } else if (body.todayTasks.length > 0) {
-      sections.push(`Tasks today (7d completion ${body.completionRate7d}%):\n${body.todayTasks.map(t => `- ${t.name} [${t.status}]`).join('\n')}`);
+    } else if (todayTasks.length > 0) {
+      sections.push(`Tasks today (7d completion ${completionRate7d}%):\n${todayTasks.map(t => `- ${t.name} [${t.status}]`).join('\n')}`);
     }
+
+    const userMessage = sections.join('\n\n');
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -115,7 +124,7 @@ Respond ONLY with valid JSON:
         model: 'gpt-4o-mini',
         messages: [
           { role: 'system', content: systemPrompt },
-          { role: 'user', content: sections.join('\n\n') },
+          { role: 'user', content: userMessage },
         ],
         max_tokens: 600,
         temperature: 0.7,
@@ -124,7 +133,7 @@ Respond ONLY with valid JSON:
 
     if (!response.ok) {
       const err = await response.json();
-      console.error('OpenAI API error:', err);
+      console.error('[journal-reflect] OpenAI error:', err);
       return res.status(502).json(createErrorResponse('EXTERNAL_API_ERROR', 'AI service unavailable'));
     }
 
@@ -143,7 +152,7 @@ Respond ONLY with valid JSON:
       parsed = { reflection: rawContent, mood_observation: 'stable', prompt_for_tomorrow: '' };
     }
 
-    return res.status(200).json({
+    const reflectResult = {
       reflection: parsed.reflection || rawContent,
       moodObservation: parsed.mood_observation || 'stable',
       promptForTomorrow: parsed.prompt_for_tomorrow || '',
@@ -154,7 +163,9 @@ Respond ONLY with valid JSON:
         completion_tokens: data.usage?.completion_tokens ?? 0,
         model: 'gpt-4o-mini',
       },
-    });
+    };
+
+    return res.status(200).json(reflectResult);
   } catch (err: unknown) {
     handleApiError(res, err, 'journal-reflect', 500, 'SERVER_ERROR');
   }

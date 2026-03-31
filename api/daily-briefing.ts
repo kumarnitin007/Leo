@@ -70,20 +70,29 @@ export default async function handler(req: any, res: any) {
 
   const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
   if (!OPENAI_API_KEY) {
+    console.error('[daily-briefing] OPENAI_API_KEY not configured');
     return res.status(500).json(createErrorResponse('CONFIG_ERROR', 'AI service not configured'));
   }
 
   try {
-    const body: BriefingRequest = req.body;
+    const body: BriefingRequest = req.body || {};
 
     if (!body.date) {
       return res.status(400).json(createErrorResponse('VALIDATION_ERROR', 'date is required'));
     }
 
+    const todayTasks = body.todayTasks || [];
+    const upcomingEvents = body.upcomingEvents || [];
+    const recentJournals = body.recentJournals || [];
+    const financialAlerts = body.financialAlerts || [];
+    const completionRate7d = body.completionRate7d ?? 0;
+    const moodTrend = body.moodTrend || 'stable';
+    const personality = body.personality && typeof body.personality === 'object' ? body.personality : null;
+
     // ── Build the system prompt ──────────────────────────────────────
-    const personalityBlock = body.personality
+    const personalityBlock = personality
       ? `\nPERSONALISATION HINTS (use these to add fun, personal references — don't force them, weave naturally):
-${Object.entries(body.personality).filter(([_, v]) => v).map(([k, v]) => `- ${k}: ${v}`).join('\n')}\n`
+${Object.entries(personality).filter(([_, v]) => v).map(([k, v]) => `- ${k}: ${v}`).join('\n')}\n`
       : '';
 
     const systemPrompt = `You are Leo, the personal AI assistant inside the MyDay productivity app.
@@ -120,34 +129,34 @@ Respond ONLY with valid JSON matching this schema:
 
     const sections: string[] = [];
     sections.push(`Date: ${body.date}`);
-    sections.push(`User: ${body.userName}`);
+    sections.push(`User: ${body.userName || 'User'}`);
 
     // Tasks
     if (digestMap.has('tasks')) {
       sections.push(`[Tasks digest – covers to ${digestMap.get('tasks')!.coversTo}]\n${digestMap.get('tasks')!.digest}`);
     } else {
-      sections.push(`Tasks today (7-day completion ${body.completionRate7d}%):\n${body.todayTasks.map(t => `- ${t.name} [${t.status}]${t.streak ? ` (${t.streak}-day streak)` : ''}`).join('\n') || 'None'}`);
+      sections.push(`Tasks today (7-day completion ${completionRate7d}%):\n${todayTasks.map(t => `- ${t.name} [${t.status}]${t.streak ? ` (${t.streak}-day streak)` : ''}`).join('\n') || 'None'}`);
     }
 
     // Events
     if (digestMap.has('events')) {
       sections.push(`[Events digest – covers to ${digestMap.get('events')!.coversTo}]\n${digestMap.get('events')!.digest}`);
     } else {
-      sections.push(`Upcoming events:\n${body.upcomingEvents.map(e => `- ${e.name} (${e.date}, ${e.daysUntil === 0 ? 'today' : e.daysUntil + 'd away'})`).join('\n') || 'None'}`);
+      sections.push(`Upcoming events:\n${upcomingEvents.map(e => `- ${e.name} (${e.date}, ${e.daysUntil === 0 ? 'today' : e.daysUntil + 'd away'})`).join('\n') || 'None'}`);
     }
 
     // Journals
     if (digestMap.has('journal')) {
       sections.push(`[Journal digest – covers to ${digestMap.get('journal')!.coversTo}]\n${digestMap.get('journal')!.digest}`);
     } else {
-      sections.push(`Recent journal mood trend: ${body.moodTrend}\nEntries:\n${body.recentJournals.map(j => `- ${j.date} [${j.mood || 'no mood'}]: ${j.snippet}`).join('\n') || 'None'}`);
+      sections.push(`Recent journal mood trend: ${moodTrend}\nEntries:\n${recentJournals.map(j => `- ${j.date} [${j.mood || 'no mood'}]: ${j.snippet}`).join('\n') || 'None'}`);
     }
 
     // Financial
     if (digestMap.has('financial')) {
       sections.push(`[Financial digest – covers to ${digestMap.get('financial')!.coversTo}]\n${digestMap.get('financial')!.digest}`);
     } else {
-      sections.push(`Financial alerts:\n${body.financialAlerts.length > 0 ? body.financialAlerts.map(a => `- ${a}`).join('\n') : 'None'}`);
+      sections.push(`Financial alerts:\n${financialAlerts.length > 0 ? financialAlerts.map(a => `- ${a}`).join('\n') : 'None'}`);
     }
 
     const userMessage = sections.join('\n\n');
@@ -172,7 +181,7 @@ Respond ONLY with valid JSON matching this schema:
 
     if (!response.ok) {
       const err = await response.json();
-      console.error('OpenAI API error:', err);
+      console.error('[daily-briefing] OpenAI error:', err);
       return res.status(502).json(createErrorResponse('EXTERNAL_API_ERROR', 'AI service unavailable'));
     }
 
@@ -183,13 +192,11 @@ Respond ONLY with valid JSON matching this schema:
       return res.status(502).json(createErrorResponse('EXTERNAL_API_ERROR', 'Empty AI response'));
     }
 
-    // Parse JSON (strip markdown fences if present)
     let parsed: any;
     try {
       const clean = rawContent.replace(/```json\n?|\n?```/g, '').trim();
       parsed = JSON.parse(clean);
     } catch {
-      // If parsing fails, wrap raw text as a briefing
       parsed = { briefing: rawContent, tone: 'neutral' };
     }
 
