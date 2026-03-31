@@ -61,12 +61,11 @@ export const ThemeProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         const settings = await loadUserSettings();
         if (cancelled) return;
         const tid = normalizeStoredThemeId(settings.theme);
-        setCurrentThemeId(tid);
-        try {
-          localStorage.setItem(THEME_STORAGE_KEY, tid);
-        } catch {
-          /* ignore */
-        }
+        setCurrentThemeId(prev => {
+          if (prev === tid) return prev;
+          try { localStorage.setItem(THEME_STORAGE_KEY, tid); } catch { /* ignore */ }
+          return tid;
+        });
       } catch (e) {
         console.warn('[Theme] Could not load theme from account:', e);
       }

@@ -44,6 +44,7 @@ const AIHistoryView: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
   const [digests, setDigests] = useState<StoredDigest[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<AIAbilityId | 'all'>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'passed' | 'failed'>('all');
   const [timeRange, setTimeRange] = useState<7 | 30 | 90>(30);
   const [queryViewer, setQueryViewer] = useState<{
     show: boolean; label: string; icon: string;
@@ -66,7 +67,9 @@ const AIHistoryView: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
 
   useEffect(() => { loadData(); }, [loadData]);
 
-  const filtered = filter === 'all' ? entries : entries.filter(e => e.abilityId === filter);
+  const filtered = entries
+    .filter(e => filter === 'all' || e.abilityId === filter)
+    .filter(e => statusFilter === 'all' || (statusFilter === 'passed' ? e.success : !e.success));
   const sinceDate = new Date();
   sinceDate.setDate(sinceDate.getDate() - timeRange);
   const inRange = filtered.filter(e => new Date(e.createdAt) >= sinceDate);
@@ -197,12 +200,36 @@ const AIHistoryView: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
 
           {/* Transaction Log */}
           <div style={{ background: '#111827', borderRadius: 14, padding: 18, border: '1px solid #1F2937' }}>
-            <div style={{ fontSize: 12, fontWeight: 700, color: '#9CA3AF', marginBottom: 12 }}>
-              Transaction Log ({inRange.length} calls)
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: '#9CA3AF' }}>
+                Transaction Log ({inRange.length} calls)
+              </div>
+              <div style={{ display: 'flex', gap: 4 }}>
+                {([
+                  { key: 'all' as const, label: 'All' },
+                  { key: 'passed' as const, label: '✓ Passed' },
+                  { key: 'failed' as const, label: '✗ Failed' },
+                ]).map(s => (
+                  <button
+                    key={s.key}
+                    onClick={() => setStatusFilter(s.key)}
+                    style={{
+                      padding: '3px 10px', fontSize: 10, fontWeight: statusFilter === s.key ? 700 : 500,
+                      color: statusFilter === s.key ? '#E0E7FF' : '#9CA3AF',
+                      background: statusFilter === s.key
+                        ? (s.key === 'failed' ? '#EF4444' : s.key === 'passed' ? '#10B981' : theme.colors.primary)
+                        : '#1F2937',
+                      border: 'none', borderRadius: 12, cursor: 'pointer',
+                    }}
+                  >{s.label}</button>
+                ))}
+              </div>
             </div>
             {inRange.length === 0 && (
               <div style={{ padding: '20px 0', textAlign: 'center', color: '#4B5563', fontSize: 12 }}>
-                No AI calls in this period. Use the Morning Briefing or Journal Reflection to get started.
+                {statusFilter === 'failed' ? 'No failed AI calls in this period.' :
+                 statusFilter === 'passed' ? 'No successful AI calls in this period.' :
+                 'No AI calls in this period. Use the Morning Briefing or Journal Reflection to get started.'}
               </div>
             )}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 400, overflowY: 'auto' }}>

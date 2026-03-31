@@ -397,7 +397,7 @@ const ItemsView: React.FC<ItemsViewProps> = () => {
   return (
     <div className="events-view">
       <div className="events-header">
-        <h2>📦 Items & Resources</h2>
+        <h2>📦 Items</h2>
         <p>Manage gift cards, subscriptions, warranties, and important notes</p>
       </div>
 

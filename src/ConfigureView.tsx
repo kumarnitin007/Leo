@@ -280,7 +280,7 @@ const ConfigureView: React.FC = () => {
   return (
     <div className="configure-view">
       <div className="view-header">
-        <h2>Tasks</h2>
+        <h2>✅ Tasks</h2>
       </div>
 
       {/* Action Buttons */}

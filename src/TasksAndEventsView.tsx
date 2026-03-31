@@ -23,6 +23,15 @@ type SubTab = 'tasks' | 'events' | 'routines' | 'items' | 'resolutions' | 'todo'
 const TasksAndEventsView: React.FC<TasksAndEventsViewProps> = ({ initialTab }) => {
   const [activeSubTab, setActiveSubTab] = useState<SubTab>(initialTab || 'tasks');
 
+  const tabs: { id: SubTab; icon: string; label: string }[] = [
+    { id: 'tasks', icon: '✅', label: 'Tasks' },
+    { id: 'events', icon: '📅', label: 'Events' },
+    { id: 'routines', icon: '🔄', label: 'Routines' },
+    { id: 'items', icon: '📦', label: 'Items' },
+    { id: 'resolutions', icon: '🎯', label: 'Goals' },
+    { id: 'todo', icon: '📝', label: 'Lists' },
+  ];
+
   return (
     <div className="tasks-events-view">
       {/* Sub-tabs Navigation */}
@@ -33,141 +42,44 @@ const TasksAndEventsView: React.FC<TasksAndEventsViewProps> = ({ initialTab }) =
         padding: '0.5rem',
         marginBottom: '1.5rem',
         display: 'flex',
-        gap: '0.5rem',
-        boxShadow: '0 2px 8px rgba(0, 0, 0, 0.05)'
+        gap: '0.375rem',
+        boxShadow: '0 2px 8px rgba(0, 0, 0, 0.05)',
+        justifyContent: 'center',
       }}>
-        <button
-          onClick={() => setActiveSubTab('tasks')}
-          className={`sub-tab ${activeSubTab === 'tasks' ? 'active' : ''}`}
-          style={{
-            flex: 1,
-            padding: '0.75rem 1.5rem',
-            borderRadius: '8px',
-            border: 'none',
-            background: activeSubTab === 'tasks' 
-              ? 'linear-gradient(135deg, #14b8a6 0%, #0d9488 100%)'
-              : 'transparent',
-            color: activeSubTab === 'tasks' ? 'white' : '#6b7280',
-            fontWeight: 600,
-            cursor: 'pointer',
-            transition: 'all 0.2s',
-            boxShadow: activeSubTab === 'tasks' ? '0 4px 12px rgba(20, 184, 166, 0.35)' : 'none',
-            transform: activeSubTab === 'tasks' ? 'translateY(-2px)' : 'translateY(0)'
-          }}
-        >
-          <span style={{ marginRight: '0.5rem' }}>✅</span>
-          Tasks
-        </button>
-        <button
-          onClick={() => setActiveSubTab('events')}
-          className={`sub-tab ${activeSubTab === 'events' ? 'active' : ''}`}
-          style={{
-            flex: 1,
-            padding: '0.75rem 1.5rem',
-            borderRadius: '8px',
-            border: 'none',
-            background: activeSubTab === 'events' 
-              ? 'linear-gradient(135deg, #14b8a6 0%, #0d9488 100%)'
-              : 'transparent',
-            color: activeSubTab === 'events' ? 'white' : '#6b7280',
-            fontWeight: 600,
-            cursor: 'pointer',
-            transition: 'all 0.2s',
-            boxShadow: activeSubTab === 'events' ? '0 4px 12px rgba(20, 184, 166, 0.35)' : 'none',
-            transform: activeSubTab === 'events' ? 'translateY(-2px)' : 'translateY(0)'
-          }}
-        >
-          <span style={{ marginRight: '0.5rem' }}>📅</span>
-          Events
-        </button>
-        <button
-          onClick={() => setActiveSubTab('routines')}
-          className={`sub-tab ${activeSubTab === 'routines' ? 'active' : ''}`}
-          style={{
-            flex: 1,
-            padding: '0.75rem 1.5rem',
-            borderRadius: '8px',
-            border: 'none',
-            background: activeSubTab === 'routines' 
-              ? 'linear-gradient(135deg, #14b8a6 0%, #0d9488 100%)'
-              : 'transparent',
-            color: activeSubTab === 'routines' ? 'white' : '#6b7280',
-            fontWeight: 600,
-            cursor: 'pointer',
-            transition: 'all 0.2s',
-            boxShadow: activeSubTab === 'routines' ? '0 4px 12px rgba(20, 184, 166, 0.35)' : 'none',
-            transform: activeSubTab === 'routines' ? 'translateY(-2px)' : 'translateY(0)'
-          }}
-        >
-          <span style={{ marginRight: '0.5rem' }}>🎯</span>
-          Routines
-        </button>
-        <button
-          onClick={() => setActiveSubTab('items')}
-          className={`sub-tab ${activeSubTab === 'items' ? 'active' : ''}`}
-          style={{
-            flex: 1,
-            padding: '0.75rem 1.5rem',
-            borderRadius: '8px',
-            border: 'none',
-            background: activeSubTab === 'items' 
-              ? 'linear-gradient(135deg, #14b8a6 0%, #0d9488 100%)'
-              : 'transparent',
-            color: activeSubTab === 'items' ? 'white' : '#6b7280',
-            fontWeight: 600,
-            cursor: 'pointer',
-            transition: 'all 0.2s',
-            boxShadow: activeSubTab === 'items' ? '0 4px 12px rgba(20, 184, 166, 0.35)' : 'none',
-            transform: activeSubTab === 'items' ? 'translateY(-2px)' : 'translateY(0)'
-          }}
-        >
-          <span style={{ marginRight: '0.5rem' }}>📦</span>
-          Items
-        </button>
-        <button
-          onClick={() => setActiveSubTab('resolutions')}
-          className={`sub-tab ${activeSubTab === 'resolutions' ? 'active' : ''}`}
-          style={{
-            flex: 1,
-            padding: '0.75rem 1.5rem',
-            borderRadius: '8px',
-            border: 'none',
-            background: activeSubTab === 'resolutions' 
-              ? 'linear-gradient(135deg, #14b8a6 0%, #0d9488 100%)'
-              : 'transparent',
-            color: activeSubTab === 'resolutions' ? 'white' : '#6b7280',
-            fontWeight: 600,
-            cursor: 'pointer',
-            transition: 'all 0.2s',
-            boxShadow: activeSubTab === 'resolutions' ? '0 4px 12px rgba(20, 184, 166, 0.35)' : 'none',
-            transform: activeSubTab === 'resolutions' ? 'translateY(-2px)' : 'translateY(0)'
-          }}
-        >
-          <span style={{ marginRight: '0.5rem' }}>🎯</span>
-          Resolutions
-        </button>
-        <button
-          onClick={() => setActiveSubTab('todo')}
-          className={`sub-tab ${activeSubTab === 'todo' ? 'active' : ''}`}
-          style={{
-            flex: 1,
-            padding: '0.75rem 1.5rem',
-            borderRadius: '8px',
-            border: 'none',
-            background: activeSubTab === 'todo' 
-              ? 'linear-gradient(135deg, #14b8a6 0%, #0d9488 100%)'
-              : 'transparent',
-            color: activeSubTab === 'todo' ? 'white' : '#6b7280',
-            fontWeight: 600,
-            cursor: 'pointer',
-            transition: 'all 0.2s',
-            boxShadow: activeSubTab === 'todo' ? '0 4px 12px rgba(20, 184, 166, 0.35)' : 'none',
-            transform: activeSubTab === 'todo' ? 'translateY(-2px)' : 'translateY(0)'
-          }}
-        >
-          <span style={{ marginRight: '0.5rem' }}>📝</span>
-          My Lists
-        </button>
+        {tabs.map(t => {
+          const isActive = activeSubTab === t.id;
+          return (
+            <button
+              key={t.id}
+              onClick={() => setActiveSubTab(t.id)}
+              className={`sub-tab ${isActive ? 'active' : ''}`}
+              style={{
+                flex: 1,
+                padding: '0.625rem 0.5rem',
+                borderRadius: '8px',
+                border: 'none',
+                background: isActive
+                  ? 'linear-gradient(135deg, #14b8a6 0%, #0d9488 100%)'
+                  : 'transparent',
+                color: isActive ? 'white' : '#6b7280',
+                fontWeight: 600,
+                fontSize: '0.8125rem',
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+                boxShadow: isActive ? '0 4px 12px rgba(20, 184, 166, 0.35)' : 'none',
+                transform: isActive ? 'translateY(-2px)' : 'translateY(0)',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: '0.2rem',
+                textAlign: 'center',
+              }}
+            >
+              <span style={{ fontSize: '1.1rem', lineHeight: 1 }}>{t.icon}</span>
+              <span>{t.label}</span>
+            </button>
+          );
+        })}
       </div>
 
       {/* Content Area */}

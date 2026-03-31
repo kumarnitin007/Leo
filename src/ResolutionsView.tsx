@@ -127,7 +127,7 @@ const ResolutionsView: React.FC = () => {
     return (
       <div className="resolutions-view">
         <div className="view-header">
-          <h2>🎯 Resolutions</h2>
+          <h2>🎯 Goals</h2>
         </div>
         <div className="loading">Loading resolutions...</div>
       </div>
@@ -137,7 +137,7 @@ const ResolutionsView: React.FC = () => {
   return (
     <div className="resolutions-view">
       <div className="view-header">
-        <h2>🎯 Resolutions & Goals</h2>
+        <h2>🎯 Goals</h2>
         <button onClick={handleCreateNew} className="btn-create-resolution">
           ➕ New Resolution
         </button>

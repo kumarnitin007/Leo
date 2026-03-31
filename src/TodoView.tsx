@@ -399,30 +399,30 @@ const TodoView: React.FC<TodoViewProps> = () => {
       <div style={{
         display: 'flex',
         alignItems: 'center',
-        justifyContent: 'space-between',
+        justifyContent: 'center',
         marginBottom: '1.5rem',
         flexWrap: 'wrap',
-        gap: '1rem'
+        gap: '1rem',
+        position: 'relative',
       }}>
-        <div>
+        <div style={{ textAlign: 'center' }}>
           {!isMobileViewport && (
             <h1 style={{ 
               margin: 0, 
-              fontSize: '1.75rem', 
-              display: 'flex', 
-              alignItems: 'center', 
-              gap: '0.5rem',
-              color: theme.colors.text
+              fontSize: '2rem', 
+              fontWeight: 800,
+              color: 'white',
+              textShadow: '2px 2px 4px rgba(0, 0, 0, 0.2)',
             }}>
-              📝 My Lists
+              📝 Lists
             </h1>
           )}
-          <p style={{ margin: isMobileViewport ? '0 0 0.25rem' : '0.25rem 0 0', color: '#6b7280', fontSize: '0.9rem' }}>
+          <p style={{ margin: isMobileViewport ? '0 0 0.25rem' : '0.25rem 0 0', color: 'rgba(255, 255, 255, 0.8)', fontSize: '0.9rem' }}>
             {completedItems} of {totalItems} completed ({progressPercent}%)
           </p>
         </div>
         
-        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', position: 'absolute', right: 0 }}>
           <button
             onClick={() => setShowVoiceModal(true)}
             style={{

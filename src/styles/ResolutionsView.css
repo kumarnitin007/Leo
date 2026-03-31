@@ -6,20 +6,27 @@
   margin: 0 auto;
 }
 
-.view-header {
+.resolutions-view .view-header {
   display: flex;
-  justify-content: space-between;
   align-items: center;
   margin-bottom: 2rem;
   flex-wrap: wrap;
   gap: 1rem;
+  position: relative;
+  justify-content: center;
 }
 
-.view-header h2 {
+.resolutions-view .view-header h2 {
   font-size: 2rem;
-  color: #1f2937;
   font-weight: 700;
   margin: 0;
+  color: white;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.resolutions-view .view-header .btn-create-resolution {
+  position: absolute;
+  right: 0;
 }
 
 .btn-create-resolution {
@@ -211,7 +218,7 @@
     padding: 1rem;
   }
 
-  .view-header {
+  .resolutions-view .view-header {
     flex-direction: column;
     align-items: flex-start;
   }

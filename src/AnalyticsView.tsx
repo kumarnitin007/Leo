@@ -1,9 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, lazy, Suspense } from 'react';
 import HistoryView from './HistoryView';
 import MonthlyView from './MonthlyView';
 import InsightsView from './InsightsView';
 
-type AnalyticsTab = 'history' | 'monthly' | 'insights';
+const AIHistoryView = lazy(() => import('./components/ai/AIHistoryView'));
+
+type AnalyticsTab = 'history' | 'monthly' | 'insights' | 'ai';
 
 const AnalyticsView: React.FC = () => {
   const [activeTab, setActiveTab] = useState<AnalyticsTab>('insights');
@@ -19,19 +21,25 @@ const AnalyticsView: React.FC = () => {
           className={`sub-tab ${activeTab === 'insights' ? 'active' : ''}`}
           onClick={() => setActiveTab('insights')}
         >
-          📈 Insights & Trends
+          📈 Insights
         </button>
         <button
           className={`sub-tab ${activeTab === 'history' ? 'active' : ''}`}
           onClick={() => setActiveTab('history')}
         >
-          📜 Daily History
+          📜 History
         </button>
         <button
           className={`sub-tab ${activeTab === 'monthly' ? 'active' : ''}`}
           onClick={() => setActiveTab('monthly')}
         >
-          📅 Monthly Calendar
+          📅 Calendar
+        </button>
+        <button
+          className={`sub-tab ${activeTab === 'ai' ? 'active' : ''}`}
+          onClick={() => setActiveTab('ai')}
+        >
+          🤖 AI
         </button>
       </div>
 
@@ -39,6 +47,11 @@ const AnalyticsView: React.FC = () => {
         {activeTab === 'insights' && <InsightsView />}
         {activeTab === 'history' && <HistoryView />}
         {activeTab === 'monthly' && <MonthlyView />}
+        {activeTab === 'ai' && (
+          <Suspense fallback={<div style={{ padding: '2rem', textAlign: 'center' }}>Loading AI History...</div>}>
+            <AIHistoryView />
+          </Suspense>
+        )}
       </div>
     </div>
   );

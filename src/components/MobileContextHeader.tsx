@@ -18,18 +18,18 @@ interface MobileContextHeaderProps {
 
 const viewConfig: Record<string, { title: string; icon: string; color: string }> = {
   today: { title: 'Home', icon: '🏠', color: '#14b8a6' },
-  'tasks-events': { title: 'Tasks & Events', icon: '📋', color: '#3b82f6' },
+  'tasks-events': { title: 'New', icon: '➕', color: '#3b82f6' },
   items: { title: 'Items', icon: '📦', color: '#f59e0b' },
   journal: { title: 'Journal', icon: '📔', color: '#8b5cf6' },
-  smart: { title: 'Smart Features', icon: '✨', color: '#8b5cf6' },
+  smart: { title: 'Smart', icon: '✨', color: '#8b5cf6' },
   history: { title: 'History', icon: '📋', color: '#f59e0b' },
-  'voice-pending': { title: 'Pending Memo', icon: '⏳', color: '#ea580c' },
-  'ai-history': { title: 'AI History', icon: '🤖', color: '#818cf8' },
-  resolutions: { title: 'Resolutions', icon: '🎯', color: '#ec4899' },
+  'voice-pending': { title: 'Pending', icon: '⏳', color: '#ea580c' },
+  'ai-history': { title: 'AI', icon: '🤖', color: '#818cf8' },
+  resolutions: { title: 'Goals', icon: '🎯', color: '#ec4899' },
   analytics: { title: 'Analytics', icon: '📊', color: '#06b6d4' },
   settings: { title: 'Settings', icon: '⚙️', color: '#6b7280' },
   safe: { title: 'Vault', icon: '🔒', color: '#10b981' },
-  todo: { title: 'My Lists', icon: '✅', color: '#14b8a6' },
+  todo: { title: 'Lists', icon: '✅', color: '#14b8a6' },
   groups: { title: 'Groups', icon: '👨‍👩‍👧‍👦', color: '#f43f5e' },
 };
 

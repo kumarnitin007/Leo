@@ -145,6 +145,18 @@ function buildUserMessage(
   return s.join('\n\n');
 }
 
+/**
+ * Returns today's briefing from session or DB cache — never calls the API.
+ */
+export async function getCachedBriefing(userId: string): Promise<DailyBriefingResult | null> {
+  const today = getTodayString();
+  const sc = getSessionCache();
+  if (sc) return sc;
+  const dc = await loadDbCache(userId, today);
+  if (dc) { setSessionCache(dc); return dc; }
+  return null;
+}
+
 // ── Public API ───────────────────────────────────────────────────────
 
 /**

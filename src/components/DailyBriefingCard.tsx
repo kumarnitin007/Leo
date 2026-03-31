@@ -10,7 +10,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useUserLevel } from '../hooks/useUserLevel';
 import { getUserSettings } from '../storage';
-import { getDailyBriefing, refreshDailyBriefing, previewBriefingQuery, DailyBriefingResult } from '../services/ai/abilities/dailyBriefing';
+import { getDailyBriefing, refreshDailyBriefing, previewBriefingQuery, getCachedBriefing, DailyBriefingResult } from '../services/ai/abilities/dailyBriefing';
 import AIQueryViewerModal from './ai/AIQueryViewerModal';
 
 const TONE_STYLES: Record<string, { bg: string; border: string; accent: string; icon: string }> = {
@@ -35,6 +35,13 @@ const DailyBriefingCard: React.FC = () => {
   useEffect(() => {
     getUserSettings().then(s => setAiOptIn(s.aiOptIn ?? false)).catch(() => setAiOptIn(false));
   }, []);
+
+  useEffect(() => {
+    if (!user?.id || aiOptIn !== true || levelLoading || !features.canUseAI) return;
+    getCachedBriefing(user.id).then(cached => {
+      if (cached) setBriefing(cached);
+    }).catch(() => {});
+  }, [user?.id, aiOptIn, levelLoading, features.canUseAI]);
 
   const userName = (user as any)?.user_metadata?.username
     || user?.email?.split('@')[0]
