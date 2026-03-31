@@ -60,6 +60,14 @@
 | 38 | MYTAGS | `myday_tags` | User tags and system categories |
 | **Voice / AI** ||||
 | 39 | MYVCL | `myday_voice_command_logs` | Voice command transcripts, parsed intent (`detected_category`), entities, outcomes |
+| 40 | MYAD | `myday_ai_digests` | AI response cache & content digests (briefings, reflections, token summaries) |
+| 41 | MYAAL | `myday_ai_audit_log` | AI call audit trail (ability, tokens, cost, success/fail) |
+| **Settings** ||||
+| 42 | MYUS | `myday_user_settings` | Per-user settings (theme, temperature, AI opt-in, personality, etc.) |
+| **Google Integration** ||||
+| 43 | MYGT | `myday_google_tokens` | Google OAuth tokens (access, refresh, scopes) per user |
+| 44 | MYFD | `myday_fitness_data` | Daily fitness metrics from Google Fit (steps, calories, HR, sleep, etc.) |
+| 45 | MYCON | `myday_contacts` | Google Contacts cache (People API sync) |
 
 ---
 
@@ -106,6 +114,12 @@
 | MYCT | `myday_comment_templates` |
 | MYTAGS | `myday_tags` |
 | MYVCL | `myday_voice_command_logs` |
+| MYAD | `myday_ai_digests` |
+| MYAAL | `myday_ai_audit_log` |
+| MYUS | `myday_user_settings` |
+| MYGT | `myday_google_tokens` |
+| MYFD | `myday_fitness_data` |
+| MYCON | `myday_contacts` |
 
 ---
 
@@ -250,7 +264,7 @@ SELECT * FROM myday_gift_cards;
 
 ---
 
-**Last Updated**: 2026-03-23  
+**Last Updated**: 2026-03-31  
 **Status**: ✅ VERIFIED
 
 ---
@@ -259,6 +273,8 @@ SELECT * FROM myday_gift_cards;
 
 | Date | Change |
 |------|--------|
+| 2026-03-31 | Added `myday_google_tokens` (MYGT), `myday_fitness_data` (MYFD), `myday_contacts` (MYCON) for Google integration |
+| 2026-03-31 | Added `myday_ai_digests` (MYAD), `myday_ai_audit_log` (MYAAL), `myday_user_settings` (MYUS) — retroactive |
 | 2026-03-23 | Added `myday_voice_command_logs` (MYVCL), lean column names vs legacy |
 | 2026-03-09 | Added Reset Safe cleanup section |
 | 2026-03-09 | Added common mistakes: `myday_shared_entries`, `myday_safe_tags` |

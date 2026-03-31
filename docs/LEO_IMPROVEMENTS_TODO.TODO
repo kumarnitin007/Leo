@@ -16,12 +16,13 @@
 | UX - Polish | 3 | 0 | 0 | 3 |
 | Bugs / Fixes | 3 | 0 | 0 | 3 |
 | New Features | 8 | 0 | 0 | 8 |
-| AI Framework | 8 | 3 | 0 | 5 |
+| AI Framework | 8 | 2 | 1 | 5 |
+| Google Services Integration | 9 | 5 | 0 | 4 |
 | Landing Page / Branding | 4 | 1 | 0 | 3 |
 | Code Refactoring | 21 | 2 | 1 | 16 | (2 deferred)
 | Performance | 10 | 0 | 0 | 10 |
 | Security | 10 | 0 | 0 | 10 |
-| **TOTAL** | **87** | **7** | **1** | **67** | (2 deferred)
+| **TOTAL** | **96** | **11** | **2** | **71** | (2 deferred)
 
 ---
 
@@ -953,13 +954,13 @@
 - **Notes**: Requires OpenAI API key to be set up and prompts to be tested in ChatGPT first.
 
 ### AI-007: Build Real Integrations (Google Tasks, Todoist, etc.)
-- **Status**: ⬜ Pending
+- **Status**: 🟡 In Progress (Google Services framework built, Fit M1 complete)
 - **Priority**: 🟡 Medium
-- **Files**: `src/IntegrationsView.tsx`
+- **Files**: `src/IntegrationsView.tsx`, `src/integrations/google/` (entire folder)
 - **Issue**: IntegrationsView lists Google Tasks, Apple Reminders, Todoist, IFTTT, Zapier — but none are actually connected. All show 'disconnected' with a config modal that only saves to localStorage.
-- **Solution**: Either build real OAuth-based integrations or remove misleading entries. Current working integration is only Google Calendar .ics file import.
+- **Solution**: Extensible Google Services integration framework built (OAuth, token management, API client). Google Fit Milestone 1 complete. Google Contacts and Takeout Import planned.
 - **Completed Date**: -
-- **Notes**: Features page updated to honestly say "More connectors planned"
+- **Notes**: Features page updated to honestly say "More connectors planned". See GINT-xxx items below for granular tracking.
 
 ### AI-008: Add Energy Level Field to Journal
 - **Status**: ⬜ Pending
@@ -968,6 +969,87 @@
 - **Issue**: AI reflections could be more insightful with energy level data alongside mood.
 - **Solution**: Add optional `energyLevel` field (1-5) to JournalEntry. Show as quick selector in journal editor. Include in AI prompts for richer analysis.
 - **Completed Date**: -
+
+---
+
+## 🔗 Google Services Integration
+
+### GINT-001: Google OAuth Framework
+- **Status**: ✅ Completed
+- **Priority**: 🔴 Critical
+- **Files**: `src/integrations/google/GoogleAuthManager.ts`, `src/integrations/google/GoogleApiClient.ts`, `api/google-oauth-callback.ts`, `api/google-refresh-token.ts`, `src/integrations/google/hooks/useGoogleAuth.ts`, `src/integrations/google/constants.ts`, `src/integrations/google/types/`
+- **Issue**: No Google OAuth existed. Needed secure Authorization Code flow with server-side token exchange.
+- **Solution**: Full OAuth 2.0 Authorization Code flow — frontend builds consent URL, server-side callback exchanges auth code for tokens (Client Secret never exposed), tokens stored in `myday_google_tokens`, auto-refresh via `GoogleApiClient`. Incremental scopes per service.
+- **Completed Date**: 2026-03-26
+
+### GINT-002: Supabase Tables for Google Integration
+- **Status**: ✅ Completed
+- **Priority**: 🔴 Critical
+- **Files**: `supabase/migrations/20260331_google_tokens.sql`, `supabase/migrations/20260331_fitness_data.sql`, `supabase/migrations/20260331_contacts.sql`
+- **Issue**: No tables existed for Google token storage, fitness data caching, or contacts sync.
+- **Solution**: Created `myday_google_tokens`, `myday_fitness_data`, `myday_contacts` with RLS policies. All use `myday_` naming convention.
+- **Completed Date**: 2026-03-26
+
+### GINT-003: Google Fit — Milestone 1 (Steps in Journal)
+- **Status**: ✅ Completed
+- **Priority**: 🔴 Critical
+- **Files**: `src/components/JournalFitSteps.tsx`, `src/integrations/google/services/FitService.ts`, `src/integrations/google/hooks/useGoogleFit.ts`, `src/JournalView.tsx`
+- **Issue**: No way to see fitness data in Leo.
+- **Solution**: "Fetch Steps" button in Journal entry form near energyLevel/activity fields. Shows steps, calories, active minutes, heart rate, sleep, weight, floors for today/yesterday/2-days-ago. Caches to `myday_fitness_data`. Loading spinner + "Connect Google Fit" prompt if not connected.
+- **Completed Date**: 2026-03-26
+
+### GINT-004: Google Fit — Enable Additional Data Scopes
+- **Status**: ⬜ Pending
+- **Priority**: 🟡 Medium
+- **Files**: Google Cloud Console (manual), `src/integrations/google/constants.ts`
+- **Issue**: Google Fit API returns 403 for `com.google.distance.delta` and `com.google.heart_rate.bpm` (require `fitness.location.read` and `fitness.heart_rate.read` scopes). Returns 400 for `com.google.floor_count.delta` (no datasource — needs compatible device/app).
+- **Solution**:
+  1. **Console fix**: Enable `fitness.location.read` and `fitness.heart_rate.read` scopes in Google Cloud Console OAuth consent screen
+  2. **Code**: Add those scopes to `constants.ts` → `GOOGLE_SCOPES` and `SERVICE_SCOPES.fit`
+  3. **Reconnect**: User must disconnect and reconnect Google Fit to grant new scopes
+  4. **Floors**: `floor_count.delta` requires a device that tracks floors (Fitbit, some Samsung watches) — not fixable from console if no compatible device
+- **Completed Date**: -
+- **Notes**: Steps, calories, and active minutes work with current scopes. Distance, heart rate require expanded scopes. Floor count requires compatible hardware.
+
+### GINT-005: Google Fit — Analytics Surface
+- **Status**: ⬜ Pending
+- **Priority**: 🟡 Medium
+- **Files**: `src/SmartView.tsx` (Analytics)
+- **Issue**: Fitness data only visible in Journal form. Should also appear in Analytics module.
+- **Solution**: Add a "Daily Steps" chart section to Analytics using cached `myday_fitness_data` (last 30 days). No new screen — embed in existing Analytics view.
+- **Completed Date**: -
+
+### GINT-006: Google Fit — Routines & Goals Integration
+- **Status**: ⬜ Pending
+- **Priority**: 🟢 Low
+- **Files**: `src/ResolutionsView.tsx`
+- **Issue**: Users set step goals but can't see progress against real data.
+- **Solution**: Surface actual steps as a "Daily Steps" goal card in Routines & Goals. Show progress ring vs. target.
+- **Completed Date**: -
+
+### GINT-007: Google Contacts — Two-Way Sync
+- **Status**: ⬜ Pending
+- **Priority**: 🟡 Medium
+- **Files**: `src/integrations/google/services/ContactsService.ts`, `src/integrations/google/hooks/useGoogleContacts.ts`
+- **Issue**: No contact integration exists.
+- **Solution**: Sync contacts from Google People API → `myday_contacts`. Auto-create birthday/anniversary calendar events. Typeahead in Task/Event people fields. Two-way sync (notes/tags edits pushed back to Google).
+- **Completed Date**: -
+
+### GINT-008: Google Takeout Import (Keep Notes)
+- **Status**: ⬜ Pending
+- **Priority**: 🟢 Low
+- **Files**: `src/IntegrationsView.tsx`
+- **Issue**: Users with Google Keep data have no migration path.
+- **Solution**: Upload .zip/.json from Google Takeout. Parse notes into Tasks or Journal entries with labels as tags. Preview table before import. De-duplicate on re-import.
+- **Completed Date**: -
+
+### GINT-009: IntegrationsView — Google Services Section
+- **Status**: ✅ Completed
+- **Priority**: 🟡 Medium
+- **Files**: `src/components/GoogleServicesSection.tsx`, `src/IntegrationsView.tsx`
+- **Issue**: No UI for managing Google service connections.
+- **Solution**: Expandable "Google Services" section with cards for Fit, Contacts, and Takeout Import. Connect/Disconnect buttons, status badges, last-synced timestamps.
+- **Completed Date**: 2026-03-26
 
 ---
 
@@ -1086,3 +1168,7 @@
 | 2026-03-26 | LP-002 | Moved "Free & Open Source" badge to prominent position | AI |
 | 2026-03-26 | LP-003 | Renamed "Safe" to "Vault" across all user-facing labels | AI |
 | 2026-03-26 | - | Clarified integration statuses on features page (only .ics import working) | AI |
+| 2026-03-26 | GINT-001 | Built Google OAuth 2.0 Authorization Code framework (server-side token exchange) | AI |
+| 2026-03-26 | GINT-002 | Created myday_google_tokens, myday_fitness_data, myday_contacts tables + RLS | AI |
+| 2026-03-26 | GINT-003 | Google Fit Milestone 1 — steps/calories/active mins displayed in Journal form | AI |
+| 2026-03-26 | GINT-009 | Google Services section added to IntegrationsView (Fit/Contacts/Takeout cards) | AI |

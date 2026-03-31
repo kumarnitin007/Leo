@@ -1,0 +1,24 @@
+---
+description: Supabase table naming — all tables use myday_ prefix, always check schema file first
+globs: "**/*.sql,**/storage/**/*.ts,**/services/**/*.ts,**/integrations/**/*.ts"
+alwaysApply: true
+---
+
+# Supabase Table Naming Convention
+
+## Golden Rule
+Before creating or querying ANY table: **read `docs/LEO_DB_SCHEMA.schema` first**.
+After creating ANY table: **update `docs/LEO_DB_SCHEMA.schema` immediately**.
+
+## Naming
+- Every table: `myday_<name>` — NEVER `leo_`, `user_`, or unprefixed
+- Verify name against schema file before writing SQL or `.from()` calls
+
+```sql
+-- ✅ GOOD
+create table if not exists myday_fitness_data ( ... );
+
+-- ❌ BAD (violated 2026-03-31, caught by user)
+create table if not exists leo_fitness_data ( ... );
+create table if not exists user_google_tokens ( ... );
+```

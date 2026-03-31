@@ -13,6 +13,7 @@
 import React, { useState, useEffect } from 'react';
 import { Task } from './types';
 import { getTasks, addTask } from './storage';
+import GoogleServicesSection from './components/GoogleServicesSection';
 
 interface Integration {
   id: string;
@@ -292,6 +293,9 @@ const IntegrationsView: React.FC = () => {
           <p>Connect Leo Planner with your favorite productivity tools - plan with strength!</p>
         </div>
       </div>
+
+      {/* Google Services — real OAuth integration */}
+      <GoogleServicesSection />
 
       <div className="integrations-grid">
         {integrations.map(integration => (

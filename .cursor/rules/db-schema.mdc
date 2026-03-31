@@ -1,45 +1,43 @@
 ---
-description: Keep docs/LEO_DB_SCHEMA.schema updated when database changes occur
-globs: ["**/*.sql", "**/migrations/**", "**/services/**Service.ts", "**/supabase/**"]
-alwaysApply: false
+description: MANDATORY — Keep docs/LEO_DB_SCHEMA.schema updated when database changes occur
+globs: ["**/*.sql", "**/migrations/**", "**/services/**Service.ts", "**/supabase/**", "**/storage/**"]
+alwaysApply: true
 ---
 
-# Database Schema Maintenance Rule
+# Database Schema Maintenance Rule (STRICT)
 
-## Required Actions
+## CRITICAL — This rule was violated on 2026-03-31. Do NOT skip it again.
 
-When you:
+When you perform ANY of these actions:
 - Create a new Supabase table
 - Add SQL migrations
-- Modify table structure
-- Add new entity types
+- Modify table structure (add/rename/drop columns)
+- Reference a new table from TypeScript code (.from('myday_...'))
 
-**You MUST update `docs/LEO_DB_SCHEMA.schema`**:
+**You MUST do ALL of the following BEFORE considering the task done:**
 
-1. Add new table to "Tables Overview" section with:
-   - Sequential number
-   - Acronym (MY prefix + 2-4 letter code)
-   - Full table name (always `myday_` prefix)
-   - Brief description
+### 1. Read the schema file FIRST
+Always `Read docs/LEO_DB_SCHEMA.schema` before writing any SQL or Supabase query to:
+- Verify table names and column names
+- Check if the table already exists
+- Use correct `myday_` prefix and naming
 
-2. Add acronym to "Quick Acronym Lookup" section
+### 2. Update the schema file IMMEDIATELY after creating tables
+Do NOT defer this. Do NOT "do it later." Update in the SAME response where you create the migration.
 
-3. If adding sharing capability, update "Sharing Architecture" section
+Add to `docs/LEO_DB_SCHEMA.schema`:
+- **Tables Overview**: new row with sequential number, acronym (MY + 2-4 chars), table name, description
+- **Quick Acronym Lookup**: new row
+- **Changelog**: new row with today's date
 
-4. Update "Last Updated" date at bottom
-
-5. Add a row to the Changelog table at the bottom (Date | Change)
-
-## File Location
-`docs/LEO_DB_SCHEMA.schema`
-
-## Naming Conventions
-- Tables: `myday_[entity_name]` (e.g., `myday_group_finance_messages`)
+### 3. Table naming
+- ALL tables: `myday_[entity_name]` (NEVER `leo_`, `user_`, or unprefixed)
 - Shared tables: `myday_shared_[entity_name]`
-- Acronyms: `MY` + abbreviation (e.g., MYGFM for group finance messages)
+- Acronyms: `MY` + abbreviation (e.g., MYFD for fitness_data)
 
-## Reference Before Writing
-Always check `docs/LEO_DB_SCHEMA.schema` before:
-- Writing SQL migrations
-- Writing Supabase queries in TypeScript
-- Adding new database features
+### 4. Verification checklist before finishing
+- [ ] `docs/LEO_DB_SCHEMA.schema` has new table(s) in Tables Overview
+- [ ] Quick Acronym Lookup updated
+- [ ] Last Updated date changed to today
+- [ ] Changelog has an entry for today's changes
+- [ ] All `.from('...')` calls use names matching the schema file exactly

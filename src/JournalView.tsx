@@ -19,6 +19,7 @@ import {
 } from './storage';
 import { formatDate } from './utils';
 import JournalReflectionCard from './components/JournalReflectionCard';
+import JournalFitSteps from './components/JournalFitSteps';
 
 interface JournalViewProps {
   prefillContent?: string;
@@ -641,6 +642,9 @@ const JournalView: React.FC<JournalViewProps> = ({
               )}
             </div>
 
+            {/* Google Fit Steps (Milestone 1) */}
+            <JournalFitSteps />
+
             {/* Collapsible sections: Activities, Metadata, Tags */}
             {renderActivities()}
             {renderMetadata()}
@@ -755,6 +759,9 @@ const JournalView: React.FC<JournalViewProps> = ({
                 </div>
               )}
             </div>
+
+            {/* Google Fit Steps (Milestone 1) */}
+            <JournalFitSteps />
 
             {/* Collapsible: Activities, Metadata, Tags (desktop) */}
             {renderActivities()}

@@ -52,6 +52,13 @@ function createMockRes(res: ServerResponse) {
       }
       res.end(typeof data === 'string' ? data : JSON.stringify(data));
     },
+    redirect(url: string) {
+      if (!headersSent) {
+        headersSent = true;
+        res.writeHead(302, { Location: url });
+      }
+      res.end();
+    },
     setHeader(name: string, value: string | number) {
       try { res.setHeader(name, String(value)); } catch { /* headers already sent */ }
       return mock;
