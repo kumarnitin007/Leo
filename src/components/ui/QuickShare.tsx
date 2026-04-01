@@ -146,7 +146,9 @@ export const QuickShare: React.FC<QuickShareProps> = ({
           width: '40px',
           height: '40px',
           borderRadius: RADIUS.md,
-          background: `linear-gradient(135deg, ${theme.gradient.from}, ${theme.gradient.to})`,
+          background: theme.gradient.textColor
+            ? theme.colors.primary
+            : `linear-gradient(135deg, ${theme.gradient.from}, ${theme.gradient.to})`,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',

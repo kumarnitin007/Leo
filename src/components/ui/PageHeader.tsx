@@ -80,8 +80,12 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
     ...style,
   };
 
-  const textColor = gradient ? 'white' : theme.colors.text;
-  const subtitleColor = gradient ? 'rgba(255,255,255,0.8)' : theme.colors.textLight;
+  const gradientText = theme.gradient.textColor || 'white';
+  const isLightGradient = !!theme.gradient.textColor;
+  const textColor = gradient ? gradientText : theme.colors.text;
+  const subtitleColor = gradient
+    ? (isLightGradient ? theme.colors.textLight : 'rgba(255,255,255,0.8)')
+    : theme.colors.textLight;
 
   return (
     <div className={className} style={headerStyle}>
@@ -114,7 +118,7 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
               }}
               onMouseEnter={(e) => {
                 e.currentTarget.style.background = gradient 
-                  ? 'rgba(255,255,255,0.2)' 
+                  ? (isLightGradient ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.2)')
                   : theme.colors.background;
               }}
               onMouseLeave={(e) => {

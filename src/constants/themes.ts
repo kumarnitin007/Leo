@@ -31,6 +31,7 @@ export interface Theme {
     from: string;
     via: string;
     to: string;
+    textColor?: string;
   };
 }
 
@@ -373,6 +374,31 @@ export const themes: Theme[] = [
       from: '#374151',
       via: '#4b5563',
       to: '#6b7280',
+    },
+  },
+  {
+    id: 'warm-paper',
+    name: 'Warm Paper',
+    emoji: '📜',
+    description: 'Soft parchment tones — cream, warm brown, and gold like a real journal',
+    colors: {
+      primary: '#7a6e60',
+      secondary: '#6b5f52',
+      accent: '#c8922a',
+      background: '#faf8f5',
+      text: '#1a1714',
+      textLight: '#9a9089',
+      cardBg: 'rgba(255, 255, 255, 0.95)',
+      cardBorder: '#e8e4de',
+      success: '#1d9e75',
+      warning: '#c8922a',
+      danger: '#c94a2e',
+    },
+    gradient: {
+      from: '#e8e4de',
+      via: '#e2ded7',
+      to: '#ddd9d3',
+      textColor: '#1a1714',
     },
   },
   {

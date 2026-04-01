@@ -118,6 +118,7 @@ export const ThemeProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     root.style.setProperty('--gradient-from', theme.gradient.from);
     root.style.setProperty('--gradient-via', theme.gradient.via);
     root.style.setProperty('--gradient-to', theme.gradient.to);
+    root.style.setProperty('--gradient-text', theme.gradient.textColor || 'white');
     
     // Derived colors for common UI patterns
     root.style.setProperty('--color-text-muted', theme.colors.textLight);

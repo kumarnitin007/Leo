@@ -8,6 +8,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { useUser } from '../contexts/UserContext';
 import { useUserLevel } from '../hooks/useUserLevel';
 import { getUserSettings } from '../storage';
 import { getDailyBriefing, refreshDailyBriefing, previewBriefingQuery, getCachedBriefing, DailyBriefingResult } from '../services/ai/abilities/dailyBriefing';
@@ -22,6 +23,7 @@ const TONE_STYLES: Record<string, { bg: string; border: string; accent: string; 
 
 const DailyBriefingCard: React.FC = () => {
   const { user } = useAuth();
+  const { username: displayName } = useUser();
   const { features, loading: levelLoading } = useUserLevel();
   const [briefing, setBriefing] = useState<DailyBriefingResult | null>(null);
   const [loading, setLoading] = useState(false);
@@ -43,9 +45,7 @@ const DailyBriefingCard: React.FC = () => {
     }).catch(() => {});
   }, [user?.id, aiOptIn, levelLoading, features.canUseAI]);
 
-  const userName = (user as any)?.user_metadata?.username
-    || user?.email?.split('@')[0]
-    || 'there';
+  const userName = displayName || user?.email?.split('@')[0] || 'there';
 
   const loadBriefing = useCallback(async () => {
     if (!user?.id) return;

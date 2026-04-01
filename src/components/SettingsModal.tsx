@@ -416,7 +416,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ show, onClose }) => {
                 {availableThemes.map(t => (
                   <button key={t.id} onClick={() => setTheme(t.id)} style={{ padding: '1rem', borderRadius: '1rem', border: theme.id === t.id ? '3px solid ' + t.colors.primary : '1px solid #e5e7eb', background: `linear-gradient(135deg, ${t.gradient.from}, ${t.gradient.via}, ${t.gradient.to})`, cursor: 'pointer', textAlign: 'center' }} title={t.description}>
                     <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>{t.emoji}</div>
-                    <div style={{ fontSize: '0.75rem', fontWeight: 'bold', color: 'white', textShadow: '0 1px 3px rgba(0,0,0,0.3)' }}>{t.name}</div>
+                    <div style={{ fontSize: '0.75rem', fontWeight: 'bold', color: t.gradient.textColor || 'white', textShadow: t.gradient.textColor ? 'none' : '0 1px 3px rgba(0,0,0,0.3)' }}>{t.name}</div>
                   </button>
                 ))}
               </div>

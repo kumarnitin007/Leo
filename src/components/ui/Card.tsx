@@ -92,8 +92,8 @@ export const Card: React.FC<CardProps> & {
           ...baseStyles,
           background: `linear-gradient(135deg, ${theme.gradient.from} 0%, ${theme.gradient.via} 50%, ${theme.gradient.to} 100%)`,
           boxShadow: SHADOW.md,
-          border: 'none',
-          color: 'white',
+          border: theme.gradient.textColor ? `1px solid ${theme.colors.cardBorder}` : 'none',
+          color: theme.gradient.textColor || 'white',
         };
       default:
         return {

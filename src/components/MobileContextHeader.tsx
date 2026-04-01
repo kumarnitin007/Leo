@@ -42,10 +42,12 @@ const MobileContextHeader: React.FC<MobileContextHeaderProps> = ({
 }) => {
   const { theme } = useTheme();
   const config = viewConfig[currentView] || { title: 'Leo Planner', icon: '🦁', color: theme.colors.primary };
+  const gradientText = theme.gradient.textColor || 'white';
+  const isLightGradient = !!theme.gradient.textColor;
 
   return (
     <div 
-      className="mobile-context-header"
+      className={`mobile-context-header${isLightGradient ? ' light-gradient' : ''}`}
       style={{
         background: `linear-gradient(135deg, ${theme.gradient.from} 0%, ${theme.gradient.via} 50%, ${theme.gradient.to} 100%)`,
       }}
@@ -59,11 +61,11 @@ const MobileContextHeader: React.FC<MobileContextHeaderProps> = ({
           <button
             onClick={onBack}
             style={{
-              background: 'rgba(255, 255, 255, 0.2)',
+              background: isLightGradient ? 'rgba(0, 0, 0, 0.08)' : 'rgba(255, 255, 255, 0.2)',
               border: 'none',
               borderRadius: '0.5rem',
               padding: '0.5rem 0.75rem',
-              color: 'white',
+              color: gradientText,
               fontSize: '1.25rem',
               cursor: 'pointer',
               display: 'flex',

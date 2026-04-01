@@ -100,6 +100,57 @@ function buildUserMessage(
   return s.join('\n\n');
 }
 
+// ── Cache ────────────────────────────────────────────────────────────
+
+const REFLECTION_SESSION_KEY = 'myday-journal-reflection';
+
+function getSessionReflection(): JournalReflectionResult | null {
+  try {
+    const raw = sessionStorage.getItem(REFLECTION_SESSION_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch { return null; }
+}
+
+function setSessionReflection(r: JournalReflectionResult) {
+  try { sessionStorage.setItem(REFLECTION_SESSION_KEY, JSON.stringify(r)); } catch { /* quota */ }
+}
+
+async function loadDbReflection(userId: string, date: string): Promise<JournalReflectionResult | null> {
+  const client = getSupabaseClient();
+  if (!client) return null;
+  const { data } = await client
+    .from('myday_ai_digests')
+    .select('response_text, created_at')
+    .eq('user_id', userId)
+    .eq('digest_type', 'journal_reflection')
+    .eq('response_date', date)
+    .maybeSingle();
+  if (!data?.response_text) return null;
+  try {
+    const parsed = JSON.parse(data.response_text);
+    return {
+      reflection: parsed.reflection || data.response_text,
+      moodObservation: parsed.moodObservation || 'stable',
+      promptForTomorrow: parsed.promptForTomorrow || '',
+      funQuote: parsed.funQuote,
+      date,
+    };
+  } catch {
+    return { reflection: data.response_text, moodObservation: 'stable', promptForTomorrow: '', date };
+  }
+}
+
+/**
+ * Returns today's reflection from session or DB cache — never calls the API.
+ */
+export async function getCachedReflection(userId: string, date: string): Promise<JournalReflectionResult | null> {
+  const sc = getSessionReflection();
+  if (sc && sc.date === date) return sc;
+  const dc = await loadDbReflection(userId, date);
+  if (dc) { setSessionReflection(dc); return dc; }
+  return null;
+}
+
 // ── Public API ───────────────────────────────────────────────────────
 
 /**
@@ -194,17 +245,8 @@ export async function getJournalReflection(
 
   // Save digests + reflection (fire-and-forget)
   if (result.data.digests?.length) saveDigests(userId, result.data.digests).catch(() => {});
-  const client = getSupabaseClient();
-  if (client) {
-    client.from('myday_ai_digests').upsert([{
-      user_id: userId, digest_type: 'journal_reflection',
-      response_text: result.data.reflection, response_date: entry.date,
-      prompt_tokens: result.usage.promptTokens, completion_tokens: result.usage.completionTokens,
-      model: result.usage.model,
-    }], { onConflict: 'user_id,digest_type,response_date' }).then(() => {});
-  }
 
-  return {
+  const reflectionResult: JournalReflectionResult = {
     reflection: result.data.reflection,
     moodObservation: result.data.moodObservation || result.data.mood_observation || 'stable',
     promptForTomorrow: result.data.promptForTomorrow || result.data.prompt_for_tomorrow || '',
@@ -213,4 +255,24 @@ export async function getJournalReflection(
     lastQuery: { systemPrompt: result.systemPrompt, userMessage: result.userMessage },
     usage: result.usage,
   };
+
+  // Persist full result JSON to DB for same-day cache
+  const client = getSupabaseClient();
+  if (client) {
+    const cachePayload = {
+      reflection: reflectionResult.reflection,
+      moodObservation: reflectionResult.moodObservation,
+      promptForTomorrow: reflectionResult.promptForTomorrow,
+      funQuote: reflectionResult.funQuote,
+    };
+    client.from('myday_ai_digests').upsert([{
+      user_id: userId, digest_type: 'journal_reflection',
+      response_text: JSON.stringify(cachePayload), response_date: entry.date,
+      prompt_tokens: result.usage.promptTokens, completion_tokens: result.usage.completionTokens,
+      model: result.usage.model,
+    }], { onConflict: 'user_id,digest_type,response_date' }).then(() => {});
+  }
+
+  setSessionReflection(reflectionResult);
+  return reflectionResult;
 }

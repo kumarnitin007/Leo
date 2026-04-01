@@ -57,7 +57,9 @@ const SpeedDialFAB: React.FC<SpeedDialFABProps> = ({ actions }) => {
     width: 56,
     height: 56,
     borderRadius: '50%',
-    background: `linear-gradient(135deg, ${theme.gradient.from} 0%, ${theme.gradient.to} 100%)`,
+    background: theme.gradient.textColor
+      ? theme.colors.primary
+      : `linear-gradient(135deg, ${theme.gradient.from} 0%, ${theme.gradient.to} 100%)`,
     border: 'none',
     boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
     cursor: 'pointer',

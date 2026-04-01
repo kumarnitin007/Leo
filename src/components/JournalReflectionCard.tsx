@@ -10,9 +10,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { JournalEntry } from '../types';
 import { useAuth } from '../contexts/AuthContext';
+import { useUser } from '../contexts/UserContext';
 import { useUserLevel } from '../hooks/useUserLevel';
 import { getUserSettings } from '../storage';
-import { getJournalReflection, previewReflectionQuery, JournalReflectionResult } from '../services/ai/abilities/journalReflection';
+import { getJournalReflection, getCachedReflection, previewReflectionQuery, JournalReflectionResult } from '../services/ai/abilities/journalReflection';
 import AIQueryViewerModal from './ai/AIQueryViewerModal';
 
 interface Props {
@@ -29,6 +30,7 @@ const OBSERVATION_STYLES: Record<string, { color: string; icon: string; label: s
 
 const JournalReflectionCard: React.FC<Props> = ({ entry, justSaved }) => {
   const { user } = useAuth();
+  const { username: displayName } = useUser();
   const { features, loading: levelLoading } = useUserLevel();
   const [aiOptIn, setAiOptIn] = useState<boolean | null>(null);
   const [reflection, setReflection] = useState<JournalReflectionResult | null>(null);
@@ -43,9 +45,15 @@ const JournalReflectionCard: React.FC<Props> = ({ entry, justSaved }) => {
     getUserSettings().then(s => setAiOptIn(s.aiOptIn ?? false)).catch(() => setAiOptIn(false));
   }, []);
 
-  const userName = (user as any)?.user_metadata?.username
-    || user?.email?.split('@')[0]
-    || 'there';
+  const userName = displayName || user?.email?.split('@')[0] || 'there';
+
+  // Load cached reflection for today on mount
+  useEffect(() => {
+    if (!user?.id || !entry?.date || aiOptIn !== true || levelLoading || !features.canUseAI) return;
+    getCachedReflection(user.id, entry.date).then(cached => {
+      if (cached) setReflection(cached);
+    }).catch(() => {});
+  }, [user?.id, entry?.date, aiOptIn, levelLoading, features.canUseAI]);
 
   const fetchReflection = useCallback(async () => {
     if (!user?.id || !entry?.content) return;
@@ -92,7 +100,7 @@ const JournalReflectionCard: React.FC<Props> = ({ entry, justSaved }) => {
   return (
     <div style={{
       background: 'linear-gradient(135deg, #1E1B4B 0%, #312E81 100%)',
-      border: '1px solid #4338CA40', borderRadius: 14, overflow: 'hidden', marginTop: 16,
+      border: '1px solid #4338CA40', borderRadius: 14, marginTop: 16,
     }}>
       <button
         onClick={() => setCollapsed(c => !c)}
@@ -132,7 +140,7 @@ const JournalReflectionCard: React.FC<Props> = ({ entry, justSaved }) => {
       </button>
 
       {!collapsed && (
-        <div style={{ padding: '0 16px 16px', borderTop: '1px solid #4338CA30' }}>
+        <div style={{ padding: '0 16px 16px', borderTop: '1px solid #4338CA30', maxHeight: 320, overflowY: 'auto' }}>
           {loading && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '14px 0', color: '#A5B4FC', fontSize: 12 }}>
               <span style={{

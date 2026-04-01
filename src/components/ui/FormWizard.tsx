@@ -146,7 +146,9 @@ export const FormWizard: React.FC<FormWizardProps> = ({
                     alignItems: 'center',
                     justifyContent: 'center',
                     background: isActive
-                      ? `linear-gradient(135deg, ${theme.gradient.from}, ${theme.gradient.to})`
+                      ? (theme.gradient.textColor
+                          ? theme.colors.primary
+                          : `linear-gradient(135deg, ${theme.gradient.from}, ${theme.gradient.to})`)
                       : isCompleted
                       ? theme.colors.success
                       : theme.colors.background,

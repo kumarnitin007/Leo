@@ -151,7 +151,9 @@ export const Tabs: React.FC<TabsProps> = ({
         return {
           ...baseStyles,
           background: isActive
-            ? `linear-gradient(135deg, ${theme.gradient.from}, ${theme.gradient.to})`
+            ? (theme.gradient.textColor
+                ? theme.colors.primary
+                : `linear-gradient(135deg, ${theme.gradient.from}, ${theme.gradient.to})`)
             : 'transparent',
           color: isActive ? 'white' : theme.colors.text,
           borderRadius: RADIUS.md,

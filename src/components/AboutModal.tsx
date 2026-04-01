@@ -202,7 +202,7 @@ const AboutModal: React.FC<AboutModalProps> = ({ show, onClose }) => {
                     </p>
                   </div>
                   <div style={{ background: 'linear-gradient(to right, #cffafe, #a5f3fc)', padding: '1rem', borderRadius: '0.75rem', border: '1px solid #67e8f9' }}>
-                    <p style={{ fontWeight: 'bold', margin: '0 0 0.5rem 0', fontSize: '1rem' }}>🎨 15 Beautiful Themes</p>
+                    <p style={{ fontWeight: 'bold', margin: '0 0 0.5rem 0', fontSize: '1rem' }}>🎨 16 Beautiful Themes</p>
                     <p style={{ fontSize: '0.875rem', margin: 0, color: '#374151', lineHeight: '1.5' }}>
                       Leo Planner, Purple Dream, Ocean Breeze, Sunset Glow, Forest Green, Cherry Blossom, Golden Hour,
                       Midnight Blue, Lavender Fields, Autumn Leaves, Mint Fresh, Corporate Navy, Executive Slate,

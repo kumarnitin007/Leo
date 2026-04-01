@@ -102,7 +102,9 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
     success: theme.colors.success,
     warning: theme.colors.warning,
     danger: theme.colors.danger,
-    headerBg: `linear-gradient(135deg, ${theme.gradient.from} 0%, ${theme.gradient.via} 50%, ${theme.gradient.to} 100%)`,
+    headerBg: theme.gradient.textColor
+      ? `linear-gradient(135deg, ${theme.colors.primary} 0%, ${theme.colors.secondary} 100%)`
+      : `linear-gradient(135deg, ${theme.gradient.from} 0%, ${theme.gradient.via} 50%, ${theme.gradient.to} 100%)`,
   }), [theme]);
 
   const [deposits, setDeposits] = useState<Deposit[]>([]);
