@@ -49,6 +49,7 @@ export const getTasks = async (): Promise<Task[]> => {
     holdEndDate: task.hold_end_date,
     holdReason: task.hold_reason,
     tags: task.tags || [],
+    trackedMetric: task.tracked_metric || null,
     createdAt: task.created_at
   }));
 };
@@ -84,6 +85,7 @@ export const addTask = async (task: Task): Promise<void> => {
     hold_end_date: task.holdEndDate,
     hold_reason: task.holdReason,
     tags: task.tags,
+    tracked_metric: task.trackedMetric || null,
     created_at: task.createdAt
   };
   
@@ -125,6 +127,7 @@ export const updateTask = async (taskId: string, updates: Partial<Task>): Promis
   if (updates.holdEndDate !== undefined) dbUpdates.hold_end_date = updates.holdEndDate;
   if (updates.holdReason !== undefined) dbUpdates.hold_reason = updates.holdReason;
   if (updates.tags !== undefined) dbUpdates.tags = updates.tags;
+  if (updates.trackedMetric !== undefined) dbUpdates.tracked_metric = updates.trackedMetric;
   
   mapVoiceFieldsToDb(updates as VoiceFields, dbUpdates);
 

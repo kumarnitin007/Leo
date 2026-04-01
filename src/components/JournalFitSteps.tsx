@@ -9,8 +9,8 @@
  */
 
 import React from 'react';
-import { useGoogleAuth, useGoogleFit } from '../integrations/google';
-import type { DailyFitnessData } from '../integrations/google';
+import { useFitness, FITNESS_PROVIDERS } from '../integrations/fitness';
+import type { DailyFitnessData } from '../integrations/google/types/fit.types';
 
 interface JournalFitStepsProps {
   onNavigateToIntegrations?: () => void;
@@ -46,31 +46,8 @@ function formatMetric(value: number | null, unit: string): string | null {
 }
 
 const JournalFitSteps: React.FC<JournalFitStepsProps> = ({ onNavigateToIntegrations }) => {
-  const { isFitConnected, loading: authLoading } = useGoogleAuth();
-  const { data, loading, error, fetchRecent } = useGoogleFit();
-
-  if (authLoading) return null;
-
-  if (!isFitConnected) {
-    return (
-      <div style={{ padding: '8px 0.5rem' }}>
-        <button
-          onClick={onNavigateToIntegrations}
-          style={{
-            display: 'flex', alignItems: 'center', gap: 8,
-            padding: '8px 14px', borderRadius: 10,
-            border: '1.5px dashed #D1D5DB', background: '#F9FAFB',
-            color: '#6B7280', fontSize: 12, fontWeight: 500,
-            cursor: 'pointer', width: '100%',
-          }}
-        >
-          <span style={{ fontSize: 16 }}>🏃</span>
-          Connect Google Fit to see steps
-          <span style={{ marginLeft: 'auto', fontSize: 10, color: '#9CA3AF' }}>→</span>
-        </button>
-      </div>
-    );
-  }
+  const { data, loading, error, activeProvider, fetchRecent } = useFitness();
+  const providerName = FITNESS_PROVIDERS[activeProvider].name;
 
   return (
     <div style={{ padding: '8px 0.5rem' }}>
@@ -88,12 +65,12 @@ const JournalFitSteps: React.FC<JournalFitStepsProps> = ({ onNavigateToIntegrati
         {loading ? (
           <>
             <span style={{ display: 'inline-block', animation: 'briefingSpin 0.8s linear infinite', width: 14, height: 14, border: '2px solid #10B98140', borderTopColor: '#10B981', borderRadius: '50%' }} />
-            Fetching from Google Fit...
+            Fetching from {providerName}...
           </>
         ) : (
           <>
             <span style={{ fontSize: 16 }}>🏃</span>
-            {data.length > 0 ? 'Refresh Steps' : 'Fetch Steps'}
+            {data.length > 0 ? 'Refresh Steps' : `Fetch Steps (${providerName})`}
           </>
         )}
       </button>

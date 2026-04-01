@@ -17,12 +17,12 @@
 | Bugs / Fixes | 3 | 0 | 0 | 3 |
 | New Features | 8 | 0 | 0 | 8 |
 | AI Framework | 8 | 2 | 1 | 5 |
-| Google Services Integration | 9 | 5 | 0 | 4 |
+| Google Services Integration | 10 | 0 | 0 | 10 |
 | Landing Page / Branding | 4 | 1 | 0 | 3 |
 | Code Refactoring | 21 | 2 | 1 | 16 | (2 deferred)
 | Performance | 10 | 0 | 0 | 10 |
 | Security | 10 | 0 | 0 | 10 |
-| **TOTAL** | **96** | **11** | **2** | **71** | (2 deferred)
+| **TOTAL** | **97** | **6** | **2** | **77** | (2 deferred)
 
 ---
 
@@ -999,49 +999,47 @@
 - **Completed Date**: 2026-03-26
 
 ### GINT-004: Google Fit — Enable Additional Data Scopes
-- **Status**: ⬜ Pending
+- **Status**: ✅ Completed (code-side; user must reconnect to grant new scopes)
 - **Priority**: 🟡 Medium
-- **Files**: Google Cloud Console (manual), `src/integrations/google/constants.ts`
-- **Issue**: Google Fit API returns 403 for `com.google.distance.delta` and `com.google.heart_rate.bpm` (require `fitness.location.read` and `fitness.heart_rate.read` scopes). Returns 400 for `com.google.floor_count.delta` (no datasource — needs compatible device/app).
-- **Solution**:
-  1. **Console fix**: Enable `fitness.location.read` and `fitness.heart_rate.read` scopes in Google Cloud Console OAuth consent screen
-  2. **Code**: Add those scopes to `constants.ts` → `GOOGLE_SCOPES` and `SERVICE_SCOPES.fit`
-  3. **Reconnect**: User must disconnect and reconnect Google Fit to grant new scopes
-  4. **Floors**: `floor_count.delta` requires a device that tracks floors (Fitbit, some Samsung watches) — not fixable from console if no compatible device
-- **Completed Date**: -
-- **Notes**: Steps, calories, and active minutes work with current scopes. Distance, heart rate require expanded scopes. Floor count requires compatible hardware.
+- **Files**: `src/integrations/google/constants.ts`
+- **Issue**: Google Fit API returns 403 for distance and heart rate data types.
+- **Solution**: Added `fitness.location.read` and `fitness.heart_rate.read` scopes to `constants.ts` → `GOOGLE_SCOPES` and `SERVICE_SCOPES.fit`. User must disconnect and reconnect Google Fit to grant the new scopes. Also added `FIT_SCOPE_HINTS` map in `FitService.ts` for clear console messages per data type. Floor count requires compatible hardware (not fixable from code).
+- **Completed Date**: 2026-03-31
+- **Notes**: User action required: add scopes in Google Cloud Console OAuth consent screen, then reconnect.
 
 ### GINT-005: Google Fit — Analytics Surface
-- **Status**: ⬜ Pending
+- **Status**: ✅ Completed
 - **Priority**: 🟡 Medium
-- **Files**: `src/SmartView.tsx` (Analytics)
+- **Files**: `src/components/FitnessAnalyticsPanel.tsx`, `src/AnalyticsView.tsx`
 - **Issue**: Fitness data only visible in Journal form. Should also appear in Analytics module.
-- **Solution**: Add a "Daily Steps" chart section to Analytics using cached `myday_fitness_data` (last 30 days). No new screen — embed in existing Analytics view.
-- **Completed Date**: -
+- **Solution**: Added "Fitness" tab in Analytics with summary cards (total steps, avg, calories, active min), switchable bar chart (30 days), and "Sync from Google" button. Uses cached `myday_fitness_data`.
+- **Completed Date**: 2026-03-31
 
 ### GINT-006: Google Fit — Routines & Goals Integration
-- **Status**: ⬜ Pending
+- **Status**: ✅ Completed
 - **Priority**: 🟢 Low
-- **Files**: `src/ResolutionsView.tsx`
+- **Files**: `src/components/FitnessGoalCards.tsx`, `src/ResolutionsView.tsx`
 - **Issue**: Users set step goals but can't see progress against real data.
-- **Solution**: Surface actual steps as a "Daily Steps" goal card in Routines & Goals. Show progress ring vs. target.
-- **Completed Date**: -
+- **Solution**: `FitnessGoalCards` component shows tracked tasks with today's progress (value, target, % bar) at top of Goals view. Uses cached fitness data — no extra API calls.
+- **Completed Date**: 2026-03-31
 
-### GINT-007: Google Contacts — Two-Way Sync
-- **Status**: ⬜ Pending
+### GINT-007: Google Contacts — Sync & Events
+- **Status**: ✅ Completed (core sync + birthday events + typeahead; two-way write-back pending)
 - **Priority**: 🟡 Medium
-- **Files**: `src/integrations/google/services/ContactsService.ts`, `src/integrations/google/hooks/useGoogleContacts.ts`
-- **Issue**: No contact integration exists.
-- **Solution**: Sync contacts from Google People API → `myday_contacts`. Auto-create birthday/anniversary calendar events. Typeahead in Task/Event people fields. Two-way sync (notes/tags edits pushed back to Google).
-- **Completed Date**: -
+- **Files**: `src/integrations/google/services/ContactsService.ts`, `src/integrations/google/services/ContactEventsService.ts`, `src/integrations/google/hooks/useGoogleContacts.ts`, `src/components/ContactTypeahead.tsx`, `src/components/GoogleServicesSection.tsx`
+- **Issue**: No contact integration existed.
+- **Solution**: Full/delta sync from Google People API → `myday_contacts` with syncToken support. Auto-create birthday/anniversary calendar events (skips duplicates). Reusable `ContactTypeahead` component for any form. "Sync Now" and "Create Birthday Events" buttons in IntegrationsView.
+- **Completed Date**: 2026-03-31
+- **Notes**: Two-way sync (writing notes/tags back to Google) deferred to a later iteration.
 
 ### GINT-008: Google Takeout Import (Keep Notes)
-- **Status**: ⬜ Pending
+- **Status**: ✅ Completed
 - **Priority**: 🟢 Low
-- **Files**: `src/IntegrationsView.tsx`
+- **Files**: `src/integrations/google/services/TakeoutImportService.ts`, `src/components/TakeoutImportPanel.tsx`, `src/components/GoogleServicesSection.tsx`
 - **Issue**: Users with Google Keep data have no migration path.
-- **Solution**: Upload .zip/.json from Google Takeout. Parse notes into Tasks or Journal entries with labels as tags. Preview table before import. De-duplicate on re-import.
-- **Completed Date**: -
+- **Solution**: Upload .json files from Google Takeout (Keep export). Preview table shows all notes with title, tags, body preview. User toggles each item to "Task" or "Journal" destination. Bulk set buttons. Skip archived/trashed by default. De-duplicate on re-import using content hash. Replaces "Coming Soon" badge.
+- **Completed Date**: 2026-03-31
+- **Notes**: .zip direct parsing removed to avoid JSZip dependency — user extracts and uploads .json files.
 
 ### GINT-009: IntegrationsView — Google Services Section
 - **Status**: ✅ Completed
@@ -1050,6 +1048,14 @@
 - **Issue**: No UI for managing Google service connections.
 - **Solution**: Expandable "Google Services" section with cards for Fit, Contacts, and Takeout Import. Connect/Disconnect buttons, status badges, last-synced timestamps.
 - **Completed Date**: 2026-03-26
+
+### GINT-010: Tracked Tasks (Auto-Complete from Fitness Data)
+- **Status**: ✅ Completed
+- **Priority**: 🔴 Critical
+- **Files**: `src/types.ts` (TrackedMetric), `src/storage/tasks.ts`, `src/ConfigureView.tsx`, `src/integrations/google/services/TrackedTaskEngine.ts`, `src/hooks/useTrackedTaskSync.ts`, `src/integrations/google/hooks/useGoogleFit.ts`, `supabase/migrations/20260331_task_tracked_metric.sql`
+- **Issue**: No way to create tasks that auto-complete based on real data (e.g. "Walk 10K steps").
+- **Solution**: Added `TrackedMetric` type (type, target, unit, autoComplete). UI in ConfigureView lets users pick metric (steps/calories/active minutes/distance) and target. `TrackedTaskEngine` runs on every Fit sync and on app startup (via `useTrackedTaskSync`), checking cached fitness data against targets and auto-completing when met. **Backfill support**: if user syncs steps 3-4 days late, earlier tasks get retroactively completed. Manual completion still works alongside auto. Badge on task cards shows target.
+- **Completed Date**: 2026-03-31
 
 ---
 
@@ -1172,3 +1178,12 @@
 | 2026-03-26 | GINT-002 | Created myday_google_tokens, myday_fitness_data, myday_contacts tables + RLS | AI |
 | 2026-03-26 | GINT-003 | Google Fit Milestone 1 — steps/calories/active mins displayed in Journal form | AI |
 | 2026-03-26 | GINT-009 | Google Services section added to IntegrationsView (Fit/Contacts/Takeout cards) | AI |
+| 2026-03-31 | GINT-004 | Added fitness.location.read + fitness.heart_rate.read scopes for distance/HR data | AI |
+| 2026-03-31 | GINT-005 | Fitness Analytics tab with 30-day bar chart, summary cards, sync button | AI |
+| 2026-03-31 | GINT-006 | FitnessGoalCards component showing tracked task progress in Goals view | AI |
+| 2026-03-31 | GINT-007 | Google Contacts full/delta sync, birthday/anniversary auto-events, ContactTypeahead component | AI |
+| 2026-03-31 | GINT-008 | Google Takeout Import — upload Keep .json files, preview table, import to Tasks or Journal | AI |
+| 2026-03-31 | GINT-010 | Tracked Tasks — auto-complete from Fit data with backfill, metric presets, startup sync | AI |
+| 2026-04-01 | GINT-011 | Fitbit OAuth 2.0 + PKCE integration — activity, heart rate, sleep, weight APIs | AI |
+| 2026-04-01 | GINT-012 | Garmin Connect CSV import — daily summary parsing with smart column detection | AI |
+| 2026-04-01 | GINT-013 | Unified fitness provider abstraction — provider picker, shared cache, all consumers updated | AI |

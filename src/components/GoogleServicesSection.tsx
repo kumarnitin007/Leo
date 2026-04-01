@@ -5,11 +5,16 @@
  * and Takeout cards with real OAuth connect/disconnect.
  */
 
-import React, { useState } from 'react';
+import React, { useState, lazy, Suspense } from 'react';
 import { useGoogleAuth } from '../integrations/google';
 import { useGoogleContacts } from '../integrations/google/hooks/useGoogleContacts';
+import { useAuth } from '../contexts/AuthContext';
+import { createContactEvents } from '../integrations/google/services/ContactEventsService';
+
+const TakeoutImportPanel = lazy(() => import('./TakeoutImportPanel'));
 
 const GoogleServicesSection: React.FC = () => {
+  const { user } = useAuth();
   const {
     loading,
     isFitConnected,
@@ -28,6 +33,7 @@ const GoogleServicesSection: React.FC = () => {
 
   const [expanded, setExpanded] = useState(true);
   const [disconnecting, setDisconnecting] = useState(false);
+  const [creatingEvents, setCreatingEvents] = useState(false);
 
   const handleDisconnect = async () => {
     if (!confirm('Disconnect Google? This revokes access for all Google services.')) return;
@@ -43,6 +49,22 @@ const GoogleServicesSection: React.FC = () => {
     const result = await syncContacts();
     if (result) {
       alert(`Sync complete: ${result.total} contacts synced.`);
+    }
+  };
+
+  const handleCreateCalendarEvents = async () => {
+    if (!user?.id) return;
+    setCreatingEvents(true);
+    try {
+      const result = await createContactEvents(user.id);
+      alert(
+        `Done! Created ${result.birthdaysCreated} birthday and ${result.anniversariesCreated} anniversary events.` +
+        (result.skipped > 0 ? ` (${result.skipped} skipped — already existed or missing data)` : ''),
+      );
+    } catch (err: any) {
+      alert('Failed to create events: ' + (err.message || 'Unknown error'));
+    } finally {
+      setCreatingEvents(false);
     }
   };
 
@@ -97,88 +119,97 @@ const GoogleServicesSection: React.FC = () => {
         <div style={{ padding: '0 1.25rem 1.25rem' }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 12 }}>
 
-            {/* Google Fit card */}
-            <ServiceCard
-              icon="🏃"
-              name="Google Fit"
-              description="Steps, calories, heart rate, sleep, and more"
-              scopes="Fitness activity, body, sleep (read)"
-              connected={isFitConnected}
-              loading={loading}
-              onConnect={() => connectService('fit')}
-            />
-
             {/* Google Contacts card */}
             <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 12,
               padding: '12px 14px',
               background: isContactsConnected ? '#F0FDF4' : '#F9FAFB',
               borderRadius: 12,
               border: `1px solid ${isContactsConnected ? '#10B98130' : '#E5E7EB'}`,
             }}>
-              <span style={{ fontSize: 24, flexShrink: 0 }}>👥</span>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <span style={{ fontSize: 13, fontWeight: 600, color: '#111827' }}>Google Contacts</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <span style={{ fontSize: 24, flexShrink: 0 }}>👥</span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span style={{ fontSize: 13, fontWeight: 600, color: '#111827' }}>Google Contacts</span>
+                    {isContactsConnected && (
+                      <span style={{
+                        fontSize: 9, fontWeight: 700, color: '#10B981',
+                        background: '#10B98115', padding: '2px 6px', borderRadius: 4,
+                      }}>CONNECTED</span>
+                    )}
+                  </div>
+                  <div style={{ fontSize: 11, color: '#6B7280', marginTop: 2 }}>
+                    {isContactsConnected
+                      ? `${contactCount} contacts cached${lastSyncResult ? ` · Last sync: ${lastSyncResult.total} synced` : ''}`
+                      : 'Sync contacts for typeahead and birthday events'}
+                  </div>
+                  <div style={{ fontSize: 10, color: '#9CA3AF', marginTop: 1 }}>Scopes: Contacts (read/write)</div>
+                </div>
+                <div style={{ flexShrink: 0 }}>
+                  {!isContactsConnected && (
+                    <button
+                      onClick={() => connectService('contacts')}
+                      disabled={loading}
+                      style={{
+                        padding: '6px 14px', fontSize: 12, fontWeight: 600,
+                        background: '#4285F4', color: 'white', border: 'none',
+                        borderRadius: 8, cursor: 'pointer',
+                      }}
+                    >Connect</button>
+                  )}
                   {isContactsConnected && (
-                    <span style={{
-                      fontSize: 9, fontWeight: 700, color: '#10B981',
-                      background: '#10B98115', padding: '2px 6px', borderRadius: 4,
-                    }}>CONNECTED</span>
+                    <span style={{ fontSize: 18, color: '#10B981' }}>✓</span>
                   )}
                 </div>
-                <div style={{ fontSize: 11, color: '#6B7280', marginTop: 2 }}>
-                  {isContactsConnected
-                    ? `${contactCount} contacts cached${lastSyncResult ? ` · Last sync: ${lastSyncResult.total} synced` : ''}`
-                    : 'Sync contacts for typeahead and birthday events'}
-                </div>
-                <div style={{ fontSize: 10, color: '#9CA3AF', marginTop: 1 }}>Scopes: Contacts (read/write)</div>
               </div>
-              <div style={{ flexShrink: 0, display: 'flex', gap: 6 }}>
-                {isContactsConnected && (
+              {isContactsConnected && (
+                <div style={{ display: 'flex', gap: 6, marginTop: 10, paddingLeft: 36 }}>
                   <button
                     onClick={handleSyncContacts}
                     disabled={syncing}
                     style={{
-                      padding: '6px 12px', fontSize: 11, fontWeight: 600,
+                      padding: '5px 12px', fontSize: 11, fontWeight: 600,
                       background: '#fff', color: '#374151', border: '1px solid #D1D5DB',
                       borderRadius: 8, cursor: 'pointer',
                     }}
                   >
                     {syncing ? '⏳ Syncing...' : '🔄 Sync Now'}
                   </button>
-                )}
-                {!isContactsConnected && (
                   <button
-                    onClick={() => connectService('contacts')}
-                    disabled={loading}
+                    onClick={handleCreateCalendarEvents}
+                    disabled={creatingEvents}
                     style={{
-                      padding: '6px 14px', fontSize: 12, fontWeight: 600,
-                      background: '#4285F4', color: 'white', border: 'none',
+                      padding: '5px 12px', fontSize: 11, fontWeight: 600,
+                      background: '#fff', color: '#374151', border: '1px solid #D1D5DB',
                       borderRadius: 8, cursor: 'pointer',
                     }}
-                  >Connect</button>
-                )}
-              </div>
+                  >
+                    {creatingEvents ? '⏳ Creating...' : '🎂 Create Birthday Events'}
+                  </button>
+                </div>
+              )}
             </div>
 
-            {/* Google Takeout card */}
+            {/* Google Takeout Import */}
             <div style={{
-              display: 'flex', alignItems: 'center', gap: 12,
               padding: '12px 14px', background: '#F9FAFB', borderRadius: 12,
               border: '1px solid #E5E7EB',
             }}>
-              <span style={{ fontSize: 24, flexShrink: 0 }}>📥</span>
-              <div style={{ flex: 1 }}>
-                <span style={{ fontSize: 13, fontWeight: 600, color: '#111827' }}>Google Takeout Import</span>
-                <div style={{ fontSize: 11, color: '#6B7280', marginTop: 2 }}>Import Keep notes as tasks or journal entries</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <span style={{ fontSize: 24, flexShrink: 0 }}>📥</span>
+                <div style={{ flex: 1 }}>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: '#111827' }}>Google Takeout Import</span>
+                  <div style={{ fontSize: 11, color: '#6B7280', marginTop: 2 }}>
+                    Import Keep notes as tasks or journal entries. Export from{' '}
+                    <a href="https://takeout.google.com/" target="_blank" rel="noopener noreferrer" style={{ color: '#3B82F6' }}>
+                      takeout.google.com
+                    </a>
+                  </div>
+                </div>
               </div>
-              <span style={{
-                fontSize: 9, fontWeight: 600, color: '#F59E0B',
-                background: '#F59E0B15', padding: '2px 6px', borderRadius: 4,
-              }}>COMING SOON</span>
+              <Suspense fallback={null}>
+                <TakeoutImportPanel />
+              </Suspense>
             </div>
           </div>
 

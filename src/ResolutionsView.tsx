@@ -1,9 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { Resolution, Task } from './types';
 import { getTasks, getResolutions, addResolution, updateResolution, deleteResolution } from './storage';
 import ResolutionCard from './components/ResolutionCard';
 import ResolutionModal from './components/ResolutionModal';
 import './styles/ResolutionsView.css';
+
+const FitnessGoalCards = lazy(() => import('./components/FitnessGoalCards'));
 
 type FilterTab = 'all' | 'active' | 'completed' | 'paused';
 
@@ -146,6 +148,11 @@ const ResolutionsView: React.FC = () => {
       {error && (
         <div className="error-message">{error}</div>
       )}
+
+      {/* Tracked Fitness Goals */}
+      <Suspense fallback={null}>
+        <FitnessGoalCards tasks={tasks} />
+      </Suspense>
 
       {/* Stats Overview */}
       <div className="resolutions-stats">

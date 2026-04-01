@@ -1,0 +1,50 @@
+---
+description: Keep docs/FEATURES.md updated when features are added, changed, or removed
+globs: ["**/*.ts", "**/*.tsx", "docs/FEATURES.md"]
+alwaysApply: false
+---
+
+# Feature Catalog Maintenance Rule
+
+## File
+`docs/FEATURES.md` – single source of truth for all app features, tech stack, integrations, and component inventory.
+
+## When to Update
+
+### 1. New feature added
+- Add an entry to the **Feature Overview** table (increment #, pick the right screen, set "Added" date)
+- Add a **Detailed Feature Description** section in the appropriate category group
+- If it introduces a new API route, add to the **API Routes** table
+- If it introduces a new DB table, add to the **Database Tables** section
+- If it introduces a new reusable component, add to the **Component Library** table
+- Update the **"What Changed"** section at the bottom with today's date and a one-liner
+
+### 2. Feature changed significantly
+- Update the relevant detail section (new capabilities, changed behavior)
+- Add a line to the **"What Changed"** section
+
+### 3. Feature removed or deprecated
+- Remove from (or mark deprecated in) the **Feature Overview** table
+- Update the detail section with a deprecation note
+- Add a line to the **"What Changed"** section
+
+### 4. Tech stack or integration changed
+- Update the **Tech Stack** table (new library, version change, removed dependency)
+- Update the **Key Integrations** table if a service is added or removed
+
+### 5. Version bump
+- Update the **Version** in the header when `package.json` version changes
+
+## Format to Preserve
+- Overview table uses sequential `#` numbering
+- Detail sections grouped by domain: Core, AI, Voice & Image, Google, Analytics, Settings
+- Each detail section includes: **Screen**, **Files**, **Tables** (if any), bullet list of capabilities
+- Component Library is a simple 3-column table (Component | File | Purpose)
+- API Routes is a 3-column table (Route | Method | Purpose)
+- "What Changed" at the bottom is a date-grouped log
+
+## When Not to Update
+- Pure refactors that don't change user-visible behavior
+- Bug fixes that don't add/remove capability
+- Styling/theme tweaks within existing feature scope
+- If the user explicitly says not to update FEATURES.md

@@ -51,7 +51,17 @@ export interface Task {
   holdReason?: string; // Optional reason for holding
   endTime?: string; // HH:mm - scheduled end time for task (for timer countdown to end time)
   order?: number; // For custom ordering
+  trackedMetric?: TrackedMetric | null; // If set, task can auto-complete based on real data
   createdAt: string;
+}
+
+export type TrackedMetricType = 'steps' | 'calories' | 'active_minutes' | 'distance';
+
+export interface TrackedMetric {
+  type: TrackedMetricType;
+  target: number; // e.g. 10000 for "10K steps"
+  unit: string; // "steps", "cal", "min", "km"
+  autoComplete: boolean; // If true, auto-marks complete when target is met
 }
 
 export interface TaskCompletion {

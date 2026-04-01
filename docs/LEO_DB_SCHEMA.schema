@@ -68,6 +68,8 @@
 | 43 | MYGT | `myday_google_tokens` | Google OAuth tokens (access, refresh, scopes) per user |
 | 44 | MYFD | `myday_fitness_data` | Daily fitness metrics from Google Fit (steps, calories, HR, sleep, etc.) |
 | 45 | MYCON | `myday_contacts` | Google Contacts cache (People API sync) |
+| **Fitbit Integration** ||||
+| 46 | MYFBT | `myday_fitbit_tokens` | Fitbit OAuth tokens (access, refresh, scopes, fitbit_user_id) per user |
 
 ---
 
@@ -273,6 +275,8 @@ SELECT * FROM myday_gift_cards;
 
 | Date | Change |
 |------|--------|
+| 2026-04-01 | Added `myday_fitbit_tokens` (MYFBT) for Fitbit OAuth integration; `myday_fitness_data.source` now supports 'fitbit' and 'garmin' |
+| 2026-03-31 | Added `tracked_metric` JSONB column to `myday_tasks` for Tracked Tasks (auto-complete from fitness data) |
 | 2026-03-31 | Added `myday_google_tokens` (MYGT), `myday_fitness_data` (MYFD), `myday_contacts` (MYCON) for Google integration |
 | 2026-03-31 | Added `myday_ai_digests` (MYAD), `myday_ai_audit_log` (MYAAL), `myday_user_settings` (MYUS) — retroactive |
 | 2026-03-23 | Added `myday_voice_command_logs` (MYVCL), lean column names vs legacy |

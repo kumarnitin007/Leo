@@ -1,49 +1,25 @@
 /**
  * FitnessAnalyticsPanel
  *
- * Shows cached Google Fit data (last 30 days) in a simple tabular
+ * Shows cached fitness data (last 30 days) in a simple tabular
  * view with daily totals and a lightweight bar chart for steps.
+ * Works with any fitness provider (Google Fit, Fitbit, Garmin).
  * Embedded inside the Analytics tab — no new screen or route.
  */
 
 import React, { useEffect, useState } from 'react';
-import { useGoogleAuth } from '../integrations/google/hooks/useGoogleAuth';
-import { useGoogleFit } from '../integrations/google/hooks/useGoogleFit';
+import { useFitness, FITNESS_PROVIDERS } from '../integrations/fitness';
 import type { DailyFitnessData } from '../integrations/google/types/fit.types';
 
 const DAYS_TO_SHOW = 30;
 
 const FitnessAnalyticsPanel: React.FC = () => {
-  const { isFitConnected, loading: authLoading, connectService } = useGoogleAuth();
-  const { data, loading, error, fetchRecent, loadCached } = useGoogleFit();
+  const { data, loading, error, activeProvider, fetchRecent, loadCached } = useFitness();
   const [selectedMetric, setSelectedMetric] = useState<'steps' | 'calories' | 'active'>('steps');
 
   useEffect(() => {
-    if (isFitConnected) loadCached(DAYS_TO_SHOW);
-  }, [isFitConnected, loadCached]);
-
-  if (authLoading) return <div style={{ padding: 24, textAlign: 'center', color: '#9CA3AF' }}>Loading...</div>;
-
-  if (!isFitConnected) {
-    return (
-      <div style={{ padding: 32, textAlign: 'center' }}>
-        <p style={{ fontSize: 48, margin: 0 }}>🏃</p>
-        <h3 style={{ margin: '12px 0 8px', color: '#374151' }}>Google Fit Not Connected</h3>
-        <p style={{ color: '#6B7280', fontSize: 14, maxWidth: 360, margin: '0 auto 16px' }}>
-          Connect Google Fit to see your step counts, calories, active minutes and more here.
-        </p>
-        <button
-          onClick={() => connectService('fit')}
-          style={{
-            background: '#059669', color: '#fff', border: 'none', borderRadius: 8,
-            padding: '10px 24px', fontWeight: 600, cursor: 'pointer', fontSize: 14,
-          }}
-        >
-          Connect Google Fit
-        </button>
-      </div>
-    );
-  }
+    loadCached(DAYS_TO_SHOW);
+  }, [loadCached]);
 
   const sorted = [...data].sort((a, b) => b.date.localeCompare(a.date));
   const maxSteps = Math.max(...sorted.map(d => d.steps ?? 0), 1);
@@ -101,7 +77,7 @@ const FitnessAnalyticsPanel: React.FC = () => {
             fontSize: 12, fontWeight: 600, cursor: 'pointer', background: '#fff', color: '#374151',
           }}
         >
-          {loading ? '⏳ Syncing...' : '🔄 Sync from Google'}
+          {loading ? '⏳ Syncing...' : `🔄 Sync from ${FITNESS_PROVIDERS[activeProvider].name}`}
         </button>
       </div>
 
@@ -133,7 +109,7 @@ const FitnessAnalyticsPanel: React.FC = () => {
         </div>
       ) : (
         <p style={{ textAlign: 'center', color: '#9CA3AF', padding: 24, fontSize: 14 }}>
-          No fitness data cached yet. Click "Sync from Google" to load the last {DAYS_TO_SHOW} days.
+          No fitness data cached yet. Click "Sync" above to load the last {DAYS_TO_SHOW} days.
         </p>
       )}
     </div>

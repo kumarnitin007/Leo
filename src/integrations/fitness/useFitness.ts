@@ -1,29 +1,35 @@
 /**
- * useGoogleFit Hook
+ * useFitness — Unified Fitness Hook
  *
- * Used by JournalView (Milestone 1) and later by Analytics / Goals.
- * Provides fetch + cache of daily fitness data.
+ * Drop-in replacement for useGoogleFit that works with any provider.
+ * Consumers call fetchRecent / loadCached without knowing which provider is active.
  * After every fetch, runs the Tracked Task auto-completion engine.
  */
 
 import { useState, useCallback } from 'react';
-import { useAuth } from '../../../contexts/AuthContext';
-import { fetchAndCacheFitnessData, loadCachedFitnessData } from '../services/FitService';
-import { runAutoComplete } from '../services/TrackedTaskEngine';
-import { getTasks } from '../../../storage/tasks';
-import type { DailyFitnessData } from '../types/fit.types';
-import type { AutoCompleteResult } from '../services/TrackedTaskEngine';
+import { useAuth } from '../../contexts/AuthContext';
+import {
+  fetchFitnessDataUnified,
+  loadCachedFitnessDataUnified,
+  getActiveProvider,
+} from './UnifiedFitnessService';
+import { runAutoComplete } from '../google/services/TrackedTaskEngine';
+import { getTasks } from '../../storage/tasks';
+import type { DailyFitnessData } from '../google/types/fit.types';
+import type { AutoCompleteResult } from '../google/services/TrackedTaskEngine';
+import type { FitnessProviderId } from './types';
 
-export interface GoogleFitState {
+export interface FitnessState {
   data: DailyFitnessData[];
   loading: boolean;
   error: string | null;
+  activeProvider: FitnessProviderId;
   lastAutoComplete: AutoCompleteResult | null;
   fetchRecent: (days?: number) => Promise<void>;
   loadCached: (days?: number) => Promise<void>;
 }
 
-export function useGoogleFit(): GoogleFitState {
+export function useFitness(): FitnessState {
   const { user } = useAuth();
   const [data, setData] = useState<DailyFitnessData[]>([]);
   const [loading, setLoading] = useState(false);
@@ -39,7 +45,7 @@ export function useGoogleFit(): GoogleFitState {
       const result = await runAutoComplete(tasks, fitnessData, user.id);
       setLastAutoComplete(result);
     } catch (err) {
-      console.warn('[useGoogleFit] Auto-complete check failed:', err);
+      console.warn('[useFitness] Auto-complete check failed:', err);
     }
   }, [user?.id]);
 
@@ -48,7 +54,7 @@ export function useGoogleFit(): GoogleFitState {
     setLoading(true);
     setError(null);
     try {
-      const result = await fetchAndCacheFitnessData(user.id, days);
+      const result = await fetchFitnessDataUnified(user.id, days);
       setData(result);
       await runTrackedAutoComplete(result);
     } catch (err: any) {
@@ -62,7 +68,7 @@ export function useGoogleFit(): GoogleFitState {
     if (!user?.id) return;
     setLoading(true);
     try {
-      const cached = await loadCachedFitnessData(user.id, days);
+      const cached = await loadCachedFitnessDataUnified(user.id, days);
       setData(cached);
       await runTrackedAutoComplete(cached);
     } catch {
@@ -72,5 +78,13 @@ export function useGoogleFit(): GoogleFitState {
     }
   }, [user?.id, runTrackedAutoComplete]);
 
-  return { data, loading, error, lastAutoComplete, fetchRecent, loadCached };
+  return {
+    data,
+    loading,
+    error,
+    activeProvider: getActiveProvider(),
+    lastAutoComplete,
+    fetchRecent,
+    loadCached,
+  };
 }

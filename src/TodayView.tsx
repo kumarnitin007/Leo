@@ -24,6 +24,7 @@ import LayoutSelector from './components/LayoutSelector';
 import { DashboardLayout } from './types';
 import { getDashboardLayout, setDashboardLayout, bulkHoldTasks, bulkUnholdTasks, getUserSettings } from './storage';
 import { useAuth } from './contexts/AuthContext';
+import { useTrackedTaskSync } from './hooks/useTrackedTaskSync';
 import MonthlyView from './MonthlyView';
 import WeatherWidget from './components/WeatherWidget';
 import ResolutionProgressWidget from './components/ResolutionProgressWidget';
@@ -57,6 +58,7 @@ interface TodayViewProps {
 
 const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
   const { user, loading: authLoading } = useAuth();
+  useTrackedTaskSync();
   const [viewMode, setViewMode] = useState<'dashboard' | 'monthly'>('dashboard');
   const [items, setItems] = useState<DashboardItem[]>([]);
   const [selectedItem, setSelectedItem] = useState<DashboardItem | null>(null);
@@ -1754,6 +1756,11 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
                     {item.type === 'event' && item.eventDate && (
                       <span style={{ fontSize: '0.85em', color: '#6b7280', fontWeight: 'normal', marginLeft: '0.5rem' }}>
                         ({item.eventDate})
+                      </span>
+                    )}
+                    {item.task?.trackedMetric && (
+                      <span style={{ fontSize: '0.7em', color: '#059669', fontWeight: 600, marginLeft: '0.4rem' }}>
+                        📊 {item.task.trackedMetric.target.toLocaleString()} {item.task.trackedMetric.unit}
                       </span>
                     )}
                   </div>

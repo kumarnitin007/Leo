@@ -1,7 +1,21 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { Task, FrequencyType, IntervalUnit, Tag } from './types';
+import { Task, FrequencyType, IntervalUnit, Tag, TrackedMetricType, TrackedMetric } from './types';
 import { loadData, addTask, updateTask, deleteTask, importSampleTasks, clearAllData, getTagsForSection } from './storage';
 import { generateId, getColorForTask } from './utils';
+
+const TRACKED_UNITS: Record<TrackedMetricType, string> = {
+  steps: 'steps',
+  calories: 'cal',
+  active_minutes: 'min',
+  distance: 'km',
+};
+
+const TRACKED_PRESETS: { type: TrackedMetricType; label: string; icon: string; defaultTarget: number }[] = [
+  { type: 'steps', label: 'Daily Steps', icon: '👣', defaultTarget: 10000 },
+  { type: 'calories', label: 'Calories Burned', icon: '🔥', defaultTarget: 500 },
+  { type: 'active_minutes', label: 'Active Minutes', icon: '⏱', defaultTarget: 30 },
+  { type: 'distance', label: 'Distance (km)', icon: '📏', defaultTarget: 5 },
+];
 
 const ConfigureView: React.FC = () => {
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -35,7 +49,11 @@ const ConfigureView: React.FC = () => {
     onHold: false,
     holdStartDate: '',
     holdEndDate: '',
-    holdReason: ''
+    holdReason: '',
+    isTracked: false,
+    trackedType: 'steps' as TrackedMetricType,
+    trackedTarget: 10000,
+    trackedAutoComplete: true,
   });
 
   useEffect(() => {
@@ -98,6 +116,12 @@ const ConfigureView: React.FC = () => {
       holdStartDate: formData.onHold && formData.holdStartDate ? formData.holdStartDate : undefined,
       holdEndDate: formData.onHold && formData.holdEndDate ? formData.holdEndDate : undefined,
       holdReason: formData.onHold && formData.holdReason ? formData.holdReason : undefined,
+      trackedMetric: formData.isTracked ? {
+        type: formData.trackedType,
+        target: formData.trackedTarget,
+        unit: TRACKED_UNITS[formData.trackedType],
+        autoComplete: formData.trackedAutoComplete,
+      } : undefined,
       createdAt: new Date().toISOString()
     };
 
@@ -145,7 +169,11 @@ const ConfigureView: React.FC = () => {
       onHold: task.onHold || false,
       holdStartDate: task.holdStartDate || '',
       holdEndDate: task.holdEndDate || '',
-      holdReason: task.holdReason || ''
+      holdReason: task.holdReason || '',
+      isTracked: !!task.trackedMetric,
+      trackedType: (task.trackedMetric?.type || 'steps') as TrackedMetricType,
+      trackedTarget: task.trackedMetric?.target || 10000,
+      trackedAutoComplete: task.trackedMetric?.autoComplete ?? true,
     });
   };
 
@@ -182,7 +210,11 @@ const ConfigureView: React.FC = () => {
       onHold: false,
       holdStartDate: '',
       holdEndDate: '',
-      holdReason: ''
+      holdReason: '',
+      isTracked: false,
+      trackedType: 'steps',
+      trackedTarget: 10000,
+      trackedAutoComplete: true,
     });
     setIsEditing(false);
     setEditingId(null);
@@ -349,6 +381,15 @@ const ConfigureView: React.FC = () => {
                   <div className="event-card-header">
                     <span className="event-icon">{getCategoryIcon()}</span>
                     <h4>{task.name}</h4>
+                    {task.trackedMetric && (
+                      <span style={{
+                        fontSize: 10, fontWeight: 700, color: '#059669',
+                        background: '#D1FAE5', padding: '2px 8px', borderRadius: 4,
+                        marginLeft: 8, whiteSpace: 'nowrap',
+                      }}>
+                        📊 {task.trackedMetric.target.toLocaleString()} {task.trackedMetric.unit}
+                      </span>
+                    )}
                   </div>
                   
                   {task.category && (
@@ -991,6 +1032,106 @@ const ConfigureView: React.FC = () => {
             <span>💡</span>
             <span><strong>Example:</strong> "Walk 5K" auto-completes when "Walk 10K" is marked done</span>
           </div>
+        </div>
+
+        {/* Tracked Task Options */}
+        <div style={{ 
+          marginTop: '1.5rem', 
+          padding: '1.5rem', 
+          background: 'linear-gradient(135deg, #ECFDF5 0%, #D1FAE5 100%)',
+          borderRadius: '12px',
+          border: '2px solid #10B981',
+          boxShadow: '0 2px 8px rgba(16, 185, 129, 0.15)'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
+            <span style={{ fontSize: '1.25rem' }}>📊</span>
+            <h4 style={{ margin: 0, fontSize: '1.1rem', color: '#065F46', fontWeight: 600 }}>
+              Tracked Task (Auto-Complete from Google Fit)
+            </h4>
+          </div>
+
+          <div style={{
+            padding: '1rem',
+            background: 'rgba(255, 255, 255, 0.7)',
+            borderRadius: '8px',
+            border: '2px solid #6EE7B7',
+            marginBottom: '0.75rem'
+          }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', cursor: 'pointer', marginBottom: '0.5rem' }}>
+              <input
+                type="checkbox"
+                checked={formData.isTracked}
+                onChange={(e) => setFormData({ ...formData, isTracked: e.target.checked })}
+                style={{ width: '20px', height: '20px', cursor: 'pointer', accentColor: '#10B981' }}
+              />
+              <span style={{ fontWeight: 600, fontSize: '0.95rem', color: '#065F46' }}>
+                Enable fitness tracking for this task
+              </span>
+            </label>
+            <div style={{ marginLeft: '2rem', padding: '0.5rem', background: 'rgba(209, 250, 229, 0.5)', borderRadius: '6px', fontSize: '0.875rem', color: '#064E3B', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <span>📊</span>
+              <span>Task auto-completes when your Google Fit data reaches the target. Works with manual completion too.</span>
+            </div>
+          </div>
+
+          {formData.isTracked && (
+            <div style={{ marginTop: '1rem', padding: '1rem', background: 'rgba(255, 255, 255, 0.8)', borderRadius: '8px', border: '2px solid #6EE7B7' }}>
+              <div className="form-group" style={{ marginBottom: '1rem' }}>
+                <label style={{ color: '#065F46', fontWeight: 500, marginBottom: '0.5rem', display: 'block' }}>Metric Type</label>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                  {TRACKED_PRESETS.map(preset => (
+                    <button
+                      key={preset.type}
+                      type="button"
+                      onClick={() => setFormData({
+                        ...formData,
+                        trackedType: preset.type,
+                        trackedTarget: preset.defaultTarget,
+                      })}
+                      style={{
+                        padding: '8px 14px', borderRadius: '8px', fontSize: '13px', fontWeight: 600, cursor: 'pointer',
+                        border: formData.trackedType === preset.type ? '2px solid #10B981' : '2px solid #D1D5DB',
+                        background: formData.trackedType === preset.type ? '#D1FAE5' : '#fff',
+                        color: formData.trackedType === preset.type ? '#065F46' : '#374151',
+                      }}
+                    >
+                      {preset.icon} {preset.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="form-group" style={{ marginBottom: '1rem' }}>
+                <label style={{ color: '#065F46', fontWeight: 500 }}>
+                  Daily Target ({TRACKED_UNITS[formData.trackedType]})
+                </label>
+                <input
+                  type="number"
+                  value={formData.trackedTarget}
+                  onChange={(e) => setFormData({ ...formData, trackedTarget: parseInt(e.target.value) || 0 })}
+                  min={1}
+                  style={{ padding: '0.5rem', border: '2px solid #6EE7B7', borderRadius: '6px', fontSize: '0.9rem', width: '150px' }}
+                />
+                <small style={{ color: '#064E3B', fontSize: '0.875rem', display: 'block', marginTop: '0.25rem' }}>
+                  🎯 Task completes when this target is reached for the day
+                </small>
+              </div>
+
+              <div className="form-group">
+                <label style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    checked={formData.trackedAutoComplete}
+                    onChange={(e) => setFormData({ ...formData, trackedAutoComplete: e.target.checked })}
+                    style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: '#10B981' }}
+                  />
+                  <span style={{ fontWeight: 500, fontSize: '0.9rem', color: '#065F46' }}>
+                    Auto-complete (also back-fills past days when you sync)
+                  </span>
+                </label>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Hold Task Options */}

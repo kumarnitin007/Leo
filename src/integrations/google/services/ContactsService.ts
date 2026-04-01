@@ -81,7 +81,7 @@ async function fullSyncContacts(userId: string): Promise<SyncResult> {
   if (nextSyncToken) saveSyncToken(userId, nextSyncToken);
   console.info(`[ContactsService] Full sync complete — ${allContacts.length} contacts`);
 
-  return { ...result, total: allContacts.length };
+  return { ...result, deleted: 0, total: allContacts.length };
 }
 
 async function deltaSyncContacts(userId: string, syncToken: string): Promise<SyncResult> {

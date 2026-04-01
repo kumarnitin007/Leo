@@ -21,8 +21,7 @@ try {
   const minor = parseInt(versionParts[1]) || 0;
   const patch = parseInt(versionParts[2]) || 0;
   
-  // Increment patch version by 3
-  const newVersion = `${major}.${minor}.${patch + 3}`;
+  const newVersion = `${major}.${minor}.${patch + 1}`;
   
   // Update package.json
   packageJson.version = newVersion;

@@ -22,6 +22,8 @@ export const GOOGLE_SCOPES = {
   FIT_ACTIVITY_READ: 'https://www.googleapis.com/auth/fitness.activity.read',
   FIT_BODY_READ: 'https://www.googleapis.com/auth/fitness.body.read',
   FIT_SLEEP_READ: 'https://www.googleapis.com/auth/fitness.sleep.read',
+  FIT_LOCATION_READ: 'https://www.googleapis.com/auth/fitness.location.read',
+  FIT_HEART_RATE_READ: 'https://www.googleapis.com/auth/fitness.heart_rate.read',
   CONTACTS: 'https://www.googleapis.com/auth/contacts',
 } as const;
 
@@ -32,6 +34,8 @@ export const SERVICE_SCOPES: Record<string, GoogleScope[]> = {
     GOOGLE_SCOPES.FIT_ACTIVITY_READ,
     GOOGLE_SCOPES.FIT_BODY_READ,
     GOOGLE_SCOPES.FIT_SLEEP_READ,
+    GOOGLE_SCOPES.FIT_LOCATION_READ,
+    GOOGLE_SCOPES.FIT_HEART_RATE_READ,
   ],
   contacts: [GOOGLE_SCOPES.CONTACTS],
 };

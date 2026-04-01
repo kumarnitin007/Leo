@@ -14,6 +14,7 @@ import React, { useState, useEffect } from 'react';
 import { Task } from './types';
 import { getTasks, addTask } from './storage';
 import GoogleServicesSection from './components/GoogleServicesSection';
+import FitnessProviderSection from './components/FitnessProviderSection';
 
 interface Integration {
   id: string;
@@ -294,7 +295,10 @@ const IntegrationsView: React.FC = () => {
         </div>
       </div>
 
-      {/* Google Services — real OAuth integration */}
+      {/* Fitness Provider — Google Fit / Fitbit / Garmin */}
+      <FitnessProviderSection />
+
+      {/* Google Services — Contacts, Takeout */}
       <GoogleServicesSection />
 
       <div className="integrations-grid">
