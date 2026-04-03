@@ -1,0 +1,557 @@
+
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,500;12..96,600;12..96,700;12..96,800&display=swap');
+*{box-sizing:border-box;margin:0;padding:0;}
+.wrap{font-family:'Bricolage Grotesque',system-ui,sans-serif;padding:1.5rem 0;}
+.section-label{font-size:10px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--color-text-secondary);margin-bottom:10px;}
+.frames-row{display:flex;gap:32px;align-items:flex-start;margin-bottom:48px;}
+
+/* ── DESKTOP FRAME ── */
+.desktop-frame{
+  flex:1;
+  background:#E8E6E0;
+  border-radius:14px;
+  padding:10px 10px 6px;
+  border:1px solid #D0CEC7;
+  min-width:0;
+}
+.df-bar{
+  display:flex;align-items:center;gap:6px;
+  margin-bottom:8px;padding:0 4px;
+}
+.df-dot{width:9px;height:9px;border-radius:50%;}
+.df-dot.red{background:#FF5F57;}
+.df-dot.yellow{background:#FFBD2E;}
+.df-dot.green{background:#28C840;}
+.df-url{
+  flex:1;background:#fff;border-radius:5px;
+  height:18px;display:flex;align-items:center;
+  padding:0 8px;font-size:9px;color:#bbb;
+  margin:0 8px;
+}
+.desktop-screen{
+  background:#F7F6F3;
+  border-radius:8px;
+  overflow:hidden;
+}
+
+/* ── TOPBAR ── */
+.d-topbar{
+  background:#fff;
+  border-bottom:1px solid #E5E3DC;
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0 14px;height:38px;
+}
+.d-logo{display:flex;align-items:center;gap:6px;font-size:11px;font-weight:800;color:#1a1a1a;padding-right:12px;border-right:1px solid #E5E3DC;margin-right:4px;}
+.d-logomark{width:20px;height:20px;background:#1a1a1a;border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:10px;}
+.d-nav{display:flex;gap:1px;}
+.d-nav-item{padding:4px 8px;font-size:9px;font-weight:600;color:#aaa;border-radius:5px;}
+.d-nav-item.active{background:#1a1a1a;color:#fff;}
+.d-right{display:flex;gap:5px;align-items:center;}
+.d-icon{width:22px;height:22px;border:1px solid #E5E3DC;border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:10px;}
+.d-avatar{width:22px;height:22px;background:#1a1a1a;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:800;color:#fff;}
+
+/* ── DESKTOP BODY ── */
+.d-body{padding:14px;}
+.d-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:10px;}
+.d-title{font-size:16px;font-weight:800;color:#1a1a1a;letter-spacing:-0.3px;}
+.d-date{font-size:9px;color:#bbb;margin-top:2px;}
+.d-btn-row{display:flex;gap:4px;}
+.d-btn{height:22px;padding:0 8px;border:1px solid #E0DDD6;border-radius:5px;background:#fff;font-size:8px;font-weight:700;color:#555;font-family:inherit;cursor:pointer;}
+.d-btn.primary{background:#1a1a1a;border-color:#1a1a1a;color:#fff;}
+.d-btn.outline{border:1.5px solid #1a1a1a;color:#1a1a1a;background:#fff;}
+
+.d-progress{background:#fff;border:1px solid #E5E3DC;border-radius:8px;padding:8px 12px;margin-bottom:10px;display:flex;align-items:center;gap:10px;}
+.d-prog-label{font-size:9px;font-weight:800;color:#1a1a1a;white-space:nowrap;}
+.d-prog-bar-wrap{flex:1;height:3px;background:#ECEAE3;border-radius:100px;overflow:hidden;}
+.d-prog-bar{width:25%;height:100%;background:#1a1a1a;border-radius:100px;}
+.d-prog-sub{font-size:8px;color:#bbb;white-space:nowrap;}
+.d-prog-div{width:1px;height:14px;background:#E5E3DC;}
+.d-prog-chip{font-size:8px;color:#777;white-space:nowrap;}
+
+.d-briefing{background:#1a1a1a;border-radius:8px;padding:10px 12px;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;}
+.d-br-left{display:flex;align-items:center;gap:8px;}
+.d-br-icon{width:24px;height:24px;background:rgba(255,255,255,0.1);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:11px;}
+.d-br-title{font-size:10px;font-weight:700;color:#fff;}
+.d-br-sub{font-size:8px;color:rgba(255,255,255,0.4);margin-top:1px;}
+.d-br-btn{height:22px;padding:0 10px;border-radius:5px;background:#fff;border:none;font-size:8px;font-weight:700;font-family:inherit;cursor:pointer;color:#1a1a1a;}
+
+.d-sec-label{font-size:8px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#ccc;margin-bottom:7px;}
+
+.d-cards{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px;margin-bottom:12px;}
+.d-card{background:#fff;border:1px solid #E5E3DC;border-radius:8px;padding:10px;position:relative;}
+.d-card.critical{border-top:2px solid #E24B4A;border-radius:0 0 8px 8px;}
+.d-card.high{border-top:2px solid #BA7517;border-radius:0 0 8px 8px;}
+.d-card.done{background:#FAFAF8;opacity:0.65;}
+.d-card-check{position:absolute;top:8px;right:8px;width:14px;height:14px;border-radius:50%;border:1.5px solid #E0DDD6;}
+.d-card.done .d-card-check{background:#1a1a1a;border-color:#1a1a1a;}
+.d-card-type{font-size:7px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#ccc;margin-bottom:6px;}
+.d-card-pip{display:inline-block;padding:1px 5px;border-radius:100px;font-size:7px;font-weight:700;margin-left:4px;}
+.pip-c{background:#FCEBEB;color:#A32D2D;}
+.pip-h{background:#FAEEDA;color:#633806;}
+.d-card-emoji{font-size:18px;display:block;margin-bottom:6px;line-height:1;}
+.d-card-name{font-size:10px;font-weight:700;color:#1a1a1a;line-height:1.3;margin-bottom:8px;padding-right:16px;}
+.d-card.done .d-card-name{text-decoration:line-through;color:#bbb;}
+.d-card-footer{display:flex;align-items:center;justify-content:space-between;padding-top:7px;border-top:1px solid #F0EEE8;}
+.d-card-cat{font-size:8px;color:#bbb;font-weight:500;}
+.d-card-miss{font-size:8px;color:#A32D2D;font-weight:700;}
+.d-card-streak{font-size:8px;color:#854F0B;font-weight:700;background:#FAEEDA;padding:1px 5px;border-radius:100px;}
+.d-card-pri{font-size:8px;color:#ddd;}
+
+.d-collapse{margin-bottom:7px;border:1px solid #E5E3DC;border-radius:8px;overflow:hidden;}
+.d-col-header{display:flex;align-items:center;justify-content:space-between;padding:9px 12px;background:#fff;}
+.d-col-left{display:flex;align-items:center;gap:7px;}
+.d-col-icon{width:22px;height:22px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:11px;}
+.icon-amber{background:#FAEEDA;}
+.icon-blue{background:#E6F1FB;}
+.icon-purple{background:#EEEDFE;}
+.icon-green{background:#EAF3DE;}
+.d-col-title{font-size:10px;font-weight:700;color:#1a1a1a;}
+.d-col-sub{font-size:8px;color:#bbb;margin-top:1px;}
+.d-col-badge{padding:1px 7px;border-radius:100px;font-size:8px;font-weight:700;}
+.badge-r{background:#FCEBEB;color:#A32D2D;}
+.badge-b{background:#E6F1FB;color:#185FA5;}
+.d-col-arr{font-size:8px;color:#ccc;}
+.d-col-body{background:#FAFAF8;border-top:1px solid #F0EEE8;padding:0;}
+.d-list-item{display:flex;justify-content:space-between;align-items:flex-start;padding:8px 12px;border-bottom:1px solid #F0EEE8;gap:10px;}
+.d-list-item:last-child{border-bottom:none;}
+.d-li-title{font-size:9px;font-weight:600;color:#1a1a1a;line-height:1.4;}
+.d-li-src{font-size:8px;color:#bbb;margin-top:1px;}
+.d-li-date{font-size:8px;color:#bbb;text-align:right;white-space:nowrap;}
+.d-li-over{font-size:8px;font-weight:700;color:#A32D2D;}
+
+/* ── MOBILE FRAME ── */
+.mobile-frame{
+  width:240px;
+  flex-shrink:0;
+  background:#1a1a1a;
+  border-radius:36px;
+  padding:10px;
+  border:1px solid #333;
+}
+.mf-notch{
+  width:70px;height:20px;
+  background:#1a1a1a;
+  border-radius:0 0 14px 14px;
+  margin:0 auto 6px;
+  display:flex;align-items:center;justify-content:center;
+}
+.mf-camera{width:8px;height:8px;border-radius:50%;background:#333;}
+.mobile-screen{
+  background:#F7F6F3;
+  border-radius:26px;
+  overflow:hidden;
+  min-height:560px;
+}
+
+/* ── MOBILE TOPBAR ── */
+.m-topbar{
+  background:#fff;
+  border-bottom:1px solid #E5E3DC;
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0 14px;height:44px;
+}
+.m-logo{display:flex;align-items:center;gap:6px;font-size:13px;font-weight:800;color:#1a1a1a;}
+.m-logomark{width:26px;height:26px;background:#1a1a1a;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:12px;}
+.m-avatar{width:28px;height:28px;background:#1a1a1a;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:#fff;}
+
+/* ── MOBILE BODY ── */
+.m-body{padding:14px 14px 80px;}
+.m-header{margin-bottom:10px;}
+.m-title{font-size:20px;font-weight:800;color:#1a1a1a;letter-spacing:-0.4px;}
+.m-date{font-size:10px;color:#bbb;margin-top:2px;}
+
+.m-progress{background:#fff;border:1px solid #E5E3DC;border-radius:10px;padding:10px 12px;margin-bottom:12px;}
+.m-prog-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;}
+.m-prog-label{font-size:11px;font-weight:800;color:#1a1a1a;}
+.m-prog-sub{font-size:10px;color:#bbb;}
+.m-prog-bar-wrap{height:4px;background:#ECEAE3;border-radius:100px;overflow:hidden;}
+.m-prog-bar{width:25%;height:100%;background:#1a1a1a;border-radius:100px;}
+
+.m-briefing{background:#1a1a1a;border-radius:10px;padding:12px 14px;margin-bottom:14px;display:flex;align-items:center;gap:10px;}
+.m-br-icon{width:30px;height:30px;background:rgba(255,255,255,0.1);border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;}
+.m-br-text{flex:1;}
+.m-br-title{font-size:11px;font-weight:700;color:#fff;}
+.m-br-sub{font-size:9px;color:rgba(255,255,255,0.4);margin-top:2px;}
+.m-br-btn{width:28px;height:28px;background:rgba(255,255,255,0.12);border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;color:#fff;}
+
+.m-sec-label{font-size:9px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#ccc;margin-bottom:8px;}
+
+.m-cards{display:flex;flex-direction:column;gap:8px;margin-bottom:14px;}
+
+.m-card{background:#fff;border:1px solid #E5E3DC;border-radius:10px;padding:12px;display:flex;align-items:center;gap:12px;position:relative;}
+.m-card.critical{border-left:3px solid #E24B4A;border-radius:3px 10px 10px 3px;}
+.m-card.high{border-left:3px solid #BA7517;border-radius:3px 10px 10px 3px;}
+.m-card.done{opacity:0.55;}
+.m-card-check{width:20px;height:20px;border-radius:50%;border:1.5px solid #E0DDD6;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:10px;color:transparent;}
+.m-card.done .m-card-check{background:#1a1a1a;border-color:#1a1a1a;color:#fff;}
+.m-card-emoji{font-size:22px;flex-shrink:0;line-height:1;}
+.m-card-body{flex:1;min-width:0;}
+.m-card-name{font-size:12px;font-weight:700;color:#1a1a1a;line-height:1.3;}
+.m-card.done .m-card-name{text-decoration:line-through;color:#bbb;}
+.m-card-meta{display:flex;align-items:center;gap:6px;margin-top:4px;flex-wrap:wrap;}
+.m-card-cat{font-size:10px;color:#bbb;}
+.m-card-miss{font-size:10px;color:#A32D2D;font-weight:600;}
+.m-card-streak{font-size:10px;color:#854F0B;font-weight:700;background:#FAEEDA;padding:1px 6px;border-radius:100px;}
+.m-card-pip{padding:1px 7px;border-radius:100px;font-size:9px;font-weight:700;}
+.m-pip-c{background:#FCEBEB;color:#A32D2D;}
+.m-pip-h{background:#FAEEDA;color:#633806;}
+
+.m-collapse{margin-bottom:8px;border:1px solid #E5E3DC;border-radius:10px;overflow:hidden;}
+.m-col-header{display:flex;align-items:center;justify-content:space-between;padding:11px 12px;background:#fff;}
+.m-col-left{display:flex;align-items:center;gap:8px;}
+.m-col-icon{width:26px;height:26px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:13px;}
+.m-col-title{font-size:12px;font-weight:700;color:#1a1a1a;}
+.m-col-badge{padding:2px 8px;border-radius:100px;font-size:9px;font-weight:700;}
+.m-col-arr{font-size:9px;color:#ccc;}
+
+.m-bottom-nav{
+  position:absolute;bottom:0;left:0;right:0;
+  background:#fff;
+  border-top:1px solid #E5E3DC;
+  display:flex;
+  height:56px;
+  border-radius:0 0 26px 26px;
+  overflow:hidden;
+}
+.m-nav-item{
+  flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
+  font-size:8px;font-weight:600;color:#bbb;
+}
+.m-nav-item.active{color:#1a1a1a;}
+.m-nav-icon{font-size:16px;}
+.m-screen-inner{position:relative;}
+
+/* ── DIFF COMPARISON TABLE ── */
+.diff-table{width:100%;border-collapse:collapse;font-size:12px;margin-top:1rem;}
+.diff-table th{font-size:10px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--color-text-secondary);padding:8px 12px;border-bottom:1px solid var(--color-border-tertiary);text-align:left;}
+.diff-table td{padding:9px 12px;border-bottom:1px solid var(--color-border-tertiary);color:var(--color-text-primary);vertical-align:top;}
+.diff-table tr:last-child td{border-bottom:none;}
+.diff-table tr:hover td{background:var(--color-background-secondary);}
+.pct-high{color:#A32D2D;font-weight:700;}
+.pct-med{color:#854F0B;font-weight:700;}
+.pct-low{color:#3B6D11;font-weight:700;}
+.rating-bar{display:flex;gap:3px;margin-top:3px;}
+.rb{width:18px;height:6px;border-radius:2px;background:#E5E3DC;}
+.rb.filled{background:#1a1a1a;}
+.rb.half{background:#B4B2A9;}
+
+.score-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:1rem;}
+.score-card{background:var(--color-background-secondary);border-radius:10px;padding:12px 14px;}
+.sc-label{font-size:10px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--color-text-secondary);margin-bottom:6px;}
+.sc-score{font-size:26px;font-weight:800;color:var(--color-text-primary);line-height:1;}
+.sc-max{font-size:12px;color:var(--color-text-secondary);}
+.sc-desc{font-size:11px;color:var(--color-text-secondary);margin-top:5px;line-height:1.5;}
+</style>
+
+<div class="wrap">
+
+<p class="section-label">Desktop vs Mobile — Crisp Paper layout</p>
+
+<div class="frames-row">
+
+  <div style="flex:1;min-width:0;">
+    <p style="font-size:11px;font-weight:700;color:var(--color-text-secondary);margin-bottom:8px;">🖥 Desktop — full nav, 4-col card grid</p>
+    <div class="desktop-frame">
+      <div class="df-bar">
+        <div class="df-dot red"></div>
+        <div class="df-dot yellow"></div>
+        <div class="df-dot green"></div>
+        <div class="df-url">leo-planner.vercel.app</div>
+      </div>
+      <div class="desktop-screen">
+        <div class="d-topbar">
+          <div style="display:flex;align-items:center;gap:4px;">
+            <div class="d-logo"><div class="d-logomark">🦁</div> Leo</div>
+            <div class="d-nav">
+              <div class="d-nav-item active">Home</div>
+              <div class="d-nav-item">New</div>
+              <div class="d-nav-item">Journal</div>
+              <div class="d-nav-item">Smart</div>
+              <div class="d-nav-item">Vault</div>
+            </div>
+          </div>
+          <div class="d-right">
+            <div class="d-icon">📊</div>
+            <div class="d-icon">⚙️</div>
+            <div class="d-icon">ℹ️</div>
+            <div class="d-avatar">N</div>
+          </div>
+        </div>
+        <div class="d-body">
+          <div class="d-header">
+            <div><div class="d-title">Today's Goals</div><div class="d-date">Thursday, April 2, 2026</div></div>
+            <div class="d-btn-row">
+              <button class="d-btn">📅 Monthly</button>
+              <button class="d-btn outline">✦ AI</button>
+              <button class="d-btn primary">+ New</button>
+            </div>
+          </div>
+          <div class="d-progress">
+            <div class="d-prog-label">25% complete</div>
+            <div class="d-prog-bar-wrap"><div class="d-prog-bar"></div></div>
+            <div class="d-prog-sub">1 of 4 done</div>
+            <div class="d-prog-div"></div>
+            <div class="d-prog-chip">🔥 Walk streak</div>
+            <div class="d-prog-div"></div>
+            <div class="d-prog-chip">⚠️ 3 overdue</div>
+          </div>
+          <div class="d-briefing">
+            <div class="d-br-left">
+              <div class="d-br-icon">🤖</div>
+              <div><div class="d-br-title">Leo's Daily Briefing</div><div class="d-br-sub">Click Generate for personalised insights</div></div>
+            </div>
+            <button class="d-br-btn">▶ Generate</button>
+          </div>
+          <div class="d-sec-label">Tasks &amp; Events — 4 total</div>
+          <div class="d-cards">
+            <div class="d-card done">
+              <div class="d-card-check"></div>
+              <div class="d-card-type">✓ Task</div>
+              <span class="d-card-emoji">🧘</span>
+              <div class="d-card-name">In bed before 10:30pm</div>
+              <div class="d-card-footer"><span class="d-card-cat">Self Care</span><span class="d-card-pri">5/10</span></div>
+            </div>
+            <div class="d-card">
+              <div class="d-card-check"></div>
+              <div class="d-card-type">✓ Task</div>
+              <span class="d-card-emoji">🙏</span>
+              <div class="d-card-name">10 Mins Prayers</div>
+              <div class="d-card-footer"><span class="d-card-cat">Self Care</span><span class="d-card-miss">✕ 6 missed</span></div>
+            </div>
+            <div class="d-card critical">
+              <div class="d-card-check"></div>
+              <div class="d-card-type">✓ Task <span class="d-card-pip pip-c">● Critical</span></div>
+              <span class="d-card-emoji">📚</span>
+              <div class="d-card-name">Study 30 mins</div>
+              <div class="d-card-footer"><span class="d-card-cat">Study</span><span class="d-card-miss">✕ 6 missed</span></div>
+            </div>
+            <div class="d-card high">
+              <div class="d-card-check"></div>
+              <div class="d-card-type">✓ Task <span class="d-card-pip pip-h">▲ High</span></div>
+              <span class="d-card-emoji">🏃</span>
+              <div class="d-card-name">Walk 10K Steps</div>
+              <div class="d-card-footer"><span class="d-card-streak">🔥 1 day</span><span class="d-card-pri">7/10</span></div>
+            </div>
+          </div>
+          <div class="d-collapse">
+            <div class="d-col-header">
+              <div class="d-col-left">
+                <div class="d-col-icon icon-amber">📋</div>
+                <div><div class="d-col-title">My Lists</div><div class="d-col-sub">3 overdue items</div></div>
+              </div>
+              <div style="display:flex;align-items:center;gap:6px;"><span class="d-col-badge badge-r">3 overdue</span><span class="d-col-arr">▼</span></div>
+            </div>
+            <div class="d-col-body">
+              <div class="d-list-item">
+                <div><div class="d-li-title">Follow up with emirates airlines on date change</div><div class="d-li-src">Voice Memo</div></div>
+                <div><div class="d-li-date">Mar 24</div><div class="d-li-over">9d overdue</div></div>
+              </div>
+              <div class="d-list-item">
+                <div><div class="d-li-title">Work on tax filing — high priority</div><div class="d-li-src">Voice Memo</div></div>
+                <div><div class="d-li-date">Mar 30</div><div class="d-li-over">3d overdue</div></div>
+              </div>
+            </div>
+          </div>
+          <div class="d-collapse" style="margin-bottom:0;">
+            <div class="d-col-header">
+              <div class="d-col-left">
+                <div class="d-col-icon icon-blue">💬</div>
+                <div><div class="d-col-title">Comments &amp; Messages</div><div class="d-col-sub">1 new message</div></div>
+              </div>
+              <div style="display:flex;align-items:center;gap:6px;"><span class="d-col-badge badge-b">1 new</span><span class="d-col-arr">▼</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div style="flex-shrink:0;">
+    <p style="font-size:11px;font-weight:700;color:var(--color-text-secondary);margin-bottom:8px;">📱 Mobile — bottom nav, stacked cards</p>
+    <div class="mobile-frame">
+      <div class="mf-notch"><div class="mf-camera"></div></div>
+      <div class="mobile-screen">
+        <div class="m-screen-inner">
+          <div class="m-topbar">
+            <div class="m-logo"><div class="m-logomark">🦁</div> Leo</div>
+            <div style="display:flex;gap:6px;align-items:center;">
+              <div style="width:26px;height:26px;border:1px solid #E5E3DC;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:12px;">⚙️</div>
+              <div class="m-avatar">N</div>
+            </div>
+          </div>
+          <div class="m-body">
+            <div class="m-header">
+              <div class="m-title">Today's Goals</div>
+              <div class="m-date">Thursday, April 2, 2026</div>
+            </div>
+            <div class="m-progress">
+              <div class="m-prog-row"><span class="m-prog-label">25% complete</span><span class="m-prog-sub">1 of 4 done</span></div>
+              <div class="m-prog-bar-wrap"><div class="m-prog-bar"></div></div>
+            </div>
+            <div class="m-briefing">
+              <div class="m-br-icon">🤖</div>
+              <div class="m-br-text"><div class="m-br-title">Leo's Daily Briefing</div><div class="m-br-sub">Tap to generate insights</div></div>
+              <div class="m-br-btn">▶</div>
+            </div>
+            <div class="m-sec-label">Tasks — 4 today</div>
+            <div class="m-cards">
+              <div class="m-card done">
+                <div class="m-card-check">✓</div>
+                <div class="m-card-emoji">🧘</div>
+                <div class="m-card-body">
+                  <div class="m-card-name">In bed before 10:30pm</div>
+                  <div class="m-card-meta"><span class="m-card-cat">Self Care</span></div>
+                </div>
+              </div>
+              <div class="m-card">
+                <div class="m-card-check"></div>
+                <div class="m-card-emoji">🙏</div>
+                <div class="m-card-body">
+                  <div class="m-card-name">10 Mins Prayers</div>
+                  <div class="m-card-meta"><span class="m-card-cat">Self Care</span><span class="m-card-miss">✕ 6 missed</span></div>
+                </div>
+              </div>
+              <div class="m-card critical">
+                <div class="m-card-check"></div>
+                <div class="m-card-emoji">📚</div>
+                <div class="m-card-body">
+                  <div class="m-card-name">Study 30 mins</div>
+                  <div class="m-card-meta"><span class="m-card-cat">Study</span><span class="m-card-pip m-pip-c">● Critical</span></div>
+                </div>
+              </div>
+              <div class="m-card high">
+                <div class="m-card-check"></div>
+                <div class="m-card-emoji">🏃</div>
+                <div class="m-card-body">
+                  <div class="m-card-name">Walk 10K Steps</div>
+                  <div class="m-card-meta"><span class="m-card-cat">Exercise</span><span class="m-card-streak">🔥 1 day</span></div>
+                </div>
+              </div>
+            </div>
+            <div class="m-collapse">
+              <div class="m-col-header">
+                <div class="m-col-left"><div class="m-col-icon icon-amber">📋</div><div class="m-col-title">My Lists</div></div>
+                <div style="display:flex;align-items:center;gap:6px;"><span class="m-col-badge badge-r">3 overdue</span><span class="m-col-arr">▼</span></div>
+              </div>
+            </div>
+            <div class="m-collapse">
+              <div class="m-col-header">
+                <div class="m-col-left"><div class="m-col-icon icon-blue">💬</div><div class="m-col-title">Comments</div></div>
+                <div style="display:flex;align-items:center;gap:6px;"><span class="m-col-badge badge-b">1 new</span><span class="m-col-arr">▼</span></div>
+              </div>
+            </div>
+            <div class="m-collapse">
+              <div class="m-col-header">
+                <div class="m-col-left"><div class="m-col-icon icon-purple">📅</div><div class="m-col-title">Observances</div></div>
+                <span class="m-col-arr">▼</span>
+              </div>
+            </div>
+          </div>
+          <div class="m-bottom-nav">
+            <div class="m-nav-item active"><span class="m-nav-icon">🏠</span> Home</div>
+            <div class="m-nav-item"><span class="m-nav-icon">📓</span> Journal</div>
+            <div class="m-nav-item"><span class="m-nav-icon" style="font-size:20px;font-weight:800;color:#1a1a1a;">+</span></div>
+            <div class="m-nav-item"><span class="m-nav-icon">✦</span> Smart</div>
+            <div class="m-nav-item"><span class="m-nav-icon">🔐</span> Vault</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<p class="section-label" style="margin-top:0.5rem;">Change delta — new vs current</p>
+
+<table class="diff-table">
+  <thead>
+    <tr>
+      <th>Area</th>
+      <th>Current</th>
+      <th>Proposed</th>
+      <th>Change</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td style="font-weight:700;">Typography / font</td>
+      <td style="color:var(--color-text-secondary);">System UI, mixed weights, no clear type scale</td>
+      <td style="color:var(--color-text-secondary);">Bricolage Grotesque, strict weight hierarchy</td>
+      <td><span class="pct-high">~70% different</span></td>
+    </tr>
+    <tr>
+      <td style="font-weight:700;">Card design</td>
+      <td style="color:var(--color-text-secondary);">Colored card backgrounds (teal, pink, red), background = priority</td>
+      <td style="color:var(--color-text-secondary);">White cards, top-border only for priority (red/amber)</td>
+      <td><span class="pct-high">~80% different</span></td>
+    </tr>
+    <tr>
+      <td style="font-weight:700;">Color palette</td>
+      <td style="color:var(--color-text-secondary);">Multiple saturated card colors, purple AI button, orange hold</td>
+      <td style="color:var(--color-text-secondary);">Near monochrome — black, off-white, minimal accent colors</td>
+      <td><span class="pct-high">~85% different</span></td>
+    </tr>
+    <tr>
+      <td style="font-weight:700;">Progress display</td>
+      <td style="color:var(--color-text-secondary);">Centered text "Progress: 25% (1/4 completed)" above cards</td>
+      <td style="color:var(--color-text-secondary);">Inline progress bar row with contextual chips</td>
+      <td><span class="pct-med">~50% different</span></td>
+    </tr>
+    <tr>
+      <td style="font-weight:700;">Topbar / nav</td>
+      <td style="color:var(--color-text-secondary);">Same structure, icon buttons, user name shown</td>
+      <td style="color:var(--color-text-secondary);">Same structure, slightly tighter, avatar instead of name</td>
+      <td><span class="pct-low">~20% different</span></td>
+    </tr>
+    <tr>
+      <td style="font-weight:700;">Collapsible sections</td>
+      <td style="color:var(--color-text-secondary);">Colored banners (yellow, blue, lavender, pink, teal)</td>
+      <td style="color:var(--color-text-secondary);">White headers with small colored icon squares</td>
+      <td><span class="pct-med">~60% different</span></td>
+    </tr>
+    <tr>
+      <td style="font-weight:700;">Mobile layout</td>
+      <td style="color:var(--color-text-secondary);">Not shown / horizontal scroll cards (assumed)</td>
+      <td style="color:var(--color-text-secondary);">Bottom tab bar, stacked list cards with left-border priority</td>
+      <td><span class="pct-high">~90% different</span></td>
+    </tr>
+    <tr>
+      <td style="font-weight:700;">Overall first impression</td>
+      <td style="color:var(--color-text-secondary);">Colorful, playful, consumer app feel</td>
+      <td style="color:var(--color-text-secondary);">Restrained, editorial, professional tool feel</td>
+      <td><span class="pct-high">~75% different</span></td>
+    </tr>
+  </tbody>
+</table>
+
+<p class="section-label" style="margin-top:2rem;">Honest rating — current app look &amp; feel</p>
+
+<div class="score-grid">
+  <div class="score-card">
+    <div class="sc-label">Visual polish</div>
+    <div><span class="sc-score">5.5</span><span class="sc-max"> / 10</span></div>
+    <div class="rating-bar">
+      <div class="rb filled"></div><div class="rb filled"></div><div class="rb filled"></div><div class="rb filled"></div><div class="rb filled"></div><div class="rb half"></div><div class="rb"></div><div class="rb"></div><div class="rb"></div><div class="rb"></div>
+    </div>
+    <div class="sc-desc">Cards and colors work in isolation but feel inconsistent together. The colored card backgrounds compete with each other.</div>
+  </div>
+  <div class="score-card">
+    <div class="sc-label">Hierarchy &amp; clarity</div>
+    <div><span class="sc-score">6</span><span class="sc-max"> / 10</span></div>
+    <div class="rating-bar">
+      <div class="rb filled"></div><div class="rb filled"></div><div class="rb filled"></div><div class="rb filled"></div><div class="rb filled"></div><div class="rb filled"></div><div class="rb"></div><div class="rb"></div><div class="rb"></div><div class="rb"></div>
+    </div>
+    <div class="sc-desc">Good feature coverage and layout logic. Progress text is clear. But the action buttons (AI, Reorder, Hold) are all the same visual weight — no clear primary action.</div>
+  </div>
+  <div class="score-card">
+    <div class="sc-label">Professional feel</div>
+    <div><span class="sc-score">5</span><span class="sc-max"> / 10</span></div>
+    <div class="rating-bar">
+      <div class="rb filled"></div><div class="rb filled"></div><div class="rb filled"></div><div class="rb filled"></div><div class="rb filled"></div><div class="rb"></div><div class="rb"></div><div class="rb"></div><div class="rb"></div><div class="rb"></div>
+    </div>
+    <div class="sc-desc">Feels like a well-built hobbyist app rather than a product someone would pay for. The emoji-heavy cards and multicolor sections give it a "first launch" aesthetic.</div>
+  </div>
+</div>
+
+</div>
