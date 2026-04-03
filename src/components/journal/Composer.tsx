@@ -9,6 +9,8 @@
 import React, { useEffect, useRef, useCallback } from 'react';
 import type { JournalEntry, MoodType, Tag } from '../../types';
 import { MoodPicker, EnergyPicker, ActivityChips, WriteArea, TagPicker } from './shared';
+import JournalReflectionCard from '../JournalReflectionCard';
+import type { JournalReflectionResult } from '../../services/ai/abilities/journalReflection';
 
 interface ComposerProps {
   // Date navigation
@@ -51,7 +53,11 @@ interface ComposerProps {
   // Autosave
   autosaveStatus?: 'idle' | 'saving' | 'saved';
 
-  // AI nudge (optional)
+  // AI
+  justSaved?: boolean;
+  stepsToday?: number | null;
+  stepsYesterday?: number | null;
+  onReflectionUpdate?: (result: JournalReflectionResult | null) => void;
   aiNudge?: string | null;
   onDismissNudge?: () => void;
   onUseNudge?: () => void;
@@ -65,7 +71,8 @@ const Composer: React.FC<ComposerProps> = (props) => {
     onContentChange, onMoodChange, onEnergyChange, onActivitiesChange,
     onTagsChange, onWeatherChange, onLocationChange,
     onSave, onEdit, onCancel, onDelete, onNewEntry, onSelectEntry,
-    autosaveStatus, aiNudge, onDismissNudge, onUseNudge,
+    autosaveStatus, justSaved, stepsToday, stepsYesterday, onReflectionUpdate,
+    aiNudge, onDismissNudge, onUseNudge,
   } = props;
 
   const saveRef = useRef(onSave);
@@ -189,33 +196,21 @@ const Composer: React.FC<ComposerProps> = (props) => {
 
       {/* Composer Body */}
       <div className="j-composer-body">
+        <JournalReflectionCard
+          entry={editingEntry}
+          justSaved={justSaved || false}
+          weather={weather}
+          stepsToday={stepsToday}
+          stepsYesterday={stepsYesterday}
+          onReflectionUpdate={onReflectionUpdate}
+        />
         <MoodPicker value={mood} onChange={onMoodChange} disabled={!isEditing} />
         <WriteArea value={content} onChange={onContentChange} disabled={!isEditing} />
         <EnergyPicker value={energyLevel} onChange={onEnergyChange} disabled={!isEditing} />
         <ActivityChips selected={activities} onChange={onActivitiesChange} disabled={!isEditing} />
         <TagPicker availableTags={availableTags} selected={selectedTags} onChange={onTagsChange} disabled={!isEditing} />
 
-        {/* Weather & Location (compact) */}
-        <div style={{ display: 'flex', gap: 8 }}>
-          <input
-            type="text"
-            className="j-tag-input"
-            placeholder="🌤️ Weather"
-            value={weather}
-            onChange={e => onWeatherChange(e.target.value)}
-            disabled={!isEditing}
-            style={{ flex: 1 }}
-          />
-          <input
-            type="text"
-            className="j-tag-input"
-            placeholder="📍 Location"
-            value={location}
-            onChange={e => onLocationChange(e.target.value)}
-            disabled={!isEditing}
-            style={{ flex: 1 }}
-          />
-        </div>
+        {/* Weather & Location are auto-populated and shown in the Context Panel */}
 
         {/* Action buttons when not editing (delete, new entry) */}
         {!isEditing && editingEntry && (

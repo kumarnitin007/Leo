@@ -10,6 +10,7 @@ import type { JournalEntry, MoodType, Tag } from '../../types';
 import { StreakWidget, MoodPicker, WriteArea, getMoodEmoji, ACTIVITY_EMOJIS, ENERGY_OPTIONS } from './shared';
 import type { StreakDotData } from './streakUtils';
 import JournalReflectionCard from '../JournalReflectionCard';
+import type { JournalReflectionResult } from '../../services/ai/abilities/journalReflection';
 
 interface JournalMobileProps {
   // Streak
@@ -27,6 +28,7 @@ interface JournalMobileProps {
   // Composer state
   content: string;
   mood?: MoodType;
+  weather: string;
   activities: string[];
   selectedTags: string[];
   isEditing: boolean;
@@ -46,6 +48,9 @@ interface JournalMobileProps {
   // AI
   aiNudge?: string | null;
   onDismissNudge?: () => void;
+  stepsToday?: number | null;
+  stepsYesterday?: number | null;
+  onReflectionUpdate?: (result: JournalReflectionResult | null) => void;
 
   // Reflection
   justSaved: boolean;
@@ -59,6 +64,7 @@ const JournalMobile: React.FC<JournalMobileProps> = (props) => {
     onContentChange, onMoodChange, onActivitiesChange, onTagsChange,
     onSave, onNewEntry, onSelectEntry, onSelectDate,
     aiNudge, onDismissNudge, justSaved,
+    stepsToday, stepsYesterday, onReflectionUpdate,
   } = props;
 
   const [showActivities, setShowActivities] = useState(false);
@@ -280,7 +286,14 @@ const JournalMobile: React.FC<JournalMobileProps> = (props) => {
 
       {/* AI Reflection (below timeline on mobile) */}
       <div style={{ padding: '0 14px 20px' }}>
-        <JournalReflectionCard entry={editingEntry} justSaved={justSaved} />
+        <JournalReflectionCard
+          entry={editingEntry}
+          justSaved={justSaved}
+          weather={props.weather}
+          stepsToday={stepsToday}
+          stepsYesterday={stepsYesterday}
+          onReflectionUpdate={onReflectionUpdate}
+        />
       </div>
     </div>
   );

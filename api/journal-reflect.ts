@@ -4,14 +4,18 @@ import { handleApiError, createErrorResponse } from './_utils/errorHandler.js';
 /**
  * POST /api/journal-reflect
  *
- * Given the current journal entry + recent context (past entries, mood trend,
- * tasks), returns a personalised reflection and, optionally, fresh content
- * digests to optimise future calls.
+ * Generates 3 personalised AI messages:
+ *   1. Personal reflection (journal, mood, tasks, events)
+ *   2. Weather/season/steps wellness suggestion
+ *   3. Activity/event/motivation idea
+ *
+ * Works with or without a saved journal entry.
  */
 
 interface ReflectRequest {
   userName: string;
-  currentEntry: { date: string; content: string; mood?: string };
+  date: string;
+  currentEntry: { date: string; content: string; mood?: string } | null;
   recentEntries: { date: string; mood?: string; snippet: string }[];
   moodTrend: string;
   todayTasks: { name: string; status: string }[];
@@ -19,6 +23,12 @@ interface ReflectRequest {
 
   contentDigests?: { source: string; digest: string; coversTo: string }[];
   requestDigests?: boolean;
+
+  weather?: string;
+  location?: string;
+  stepsToday?: number | null;
+  stepsYesterday?: number | null;
+  upcomingEvents?: { name: string; category?: string; daysUntil: number }[];
 
   personality?: {
     favoritePlace?: string;
@@ -50,35 +60,43 @@ export default async function handler(req: any, res: any) {
   try {
     const body: ReflectRequest = req.body || {};
 
-    if (!body.currentEntry?.content) {
-      return res.status(400).json(createErrorResponse('VALIDATION_ERROR', 'Journal content is required'));
-    }
-
     const recentEntries = body.recentEntries || [];
     const todayTasks = body.todayTasks || [];
     const completionRate7d = body.completionRate7d ?? 0;
     const moodTrend = body.moodTrend || 'stable';
     const personality = body.personality && typeof body.personality === 'object' ? body.personality : null;
+    const upcomingEvents = body.upcomingEvents || [];
 
     const personalityBlock = personality
       ? `\nPERSONALISATION HINTS (weave naturally — don't force):
 ${Object.entries(personality).filter(([_, v]) => v).map(([k, v]) => `- ${k}: ${v}`).join('\n')}\n`
       : '';
 
-    const systemPrompt = `You are Leo, the empathetic AI companion inside the MyDay journal.
-Your job is to provide a SHORT, thoughtful reflection after the user saves a journal entry.
+    const systemPrompt = `You are Leo, the empathetic AI companion inside the MyDay journal app.
+You produce exactly 3 distinct messages per call. Each message is SHORT (max 80 words).
 
-Rules:
-- Keep under 120 words — this is a sidebar card, not an essay.
-- Acknowledge what the user wrote — quote or reference specific phrases.
-- Notice mood patterns across recent entries (if provided) and mention them gently.
-- If mood is declining, be supportive not preachy. If improving, celebrate it.
-- Offer ONE concrete, actionable micro-suggestion tied to their real context (tasks, mood).
-- If they mention gratitude, reflect it back. If they mention stress, validate it.
-- End with a brief affirming or curious prompt (a question they might journal about tomorrow).
-- Never lecture. Never be generic. Always feel personal.
-- Tone: warm friend, not therapist or corporate bot.
-- ALWAYS include a "fun_quote" — a witty, fun, or inspirational one-liner. If personality hints are provided, tie it to the user's interests (superhero reference, show quote, etc.). Otherwise pick something original.
+MESSAGE 1 — "reflection" (Personal context)
+- If the user has a journal entry for today, reference it specifically.
+- If no entry yet, use recent entries, mood trend, tasks, and upcoming events to offer an encouraging personal note.
+- Mention upcoming birthdays/anniversaries if within 7 days.
+- Tone: warm friend. Never generic.
+
+MESSAGE 2 — "weather_suggestion" (Outdoor / wellness)
+- Use the weather, location, season, and step count data provided.
+- Suggest a specific outdoor activity, walk route idea, or wellness tip tied to the actual conditions.
+- If steps data is available, acknowledge progress or encourage gently.
+- Be concrete (e.g. "Perfect 52°F for a trail walk" not "go outside").
+
+MESSAGE 3 — "activity_idea" (Discover / motivate)
+- Suggest something fun: a seasonal activity (tulip festival, fall colors, cherry blossoms), a local trail, a movie/show to watch, a cultural event, a recipe for the season, or a new hobby idea.
+- Connect it to the user's personality, interests, or recent entries when possible.
+- Make it feel like a friend's enthusiastic recommendation, not a generic tip.
+
+Additional rules:
+- ALWAYS include a "fun_quote" — a witty, fun, or inspirational one-liner tied to the user's interests if personality hints are provided.
+- Never lecture. Be concise and specific.
+- mood_observation: summarise the mood trend in one word.
+- prompt_for_tomorrow: one curious question they might journal about.
 ${personalityBlock}
 ${body.requestDigests ? `DIGEST GENERATION:
 Also return a "digests" array with compact summaries (max 100 words each) for
@@ -89,6 +107,8 @@ Respond ONLY with valid JSON:
   "reflection": "...",
   "mood_observation": "improving|declining|stable|mixed",
   "prompt_for_tomorrow": "...",
+  "weather_suggestion": "...",
+  "activity_idea": "...",
   "fun_quote": "..."${body.requestDigests ? ',\n  "digests": [{ "source": "journal|tasks", "digest": "...", "coversTo": "YYYY-MM-DD" }]' : ''}
 }`;
 
@@ -98,7 +118,13 @@ Respond ONLY with valid JSON:
 
     const sections: string[] = [];
     sections.push(`User: ${body.userName || 'User'}`);
-    sections.push(`Today's entry (${body.currentEntry.date}, mood: ${body.currentEntry.mood || 'not set'}):\n"${body.currentEntry.content}"`);
+    sections.push(`Date: ${body.date || new Date().toISOString().slice(0, 10)}`);
+
+    if (body.currentEntry?.content) {
+      sections.push(`Today's journal entry (mood: ${body.currentEntry.mood || 'not set'}):\n"${body.currentEntry.content}"`);
+    } else {
+      sections.push(`No journal entry written yet today.`);
+    }
 
     if (digestMap.has('journal')) {
       sections.push(`[Past journal digest – covers to ${digestMap.get('journal')!.coversTo}]\n${digestMap.get('journal')!.digest}`);
@@ -110,6 +136,24 @@ Respond ONLY with valid JSON:
       sections.push(`[Tasks digest – covers to ${digestMap.get('tasks')!.coversTo}]\n${digestMap.get('tasks')!.digest}`);
     } else if (todayTasks.length > 0) {
       sections.push(`Tasks today (7d completion ${completionRate7d}%):\n${todayTasks.map(t => `- ${t.name} [${t.status}]`).join('\n')}`);
+    }
+
+    if (body.weather || body.location) {
+      const parts = [body.weather, body.location].filter(Boolean);
+      sections.push(`Weather & location: ${parts.join(' · ')}`);
+    }
+
+    if (body.stepsToday != null || body.stepsYesterday != null) {
+      const stepParts: string[] = [];
+      if (body.stepsToday != null) stepParts.push(`Today: ${body.stepsToday.toLocaleString()} steps`);
+      if (body.stepsYesterday != null) stepParts.push(`Yesterday: ${body.stepsYesterday.toLocaleString()} steps`);
+      sections.push(`Steps: ${stepParts.join(', ')}`);
+    }
+
+    if (upcomingEvents.length > 0) {
+      sections.push(`Upcoming events (next 14 days):\n${upcomingEvents.map(e =>
+        `- ${e.name}${e.category ? ` (${e.category})` : ''} — ${e.daysUntil === 0 ? 'today' : e.daysUntil === 1 ? 'tomorrow' : `in ${e.daysUntil} days`}`
+      ).join('\n')}`);
     }
 
     const userMessage = sections.join('\n\n');
@@ -126,7 +170,7 @@ Respond ONLY with valid JSON:
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userMessage },
         ],
-        max_tokens: 600,
+        max_tokens: 800,
         temperature: 0.7,
       }),
     });
@@ -149,13 +193,15 @@ Respond ONLY with valid JSON:
       const clean = rawContent.replace(/```json\n?|\n?```/g, '').trim();
       parsed = JSON.parse(clean);
     } catch {
-      parsed = { reflection: rawContent, mood_observation: 'stable', prompt_for_tomorrow: '' };
+      parsed = { reflection: rawContent, mood_observation: 'stable', prompt_for_tomorrow: '', weather_suggestion: '', activity_idea: '' };
     }
 
     const reflectResult = {
       reflection: parsed.reflection || rawContent,
       moodObservation: parsed.mood_observation || 'stable',
       promptForTomorrow: parsed.prompt_for_tomorrow || '',
+      weatherSuggestion: parsed.weather_suggestion || '',
+      activityIdea: parsed.activity_idea || '',
       funQuote: parsed.fun_quote || parsed.funQuote || undefined,
       digests: parsed.digests,
       usage: {

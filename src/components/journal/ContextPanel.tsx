@@ -5,12 +5,21 @@
  * Data is computed/passed from the parent layout.
  */
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import type { JournalEntry } from '../../types';
 import type { DailyFitnessData } from '../../integrations/google/types/fit.types';
 import { StreakWidget, getMoodEmoji } from './shared';
 import type { StreakDotData } from './streakUtils';
-import JournalReflectionCard from '../JournalReflectionCard';
+import type { JournalReflectionResult } from '../../services/ai/abilities/journalReflection';
+import { getUserSettings } from '../../storage';
+
+interface WeatherInfo {
+  temp: number;
+  description: string;
+  icon: string;
+  city: string;
+  symbol: string;
+}
 
 interface ContextPanelProps {
   currentStreak: number;
@@ -20,14 +29,16 @@ interface ContextPanelProps {
   selectedDate: string;
   editingEntry: JournalEntry | null;
   justSaved: boolean;
+  aiReflection?: JournalReflectionResult | null;
   fitnessData: DailyFitnessData[];
   fitnessLoading: boolean;
+  fitnessConnected?: boolean | null;
   onFetchFitness: () => void;
 }
 
 const ContextPanel: React.FC<ContextPanelProps> = ({
   currentStreak, bestStreak, dots, allEntries, selectedDate,
-  editingEntry, justSaved, fitnessData, fitnessLoading, onFetchFitness,
+  editingEntry, justSaved, aiReflection, fitnessData, fitnessLoading, fitnessConnected, onFetchFitness,
 }) => {
   // On this day — 1 year ago
   const onThisDay = useMemo(() => {
@@ -59,6 +70,43 @@ const ContextPanel: React.FC<ContextPanelProps> = ({
 
   const stepGoal = 10000;
   const stepsPercent = todaySteps?.steps ? Math.min((todaySteps.steps / stepGoal) * 100, 100) : 0;
+
+  // Weather context card
+  const [weatherInfo, setWeatherInfo] = useState<WeatherInfo | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const settings = await getUserSettings();
+        const apiKey = import.meta.env.VITE_OPENWEATHER_API_KEY;
+        const loc = settings.location;
+        if (!apiKey || !loc || (!loc.zipCode && !loc.city)) return;
+
+        const query = loc.zipCode
+          ? `zip=${loc.zipCode}${loc.country ? ',' + loc.country : ''}`
+          : `q=${loc.city}${loc.country ? ',' + loc.country : ''}`;
+        const units = settings.temperatureUnit === 'celsius' ? 'metric' : 'imperial';
+        const symbol = units === 'metric' ? '°C' : '°F';
+        const res = await fetch(
+          `https://api.openweathermap.org/data/2.5/weather?${query}&appid=${apiKey}&units=${units}`
+        );
+        if (!res.ok || cancelled) return;
+        const d = await res.json();
+        if (cancelled) return;
+        setWeatherInfo({
+          temp: Math.round(d.main?.temp ?? 0),
+          description: d.weather?.[0]?.description || '',
+          icon: d.weather?.[0]?.icon || '01d',
+          city: loc.city || loc.zipCode || '',
+          symbol,
+        });
+      } catch {
+        // Non-critical
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   return (
     <div className="j-right">
@@ -98,6 +146,17 @@ const ContextPanel: React.FC<ContextPanelProps> = ({
                 ))}
               </div>
             </>
+          ) : fitnessConnected === false ? (
+            <div style={{
+              padding: '8px 12px', borderRadius: 8, fontSize: 11, fontWeight: 500,
+              border: '1px solid var(--j-gold)', color: 'var(--j-ink2)',
+              background: 'var(--j-gold-light, #fef9ef)', marginTop: 4,
+              lineHeight: 1.5,
+            }}>
+              No fitness tracker connected.
+              <br />
+              Go to <strong>Settings → Integrations</strong> to connect Google Fit, Fitbit, or Garmin.
+            </div>
           ) : (
             <button
               onClick={onFetchFitness}
@@ -158,8 +217,44 @@ const ContextPanel: React.FC<ContextPanelProps> = ({
           </div>
         )}
 
-        {/* AI Reflection */}
-        <JournalReflectionCard entry={editingEntry} justSaved={justSaved} />
+        {/* AI Weather & Wellness Suggestion (Message 2 from Leo) */}
+        {aiReflection?.weatherSuggestion && (
+          <div className="j-insight-card" style={{ borderLeft: '3px solid #60A5FA' }}>
+            <div className="j-ic-title">
+              <span style={{ fontSize: 14 }}>🌤️</span>
+              <span style={{ marginLeft: 6 }}>Leo's Wellness Tip</span>
+            </div>
+            <div style={{ fontSize: 12, lineHeight: 1.6, color: 'var(--j-ink2)' }}>
+              {aiReflection.weatherSuggestion}
+            </div>
+          </div>
+        )}
+
+        {/* Weather Card */}
+        {weatherInfo && (
+          <div className="j-insight-card">
+            <div className="j-ic-title">
+              <span className="j-ic-dot" style={{ background: 'var(--j-gold)' }} />
+              Weather · {weatherInfo.city}
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+              <img
+                src={`https://openweathermap.org/img/wn/${weatherInfo.icon}@2x.png`}
+                alt={weatherInfo.description}
+                loading="lazy"
+                style={{ width: 40, height: 40 }}
+              />
+              <div>
+                <div style={{ fontSize: 15, fontWeight: 500, color: 'var(--j-ink)' }}>
+                  {weatherInfo.temp}{weatherInfo.symbol} · {weatherInfo.description.charAt(0).toUpperCase() + weatherInfo.description.slice(1)}
+                </div>
+                <div style={{ fontSize: 10, color: 'var(--j-ink3)' }}>
+                  {weatherInfo.city} · {new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

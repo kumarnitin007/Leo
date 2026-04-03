@@ -12,6 +12,7 @@ import ContextPanel from './ContextPanel';
 import type { JournalEntry, MoodType, Tag } from '../../types';
 import type { DailyFitnessData } from '../../integrations/google/types/fit.types';
 import type { StreakDotData } from './streakUtils';
+import type { JournalReflectionResult } from '../../services/ai/abilities/journalReflection';
 
 interface JournalDesktopProps {
   // Entry list
@@ -62,9 +63,14 @@ interface JournalDesktopProps {
   justSaved: boolean;
   fitnessData: DailyFitnessData[];
   fitnessLoading: boolean;
+  fitnessConnected?: boolean | null;
   onFetchFitness: () => void;
 
   // AI
+  stepsToday?: number | null;
+  stepsYesterday?: number | null;
+  aiReflection?: JournalReflectionResult | null;
+  onReflectionUpdate?: (result: JournalReflectionResult | null) => void;
   aiNudge?: string | null;
   onDismissNudge?: () => void;
   onUseNudge?: () => void;
@@ -114,6 +120,10 @@ const JournalDesktop: React.FC<JournalDesktopProps> = (props) => (
       onNewEntry={props.onNewEntry}
       onSelectEntry={props.onSelectEntry}
       autosaveStatus={props.autosaveStatus}
+      justSaved={props.justSaved}
+      stepsToday={props.stepsToday}
+      stepsYesterday={props.stepsYesterday}
+      onReflectionUpdate={props.onReflectionUpdate}
       aiNudge={props.aiNudge}
       onDismissNudge={props.onDismissNudge}
       onUseNudge={props.onUseNudge}
@@ -126,8 +136,10 @@ const JournalDesktop: React.FC<JournalDesktopProps> = (props) => (
       selectedDate={props.selectedDate}
       editingEntry={props.editingEntry}
       justSaved={props.justSaved}
+      aiReflection={props.aiReflection}
       fitnessData={props.fitnessData}
       fitnessLoading={props.fitnessLoading}
+      fitnessConnected={props.fitnessConnected}
       onFetchFitness={props.onFetchFitness}
     />
   </div>

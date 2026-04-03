@@ -1527,7 +1527,8 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
         {tab === "accounts" && (() => {
           // Separate visible and hidden accounts
           const hiddenAccounts = accounts.filter(acc => acc.hidden && !showAllAccounts);
-          const visibleAccounts = showAllAccounts ? accounts : accounts.filter(acc => !acc.hidden);
+          const visibleAccounts = (showAllAccounts ? [...accounts] : accounts.filter(acc => !acc.hidden))
+            .sort((a, b) => Math.abs(Number(b.amount) || 0) - Math.abs(Number(a.amount) || 0));
           const hiddenCount = accounts.filter(acc => acc.hidden).length;
           
           // Calculate aggregated hidden accounts total
@@ -1575,17 +1576,13 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
           
           // Sort accounts within each bank (label order), then rebuild indices for edit/delete
           Object.values(grouped).forEach((g) => {
-            g.accounts.sort((a, b) => {
-              const ka = [a.type || '', a.holders || '', a.bank || ''].join('\0');
-              const kb = [b.type || '', b.holders || '', b.bank || ''].join('\0');
-              return ka.localeCompare(kb, undefined, { sensitivity: 'base' });
-            });
+            g.accounts.sort((a, b) => Math.abs(Number(b.amount) || 0) - Math.abs(Number(a.amount) || 0));
             g.indices = g.accounts.map((acc) => accounts.indexOf(acc));
           });
 
           // Bank sections A–Z (matches “Banks” list under the pie chart)
           const bankNames = Object.keys(grouped).sort((a, b) =>
-            a.localeCompare(b, undefined, { sensitivity: 'base' })
+            Math.abs(grouped[b].sortTotal) - Math.abs(grouped[a].sortTotal)
           );
           
           const toggleBank = (bankName: string) => {

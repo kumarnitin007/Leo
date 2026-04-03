@@ -500,14 +500,12 @@ export function BankOverviewTab({
         const savingsTotal = accounts.filter(a => a.type === "Saving").reduce((s, a) => 
           s + convertCurrency(Number(a.amount) || 0, (a.currency || 'INR') as Currency, targetCurrency, exchangeRates), 0);
         const otherTotal = accountTotal - fdTotal - savingsTotal;
-        /** Deposits tab principal + FD rows on Accounts (same basis as mobile Deposits tile) */
-        const depositsCombined = depositsPrincipalConverted + fdTotal;
-        const grandTotal = accountTotal + depositsPrincipalConverted;
+        const grandTotal = accountTotal;
         
         const segments = [
-          { label: "Deposits", amount: depositsCombined, color: "#3B82F6", pct: grandTotal > 0 ? (depositsCombined / grandTotal) * 100 : 0 },
-          { label: "Savings", amount: savingsTotal, color: "#10B981", pct: grandTotal > 0 ? (savingsTotal / grandTotal) * 100 : 0 },
-          ...(otherTotal > 0 ? [{ label: "Other", amount: otherTotal, color: "#8B5CF6", pct: grandTotal > 0 ? (otherTotal / grandTotal) * 100 : 0 }] : [])
+          ...(fdTotal !== 0 ? [{ label: "Deposits / FD", amount: fdTotal, color: "#3B82F6", pct: grandTotal > 0 ? (fdTotal / grandTotal) * 100 : 0 }] : []),
+          ...(savingsTotal !== 0 ? [{ label: "Savings", amount: savingsTotal, color: "#10B981", pct: grandTotal > 0 ? (savingsTotal / grandTotal) * 100 : 0 }] : []),
+          ...(otherTotal !== 0 ? [{ label: "Other", amount: otherTotal, color: "#8B5CF6", pct: grandTotal > 0 ? (otherTotal / grandTotal) * 100 : 0 }] : [])
         ];
         
         return (
@@ -515,15 +513,12 @@ export function BankOverviewTab({
             {/* Header with Total */}
             <div style={{padding:"16px 18px",borderBottom:`1px solid ${THEME.border}`,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
               <div>
-                <div style={{fontSize:11,color:THEME.textMuted,fontWeight:500,letterSpacing:"0.5px"}}>TOTAL PORTFOLIO ({displayCurrency === 'ORIGINAL' ? 'Mixed → INR' : targetCurrency})</div>
+                <div style={{fontSize:11,color:THEME.textMuted,fontWeight:500,letterSpacing:"0.5px"}}>NET WORTH ({displayCurrency === 'ORIGINAL' ? 'Mixed → INR' : targetCurrency})</div>
                 <div style={{fontSize:26,fontWeight:800,color:THEME.text,fontFamily:"monospace",marginTop:4}}>{fmt(grandTotal, targetCurrency)}</div>
               </div>
               <div style={{textAlign:"right"}}>
                 <div style={{fontSize:10,color:THEME.textMuted}}>
                   {accounts.length} account{accounts.length !== 1 ? 's' : ''}
-                  {deposits.length > 0
-                    ? ` · ${deposits.length} deposit${deposits.length !== 1 ? 's' : ''}`
-                    : ''}
                 </div>
               </div>
             </div>

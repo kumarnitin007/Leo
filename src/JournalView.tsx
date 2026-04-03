@@ -8,7 +8,7 @@
  * Redesigned April 2026 — warm paper-toned UI with Lora serif body text.
  */
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import type { JournalEntry, MoodType, Tag } from './types';
 import {
   getJournalEntries,
@@ -17,10 +17,12 @@ import {
   updateJournalEntry,
   deleteJournalEntry,
   getTagsForSection,
+  getUserSettings,
 } from './storage';
 import { formatDate } from './utils';
 import { useFitness } from './integrations/fitness';
 import { calculateStreaks, computeStreakDots } from './components/journal/streakUtils';
+import type { JournalReflectionResult } from './services/ai/abilities/journalReflection';
 import JournalDesktop from './components/journal/JournalDesktop';
 import JournalMobile from './components/journal/JournalMobile';
 
@@ -59,7 +61,14 @@ const JournalView: React.FC<JournalViewProps> = ({ prefillContent, prefillMood, 
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
 
   // ── Fitness ─────────────────────────────────────────────────────────
-  const { data: fitnessData, loading: fitnessLoading, fetchRecent: fetchFitness } = useFitness();
+  const { data: fitnessData, loading: fitnessLoading, connected: fitnessConnected, fetchRecent: fetchFitness } = useFitness();
+
+  // ── AI reflection (shared between center + right panels) ──────────
+  const [aiReflection, setAiReflection] = useState<JournalReflectionResult | null>(null);
+
+  const handleReflectionUpdate = useCallback((result: JournalReflectionResult | null) => {
+    setAiReflection(result);
+  }, []);
 
   // ── Responsive ──────────────────────────────────────────────────────
   useEffect(() => {
@@ -131,6 +140,9 @@ const JournalView: React.FC<JournalViewProps> = ({ prefillContent, prefillMood, 
         resetEditor();
         setIsEditing(true);
         setIsNewEntry(true);
+        if (date === formatDate(new Date())) {
+          autoPopulateContext();
+        }
       }
     } catch (err) {
       console.error('Error loading day entries:', err);
@@ -162,11 +174,46 @@ const JournalView: React.FC<JournalViewProps> = ({ prefillContent, prefillMood, 
     setSelectedTags([]);
   }, []);
 
+  const autoPopulateContext = useCallback(async () => {
+    try {
+      const settings = await getUserSettings();
+      // Auto-populate location from user settings
+      if (settings.location) {
+        const parts = [settings.location.city, settings.location.country].filter(Boolean);
+        if (parts.length > 0) setLocation(parts.join(', '));
+      }
+      // Auto-populate weather from OpenWeatherMap
+      const apiKey = import.meta.env.VITE_OPENWEATHER_API_KEY;
+      if (apiKey && settings.location && (settings.location.zipCode || settings.location.city)) {
+        const loc = settings.location;
+        const query = loc.zipCode
+          ? `zip=${loc.zipCode}${loc.country ? ',' + loc.country : ''}`
+          : `q=${loc.city}${loc.country ? ',' + loc.country : ''}`;
+        const units = (settings.temperatureUnit === 'celsius') ? 'metric' : 'imperial';
+        const symbol = units === 'metric' ? '°C' : '°F';
+        const res = await fetch(
+          `https://api.openweathermap.org/data/2.5/weather?${query}&appid=${apiKey}&units=${units}`
+        );
+        if (res.ok) {
+          const d = await res.json();
+          const desc = d.weather?.[0]?.description || '';
+          const temp = Math.round(d.main?.temp ?? 0);
+          setWeather(`${temp}${symbol} · ${desc.charAt(0).toUpperCase() + desc.slice(1)}`);
+        }
+      }
+    } catch {
+      // Non-critical — silently ignore
+    }
+  }, []);
+
   const startNewEntry = useCallback(() => {
     resetEditor();
     setIsEditing(true);
     setIsNewEntry(true);
-  }, [resetEditor]);
+    if (selectedDate === formatDate(new Date())) {
+      autoPopulateContext();
+    }
+  }, [resetEditor, selectedDate, autoPopulateContext]);
 
   const handleSave = useCallback(async () => {
     if (!content.trim()) return;
@@ -268,6 +315,16 @@ const JournalView: React.FC<JournalViewProps> = ({ prefillContent, prefillMood, 
   const entryDates = new Set(allEntries.map(e => e.date));
   const dots = computeStreakDots(entryDates);
 
+  const { stepsToday, stepsYesterday } = useMemo(() => {
+    const now = new Date();
+    const todayStr = formatDate(now);
+    const yday = new Date(now); yday.setDate(yday.getDate() - 1);
+    const ydayStr = formatDate(yday);
+    const td = fitnessData.find(d => d.date === todayStr);
+    const yd = fitnessData.find(d => d.date === ydayStr);
+    return { stepsToday: td?.steps ?? null, stepsYesterday: yd?.steps ?? null };
+  }, [fitnessData]);
+
   // ── Shared props ────────────────────────────────────────────────────
   const sharedProps = {
     allEntries,
@@ -309,8 +366,13 @@ const JournalView: React.FC<JournalViewProps> = ({ prefillContent, prefillMood, 
     bestStreak,
     dots,
     justSaved,
+    stepsToday,
+    stepsYesterday,
+    aiReflection,
+    onReflectionUpdate: handleReflectionUpdate,
     fitnessData,
     fitnessLoading,
+    fitnessConnected,
     onFetchFitness: () => fetchFitness(3),
   };
 

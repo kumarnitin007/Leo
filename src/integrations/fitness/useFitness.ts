@@ -6,12 +6,13 @@
  * After every fetch, runs the Tracked Task auto-completion engine.
  */
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import {
   fetchFitnessDataUnified,
   loadCachedFitnessDataUnified,
   getActiveProvider,
+  isProviderConnected,
 } from './UnifiedFitnessService';
 import { runAutoComplete } from '../google/services/TrackedTaskEngine';
 import { getTasks } from '../../storage/tasks';
@@ -24,6 +25,7 @@ export interface FitnessState {
   loading: boolean;
   error: string | null;
   activeProvider: FitnessProviderId;
+  connected: boolean | null;
   lastAutoComplete: AutoCompleteResult | null;
   fetchRecent: (days?: number) => Promise<void>;
   loadCached: (days?: number) => Promise<void>;
@@ -34,7 +36,13 @@ export function useFitness(): FitnessState {
   const [data, setData] = useState<DailyFitnessData[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [connected, setConnected] = useState<boolean | null>(null);
   const [lastAutoComplete, setLastAutoComplete] = useState<AutoCompleteResult | null>(null);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    isProviderConnected(user.id).then(setConnected).catch(() => setConnected(false));
+  }, [user?.id]);
 
   const runTrackedAutoComplete = useCallback(async (fitnessData: DailyFitnessData[]) => {
     if (!user?.id || !fitnessData.length) return;
@@ -83,6 +91,7 @@ export function useFitness(): FitnessState {
     loading,
     error,
     activeProvider: getActiveProvider(),
+    connected,
     lastAutoComplete,
     fetchRecent,
     loadCached,
