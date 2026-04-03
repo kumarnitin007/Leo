@@ -36,6 +36,7 @@ import { EnrichedCalendarCard } from './components/EnrichedCalendarCard';
 import { findEnrichmentByNameAndDate } from './services/referenceCalendarService';
 import { TodoItem, TodoGroup } from './types';
 import { PerformanceConfig } from './config/performanceConfig';
+import { useTheme } from './contexts/ThemeContext';
 
 type DashboardItem = {
   type: 'task' | 'event';
@@ -58,6 +59,8 @@ interface TodayViewProps {
 
 const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
   const { user, loading: authLoading } = useAuth();
+  const { theme } = useTheme();
+  const isWarmPaper = theme.id === 'warm-paper';
   useTrackedTaskSync();
   const [viewMode, setViewMode] = useState<'dashboard' | 'monthly'>('dashboard');
   const [items, setItems] = useState<DashboardItem[]>([]);
@@ -1290,6 +1293,14 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
 
   const getItemStyle = (item: DashboardItem) => {
     const priorityStyle = getPriorityStyle(item.weightage);
+    if (isWarmPaper) {
+      return {
+        borderTop: `3px solid ${priorityStyle.borderColor}`,
+        borderLeft: 'none',
+        boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+        '--task-color': item.color || '#1a1a1a'
+      } as React.CSSProperties;
+    }
     const baseStyle = {
       borderLeft: `${priorityStyle.borderWidth} solid ${priorityStyle.borderColor}`,
       boxShadow: priorityStyle.boxShadow,
@@ -1327,8 +1338,8 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
         }}>
           🦁
         </div>
-        <h2 style={{ color: 'white', fontSize: '1.5rem' }}>Loading your tasks...</h2>
-        <p style={{ color: 'rgba(255,255,255,0.8)' }}>Getting everything ready for your productive day!</p>
+        <h2 style={{ color: isWarmPaper ? '#1a1a1a' : 'white', fontSize: '1.5rem' }}>Loading your tasks...</h2>
+        <p style={{ color: isWarmPaper ? '#888680' : 'rgba(255,255,255,0.8)' }}>Getting everything ready for your productive day!</p>
       </div>
     );
   }
@@ -1417,7 +1428,7 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
                   display: 'flex',
                   alignItems: 'center',
                   gap: '0.5rem',
-                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                  background: isWarmPaper ? '#1a1a1a' : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
                   color: 'white',
                   border: 'none',
                   paddingRight: aiInsight ? '2.75rem' : undefined
@@ -1456,9 +1467,9 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
               onClick={() => setIsReorderMode(!isReorderMode)}
               className="btn-secondary"
               style={{ 
-                background: isReorderMode ? '#667eea' : 'white',
-                color: isReorderMode ? 'white' : '#667eea',
-                border: '2px solid #667eea',
+                background: isReorderMode ? (isWarmPaper ? '#1a1a1a' : '#667eea') : (isWarmPaper ? '#ffffff' : 'white'),
+                color: isReorderMode ? 'white' : (isWarmPaper ? '#1a1a1a' : '#667eea'),
+                border: isWarmPaper ? '1px solid #e8e5e0' : '2px solid #667eea',
                 display: 'flex',
                 alignItems: 'center',
                 gap: '0.5rem'
@@ -1474,9 +1485,9 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
                 display: 'flex',
                 alignItems: 'center',
                 gap: '0.5rem',
-                background: 'white',
-                color: '#f97316',
-                border: '2px solid #f97316'
+                background: isWarmPaper ? '#ffffff' : 'white',
+                color: isWarmPaper ? '#1a1a1a' : '#f97316',
+                border: isWarmPaper ? '1px solid #e8e5e0' : '2px solid #f97316'
               }}
             >
               <span>⏸️</span>
@@ -1484,12 +1495,12 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
             </button>
           </div>
         </div>
-        <div style={{ display: 'flex', gap: '2rem', alignItems: 'center', justifyContent: 'center', marginTop: '1rem', flexWrap: 'wrap' }}>
-          <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: 'white' }}>
+        <div style={{ display: 'flex', gap: '2rem', alignItems: 'center', justifyContent: isWarmPaper ? 'flex-start' : 'center', marginTop: '1rem', flexWrap: 'wrap' }}>
+          <div style={{ fontSize: isWarmPaper ? '1.1rem' : '1.5rem', fontWeight: isWarmPaper ? 600 : 'bold', color: isWarmPaper ? '#1a1a1a' : 'white' }}>
             Progress: {calculateProgress()}% ({items.filter(i => i.isCompleted).length}/{items.length} completed)
           </div>
           {currentStreak > 0 && (
-            <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#f59e0b', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <div style={{ fontSize: isWarmPaper ? '1.1rem' : '1.5rem', fontWeight: isWarmPaper ? 600 : 'bold', color: isWarmPaper ? '#92400e' : '#f59e0b', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               <span>🔥</span>
               <span>{currentStreak} Day Streak!</span>
             </div>
@@ -1674,13 +1685,13 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
                       display: 'flex',
                       alignItems: 'center',
                       gap: '0.25rem',
-                      background: item.type === 'event' ? '#ec489915' : '#3b82f615',
-                      border: `1.5px solid ${item.type === 'event' ? '#ec4899' : '#3b82f6'}`,
-                      borderRadius: '12px',
+                      background: isWarmPaper ? '#f5f3ef' : (item.type === 'event' ? '#ec489915' : '#3b82f615'),
+                      border: isWarmPaper ? '1px solid #e8e5e0' : `1.5px solid ${item.type === 'event' ? '#ec4899' : '#3b82f6'}`,
+                      borderRadius: isWarmPaper ? '4px' : '12px',
                       padding: '0.25rem 0.5rem',
                       fontSize: '0.75rem',
-                      fontWeight: 600,
-                      color: item.type === 'event' ? '#ec4899' : '#3b82f6',
+                      fontWeight: isWarmPaper ? 500 : 600,
+                      color: isWarmPaper ? '#888680' : (item.type === 'event' ? '#ec4899' : '#3b82f6'),
                       zIndex: 5
                     }}>
                       <span>{item.type === 'event' ? '📅' : '✓'}</span>
@@ -1705,12 +1716,12 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
                       display: 'flex',
                       alignItems: 'center',
                       gap: '0.25rem',
-                      background: `${getPriorityStyle(item.weightage).badgeColor}15`,
-                      border: `1.5px solid ${getPriorityStyle(item.weightage).badgeColor}`,
-                      borderRadius: '12px',
+                      background: isWarmPaper ? '#f5f3ef' : `${getPriorityStyle(item.weightage).badgeColor}15`,
+                      border: isWarmPaper ? `1px solid ${getPriorityStyle(item.weightage).badgeColor}40` : `1.5px solid ${getPriorityStyle(item.weightage).badgeColor}`,
+                      borderRadius: isWarmPaper ? '4px' : '12px',
                       padding: '0.25rem 0.5rem',
                       fontSize: '0.75rem',
-                      fontWeight: 600,
+                      fontWeight: isWarmPaper ? 500 : 600,
                       color: getPriorityStyle(item.weightage).badgeColor,
                       zIndex: 5
                     }}>
@@ -1728,12 +1739,12 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
                       display: 'flex',
                       alignItems: 'center',
                       gap: '0.25rem',
-                      background: '#f9731615',
-                      border: '1.5px solid #f97316',
-                      borderRadius: '12px',
+                      background: isWarmPaper ? '#f5f3ef' : '#f9731615',
+                      border: isWarmPaper ? '1px solid #f9731640' : '1.5px solid #f97316',
+                      borderRadius: isWarmPaper ? '4px' : '12px',
                       padding: '0.25rem 0.5rem',
                       fontSize: '0.75rem',
-                      fontWeight: 600,
+                      fontWeight: isWarmPaper ? 500 : 600,
                       color: '#f97316'
                     }}>
                       <span>⏸️</span>
@@ -1870,13 +1881,13 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
       {showSmartCoachModal && aiInsight && (
         <div className="modal-overlay" onClick={() => setShowSmartCoachModal(false)}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '900px', maxHeight: '90vh', overflow: 'auto' }}>
-            <div className="modal-header" style={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', color: 'white' }}>
+            <div className="modal-header" style={{ background: isWarmPaper ? '#1a1a1a' : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', color: 'white' }}>
               <h2>🤖 Smart Coach Insights</h2>
               <button className="modal-close" onClick={() => setShowSmartCoachModal(false)} style={{ color: 'white' }}>×</button>
             </div>
             <div style={{ 
               padding: '1.5rem',
-              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+              background: isWarmPaper ? '#1a1a1a' : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
               color: 'white'
             }}>
               <SmartCoachSection
@@ -1901,7 +1912,7 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
       {showBulkHoldModal && (
         <div className="modal-overlay" onClick={() => setShowBulkHoldModal(false)}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '500px' }}>
-            <div className="modal-header" style={{ background: 'linear-gradient(135deg, #f97316 0%, #fb923c 100%)', color: 'white' }}>
+            <div className="modal-header" style={{ background: isWarmPaper ? '#1a1a1a' : 'linear-gradient(135deg, #f97316 0%, #fb923c 100%)', color: 'white' }}>
               <h2>⏸️ Bulk Hold/Unhold Tasks</h2>
               <button className="modal-close" onClick={() => setShowBulkHoldModal(false)} style={{ color: 'white' }}>×</button>
             </div>
@@ -1995,7 +2006,7 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
       {showDatePicker && (
         <div className="modal-overlay" onClick={() => setShowDatePicker(false)}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '500px', width: '90%' }}>
-            <div className="modal-header" style={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', color: 'white' }}>
+            <div className="modal-header" style={{ background: isWarmPaper ? '#1a1a1a' : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', color: 'white' }}>
               <h2>📅 Select Date</h2>
               <button className="modal-close" onClick={() => setShowDatePicker(false)} style={{ color: 'white' }}>×</button>
             </div>
@@ -2117,7 +2128,7 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
       {showOpenAIPrompt && (
         <div className="modal-overlay" onClick={() => setShowOpenAIPrompt(false)}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '900px', maxHeight: '80vh', overflow: 'auto' }}>
-            <div className="modal-header" style={{ background: '#111827', color: 'white' }}>
+            <div className="modal-header" style={{ background: isWarmPaper ? '#1a1a1a' : '#111827', color: 'white' }}>
               <h2>🧭 Generated OpenAI Prompt</h2>
               <button className="modal-close" onClick={() => setShowOpenAIPrompt(false)} style={{ color: 'white' }}>×</button>
             </div>
@@ -2138,11 +2149,11 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
       {upcomingTodos.length > 0 && (
         <div style={{
           marginTop: '1.5rem',
-          borderRadius: '1rem',
+          borderRadius: isWarmPaper ? '12px' : '1rem',
           overflow: 'hidden',
-          background: 'linear-gradient(135deg, #fef3c7 0%, #fde68a 50%, #fcd34d 100%)',
-          border: '1px solid #f59e0b',
-          boxShadow: '0 4px 12px rgba(245, 158, 11, 0.1)'
+          background: isWarmPaper ? '#ffffff' : 'linear-gradient(135deg, #fef3c7 0%, #fde68a 50%, #fcd34d 100%)',
+          border: isWarmPaper ? '1px solid #e8e5e0' : '1px solid #f59e0b',
+          boxShadow: isWarmPaper ? '0 1px 3px rgba(0,0,0,0.04)' : '0 4px 12px rgba(245, 158, 11, 0.1)'
         }}>
           <button
             onClick={() => setIsTodosExpanded(!isTodosExpanded)}
@@ -2159,12 +2170,16 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-              <span style={{ fontSize: '1.5rem' }}>📝</span>
+              {isWarmPaper ? (
+                <span style={{ width: '2rem', height: '2rem', borderRadius: '6px', background: '#fef3c7', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1rem' }}>📝</span>
+              ) : (
+                <span style={{ fontSize: '1.5rem' }}>📝</span>
+              )}
               <div style={{ textAlign: 'left' }}>
-                <div style={{ fontWeight: 600, color: '#92400e', fontSize: '1rem' }}>
+                <div style={{ fontWeight: 600, color: isWarmPaper ? '#1a1a1a' : '#92400e', fontSize: '1rem' }}>
                   My Lists
                 </div>
-                <div style={{ fontSize: '0.8rem', color: '#b45309' }}>
+                <div style={{ fontSize: '0.8rem', color: isWarmPaper ? '#888680' : '#b45309' }}>
                   {isTodosExpanded 
                     ? `${upcomingTodos.length} due soon or overdue`
                     : 'Tap to view My Lists'}
@@ -2174,7 +2189,7 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
             <span style={{
               transform: isTodosExpanded ? 'rotate(180deg)' : 'rotate(0)',
               transition: 'transform 0.2s',
-              color: '#b45309',
+              color: isWarmPaper ? '#888680' : '#b45309',
               fontSize: '1.25rem'
             }}>
               ▼
@@ -2293,11 +2308,11 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
       {dashboardComments.length > 0 && (
         <div style={{
           marginTop: '1.5rem',
-          borderRadius: '1rem',
+          borderRadius: isWarmPaper ? '12px' : '1rem',
           overflow: 'hidden',
-          background: 'linear-gradient(135deg, #dbeafe 0%, #bfdbfe 50%, #93c5fd 100%)',
-          border: '1px solid #3b82f6',
-          boxShadow: '0 4px 12px rgba(59, 130, 246, 0.1)'
+          background: isWarmPaper ? '#ffffff' : 'linear-gradient(135deg, #dbeafe 0%, #bfdbfe 50%, #93c5fd 100%)',
+          border: isWarmPaper ? '1px solid #e8e5e0' : '1px solid #3b82f6',
+          boxShadow: isWarmPaper ? '0 1px 3px rgba(0,0,0,0.04)' : '0 4px 12px rgba(59, 130, 246, 0.1)'
         }}>
           <button
             onClick={() => setIsCommentsExpanded(!isCommentsExpanded)}
@@ -2310,16 +2325,18 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
               display: 'flex',
               justifyContent: 'space-between',
               alignItems: 'center',
-              color: '#1e40af',
+              color: isWarmPaper ? '#1a1a1a' : '#1e40af',
               fontWeight: 600,
               fontSize: '1rem'
             }}
           >
             <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              💬 Comments & Messages
+              {isWarmPaper ? (
+                <span style={{ width: '2rem', height: '2rem', borderRadius: '6px', background: '#dbeafe', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: '1rem' }}>💬</span>
+              ) : '💬'} Comments & Messages
               <span style={{
                 padding: '0.25rem 0.5rem',
-                background: '#3b82f6',
+                background: isWarmPaper ? '#1a1a1a' : '#3b82f6',
                 color: 'white',
                 borderRadius: '12px',
                 fontSize: '0.75rem',
@@ -2332,7 +2349,7 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
               display: 'inline-block',
               transform: isCommentsExpanded ? 'rotate(180deg)' : 'rotate(0)',
               transition: 'transform 0.2s',
-              color: '#1e40af',
+              color: isWarmPaper ? '#888680' : '#1e40af',
               fontSize: '1.25rem'
             }}>
               ▼
@@ -2455,11 +2472,11 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
       {/* Reference Calendar Days Section - Collapsible, loads on expand */}
       <div style={{
         marginTop: '1.5rem',
-        borderRadius: '1rem',
+        borderRadius: isWarmPaper ? '12px' : '1rem',
         overflow: 'hidden',
-        background: 'linear-gradient(135deg, #e0e7ff 0%, #c7d2fe 50%, #a5b4fc 100%)',
-        border: '1px solid #818cf8',
-        boxShadow: '0 4px 12px rgba(99, 102, 241, 0.1)'
+        background: isWarmPaper ? '#ffffff' : 'linear-gradient(135deg, #e0e7ff 0%, #c7d2fe 50%, #a5b4fc 100%)',
+        border: isWarmPaper ? '1px solid #e8e5e0' : '1px solid #818cf8',
+        boxShadow: isWarmPaper ? '0 1px 3px rgba(0,0,0,0.04)' : '0 4px 12px rgba(99, 102, 241, 0.1)'
       }}>
         {/* Collapsible Header */}
         <button
@@ -2477,12 +2494,16 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-            <span style={{ fontSize: '1.5rem' }}>📅</span>
+            {isWarmPaper ? (
+              <span style={{ width: '2rem', height: '2rem', borderRadius: '6px', background: '#e0e7ff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1rem' }}>📅</span>
+            ) : (
+              <span style={{ fontSize: '1.5rem' }}>📅</span>
+            )}
             <div style={{ textAlign: 'left' }}>
-              <div style={{ fontWeight: 600, color: '#3730a3', fontSize: '1rem' }}>
+              <div style={{ fontWeight: 600, color: isWarmPaper ? '#1a1a1a' : '#3730a3', fontSize: '1rem' }}>
                 Upcoming Observances
               </div>
-              <div style={{ fontSize: '0.8rem', color: '#4f46e5' }}>
+              <div style={{ fontSize: '0.8rem', color: isWarmPaper ? '#888680' : '#4f46e5' }}>
                 {isObservancesExpanded 
                   ? (observancesLoaded 
                       ? (referenceCalendarDays.length > 0 
@@ -2496,7 +2517,7 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
           <span style={{
             transform: isObservancesExpanded ? 'rotate(180deg)' : 'rotate(0)',
             transition: 'transform 0.2s',
-            color: '#4f46e5',
+            color: isWarmPaper ? '#888680' : '#4f46e5',
             fontSize: '1.25rem'
           }}>
             ▼

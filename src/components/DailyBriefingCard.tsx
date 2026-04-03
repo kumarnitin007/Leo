@@ -10,6 +10,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useUser } from '../contexts/UserContext';
 import { useUserLevel } from '../hooks/useUserLevel';
+import { useTheme } from '../contexts/ThemeContext';
 import { getUserSettings } from '../storage';
 import { getDailyBriefing, refreshDailyBriefing, previewBriefingQuery, getCachedBriefing, DailyBriefingResult } from '../services/ai/abilities/dailyBriefing';
 import AIQueryViewerModal from './ai/AIQueryViewerModal';
@@ -25,6 +26,8 @@ const DailyBriefingCard: React.FC = () => {
   const { user } = useAuth();
   const { username: displayName } = useUser();
   const { features, loading: levelLoading } = useUserLevel();
+  const { theme } = useTheme();
+  const isWP = theme.id === 'warm-paper';
   const [briefing, setBriefing] = useState<DailyBriefingResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -98,12 +101,13 @@ const DailyBriefingCard: React.FC = () => {
 
   return (
     <div style={{
-      background: tone.bg,
-      border: `1px solid ${tone.border}40`,
-      borderRadius: 16,
+      background: isWP ? '#1a1a1a' : tone.bg,
+      border: isWP ? '1px solid #2a2a2a' : `1px solid ${tone.border}40`,
+      borderRadius: isWP ? 12 : 16,
       overflow: 'hidden',
       marginBottom: 16,
       transition: 'all 0.3s ease',
+      fontFamily: isWP ? "'Bricolage Grotesque', system-ui, sans-serif" : undefined,
     }}>
       <button
         onClick={() => setCollapsed(c => !c)}
@@ -210,7 +214,7 @@ const DailyBriefingCard: React.FC = () => {
                 <button
                   onClick={loadBriefing}
                   style={{
-                    background: '#4338CA', border: 'none', color: 'white',
+                    background: isWP ? '#e8c547' : '#4338CA', border: 'none', color: isWP ? '#1a1a1a' : 'white',
                     borderRadius: 8, padding: '6px 16px', fontSize: 12, fontWeight: 600,
                     cursor: 'pointer', transition: 'opacity 0.15s',
                   }}

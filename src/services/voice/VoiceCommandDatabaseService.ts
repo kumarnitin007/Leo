@@ -563,6 +563,27 @@ export class VoiceCommandDatabaseService {
     }
   }
 
+  /** Permanently delete a command log entry */
+  async deleteCommand(commandId: string): Promise<void> {
+    const client = getSupabaseClient();
+    if (!client) throw new Error('Supabase client not configured');
+
+    try {
+      const { error } = await client
+        .from(this.tableName)
+        .delete()
+        .eq('id', commandId);
+
+      if (error) {
+        console.error('deleteCommand error', error);
+        throw error;
+      }
+    } catch (err) {
+      console.error('deleteCommand failed', err);
+      throw err;
+    }
+  }
+
   /** Learn from a user correction: upsert into patterns and increment frequency */
   async learnFromCorrection(
     userId: string,

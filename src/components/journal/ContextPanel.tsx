@@ -218,7 +218,7 @@ const ContextPanel: React.FC<ContextPanelProps> = ({
         )}
 
         {/* AI Weather & Wellness Suggestion (Message 2 from Leo) */}
-        {aiReflection?.weatherSuggestion && (
+        {aiReflection?.weatherSuggestion ? (
           <div className="j-insight-card" style={{ borderLeft: '3px solid #60A5FA' }}>
             <div className="j-ic-title">
               <span style={{ fontSize: 14 }}>🌤️</span>
@@ -226,6 +226,16 @@ const ContextPanel: React.FC<ContextPanelProps> = ({
             </div>
             <div style={{ fontSize: 12, lineHeight: 1.6, color: 'var(--j-ink2)' }}>
               {aiReflection.weatherSuggestion}
+            </div>
+          </div>
+        ) : (
+          <div className="j-insight-card" style={{ borderLeft: '3px solid #A5B4FC', opacity: 0.7 }}>
+            <div className="j-ic-title">
+              <span style={{ fontSize: 14 }}>✨</span>
+              <span style={{ marginLeft: 6 }}>Leo's Wellness Tip</span>
+            </div>
+            <div style={{ fontSize: 11, lineHeight: 1.5, color: 'var(--j-ink3)' }}>
+              Click <strong>Reflect</strong> in the center panel to get a personalized wellness tip based on your weather, steps, and journal.
             </div>
           </div>
         )}

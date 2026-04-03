@@ -12,7 +12,9 @@ import type { Plugin, ViteDevServer } from 'vite';
 import { IncomingMessage, ServerResponse } from 'http';
 import { config } from 'dotenv';
 
-config(); // Load .env so process.env.OPENAI_API_KEY etc. are available
+// Suppress dotenv v17+ injection log, then load .env
+process.env.DOTENV_CONFIG_QUIET = 'true';
+config();
 process.env.NODE_ENV = process.env.NODE_ENV || 'development';
 
 if (process.env.ALLOW_INSECURE_SSL === 'true') {

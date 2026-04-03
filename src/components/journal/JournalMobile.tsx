@@ -204,6 +204,18 @@ const JournalMobile: React.FC<JournalMobileProps> = (props) => {
         )}
       </div>
 
+      {/* AI Reflection — visible immediately after composer */}
+      <div style={{ padding: '0 14px 8px' }}>
+        <JournalReflectionCard
+          entry={editingEntry}
+          justSaved={justSaved}
+          weather={props.weather}
+          stepsToday={stepsToday}
+          stepsYesterday={stepsYesterday}
+          onReflectionUpdate={onReflectionUpdate}
+        />
+      </div>
+
       {/* AI Nudge Strip */}
       {aiNudge && (
         <div className="j-ai-strip">
@@ -284,17 +296,8 @@ const JournalMobile: React.FC<JournalMobileProps> = (props) => {
         </div>
       </div>
 
-      {/* AI Reflection (below timeline on mobile) */}
-      <div style={{ padding: '0 14px 20px' }}>
-        <JournalReflectionCard
-          entry={editingEntry}
-          justSaved={justSaved}
-          weather={props.weather}
-          stepsToday={stepsToday}
-          stepsYesterday={stepsYesterday}
-          onReflectionUpdate={onReflectionUpdate}
-        />
-      </div>
+      {/* spacer for bottom nav */}
+      <div style={{ height: 20 }} />
     </div>
   );
 };

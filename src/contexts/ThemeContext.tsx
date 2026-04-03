@@ -124,6 +124,10 @@ export const ThemeProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     root.style.setProperty('--color-text-muted', theme.colors.textLight);
     root.style.setProperty('--color-border', theme.colors.cardBorder);
     root.style.setProperty('--color-card-bg-alt', theme.colors.background);
+
+    // Apply theme body class for CSS overrides (e.g. warm-paper redesign)
+    document.body.className = document.body.className.replace(/\btheme-\S+/g, '').trim();
+    document.body.classList.add(`theme-${theme.id}`);
     
     // ===== BORDER RADIUS (Design Tokens) =====
     root.style.setProperty('--radius-none', RADIUS.none);

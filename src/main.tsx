@@ -4,6 +4,7 @@ import App from './App'
 import './index.css'
 import './mobile.css'
 import './styles/journal.css'
+import './crisp-paper.css'
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>

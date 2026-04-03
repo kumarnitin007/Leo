@@ -184,7 +184,12 @@ const VoiceCommandHistory: React.FC<VoiceCommandHistoryProps> = ({
   };
 
   const handleReviewAndCreate = async (cmd: VoiceCommandLog) => {
-    // Show suggestions modal for smart options
+    // Financial scans should not be created as tasks/events
+    const isFinancialScan = getFinancialSummary(cmd) !== null;
+    if (isFinancialScan) {
+      alert('📊 Financial Data\n\nThis scan contains financial data (accounts/balances).\n\nTo import it, go to:\nVault → Financial → Pending Imports\n\nFinancial data must be reviewed and approved inside the Vault for security.');
+      return;
+    }
     setSuggestionsCommand(cmd);
     setShowSuggestions(true);
   };
@@ -275,6 +280,22 @@ const VoiceCommandHistory: React.FC<VoiceCommandHistoryProps> = ({
     } catch (err) {
       console.error('Reject failed:', err);
       alert('Failed to reject. Please try again.');
+    }
+  };
+
+  const handleDelete = async (cmd: VoiceCommandLog) => {
+    if (!confirm('Permanently delete this entry? This cannot be undone.')) return;
+    try {
+      await dbService.deleteCommand(cmd.id);
+      if (suggestionsCommand?.id === cmd.id) {
+        setShowSuggestions(false);
+        setSuggestionsCommand(null);
+      }
+      setSelectedCommand(null);
+      await loadCommands();
+    } catch (err) {
+      console.error('Delete failed:', err);
+      alert('Failed to delete. Please try again.');
     }
   };
 
@@ -564,13 +585,22 @@ const VoiceCommandHistory: React.FC<VoiceCommandHistoryProps> = ({
                                   className="action-btn secondary"
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    // Navigate to the created item
                                     onBack();
                                   }}
                                 >
                                   👁️ View Item
                                 </button>
                               )}
+                              <button 
+                                className="action-btn danger"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDelete(cmd);
+                                }}
+                                title="Permanently delete this entry"
+                              >
+                                🗑️ Delete
+                              </button>
                             </div>
                           </div>
                         )}
@@ -1033,6 +1063,12 @@ const VoiceCommandHistory: React.FC<VoiceCommandHistoryProps> = ({
         .action-btn.secondary {
           background: #f3f4f6;
           color: #374151;
+        }
+
+        .action-btn.danger {
+          background: #fef2f2;
+          color: #dc2626;
+          border: 1px solid #fecaca;
         }
 
         .action-btn:active {
