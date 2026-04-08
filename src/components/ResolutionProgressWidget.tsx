@@ -10,6 +10,7 @@
 import React, { useState, useEffect } from 'react';
 import { Resolution } from '../types';
 import { getResolutions } from '../storage';
+import { useTheme } from '../contexts/ThemeContext';
 
 interface ProgressData {
   resolution: Resolution;
@@ -26,6 +27,8 @@ interface ProgressData {
 }
 
 const ResolutionProgressWidget: React.FC = () => {
+  const { theme } = useTheme();
+  const isWP = theme.id === 'warm-paper';
   const [isExpanded, setIsExpanded] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [resolutions, setResolutions] = useState<ProgressData[]>([]);
@@ -165,21 +168,22 @@ const ResolutionProgressWidget: React.FC = () => {
 
   return (
     <div style={{
-      marginTop: '1.5rem',
-      borderRadius: '1rem',
+      marginTop: isWP ? '0.75rem' : '1.5rem',
+      borderRadius: isWP ? '12px' : '1rem',
       overflow: 'hidden',
-      background: 'linear-gradient(135deg, #fdf4ff 0%, #fae8ff 50%, #f5d0fe 100%)',
-      border: '1px solid #e9d5ff',
-      boxShadow: '0 4px 12px rgba(168, 85, 247, 0.1)'
+      background: isWP ? '#ffffff' : 'linear-gradient(135deg, #fdf4ff 0%, #fae8ff 50%, #f5d0fe 100%)',
+      border: isWP ? '1px solid #E5E3DC' : '1px solid #e9d5ff',
+      boxShadow: isWP ? undefined : '0 4px 12px rgba(168, 85, 247, 0.1)'
     }}>
       {/* Header - Always visible */}
       <button
         onClick={() => setIsExpanded(!isExpanded)}
         style={{
           width: '100%',
-          padding: '1rem 1.25rem',
-          background: 'transparent',
+          padding: isWP ? '14px 18px' : '1rem 1.25rem',
+          background: isWP ? '#ffffff' : 'transparent',
           border: 'none',
+          borderRadius: isWP && !isExpanded ? '12px' : isWP ? '12px 12px 0 0' : undefined,
           cursor: 'pointer',
           display: 'flex',
           alignItems: 'center',
@@ -187,14 +191,18 @@ const ResolutionProgressWidget: React.FC = () => {
           gap: '1rem'
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-          <span style={{ fontSize: '1.5rem' }}>🎯</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: isWP ? '10px' : '0.75rem' }}>
+          {isWP ? (
+            <div style={{ width: 28, height: 28, borderRadius: 8, background: '#EAF3DE', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, flexShrink: 0 }}>🎯</div>
+          ) : (
+            <span style={{ fontSize: '1.5rem' }}>🎯</span>
+          )}
           <div style={{ textAlign: 'left' }}>
-            <div style={{ fontWeight: 600, color: '#6b21a8', fontSize: '1rem' }}>
+            <div style={{ fontWeight: isWP ? 700 : 600, color: isWP ? '#1a1a1a' : '#6b21a8', fontSize: isWP ? '14px' : '1rem' }}>
               Resolutions Progress
             </div>
             {totalCount > 0 && (
-              <div style={{ fontSize: '0.8rem', color: '#9333ea' }}>
+              <div style={{ fontSize: isWP ? '11px' : '0.8rem', color: isWP ? '#bbb' : '#9333ea' }}>
                 {onTrackCount}/{totalCount} on track
               </div>
             )}
@@ -223,8 +231,8 @@ const ResolutionProgressWidget: React.FC = () => {
           <span style={{
             transform: isExpanded ? 'rotate(180deg)' : 'rotate(0)',
             transition: 'transform 0.2s',
-            color: '#9333ea',
-            fontSize: '1.25rem'
+            color: isWP ? '#ccc' : '#9333ea',
+            fontSize: isWP ? '10px' : '1.25rem'
           }}>
             ▼
           </span>
@@ -235,8 +243,8 @@ const ResolutionProgressWidget: React.FC = () => {
       {isExpanded && (
         <div style={{ 
           padding: '0 1.25rem 1.25rem', 
-          borderTop: '1px solid #e9d5ff',
-          background: 'rgba(255,255,255,0.5)'
+          borderTop: isWP ? '1px solid #E5E3DC' : '1px solid #e9d5ff',
+          background: isWP ? '#ffffff' : 'rgba(255,255,255,0.5)'
         }}>
           {isLoading && (
             <div style={{ padding: '2rem', textAlign: 'center', color: '#9333ea' }}>

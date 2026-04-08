@@ -51,7 +51,16 @@ const QuickAddWidget: React.FC<QuickAddWidgetProps> = ({ onAddTask, onAddEvent }
     setMode(null);
   };
 
-  const containerStyle: React.CSSProperties = {
+  const isWP = theme.id === 'warm-paper';
+
+  const containerStyle: React.CSSProperties = isWP ? {
+    background: '#ffffff',
+    borderRadius: 10,
+    padding: mode ? '10px 16px 16px' : '10px 16px',
+    marginBottom: '1rem',
+    border: '1px solid #E5E3DC',
+    transition: 'all 0.2s ease',
+  } : {
     background: theme.colors.cardBg,
     borderRadius: 16,
     padding: mode ? '16px' : '12px 16px',
@@ -68,7 +77,21 @@ const QuickAddWidget: React.FC<QuickAddWidgetProps> = ({ onAddTask, onAddEvent }
     flexWrap: 'wrap',
   };
 
-  const quickButtonStyle = (isActive: boolean, color: string): React.CSSProperties => ({
+  const quickButtonStyle = (isActive: boolean, color: string): React.CSSProperties => isWP ? ({
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 5,
+    height: 26,
+    padding: '0 10px',
+    borderRadius: 6,
+    border: isActive ? `1px solid #1a1a1a` : '1px solid #E5E3DC',
+    background: isActive ? '#1a1a1a' : '#fff',
+    color: isActive ? '#fff' : '#999',
+    fontSize: 11,
+    fontWeight: 600,
+    cursor: 'pointer',
+    transition: 'all 0.15s ease',
+  }) : ({
     display: 'flex',
     alignItems: 'center',
     gap: 8,
@@ -83,7 +106,16 @@ const QuickAddWidget: React.FC<QuickAddWidgetProps> = ({ onAddTask, onAddEvent }
     transition: 'all 0.15s ease',
   });
 
-  const inputStyle: React.CSSProperties = {
+  const inputStyle: React.CSSProperties = isWP ? {
+    flex: 1,
+    padding: '8px 12px',
+    borderRadius: 8,
+    border: '1px solid #E5E3DC',
+    fontSize: 13,
+    outline: 'none',
+    background: '#fff',
+    color: '#1a1a1a',
+  } : {
     flex: 1,
     padding: '12px 16px',
     borderRadius: 12,
@@ -110,15 +142,15 @@ const QuickAddWidget: React.FC<QuickAddWidgetProps> = ({ onAddTask, onAddEvent }
     return (
       <div style={containerStyle} className="quick-add-widget">
         <div style={buttonGroupStyle}>
-          <span style={{ fontSize: 13, color: theme.colors.textLight, fontWeight: 500, marginRight: 4 }}>Quick Add:</span>
+          <span style={{ fontSize: isWP ? 11 : 13, color: isWP ? '#ccc' : theme.colors.textLight, fontWeight: 500, marginRight: 4 }}>Quick Add:</span>
           <button
             onClick={() => setMode('task')}
             style={quickButtonStyle(false, theme.colors.primary)}
-            onMouseEnter={(e) => {
+            onMouseEnter={isWP ? undefined : (e) => {
               e.currentTarget.style.background = `${theme.colors.primary}15`;
               e.currentTarget.style.borderColor = theme.colors.primary;
             }}
-            onMouseLeave={(e) => {
+            onMouseLeave={isWP ? undefined : (e) => {
               e.currentTarget.style.background = 'transparent';
               e.currentTarget.style.borderColor = theme.colors.cardBorder;
             }}
@@ -126,14 +158,15 @@ const QuickAddWidget: React.FC<QuickAddWidgetProps> = ({ onAddTask, onAddEvent }
             <span>✓</span>
             <span>Task</span>
           </button>
+          {isWP && <div style={{ width: 1, height: 18, background: '#E5E3DC' }} />}
           <button
             onClick={() => setMode('event')}
             style={quickButtonStyle(false, '#3b82f6')}
-            onMouseEnter={(e) => {
+            onMouseEnter={isWP ? undefined : (e) => {
               e.currentTarget.style.background = '#3b82f615';
               e.currentTarget.style.borderColor = '#3b82f6';
             }}
-            onMouseLeave={(e) => {
+            onMouseLeave={isWP ? undefined : (e) => {
               e.currentTarget.style.background = 'transparent';
               e.currentTarget.style.borderColor = theme.colors.cardBorder;
             }}

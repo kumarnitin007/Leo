@@ -7,6 +7,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
+import { useTheme } from '../contexts/ThemeContext';
 
 /** One cached alert row (home dashboard preview; amounts may appear in description) */
 export interface CachedFinancialAlert {
@@ -118,6 +119,8 @@ const LAYOUT_OPTIONS: { id: FinancialAlertsLayoutMode; label: string; hint: stri
 const FinancialAlertsWidget: React.FC<FinancialAlertsWidgetProps> = ({
   onNavigateToSafe
 }) => {
+  const { theme } = useTheme();
+  const isWP = theme.id === 'warm-paper';
   const [summary, setSummary] = useState<FinancialAlertsSummary | null>(null);
   const [expanded, setExpanded] = useState(false);
   const [layoutMode, setLayoutModeState] = useState<FinancialAlertsLayoutMode>(() =>
@@ -225,12 +228,12 @@ const FinancialAlertsWidget: React.FC<FinancialAlertsWidgetProps> = ({
     <div 
       className="widget-card financial-alerts-widget"
       style={{
-        background: 'linear-gradient(135deg, rgba(251, 191, 36, 0.25) 0%, rgba(245, 158, 11, 0.15) 100%)',
-        borderRadius: '1rem',
+        background: isWP ? '#fff' : 'linear-gradient(135deg, rgba(251, 191, 36, 0.25) 0%, rgba(245, 158, 11, 0.15) 100%)',
+        borderRadius: isWP ? '12px' : '1rem',
         overflow: 'hidden',
-        marginTop: '1.5rem',
-        border: '1px solid rgba(245, 158, 11, 0.2)',
-        boxShadow: '0 4px 12px rgba(245, 158, 11, 0.1)'
+        marginTop: isWP ? '0.75rem' : '1.5rem',
+        border: isWP ? '1px solid #e8e5e0' : '1px solid rgba(245, 158, 11, 0.2)',
+        boxShadow: isWP ? 'none' : '0 4px 12px rgba(245, 158, 11, 0.1)'
       }}
     >
       {/* Header - Collapsible */}
@@ -259,24 +262,26 @@ const FinancialAlertsWidget: React.FC<FinancialAlertsWidgetProps> = ({
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           {urgentCount > 0 && (
             <span style={{
-              background: '#dc2626',
-              color: '#fff',
+              background: isWP ? 'transparent' : '#dc2626',
+              color: isWP ? '#d32f2f' : '#fff',
+              border: isWP ? '1.5px solid #d32f2f' : 'none',
               fontSize: 10,
               fontWeight: 700,
               padding: '2px 8px',
-              borderRadius: 10
+              borderRadius: isWP ? 4 : 10
             }}>
               {urgentCount}
             </span>
           )}
           {warningCount > 0 && urgentCount === 0 && (
             <span style={{
-              background: '#d97706',
-              color: '#fff',
+              background: isWP ? 'transparent' : '#d97706',
+              color: isWP ? '#1a1a1a' : '#fff',
+              border: isWP ? '1.5px solid #1a1a1a' : 'none',
               fontSize: 10,
               fontWeight: 700,
               padding: '2px 8px',
-              borderRadius: 10
+              borderRadius: isWP ? 4 : 10
             }}>
               {warningCount}
             </span>

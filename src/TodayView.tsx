@@ -1294,9 +1294,28 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
   const getItemStyle = (item: DashboardItem) => {
     const priorityStyle = getPriorityStyle(item.weightage);
     if (isWarmPaper) {
+      const level = getPriorityLevel(item.weightage);
+      if (level === 'critical') {
+        return {
+          border: '1px solid #E5E3DC',
+          borderTop: '3px solid #E24B4A',
+          borderRadius: '0 0 12px 12px',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+          '--task-color': item.color || '#1a1a1a'
+        } as React.CSSProperties;
+      }
+      if (level === 'high') {
+        return {
+          border: '1px solid #E5E3DC',
+          borderTop: '3px solid #BA7517',
+          borderRadius: '0 0 12px 12px',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+          '--task-color': item.color || '#1a1a1a'
+        } as React.CSSProperties;
+      }
       return {
-        borderTop: `3px solid ${priorityStyle.borderColor}`,
-        borderLeft: 'none',
+        border: '1px solid #E5E3DC',
+        borderRadius: '12px',
         boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
         '--task-color': item.color || '#1a1a1a'
       } as React.CSSProperties;
@@ -1388,53 +1407,67 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
               </div>
             </div>
           </div>
-          <div className="desktop-action-buttons" style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-            {/* View Toggle */}
+          <div className="desktop-action-buttons" style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
+            {/* View Toggle — Ghost */}
             <button
               onClick={() => setViewMode(viewMode === 'dashboard' ? 'monthly' : 'dashboard')}
               className="btn-secondary"
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.5rem'
+              style={isWarmPaper ? {
+                height: 34, padding: '0 14px', borderRadius: 8,
+                fontSize: 12, fontWeight: 700,
+                background: '#ffffff', color: '#555555', border: '1px solid #E0DDD6',
+                display: 'inline-flex', alignItems: 'center', gap: 5, cursor: 'pointer'
+              } : {
+                display: 'flex', alignItems: 'center', gap: '0.5rem'
               }}
+              onMouseEnter={isWarmPaper ? (e) => { e.currentTarget.style.background = '#F5F4F0'; } : undefined}
+              onMouseLeave={isWarmPaper ? (e) => { e.currentTarget.style.background = '#ffffff'; } : undefined}
             >
               <span>{viewMode === 'dashboard' ? '📅' : '🏠'}</span>
               <span>{viewMode === 'dashboard' ? 'Monthly' : 'Dashboard'}</span>
             </button>
+            {/* Progress — Ghost */}
             <button 
               onClick={() => setShowProgressAndReview(true)}
               className="btn-secondary"
-              style={{ 
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.5rem'
+              style={isWarmPaper ? {
+                height: 34, padding: '0 14px', borderRadius: 8,
+                fontSize: 12, fontWeight: 700,
+                background: '#ffffff', color: '#555555', border: '1px solid #E0DDD6',
+                display: 'inline-flex', alignItems: 'center', gap: 5, cursor: 'pointer'
+              } : {
+                display: 'flex', alignItems: 'center', gap: '0.5rem'
               }}
+              onMouseEnter={isWarmPaper ? (e) => { e.currentTarget.style.background = '#F5F4F0'; } : undefined}
+              onMouseLeave={isWarmPaper ? (e) => { e.currentTarget.style.background = '#ffffff'; } : undefined}
             >
               <span>📊</span>
               <span>Progress</span>
             </button>
+            {/* AI Assistant — Accent outline */}
             <div style={{ position: 'relative', display: 'inline-flex' }}>
               <button
                 onClick={async () => {
-                  // Load AI insights on-demand
                   await loadAIInsights();
                   const prompt = await buildOpenAIPrompt();
                   setOpenAIPromptText(prompt);
                   setShowOpenAIPrompt(true);
                 }}
                 className="btn-secondary"
-                style={{ 
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.5rem',
-                  background: isWarmPaper ? '#1a1a1a' : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                  color: 'white',
-                  border: 'none',
+                style={isWarmPaper ? {
+                  height: 34, padding: '0 14px', borderRadius: 8,
+                  fontSize: 12, fontWeight: 700,
+                  background: '#ffffff', color: '#1a1a1a', border: '1.5px solid #1a1a1a',
+                  display: 'inline-flex', alignItems: 'center', gap: 5, cursor: 'pointer',
+                  paddingRight: aiInsight ? '2.75rem' : '14px'
+                } : {
+                  display: 'flex', alignItems: 'center', gap: '0.5rem',
+                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                  color: 'white', border: 'none',
                   paddingRight: aiInsight ? '2.75rem' : undefined
                 }}
               >
-                <span>🤖</span>
+                <span>✦</span>
                 <span>AI Assistant</span>
               </button>
               {aiInsight && (
@@ -1442,70 +1475,148 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
                   onClick={() => setShowSmartCoachModal(true)}
                   title="View Coach Insights"
                   style={{ 
-                    position: 'absolute',
-                    right: '0.35rem',
-                    top: '50%',
+                    position: 'absolute', right: '0.35rem', top: '50%',
                     transform: 'translateY(-50%)',
-                    background: 'rgba(255,255,255,0.25)',
-                    border: 'none',
-                    borderRadius: '50%',
-                    width: '1.75rem',
-                    height: '1.75rem',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    cursor: 'pointer',
-                    fontSize: '0.85rem',
-                    color: 'white'
+                    background: isWarmPaper ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.25)',
+                    border: 'none', borderRadius: '50%',
+                    width: '1.75rem', height: '1.75rem',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    cursor: 'pointer', fontSize: '0.85rem',
+                    color: isWarmPaper ? '#1a1a1a' : 'white'
                   }}
                 >
                   💡
                 </button>
               )}
             </div>
+            {/* Reorder — Ghost */}
             <button 
               onClick={() => setIsReorderMode(!isReorderMode)}
               className="btn-secondary"
-              style={{ 
-                background: isReorderMode ? (isWarmPaper ? '#1a1a1a' : '#667eea') : (isWarmPaper ? '#ffffff' : 'white'),
-                color: isReorderMode ? 'white' : (isWarmPaper ? '#1a1a1a' : '#667eea'),
-                border: isWarmPaper ? '1px solid #e8e5e0' : '2px solid #667eea',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.5rem'
+              style={isWarmPaper ? {
+                height: 34, padding: '0 14px', borderRadius: 8,
+                fontSize: 12, fontWeight: 700,
+                background: isReorderMode ? '#1a1a1a' : '#ffffff',
+                color: isReorderMode ? '#ffffff' : '#555555',
+                border: isReorderMode ? '1px solid #1a1a1a' : '1px solid #E0DDD6',
+                display: 'inline-flex', alignItems: 'center', gap: 5, cursor: 'pointer'
+              } : {
+                background: isReorderMode ? '#667eea' : 'white',
+                color: isReorderMode ? 'white' : '#667eea',
+                border: '2px solid #667eea',
+                display: 'flex', alignItems: 'center', gap: '0.5rem'
               }}
+              onMouseEnter={isWarmPaper && !isReorderMode ? (e) => { e.currentTarget.style.background = '#F5F4F0'; } : undefined}
+              onMouseLeave={isWarmPaper && !isReorderMode ? (e) => { e.currentTarget.style.background = '#ffffff'; } : undefined}
             >
-              <span>{isReorderMode ? '✓' : '↕️'}</span>
-              <span>{isReorderMode ? 'Done Reordering' : 'Reorder'}</span>
+              <span>{isReorderMode ? '✓' : '⇅'}</span>
+              <span>{isReorderMode ? 'Done' : 'Reorder'}</span>
             </button>
+            {/* Hold — Ghost */}
             <button 
               onClick={() => setShowBulkHoldModal(true)}
               className="btn-secondary"
-              style={{ 
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.5rem',
-                background: isWarmPaper ? '#ffffff' : 'white',
-                color: isWarmPaper ? '#1a1a1a' : '#f97316',
-                border: isWarmPaper ? '1px solid #e8e5e0' : '2px solid #f97316'
+              style={isWarmPaper ? {
+                height: 34, padding: '0 14px', borderRadius: 8,
+                fontSize: 12, fontWeight: 700,
+                background: '#ffffff', color: '#555555', border: '1px solid #E0DDD6',
+                display: 'inline-flex', alignItems: 'center', gap: 5, cursor: 'pointer'
+              } : {
+                display: 'flex', alignItems: 'center', gap: '0.5rem',
+                background: 'white', color: '#f97316', border: '2px solid #f97316'
               }}
+              onMouseEnter={isWarmPaper ? (e) => { e.currentTarget.style.background = '#F5F4F0'; } : undefined}
+              onMouseLeave={isWarmPaper ? (e) => { e.currentTarget.style.background = '#ffffff'; } : undefined}
             >
-              <span>⏸️</span>
+              <span>⏸</span>
               <span>Hold</span>
             </button>
+            {/* + New — Primary (warm-paper only) */}
+            {isWarmPaper && (
+              <button
+                onClick={() => {
+                  const el = document.querySelector('.quick-add-widget button');
+                  if (el) (el as HTMLButtonElement).click();
+                }}
+                style={{
+                  height: 34, padding: '0 14px', borderRadius: 8,
+                  fontSize: 12, fontWeight: 700,
+                  background: '#1a1a1a', color: '#ffffff', border: '1px solid #1a1a1a',
+                  display: 'inline-flex', alignItems: 'center', gap: 5, cursor: 'pointer'
+                }}
+              >
+                + New
+              </button>
+            )}
           </div>
         </div>
-        <div style={{ display: 'flex', gap: '2rem', alignItems: 'center', justifyContent: isWarmPaper ? 'flex-start' : 'center', marginTop: '1rem', flexWrap: 'wrap' }}>
-          <div style={{ fontSize: isWarmPaper ? '1.1rem' : '1.5rem', fontWeight: isWarmPaper ? 600 : 'bold', color: isWarmPaper ? '#1a1a1a' : 'white' }}>
-            Progress: {calculateProgress()}% ({items.filter(i => i.isCompleted).length}/{items.length} completed)
-          </div>
-          {currentStreak > 0 && (
-            <div style={{ fontSize: isWarmPaper ? '1.1rem' : '1.5rem', fontWeight: isWarmPaper ? 600 : 'bold', color: isWarmPaper ? '#92400e' : '#f59e0b', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <span>🔥</span>
-              <span>{currentStreak} Day Streak!</span>
+        {isWarmPaper ? (() => {
+          const wpCompletedCount = items.filter(i => i.isCompleted).length;
+          const wpTotalCount = items.length;
+          const wpPct = wpTotalCount === 0 ? 0 : Math.round((wpCompletedCount / wpTotalCount) * 100);
+          let wpTopStreak: { name: string; streak: number } | null = null;
+          items.forEach(item => {
+            if (item.type === 'task') {
+              const s = getTaskStreak(item.id);
+              if (s > 0 && (!wpTopStreak || s > wpTopStreak.streak)) {
+                wpTopStreak = { name: item.name, streak: s };
+              }
+            }
+          });
+          const wpOverdueCount = items.filter(item =>
+            item.type === 'task' && !item.isCompleted && getTaskMissedCount(item.id) > 0
+          ).length;
+          return (
+            <div style={{
+              background: '#fff',
+              border: '1px solid #E5E3DC',
+              borderRadius: 12,
+              padding: '13px 18px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 14,
+              marginTop: '1rem',
+            }}>
+              <span style={{ fontSize: 13, fontWeight: 800, whiteSpace: 'nowrap', color: '#1a1a1a' }}>
+                {wpPct}% complete
+              </span>
+              <div style={{ flex: 1, height: 5, background: '#ECEAE3', borderRadius: 100, overflow: 'hidden' }}>
+                <div style={{ width: `${wpPct}%`, height: '100%', background: '#1a1a1a', borderRadius: 100, transition: 'width 0.4s ease' }} />
+              </div>
+              <span style={{ fontSize: 12, color: '#999', whiteSpace: 'nowrap' }}>
+                {wpCompletedCount} of {wpTotalCount} done
+              </span>
+              {wpTopStreak && (
+                <>
+                  <div style={{ width: 1, height: 20, background: '#E5E3DC', flexShrink: 0 }} />
+                  <span style={{ fontSize: 11, fontWeight: 700, color: '#1a1a1a', background: 'transparent', border: '1.5px solid #1a1a1a', padding: '2px 8px', borderRadius: 4, whiteSpace: 'nowrap', textTransform: 'uppercase' as const, letterSpacing: '0.03em' }}>
+                    🔥 {wpTopStreak.name}
+                  </span>
+                </>
+              )}
+              {wpOverdueCount > 0 && (
+                <>
+                  <div style={{ width: 1, height: 20, background: '#E5E3DC', flexShrink: 0 }} />
+                  <span style={{ fontSize: 11, fontWeight: 700, color: '#d32f2f', background: 'transparent', border: '1.5px solid #d32f2f', padding: '2px 8px', borderRadius: 4, whiteSpace: 'nowrap', textTransform: 'uppercase' as const, letterSpacing: '0.03em' }}>
+                    {wpOverdueCount} OVERDUE
+                  </span>
+                </>
+              )}
             </div>
-          )}
-        </div>
+          );
+        })() : (
+          <div style={{ display: 'flex', gap: '2rem', alignItems: 'center', justifyContent: 'center', marginTop: '1rem', flexWrap: 'wrap' }}>
+            <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: 'white' }}>
+              Progress: {calculateProgress()}% ({items.filter(i => i.isCompleted).length}/{items.length} completed)
+            </div>
+            {currentStreak > 0 && (
+              <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#f59e0b', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <span>🔥</span>
+                <span>{currentStreak} Day Streak!</span>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Quick Add Widget - Reduces clicks for common actions */}
@@ -1708,7 +1819,10 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
                   )}
 
                   {/* Priority Badge - Top Right */}
-                  {!isReorderMode && item.weightage >= 7 && !item.task?.onHold && (
+                  {!isReorderMode && item.weightage >= 7 && !item.task?.onHold && (() => {
+                    const pLevel = getPriorityLevel(item.weightage);
+                    const wpBadgeColor = pLevel === 'critical' ? '#d32f2f' : pLevel === 'high' ? '#b45309' : '#666';
+                    return (
                     <div style={{
                       position: 'absolute',
                       top: '0.75rem',
@@ -1716,19 +1830,22 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
                       display: 'flex',
                       alignItems: 'center',
                       gap: '0.25rem',
-                      background: isWarmPaper ? '#f5f3ef' : `${getPriorityStyle(item.weightage).badgeColor}15`,
-                      border: isWarmPaper ? `1px solid ${getPriorityStyle(item.weightage).badgeColor}40` : `1.5px solid ${getPriorityStyle(item.weightage).badgeColor}`,
+                      background: isWarmPaper ? 'transparent' : `${getPriorityStyle(item.weightage).badgeColor}15`,
+                      border: isWarmPaper ? `1.5px solid ${wpBadgeColor}` : `1.5px solid ${getPriorityStyle(item.weightage).badgeColor}`,
                       borderRadius: isWarmPaper ? '4px' : '12px',
-                      padding: '0.25rem 0.5rem',
-                      fontSize: '0.75rem',
-                      fontWeight: isWarmPaper ? 500 : 600,
-                      color: getPriorityStyle(item.weightage).badgeColor,
-                      zIndex: 5
+                      padding: isWarmPaper ? '0.15rem 0.5rem' : '0.25rem 0.5rem',
+                      fontSize: isWarmPaper ? '0.65rem' : '0.75rem',
+                      fontWeight: 700,
+                      color: isWarmPaper ? wpBadgeColor : getPriorityStyle(item.weightage).badgeColor,
+                      zIndex: 5,
+                      textTransform: isWarmPaper ? 'uppercase' as const : undefined,
+                      letterSpacing: isWarmPaper ? '0.05em' : undefined
                     }}>
-                      <span>{getPriorityStyle(item.weightage).badge}</span>
-                      <span>{getPriorityStyle(item.weightage).badgeText}</span>
+                      {!isWarmPaper && <span>{getPriorityStyle(item.weightage).badge}</span>}
+                      <span>{isWarmPaper ? getPriorityStyle(item.weightage).badgeText.toUpperCase() : getPriorityStyle(item.weightage).badgeText}</span>
                     </div>
-                  )}
+                    );
+                  })()}
 
                   {/* Hold Badge */}
                   {item.task?.onHold && (
@@ -1807,11 +1924,15 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
                           return null; // Don't show badge if completed
                         }
                         return (
-                          <div className="task-stat-badge" style={{ 
+                          <div className="task-stat-badge" style={ isWarmPaper ? {
+                            background: 'transparent',
+                            color: '#1a1a1a',
+                            border: '1.5px solid #1a1a1a'
+                          } : { 
                             background: countProgress.current > 0 ? '#dbeafe' : '#fee2e2',
                             color: countProgress.current > 0 ? '#1e40af' : '#991b1b'
                           }}>
-                            <span className="badge-icon">{countProgress.current > 0 ? '📊' : '⏳'}</span>
+                            {!isWarmPaper && <span className="badge-icon">{countProgress.current > 0 ? '📊' : '⏳'}</span>}
                             <span className="badge-text">
                               {countProgress.current} out of {countProgress.target} done ({countProgress.period})
                             </span>
@@ -2171,15 +2292,15 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
               {isWarmPaper ? (
-                <span style={{ width: '2rem', height: '2rem', borderRadius: '6px', background: '#fef3c7', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1rem' }}>📝</span>
+                <span style={{ fontSize: '1rem' }}>📝</span>
               ) : (
                 <span style={{ fontSize: '1.5rem' }}>📝</span>
               )}
               <div style={{ textAlign: 'left' }}>
-                <div style={{ fontWeight: 600, color: isWarmPaper ? '#1a1a1a' : '#92400e', fontSize: '1rem' }}>
+                <div style={{ fontWeight: isWarmPaper ? 700 : 600, color: isWarmPaper ? '#1a1a1a' : '#92400e', fontSize: isWarmPaper ? '14px' : '1rem' }}>
                   My Lists
                 </div>
-                <div style={{ fontSize: '0.8rem', color: isWarmPaper ? '#888680' : '#b45309' }}>
+                <div style={{ fontSize: isWarmPaper ? '11px' : '0.8rem', color: isWarmPaper ? '#666' : '#b45309' }}>
                   {isTodosExpanded 
                     ? `${upcomingTodos.length} due soon or overdue`
                     : 'Tap to view My Lists'}
@@ -2189,8 +2310,8 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
             <span style={{
               transform: isTodosExpanded ? 'rotate(180deg)' : 'rotate(0)',
               transition: 'transform 0.2s',
-              color: isWarmPaper ? '#888680' : '#b45309',
-              fontSize: '1.25rem'
+              color: isWarmPaper ? '#999' : '#b45309',
+              fontSize: isWarmPaper ? '10px' : '1.25rem'
             }}>
               ▼
             </span>
@@ -2199,8 +2320,8 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
           {isTodosExpanded && (
             <div style={{ 
               padding: '0 1.25rem 1.25rem', 
-              borderTop: '1px solid #fcd34d',
-              background: 'rgba(255,255,255,0.7)'
+              borderTop: isWarmPaper ? '1.5px solid #1a1a1a' : '1px solid #fcd34d',
+              background: isWarmPaper ? '#fff' : 'rgba(255,255,255,0.7)'
             }}>
               {isLoadingTodos ? (
                 <div style={{ padding: '2rem', textAlign: 'center', color: '#b45309' }}>
@@ -2220,17 +2341,17 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
                         onClick={() => setSelectedTodo(todo)}
                         style={{
                           padding: '1rem',
-                          borderRadius: '0.75rem',
+                          borderRadius: isWarmPaper ? '8px' : '0.75rem',
                           background: 'white',
-                          border: `2px solid ${isOverdue ? '#fecaca' : '#f59e0b'}`,
-                          borderLeftWidth: '4px',
-                          borderLeftColor: isOverdue ? '#dc2626' : '#f59e0b',
+                          border: isWarmPaper ? '1px solid #e8e5e0' : `2px solid ${isOverdue ? '#fecaca' : '#f59e0b'}`,
+                          borderLeftWidth: isWarmPaper ? '3px' : '4px',
+                          borderLeftColor: isWarmPaper ? (isOverdue ? '#d32f2f' : '#1a1a1a') : (isOverdue ? '#dc2626' : '#f59e0b'),
                           cursor: 'pointer',
                           transition: 'all 0.2s'
                         }}
                         onMouseEnter={(e) => {
                           e.currentTarget.style.transform = 'translateY(-2px)';
-                          e.currentTarget.style.boxShadow = '0 4px 12px rgba(245, 158, 11, 0.2)';
+                          e.currentTarget.style.boxShadow = isWarmPaper ? '0 4px 12px rgba(0,0,0,0.06)' : '0 4px 12px rgba(245, 158, 11, 0.2)';
                         }}
                         onMouseLeave={(e) => {
                           e.currentTarget.style.transform = 'translateY(0)';
@@ -2252,19 +2373,29 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
                                 {todo.notes}
                               </p>
                             )}
-                            {todo.priority && (
+                            {todo.priority && (() => {
+                              // CrispPaper: outlined priority tags, no filled backgrounds
+                              const pColor = isWarmPaper
+                                ? (todo.priority === 'high' || todo.priority === 'urgent' ? '#d32f2f' : todo.priority === 'medium' ? '#b45309' : '#666')
+                                : (todo.priority === 'high' || todo.priority === 'urgent' ? '#991b1b' : todo.priority === 'medium' ? '#92400e' : '#1e40af');
+                              return (
                               <span style={{
-                              fontSize: '0.7rem',
-                              padding: '0.125rem 0.5rem',
-                              background: todo.priority === 'high' || todo.priority === 'urgent' ? '#fee2e2' : todo.priority === 'medium' ? '#fef3c7' : '#dbeafe',
-                              color: todo.priority === 'high' || todo.priority === 'urgent' ? '#991b1b' : todo.priority === 'medium' ? '#92400e' : '#1e40af',
-                              borderRadius: '0.25rem',
-                              marginTop: '0.5rem',
-                              display: 'inline-block'
-                            }}>
-                              {todo.priority.toUpperCase()}
+                                fontSize: '0.65rem',
+                                padding: '0.1rem 0.4rem',
+                                background: isWarmPaper ? 'transparent' : (todo.priority === 'high' || todo.priority === 'urgent' ? '#fee2e2' : todo.priority === 'medium' ? '#fef3c7' : '#dbeafe'),
+                                color: pColor,
+                                border: isWarmPaper ? `1.5px solid ${pColor}` : 'none',
+                                borderRadius: isWarmPaper ? '3px' : '0.25rem',
+                                marginTop: '0.5rem',
+                                display: 'inline-block',
+                                fontWeight: 700,
+                                textTransform: 'uppercase' as const,
+                                letterSpacing: '0.05em'
+                              }}>
+                                {todo.priority.toUpperCase()}
                               </span>
-                            )}
+                              );
+                            })()}
                           </div>
                           {dueDate && (
                             <div style={{ textAlign: 'right', marginLeft: '1rem', flexShrink: 0 }}>
@@ -2307,18 +2438,18 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
       {/* Dashboard Comments Section - Collapsible */}
       {dashboardComments.length > 0 && (
         <div style={{
-          marginTop: '1.5rem',
+          marginTop: isWarmPaper ? '0.75rem' : '1.5rem',
           borderRadius: isWarmPaper ? '12px' : '1rem',
           overflow: 'hidden',
           background: isWarmPaper ? '#ffffff' : 'linear-gradient(135deg, #dbeafe 0%, #bfdbfe 50%, #93c5fd 100%)',
           border: isWarmPaper ? '1px solid #e8e5e0' : '1px solid #3b82f6',
-          boxShadow: isWarmPaper ? '0 1px 3px rgba(0,0,0,0.04)' : '0 4px 12px rgba(59, 130, 246, 0.1)'
+          boxShadow: isWarmPaper ? 'none' : '0 4px 12px rgba(59, 130, 246, 0.1)'
         }}>
           <button
             onClick={() => setIsCommentsExpanded(!isCommentsExpanded)}
             style={{
               width: '100%',
-              padding: '1rem 1.25rem',
+              padding: isWarmPaper ? '14px 18px' : '1rem 1.25rem',
               background: 'transparent',
               border: 'none',
               cursor: 'pointer',
@@ -2326,20 +2457,23 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
               justifyContent: 'space-between',
               alignItems: 'center',
               color: isWarmPaper ? '#1a1a1a' : '#1e40af',
-              fontWeight: 600,
-              fontSize: '1rem'
+              fontWeight: isWarmPaper ? 700 : 600,
+              fontSize: isWarmPaper ? '14px' : '1rem'
             }}
           >
             <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               {isWarmPaper ? (
-                <span style={{ width: '2rem', height: '2rem', borderRadius: '6px', background: '#dbeafe', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: '1rem' }}>💬</span>
-              ) : '💬'} Comments & Messages
+                <span style={{ fontSize: '1rem' }}>💬</span>
+              ) : '💬'}
+              <span>Comments & Messages</span>
+              {/* CrispPaper: count badge → outlined, not filled */}
               <span style={{
-                padding: '0.25rem 0.5rem',
-                background: isWarmPaper ? '#1a1a1a' : '#3b82f6',
-                color: 'white',
-                borderRadius: '12px',
-                fontSize: '0.75rem',
+                padding: isWarmPaper ? '0.1rem 0.4rem' : '0.25rem 0.5rem',
+                background: isWarmPaper ? 'transparent' : '#3b82f6',
+                color: isWarmPaper ? '#1a1a1a' : 'white',
+                border: isWarmPaper ? '1.5px solid #1a1a1a' : 'none',
+                borderRadius: isWarmPaper ? '4px' : '12px',
+                fontSize: isWarmPaper ? '0.65rem' : '0.75rem',
                 fontWeight: 700
               }}>
                 {dashboardComments.length}
@@ -2349,8 +2483,8 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
               display: 'inline-block',
               transform: isCommentsExpanded ? 'rotate(180deg)' : 'rotate(0)',
               transition: 'transform 0.2s',
-              color: isWarmPaper ? '#888680' : '#1e40af',
-              fontSize: '1.25rem'
+              color: isWarmPaper ? '#999' : '#1e40af',
+              fontSize: isWarmPaper ? '10px' : '1.25rem'
             }}>
               ▼
             </span>
@@ -2359,8 +2493,8 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
           {isCommentsExpanded && (
             <div style={{ 
               padding: '0 1.25rem 1.25rem', 
-              borderTop: '1px solid #93c5fd',
-              background: 'rgba(255,255,255,0.7)'
+              borderTop: isWarmPaper ? '1.5px solid #1a1a1a' : '1px solid #93c5fd',
+              background: isWarmPaper ? '#fff' : 'rgba(255,255,255,0.7)'
             }}>
               {isLoadingComments ? (
                 <div style={{ padding: '2rem', textAlign: 'center', color: '#1e40af' }}>
@@ -2378,16 +2512,17 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
                         key={comment.id}
                         style={{
                           padding: '1rem',
-                          borderRadius: '0.75rem',
+                          borderRadius: isWarmPaper ? '8px' : '0.75rem',
                           background: 'white',
-                          border: '2px solid #3b82f6',
-                          borderLeftWidth: '4px',
+                          border: isWarmPaper ? '1px solid #e8e5e0' : '2px solid #3b82f6',
+                          borderLeftWidth: isWarmPaper ? '3px' : '4px',
+                          borderLeftColor: isWarmPaper ? '#1a1a1a' : undefined,
                           cursor: 'pointer',
                           transition: 'all 0.2s'
                         }}
                         onMouseEnter={(e) => {
                           e.currentTarget.style.transform = 'translateY(-2px)';
-                          e.currentTarget.style.boxShadow = '0 4px 12px rgba(59, 130, 246, 0.2)';
+                          e.currentTarget.style.boxShadow = isWarmPaper ? '0 4px 12px rgba(0,0,0,0.06)' : '0 4px 12px rgba(59, 130, 246, 0.2)';
                         }}
                         onMouseLeave={(e) => {
                           e.currentTarget.style.transform = 'translateY(0)';
@@ -2409,12 +2544,15 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
                               <span style={{
                                 display: 'inline-block',
                                 marginTop: '0.5rem',
-                                padding: '0.25rem 0.5rem',
-                                background: '#dbeafe',
-                                color: '#1e40af',
+                                padding: isWarmPaper ? '0.1rem 0.4rem' : '0.25rem 0.5rem',
+                                background: isWarmPaper ? 'transparent' : '#dbeafe',
+                                color: isWarmPaper ? '#1a1a1a' : '#1e40af',
+                                border: isWarmPaper ? '1.5px solid #1a1a1a' : 'none',
                                 borderRadius: '4px',
-                                fontSize: '0.7rem',
-                                fontWeight: 600
+                                fontSize: isWarmPaper ? '0.6rem' : '0.7rem',
+                                fontWeight: 700,
+                                textTransform: isWarmPaper ? 'uppercase' as const : undefined,
+                                letterSpacing: isWarmPaper ? '0.04em' : undefined
                               }}>
                                 {comment.actionType}
                               </span>
@@ -2446,13 +2584,13 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
                               }}
                               style={{
                                 padding: '0.25rem 0.5rem',
-                                background: '#fee2e2',
-                                color: '#dc2626',
-                                border: 'none',
+                                background: isWarmPaper ? 'transparent' : '#fee2e2',
+                                color: isWarmPaper ? '#d32f2f' : '#dc2626',
+                                border: isWarmPaper ? '1.5px solid #d32f2f' : 'none',
                                 borderRadius: '4px',
                                 fontSize: '0.7rem',
                                 cursor: 'pointer',
-                                fontWeight: 600
+                                fontWeight: 700
                               }}
                             >
                               Dismiss
@@ -2495,15 +2633,15 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
             {isWarmPaper ? (
-              <span style={{ width: '2rem', height: '2rem', borderRadius: '6px', background: '#e0e7ff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1rem' }}>📅</span>
+              <span style={{ fontSize: '1rem' }}>📅</span>
             ) : (
               <span style={{ fontSize: '1.5rem' }}>📅</span>
             )}
             <div style={{ textAlign: 'left' }}>
-              <div style={{ fontWeight: 600, color: isWarmPaper ? '#1a1a1a' : '#3730a3', fontSize: '1rem' }}>
+              <div style={{ fontWeight: isWarmPaper ? 700 : 600, color: isWarmPaper ? '#1a1a1a' : '#3730a3', fontSize: isWarmPaper ? '14px' : '1rem' }}>
                 Upcoming Observances
               </div>
-              <div style={{ fontSize: '0.8rem', color: isWarmPaper ? '#888680' : '#4f46e5' }}>
+              <div style={{ fontSize: isWarmPaper ? '11px' : '0.8rem', color: isWarmPaper ? '#666' : '#4f46e5' }}>
                 {isObservancesExpanded 
                   ? (observancesLoaded 
                       ? (referenceCalendarDays.length > 0 
@@ -2517,8 +2655,8 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
           <span style={{
             transform: isObservancesExpanded ? 'rotate(180deg)' : 'rotate(0)',
             transition: 'transform 0.2s',
-            color: isWarmPaper ? '#888680' : '#4f46e5',
-            fontSize: '1.25rem'
+            color: isWarmPaper ? '#999' : '#4f46e5',
+            fontSize: isWarmPaper ? '10px' : '1.25rem'
           }}>
             ▼
           </span>
@@ -2528,8 +2666,8 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
         {isObservancesExpanded && (
           <div style={{ 
             padding: '0 1.25rem 1.25rem', 
-            borderTop: '1px solid #a5b4fc',
-            background: 'rgba(255,255,255,0.7)'
+            borderTop: isWarmPaper ? '1.5px solid #1a1a1a' : '1px solid #a5b4fc',
+            background: isWarmPaper ? '#fff' : 'rgba(255,255,255,0.7)'
           }}>
             {/* Loading state */}
             {isLoadingObservances && (

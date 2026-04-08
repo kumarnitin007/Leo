@@ -8,6 +8,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { getUserSettings } from '../storage';
+import { useTheme } from '../contexts/ThemeContext';
 import type { TemperatureUnit } from '../types';
 
 const FAHRENHEIT_COUNTRIES = ['US', 'BS', 'KY', 'LR', 'PW', 'FM', 'MH'];
@@ -42,6 +43,8 @@ interface WeatherData {
 }
 
 const WeatherWidget: React.FC = () => {
+  const { theme } = useTheme();
+  const isWP = theme.id === 'warm-paper';
   const [isExpanded, setIsExpanded] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [weatherData, setWeatherData] = useState<WeatherData | null>(null);
@@ -216,12 +219,14 @@ const WeatherWidget: React.FC = () => {
     );
   }
 
+  const locationLabel = location?.city || location?.zipCode || '';
+
   return (
     <div style={{
-      marginTop: '2rem',
-      background: 'rgba(255, 255, 255, 0.95)',
+      marginTop: isWP ? '0.75rem' : '2rem',
+      background: isWP ? '#ffffff' : 'rgba(255, 255, 255, 0.95)',
       borderRadius: '12px',
-      border: '1px solid rgba(0, 0, 0, 0.1)',
+      border: isWP ? '1px solid #E5E3DC' : '1px solid rgba(0, 0, 0, 0.1)',
       overflow: 'hidden'
     }}>
       {/* Header - Collapsible */}
@@ -229,23 +234,37 @@ const WeatherWidget: React.FC = () => {
         onClick={() => setIsExpanded(!isExpanded)}
         style={{
           width: '100%',
-          padding: '1rem 1.5rem',
-          background: 'linear-gradient(135deg, #14b8a6 0%, #0d9488 100%)',
-          color: 'white',
+          padding: isWP ? '14px 18px' : '1rem 1.5rem',
+          background: isWP ? '#ffffff' : 'linear-gradient(135deg, #14b8a6 0%, #0d9488 100%)',
+          color: isWP ? '#1a1a1a' : 'white',
           border: 'none',
+          borderRadius: isWP && !isExpanded ? '12px' : isWP ? '12px 12px 0 0' : undefined,
           cursor: 'pointer',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          fontSize: '1rem',
-          fontWeight: 600
+          fontSize: isWP ? '14px' : '1rem',
+          fontWeight: isWP ? 700 : 600
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-          <span style={{ fontSize: '1.5rem' }}>🌤️</span>
-          <span>Weather Forecast</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: isWP ? '10px' : '0.75rem' }}>
+          {isWP ? (
+            <div style={{ width: 28, height: 28, borderRadius: 8, background: '#1a1a1a', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, flexShrink: 0 }}>🌤️</div>
+          ) : (
+            <span style={{ fontSize: '1.5rem' }}>🌤️</span>
+          )}
+          {isWP ? (
+            <div style={{ textAlign: 'left' }}>
+              <div style={{ fontWeight: 700, fontSize: 14, color: '#1a1a1a' }}>Weather Forecast</div>
+              {locationLabel && <div style={{ fontSize: 11, color: '#bbb', marginTop: 1 }}>{locationLabel}</div>}
+            </div>
+          ) : (
+            <span>Weather Forecast</span>
+          )}
         </div>
-        <span style={{ fontSize: '1.25rem' }}>{isExpanded ? '▲' : '▼'}</span>
+        <span style={{ fontSize: isWP ? '10px' : '1.25rem', color: isWP ? '#ccc' : undefined }}>
+          {isExpanded ? '▲' : '▼'}
+        </span>
       </button>
 
       {/* Content - Only shown when expanded */}
