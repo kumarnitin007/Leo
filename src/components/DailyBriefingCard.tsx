@@ -14,6 +14,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import { getUserSettings } from '../storage';
 import { getDailyBriefing, refreshDailyBriefing, previewBriefingQuery, getCachedBriefing, DailyBriefingResult } from '../services/ai/abilities/dailyBriefing';
 import AIQueryViewerModal from './ai/AIQueryViewerModal';
+import { perfStart } from '../utils/perfLogger';
 
 const TONE_STYLES: Record<string, { bg: string; border: string; accent: string; icon: string }> = {
   upbeat:      { bg: 'linear-gradient(135deg, #065F46 0%, #064E3B 100%)', border: '#10B981', accent: '#34D399', icon: '☀️' },
@@ -52,6 +53,7 @@ const DailyBriefingCard: React.FC = () => {
 
   const loadBriefing = useCallback(async () => {
     if (!user?.id) return;
+    const endPerf = perfStart('TodayView', 'loadDailyBriefing (LLM)');
     setLoading(true);
     setError(null);
     try {
@@ -61,6 +63,7 @@ const DailyBriefingCard: React.FC = () => {
       setError(err.message || 'Failed to load briefing');
     } finally {
       setLoading(false);
+      endPerf();
     }
   }, [user?.id, userName]);
 
@@ -113,7 +116,7 @@ const DailyBriefingCard: React.FC = () => {
         onClick={() => setCollapsed(c => !c)}
         style={{
           width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          padding: '14px 18px', background: 'transparent', border: 'none', cursor: 'pointer',
+          padding: isWP ? '10px 14px' : '14px 18px', background: 'transparent', border: 'none', cursor: 'pointer',
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -184,7 +187,7 @@ const DailyBriefingCard: React.FC = () => {
                 <button onClick={handlePreviewQuery} style={{
                   background: 'transparent', border: '1px solid #4B556340',
                   color: '#9CA3AF', borderRadius: 6, padding: '4px 12px', fontSize: 11, cursor: 'pointer',
-                }}>{previewLoading ? '⏳' : '🔍'} View Prompt (free)</button>
+                }}>{previewLoading ? '⏳' : '🔍'} Prompt</button>
               </div>
             </div>
           )}
@@ -218,14 +221,14 @@ const DailyBriefingCard: React.FC = () => {
                     borderRadius: 8, padding: '6px 16px', fontSize: 12, fontWeight: 600,
                     cursor: 'pointer', transition: 'opacity 0.15s',
                   }}
-                >▶ Generate Briefing</button>
+                >▶ Generate</button>
                 <button
                   onClick={handlePreviewQuery}
                   style={{
                     background: 'transparent', border: '1px solid #4B556340', color: '#9CA3AF',
                     borderRadius: 8, padding: '6px 14px', fontSize: 12, cursor: 'pointer',
                   }}
-                >{previewLoading ? '⏳' : '🔍'} View Prompt</button>
+                >{previewLoading ? '⏳' : '🔍'} Prompt</button>
               </div>
             </div>
           )}

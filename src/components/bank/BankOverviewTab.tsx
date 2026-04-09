@@ -54,6 +54,10 @@ export type Next30DayRow =
       amount?: string;
       currency?: string;
       sourceField: string;
+      actionLabel?: string;
+      rowType?: string;
+      descriptiveLabel?: string;
+      amountFormatted?: string;
     }
   | {
       kind: "manual";
@@ -62,6 +66,10 @@ export type Next30DayRow =
       date: string;
       days: number;
       sourceField: string;
+      actionLabel?: string;
+      rowType?: string;
+      descriptiveLabel?: string;
+      amountFormatted?: string;
     }
   | {
       kind: "linked";
@@ -71,6 +79,10 @@ export type Next30DayRow =
       days: number;
       sourceField: string;
       linkedSource: "account" | "deposit" | "bill";
+      actionLabel?: string;
+      rowType?: string;
+      descriptiveLabel?: string;
+      amountFormatted?: string;
     };
 
 export type DisplayCurrencyMode = "ORIGINAL" | "INR" | "USD" | "EUR" | "GBP";
@@ -95,11 +107,15 @@ export interface BankOverviewTabProps {
   depositsPrincipalConverted: number;
   /** Maturities + manual due + linked next-actions (≤30d), sorted by days remaining */
   next30DaysUnified: Next30DayRow[];
+  /** Overdue items (days < 0), sorted by most overdue first */
+  pastDueUnified: Next30DayRow[];
   /** Pending manual actions + linked next-actions (matches Actions tab default) */
   overviewActionsCount: number;
   portfolioHistoryChartData: PortfolioHistoryChartPoint[];
   portfolioHistoryXDomain: [number, number] | undefined;
   portfolioHistoryYDomain: [number, number] | undefined;
+  portfolioHistoryYDomainAccounts?: [number, number] | undefined;
+  portfolioHistoryYDomainDeposits?: [number, number] | undefined;
   portfolioHistorySnapshotCount: number;
   showPortfolioHistory: boolean;
   setShowPortfolioHistory: React.Dispatch<React.SetStateAction<boolean>>;
@@ -144,10 +160,13 @@ export function BankOverviewTab({
   totalMaturity,
   depositsPrincipalConverted,
   next30DaysUnified,
+  pastDueUnified,
   overviewActionsCount,
   portfolioHistoryChartData,
   portfolioHistoryXDomain,
   portfolioHistoryYDomain,
+  portfolioHistoryYDomainAccounts,
+  portfolioHistoryYDomainDeposits,
   portfolioHistorySnapshotCount,
   showPortfolioHistory,
   setShowPortfolioHistory,
@@ -166,6 +185,8 @@ export function BankOverviewTab({
 }: BankOverviewTabProps) {
   /** Chart snapshot list + clear-all — collapsed by default */
   const [portfolioHistoryToolsOpen, setPortfolioHistoryToolsOpen] = React.useState(false);
+  const [showPastDue, setShowPastDue] = React.useState(true);
+  const [portfolioChartMode, setPortfolioChartMode] = React.useState<'accounts' | 'deposits'>('accounts');
 
   return (
     <div style={{display:"flex",flexDirection:"column",gap:isMobile?12:16}}>
@@ -215,63 +236,57 @@ export function BankOverviewTab({
               <div style={{fontSize:11,color:"#6B7280",fontWeight:600,marginTop:4}}>Bills</div>
               <div style={{fontSize:12,color:"#F59E0B",fontFamily:"monospace",marginTop:6}}>{fmt(bills.filter(b=>!b.done).reduce((s,b)=>s+convertCurrency(Number(b.amount)||0,(b.currency||'INR') as Currency,targetCurrency,exchangeRates),0), targetCurrency)}</div>
             </div>
-            <div style={{background:THEME.cardBg,borderRadius:14,padding:"16px",border:`1px solid ${next30DaysUnified.length > 0 ? '#7F1D1D' : THEME.border}`,textAlign:"center"}}>
-              <div style={{fontSize:28,fontWeight:800,color:next30DaysUnified.length > 0 ? "#EF4444" : "#6B7280"}}>{next30DaysUnified.length}</div>
-              <div style={{fontSize:11,color:"#6B7280",fontWeight:600,marginTop:4}}>Next 30 days</div>
-              <div style={{fontSize:10,color:THEME.textLight,marginTop:6}}>Maturities &amp; due actions</div>
+            <div style={{background:THEME.cardBg,borderRadius:14,padding:"16px",border:`1px solid ${(pastDueUnified.length > 0 || next30DaysUnified.length > 0) ? '#7F1D1D' : THEME.border}`,textAlign:"center"}}>
+              <div style={{fontSize:28,fontWeight:800,color:(pastDueUnified.length > 0 || next30DaysUnified.length > 0) ? "#EF4444" : "#6B7280"}}>{next30DaysUnified.length + pastDueUnified.length}</div>
+              <div style={{fontSize:11,color:"#6B7280",fontWeight:600,marginTop:4}}>Due / Overdue</div>
+              <div style={{fontSize:10,color:THEME.textLight,marginTop:6}}>{pastDueUnified.length > 0 ? `${pastDueUnified.length} overdue · ` : ""}{next30DaysUnified.length} next 30d</div>
             </div>
           </div>
 
-          {/* Mobile: Next 30 days — maturities + manual + linked next-actions (sorted by days) */}
-          {next30DaysUnified.length > 0 && (
+          {/* Mobile: Past Due Actions */}
+          {pastDueUnified.length > 0 && (
             <div style={{background:THEME.cardBg,borderRadius:14,padding:"14px",border:"1px solid #7F1D1D"}}>
+              <div style={{fontSize:12,fontWeight:700,color:"#EF4444",marginBottom:8,display:"flex",alignItems:"center",gap:6}}>
+                <span>🔥</span> Past Due ({pastDueUnified.length})
+              </div>
+              <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                {pastDueUnified.map((row, i) => {
+                  const icon = row.kind === "maturity" ? "💰" : row.kind === "linked" ? "⚡" : "📋";
+                  return (
+                    <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 12px",background:THEME.cardBgAlt,borderRadius:10,borderLeft:"3px solid #EF4444"}}>
+                      <div style={{minWidth:0,flex:1}}>
+                        <div style={{fontSize:12,fontWeight:600,color:THEME.text,display:"flex",alignItems:"center",gap:4}}>{icon} {row.descriptiveLabel || row.bank || "—"}</div>
+                        {row.amountFormatted && <div style={{fontSize:11,fontFamily:"monospace",color:THEME.accent,fontWeight:600,marginTop:2}}>{row.amountFormatted}</div>}
+                        <div style={{fontSize:10,color:THEME.textLight,marginTop:2}}>Due: {fmtDate(row.date)}</div>
+                        <div style={{fontSize:10,color:"#9CA3AF",marginTop:2}}>{row.actionLabel||row.title}</div>
+                      </div>
+                      <span style={{fontSize:11,fontWeight:700,color:"#EF4444",marginLeft:8,whiteSpace:"nowrap"}}>{Math.abs(row.days)}d overdue</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Mobile: Next 30 days */}
+          {next30DaysUnified.length > 0 && (
+            <div style={{background:THEME.cardBg,borderRadius:14,padding:"14px",border:`1px solid ${THEME.border}`}}>
               <div style={{fontSize:12,fontWeight:700,color:"#F59E0B",marginBottom:8,display:"flex",alignItems:"center",gap:6}}>
                 <span>⚡</span> Next 30 days ({next30DaysUnified.length})
               </div>
-              <div style={{fontSize:10,color:THEME.textLight,marginBottom:10}}>
-                Sorted by days left — includes deposit maturities, Actions due dates, and linked <strong>Next action</strong> rows (accounts / deposits / bills).
-              </div>
-              <div style={{display:"flex",flexDirection:"column",gap:10}}>
+              <div style={{display:"flex",flexDirection:"column",gap:8}}>
                 {next30DaysUnified.map((row, i) => {
-                  const isMat = row.kind === "maturity";
-                  const border = isMat ? (row.days <= 7 ? "#EF4444" : "#F59E0B") : row.days <= 0 ? "#EF4444" : "#F59E0B";
+                  const icon = row.kind === "maturity" ? "💰" : row.kind === "linked" ? "⚡" : "📋";
+                  const urgency = row.kind === "maturity" ? row.days <= 7 : row.days <= 3;
                   return (
-                    <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"12px",background:THEME.cardBgAlt,borderRadius:10,borderLeft:`3px solid ${border}`}}>
+                    <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 12px",background:THEME.cardBgAlt,borderRadius:10,borderLeft:`3px solid ${urgency?"#EF4444":"#F59E0B"}`}}>
                       <div style={{minWidth:0,flex:1}}>
-                        <div style={{fontSize:13,fontWeight:600,color:THEME.text}}>
-                          {isMat ? `${row.bank} · ${row.title}` : row.title}
-                        </div>
-                        <div style={{fontSize:11,color:THEME.textLight}}>
-                          {isMat && (
-                            <>
-                              {row.sourceField}: {fmtDate(row.date)}
-                              {row.amount ? ` · ${fmt(Number(row.amount), (row.currency || "INR") as Currency)}` : ""}
-                            </>
-                          )}
-                          {row.kind === "manual" && (
-                            <>
-                              {row.sourceField}: {fmtDate(row.date)}
-                              {row.bank ? ` · ${row.bank}` : ""}
-                            </>
-                          )}
-                          {row.kind === "linked" && (
-                            <>
-                              {row.sourceField}: {fmtDate(row.date)}
-                              {row.bank ? ` · ${row.bank}` : ""}
-                            </>
-                          )}
-                        </div>
+                        <div style={{fontSize:12,fontWeight:600,color:THEME.text,display:"flex",alignItems:"center",gap:4}}>{icon} {row.descriptiveLabel || row.bank || "—"}</div>
+                        {row.amountFormatted && <div style={{fontSize:11,fontFamily:"monospace",color:THEME.accent,fontWeight:600,marginTop:2}}>{row.amountFormatted}</div>}
+                        <div style={{fontSize:10,color:THEME.textLight,marginTop:2}}>Due: {fmtDate(row.date)}</div>
+                        <div style={{fontSize:10,color:"#9CA3AF",marginTop:2}}>{row.actionLabel||row.title}</div>
                       </div>
-                      <div style={{textAlign:"right",marginLeft:8}}>
-                        {isMat && (
-                          <div style={{fontSize:14,fontWeight:700,fontFamily:"monospace",color:THEME.accent}}>
-                            {row.amount ? fmt(row.amount, (row.currency || "INR") as Currency) : "—"}
-                          </div>
-                        )}
-                        <div style={{fontSize:10,color:row.days <= 7 && isMat ? "#EF4444" : row.days <= 0 && !isMat ? "#EF4444" : "#F59E0B",fontWeight:600}}>
-                          {row.days >= 0 ? `${row.days}d left` : `${-row.days}d overdue`}
-                        </div>
-                      </div>
+                      <span style={{fontSize:11,fontWeight:700,color:urgency?"#EF4444":"#F59E0B",marginLeft:8,whiteSpace:"nowrap"}}>{row.days}d left</span>
                     </div>
                   );
                 })}
@@ -346,44 +361,46 @@ export function BankOverviewTab({
                 <div style={{fontSize:11,color:THEME.textLight,padding:"12px 0",textAlign:"center"}}>Edit balances or add accounts to build history. Each save records a snapshot.</div>
               ) : (
                 <>
-                  <div style={{fontSize:10,color:THEME.textMuted,marginBottom:8,lineHeight:1.4}}>
-                    Stacked areas: <strong style={{color:THEME.text}}>Accounts</strong> (bottom) + <strong style={{color:THEME.text}}>Deposits</strong> (top). Total height = combined value.
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+                    <div style={{display:"flex",gap:2,background:THEME.cardBgAlt,borderRadius:8,padding:2,border:`1px solid ${THEME.border}`}}>
+                      <button type="button" onClick={() => setPortfolioChartMode('accounts')} style={{border:"none",borderRadius:6,padding:"4px 10px",fontSize:10,fontWeight:700,cursor:"pointer",background:portfolioChartMode==="accounts"?"#059669":"transparent",color:portfolioChartMode==="accounts"?"#fff":THEME.textMuted}}>Accounts</button>
+                      <button type="button" onClick={() => setPortfolioChartMode('deposits')} style={{border:"none",borderRadius:6,padding:"4px 10px",fontSize:10,fontWeight:700,cursor:"pointer",background:portfolioChartMode==="deposits"?"#2563EB":"transparent",color:portfolioChartMode==="deposits"?"#fff":THEME.textMuted}}>Deposits</button>
+                    </div>
                   </div>
                   <ResponsiveContainer width="100%" height={200}>
                     <AreaChart data={portfolioHistoryChartData} margin={{top:4,right:4,left:4,bottom:4}}>
                       <defs>
-                        <linearGradient id="mobileStackAccounts" x1="0" y1="0" x2="0" y2="1">
+                        <linearGradient id="mobileGradAccounts" x1="0" y1="0" x2="0" y2="1">
                           <stop offset="5%" stopColor="#10B981" stopOpacity={0.85} />
-                          <stop offset="95%" stopColor="#10B981" stopOpacity={0.35} />
+                          <stop offset="95%" stopColor="#10B981" stopOpacity={0.2} />
                         </linearGradient>
-                        <linearGradient id="mobileStackDeposits" x1="0" y1="0" x2="0" y2="1">
+                        <linearGradient id="mobileGradDeposits" x1="0" y1="0" x2="0" y2="1">
                           <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.9} />
-                          <stop offset="95%" stopColor="#3B82F6" stopOpacity={0.4} />
+                          <stop offset="95%" stopColor="#3B82F6" stopOpacity={0.2} />
                         </linearGradient>
                       </defs>
                       <CartesianGrid strokeDasharray="3 3" stroke={THEME.border} />
                       <XAxis dataKey="timestamp" type="number" domain={portfolioHistoryXDomain} tick={{fill:THEME.textLight,fontSize:9}} axisLine={false} tickLine={false} tickFormatter={(ts) => new Date(ts).toLocaleString('en-IN', { month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' })} />
-                      <YAxis domain={portfolioHistoryYDomain} tick={{fill:THEME.textLight,fontSize:9}} axisLine={false} tickLine={false} tickFormatter={v => fmt(v, targetCurrency)} />
+                      <YAxis domain={portfolioChartMode === 'accounts' ? portfolioHistoryYDomainAccounts : portfolioHistoryYDomainDeposits} tick={{fill:THEME.textLight,fontSize:9}} axisLine={false} tickLine={false} tickFormatter={v => fmt(v, targetCurrency)} />
                       <Tooltip
                         content={({ active, payload }) => {
                           if (!active || !payload?.length) return null;
                           const p = payload[0]?.payload as PortfolioHistoryChartPoint | undefined;
-                          const acc = Number(p?.totalAccountValue) || 0;
-                          const dep = Number(p?.totalDepositValue) || 0;
+                          const val = portfolioChartMode === 'accounts' ? (Number(p?.totalAccountValue) || 0) : (Number(p?.totalDepositValue) || 0);
                           return (
-                            <div style={{background:THEME.cardBgAlt,border:`1px solid ${THEME.border}`,borderRadius:8,padding:"8px 12px",fontSize:11,minWidth:160}}>
+                            <div style={{background:THEME.cardBgAlt,border:`1px solid ${THEME.border}`,borderRadius:8,padding:"8px 12px",fontSize:11,minWidth:140}}>
                               <div style={{color:THEME.textMuted,marginBottom:4}}>{p?.fullDate ? fmtDate(p.fullDate) : ''}</div>
-                              <div style={{fontWeight:600,color:"#10B981"}}>Accounts: {fmt(acc, targetCurrency)}</div>
-                              <div style={{fontWeight:600,color:"#3B82F6"}}>Deposits: {fmt(dep, targetCurrency)}</div>
-                              <div style={{fontWeight:700,color:THEME.text,marginTop:6,paddingTop:6,borderTop:`1px solid ${THEME.border}`}}>Total: {fmt(acc + dep, targetCurrency)}</div>
+                              <div style={{fontWeight:700,color:portfolioChartMode==='accounts'?"#10B981":"#3B82F6"}}>{portfolioChartMode==='accounts'?'Accounts':'Deposits'}: {fmt(val, targetCurrency)}</div>
                               {p?.source && <div style={{color:THEME.textLight,fontSize:10,marginTop:4}}>{p.source}</div>}
                             </div>
                           );
                         }}
                       />
-                      <Legend wrapperStyle={{fontSize:10,color:THEME.textLight}} iconType="square" />
-                      <Area type="monotone" dataKey="totalAccountValue" name="Accounts" stackId="portfolio" stroke="#059669" strokeWidth={1.5} fill="url(#mobileStackAccounts)" />
-                      <Area type="monotone" dataKey="totalDepositValue" name="Deposits" stackId="portfolio" stroke="#2563EB" strokeWidth={1.5} fill="url(#mobileStackDeposits)" />
+                      {portfolioChartMode === 'accounts' ? (
+                        <Area type="monotone" dataKey="totalAccountValue" name="Accounts" stroke="#059669" strokeWidth={1.5} fill="url(#mobileGradAccounts)" />
+                      ) : (
+                        <Area type="monotone" dataKey="totalDepositValue" name="Deposits" stroke="#2563EB" strokeWidth={1.5} fill="url(#mobileGradDeposits)" />
+                      )}
                     </AreaChart>
                   </ResponsiveContainer>
                 </>
@@ -567,7 +584,7 @@ export function BankOverviewTab({
         >
           <div style={{display:"flex",alignItems:"center",gap:8}}>
             <span style={{fontSize:10,color:"#6B7280",transition:"transform 0.2s",transform:showPortfolioHistory?"rotate(90deg)":"rotate(0deg)"}}>▶</span>
-            <span style={{fontSize:11,fontWeight:700,color:"#E5E7EB",textTransform:"uppercase"}}>📈 Portfolio value over time</span>
+            <span style={{fontSize:11,fontWeight:700,color:THEME.text,textTransform:"uppercase"}}>📈 Portfolio value over time</span>
           </div>
           {portfolioHistoryChartData.length > 0 && (
             <span style={{fontSize:10,color:"#6B7280",background:THEME.cardBgAlt,padding:"2px 8px",borderRadius:10}}>{portfolioHistorySnapshotCount} snapshots</span>
@@ -579,44 +596,47 @@ export function BankOverviewTab({
               <div style={{color:THEME.textMuted,padding:20,textAlign:"center",fontSize:12}}>Edit balances or add accounts to build history. Each save records a snapshot.</div>
             ) : (
               <>
-                <div style={{fontSize:10,color:THEME.textMuted,marginBottom:10,lineHeight:1.4}}>
-                  Stacked areas: <strong style={{color:THEME.text}}>Accounts</strong> (bottom) + <strong style={{color:THEME.text}}>Deposits</strong> (top). Total height = combined value.
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+                  <div style={{display:"flex",gap:2,background:THEME.cardBgAlt,borderRadius:8,padding:2,border:`1px solid ${THEME.border}`}}>
+                    <button type="button" onClick={() => setPortfolioChartMode('accounts')} style={{border:"none",borderRadius:6,padding:"5px 12px",fontSize:10,fontWeight:700,cursor:"pointer",background:portfolioChartMode==="accounts"?"#059669":"transparent",color:portfolioChartMode==="accounts"?"#fff":THEME.textMuted}}>🏦 Accounts</button>
+                    <button type="button" onClick={() => setPortfolioChartMode('deposits')} style={{border:"none",borderRadius:6,padding:"5px 12px",fontSize:10,fontWeight:700,cursor:"pointer",background:portfolioChartMode==="deposits"?"#2563EB":"transparent",color:portfolioChartMode==="deposits"?"#fff":THEME.textMuted}}>💰 Deposits</button>
+                  </div>
+                  <span style={{fontSize:10,color:THEME.textMuted}}>{portfolioChartMode === 'accounts' ? 'Account balances' : 'Deposit (invested) values'}</span>
                 </div>
                 <ResponsiveContainer width="100%" height={260}>
                   <AreaChart data={portfolioHistoryChartData} margin={{top:8,right:8,left:8,bottom:8}}>
                     <defs>
-                      <linearGradient id="desktopStackAccounts" x1="0" y1="0" x2="0" y2="1">
+                      <linearGradient id="desktopGradAccounts" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="5%" stopColor="#10B981" stopOpacity={0.85} />
-                        <stop offset="95%" stopColor="#10B981" stopOpacity={0.35} />
+                        <stop offset="95%" stopColor="#10B981" stopOpacity={0.2} />
                       </linearGradient>
-                      <linearGradient id="desktopStackDeposits" x1="0" y1="0" x2="0" y2="1">
+                      <linearGradient id="desktopGradDeposits" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.9} />
-                        <stop offset="95%" stopColor="#3B82F6" stopOpacity={0.4} />
+                        <stop offset="95%" stopColor="#3B82F6" stopOpacity={0.2} />
                       </linearGradient>
                     </defs>
                     <CartesianGrid strokeDasharray="3 3" stroke="#1F2937" />
                     <XAxis dataKey="timestamp" type="number" domain={portfolioHistoryXDomain} tick={{fill:THEME.textLight,fontSize:11}} axisLine={false} tickLine={false} tickFormatter={(ts) => new Date(ts).toLocaleString('en-IN', { month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' })} />
-                    <YAxis domain={portfolioHistoryYDomain} tick={{fill:"#6B7280",fontSize:11}} axisLine={false} tickLine={false} tickFormatter={v => fmt(v, targetCurrency)} />
+                    <YAxis domain={portfolioChartMode === 'accounts' ? portfolioHistoryYDomainAccounts : portfolioHistoryYDomainDeposits} tick={{fill:"#6B7280",fontSize:11}} axisLine={false} tickLine={false} tickFormatter={v => fmt(v, targetCurrency)} />
                     <Tooltip
                       content={({ active, payload }) => {
                         if (!active || !payload?.length) return null;
                         const p = payload[0]?.payload as PortfolioHistoryChartPoint | undefined;
-                        const acc = Number(p?.totalAccountValue) || 0;
-                        const dep = Number(p?.totalDepositValue) || 0;
+                        const val = portfolioChartMode === 'accounts' ? (Number(p?.totalAccountValue) || 0) : (Number(p?.totalDepositValue) || 0);
                         return (
-                          <div style={{background:THEME.cardBgAlt,border:`1px solid ${THEME.border}`,borderRadius:8,padding:"10px 14px",fontSize:12,minWidth:180}}>
+                          <div style={{background:THEME.cardBgAlt,border:`1px solid ${THEME.border}`,borderRadius:8,padding:"10px 14px",fontSize:12,minWidth:160}}>
                             <div style={{color:THEME.textMuted,marginBottom:6}}>{p?.fullDate ? fmtDate(p.fullDate) : ''}</div>
-                            <div style={{fontWeight:600,color:"#10B981"}}>Accounts: {fmt(acc, targetCurrency)}</div>
-                            <div style={{fontWeight:600,color:"#3B82F6"}}>Deposits: {fmt(dep, targetCurrency)}</div>
-                            <div style={{fontWeight:700,color:THEME.text,marginTop:8,paddingTop:8,borderTop:`1px solid ${THEME.border}`}}>Total: {fmt(acc + dep, targetCurrency)}</div>
+                            <div style={{fontWeight:700,color:portfolioChartMode==='accounts'?"#10B981":"#3B82F6"}}>{portfolioChartMode==='accounts'?'Accounts':'Deposits'}: {fmt(val, targetCurrency)}</div>
                             {p?.source && <div style={{color:THEME.textLight,fontSize:11,marginTop:6}}>Source: {p.source}</div>}
                           </div>
                         );
                       }}
                     />
-                    <Legend wrapperStyle={{fontSize:11,color:THEME.textLight}} iconType="square" />
-                    <Area type="monotone" dataKey="totalAccountValue" name="Accounts" stackId="portfolio" stroke="#059669" strokeWidth={1.5} fill="url(#desktopStackAccounts)" />
-                    <Area type="monotone" dataKey="totalDepositValue" name="Deposits" stackId="portfolio" stroke="#2563EB" strokeWidth={1.5} fill="url(#desktopStackDeposits)" />
+                    {portfolioChartMode === 'accounts' ? (
+                      <Area type="monotone" dataKey="totalAccountValue" name="Accounts" stroke="#059669" strokeWidth={2} fill="url(#desktopGradAccounts)" />
+                    ) : (
+                      <Area type="monotone" dataKey="totalDepositValue" name="Deposits" stroke="#2563EB" strokeWidth={2} fill="url(#desktopGradDeposits)" />
+                    )}
                   </AreaChart>
                 </ResponsiveContainer>
                 <div style={{marginTop:12}}>
@@ -662,50 +682,40 @@ export function BankOverviewTab({
         )}
       </div>
 
-      {/* Next 30 Days - Collapsible (single list: maturities + manual + linked next-actions, by days left) */}
-      {next30DaysUnified.length > 0 && (
-        <div style={{background:THEME.cardBg,borderRadius:12,border:`1px solid ${THEME.border}`,overflow:"hidden"}}>
-          <button 
-            onClick={()=>setShow30Days(!show30Days)} 
+      {/* ── Past Due Actions ─────────────────────────────────────── */}
+      {pastDueUnified.length > 0 && (
+        <div style={{background:THEME.cardBg,borderRadius:12,border:`1px solid #7F1D1D`,overflow:"hidden"}}>
+          <button
+            onClick={()=>setShowPastDue(!showPastDue)}
             style={{width:"100%",padding:"10px 14px",background:"transparent",border:"none",cursor:"pointer",display:"flex",justifyContent:"space-between",alignItems:"center"}}
           >
             <div style={{display:"flex",alignItems:"center",gap:8}}>
-              <span style={{fontSize:10,color:"#6B7280",transition:"transform 0.2s",transform:show30Days?"rotate(90deg)":"rotate(0deg)"}}>▶</span>
-              <span style={{fontSize:11,fontWeight:700,color:"#F59E0B",textTransform:"uppercase"}}>⚡ Next 30 Days</span>
+              <span style={{fontSize:10,color:"#6B7280",transition:"transform 0.2s",transform:showPastDue?"rotate(90deg)":"rotate(0deg)"}}>▶</span>
+              <span style={{fontSize:11,fontWeight:700,color:"#EF4444",textTransform:"uppercase"}}>🔥 Past Due Actions</span>
             </div>
-            <div style={{fontSize:10,color:"#6B7280",background:THEME.cardBgAlt,padding:"2px 8px",borderRadius:10}}>
-              {next30DaysUnified.filter((r) => r.kind === "maturity").length} deposits ·{" "}
-              {next30DaysUnified.filter((r) => r.kind === "manual" || r.kind === "linked").length} actions
+            <div style={{fontSize:10,color:"#EF4444",background:"rgba(239,68,68,0.1)",padding:"2px 8px",borderRadius:10,fontWeight:600}}>
+              {pastDueUnified.filter((r) => r.kind === "maturity").length} deposits ·{" "}
+              {pastDueUnified.filter((r) => r.kind !== "maturity").length} actions
             </div>
           </button>
-          {show30Days && (
-            <div style={{maxHeight:320,overflowY:"auto",borderTop:"1px solid #1F2937"}}>
-              <div style={{padding:"8px 14px",fontSize:10,color:"#6B7280",background:"#1F2937",fontWeight:600}}>
-                Sorted by days left — maturities, manual due dates, linked Next action
+          {showPastDue && (
+            <div style={{maxHeight:400,overflowY:"auto",borderTop:`1px solid ${THEME.border}`}}>
+              <div style={{display:"grid",gridTemplateColumns:"2fr 100px 100px 1.5fr 80px",padding:"7px 14px",fontSize:9,color:"#D1D5DB",background:"#374151",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.5px",gap:6,position:"sticky",top:0,zIndex:1}}>
+                <span>Source</span><span>Amount</span><span>Due Date</span><span>Next Action</span><span style={{textAlign:"right"}}>Status</span>
               </div>
-              {next30DaysUnified.map((item, i) => {
+              {pastDueUnified.map((item, i) => {
                 const isMat = item.kind === "maturity";
-                const isLinked = item.kind === "linked";
-                const icon = isMat ? "💰" : isLinked ? "⚡" : "📋";
-                const iconBg = isMat ? "rgba(239,68,68,0.15)" : "rgba(245,158,11,0.15)";
-                const iconColor = isMat ? "#EF4444" : "#F59E0B";
-                const titleLine = isMat ? `${item.title} · ${item.bank}` : item.title;
-                const subLine = isMat
-                  ? `Maturity date: ${fmtDate(item.date)}${item.amount ? ` · ${fmt(Number(item.amount), (item.currency || "INR") as Currency)}` : ""}`
-                  : item.kind === "manual"
-                    ? `Due date: ${fmtDate(item.date)}${item.bank ? ` · ${item.bank}` : ""}`
-                    : `${item.sourceField}: ${fmtDate(item.date)}${item.bank ? ` · ${item.bank}` : ""}`;
-                const urgency = isMat ? item.days <= 7 : item.days <= 0;
+                const icon = isMat ? "💰" : item.kind === "linked" ? "⚡" : "📋";
                 return (
-                  <div key={`n30-${i}`} style={{padding:"10px 14px",borderBottom:"1px solid #1F2937",display:"flex",alignItems:"center",gap:10}}>
-                    <div style={{width:32,height:32,borderRadius:8,display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,background:iconBg,color:iconColor}}>{icon}</div>
-                    <div style={{flex:1,minWidth:0}}>
-                      <div style={{fontSize:12,fontWeight:600,color:THEME.text}}>{titleLine}</div>
-                      <div style={{fontSize:10,color:"#6B7280"}}>{subLine}</div>
+                  <div key={`pd-${i}`} style={{display:"grid",gridTemplateColumns:"2fr 100px 100px 1.5fr 80px",padding:"8px 14px",borderBottom:`1px solid ${THEME.border}`,alignItems:"center",gap:6,background:i%2===0?"transparent":"rgba(255,255,255,0.02)"}}>
+                    <div style={{display:"flex",alignItems:"center",gap:6,minWidth:0}}>
+                      <span style={{fontSize:12,flexShrink:0}}>{icon}</span>
+                      <span style={{fontSize:11,fontWeight:600,color:THEME.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}} title={item.descriptiveLabel||item.bank}>{item.descriptiveLabel || item.bank || "—"}</span>
                     </div>
-                    <div style={{textAlign:"right",fontSize:11,fontWeight:700,color:urgency ? "#EF4444" : "#F59E0B"}}>
-                      {item.days >= 0 ? `${item.days}d left` : `${-item.days}d overdue`}
-                    </div>
+                    <span style={{fontSize:10,fontFamily:"monospace",color:THEME.accent,fontWeight:600}}>{item.amountFormatted || "—"}</span>
+                    <span style={{fontSize:10,color:THEME.textLight,whiteSpace:"nowrap"}}>{fmtDate(item.date)}</span>
+                    <span style={{fontSize:10,color:THEME.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}} title={item.actionLabel||item.title}>{item.actionLabel||item.title}</span>
+                    <span style={{textAlign:"right",fontSize:11,fontWeight:700,color:"#EF4444"}}>{Math.abs(item.days)}d overdue</span>
                   </div>
                 );
               })}
@@ -713,14 +723,55 @@ export function BankOverviewTab({
           )}
         </div>
       )}
-      
-      {next30DaysUnified.length === 0 && (
-        <div style={{background:THEME.cardBg,borderRadius:12,padding:"16px",textAlign:"center",border:`1px solid ${THEME.border}`}}>
-          <div style={{fontSize:24,marginBottom:6}}>✅</div>
-          <div style={{fontSize:12,color:"#10B981",fontWeight:600}}>All Clear!</div>
-          <div style={{fontSize:11,color:"#6B7280"}}>No deposits maturing and no actions due in the next 30 days</div>
-        </div>
-      )}
+
+      {/* ── Next 30 Days ──────────────────────────────────────── */}
+      <div style={{background:THEME.cardBg,borderRadius:12,border:`1px solid ${THEME.border}`,overflow:"hidden"}}>
+        <button 
+          onClick={()=>setShow30Days(!show30Days)} 
+          style={{width:"100%",padding:"10px 14px",background:"transparent",border:"none",cursor:"pointer",display:"flex",justifyContent:"space-between",alignItems:"center"}}
+        >
+          <div style={{display:"flex",alignItems:"center",gap:8}}>
+            <span style={{fontSize:10,color:"#6B7280",transition:"transform 0.2s",transform:show30Days?"rotate(90deg)":"rotate(0deg)"}}>▶</span>
+            <span style={{fontSize:11,fontWeight:700,color:"#F59E0B",textTransform:"uppercase"}}>⚡ Next 30 Days</span>
+          </div>
+          <div style={{fontSize:10,color:"#6B7280",background:THEME.cardBgAlt,padding:"2px 8px",borderRadius:10}}>
+            {next30DaysUnified.length === 0 ? "All clear" : (
+              <>{next30DaysUnified.filter((r) => r.kind === "maturity").length} deposits · {next30DaysUnified.filter((r) => r.kind !== "maturity").length} actions</>
+            )}
+          </div>
+        </button>
+        {show30Days && (
+          next30DaysUnified.length === 0 ? (
+            <div style={{padding:"16px",textAlign:"center",borderTop:`1px solid ${THEME.border}`}}>
+              <div style={{fontSize:20,marginBottom:4}}>✅</div>
+              <div style={{fontSize:11,color:"#10B981",fontWeight:600}}>No maturities or actions due in the next 30 days</div>
+            </div>
+          ) : (
+            <div style={{maxHeight:400,overflowY:"auto",borderTop:`1px solid ${THEME.border}`}}>
+              <div style={{display:"grid",gridTemplateColumns:"2fr 100px 100px 1.5fr 80px",padding:"7px 14px",fontSize:9,color:"#D1D5DB",background:"#374151",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.5px",gap:6,position:"sticky",top:0,zIndex:1}}>
+                <span>Source</span><span>Amount</span><span>Due Date</span><span>Next Action</span><span style={{textAlign:"right"}}>Status</span>
+              </div>
+              {next30DaysUnified.map((item, i) => {
+                const isMat = item.kind === "maturity";
+                const icon = isMat ? "💰" : item.kind === "linked" ? "⚡" : "📋";
+                const urgency = isMat ? item.days <= 7 : item.days <= 3;
+                return (
+                  <div key={`n30-${i}`} style={{display:"grid",gridTemplateColumns:"2fr 100px 100px 1.5fr 80px",padding:"8px 14px",borderBottom:`1px solid ${THEME.border}`,alignItems:"center",gap:6,background:i%2===0?"transparent":"rgba(255,255,255,0.02)"}}>
+                    <div style={{display:"flex",alignItems:"center",gap:6,minWidth:0}}>
+                      <span style={{fontSize:12,flexShrink:0}}>{icon}</span>
+                      <span style={{fontSize:11,fontWeight:600,color:THEME.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}} title={item.descriptiveLabel||item.bank}>{item.descriptiveLabel || item.bank || "—"}</span>
+                    </div>
+                    <span style={{fontSize:10,fontFamily:"monospace",color:THEME.accent,fontWeight:600}}>{item.amountFormatted || "—"}</span>
+                    <span style={{fontSize:10,color:THEME.textLight,whiteSpace:"nowrap"}}>{fmtDate(item.date)}</span>
+                    <span style={{fontSize:10,color:THEME.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}} title={item.actionLabel||item.title}>{item.actionLabel||item.title}</span>
+                    <span style={{textAlign:"right",fontSize:11,fontWeight:700,color:urgency?"#EF4444":"#F59E0B"}}>{item.days}d left</span>
+                  </div>
+                );
+              })}
+            </div>
+          )
+        )}
+      </div>
 
       {/* FD Projections - Theme Aligned */}
       <div style={{background:THEME.cardBg,borderRadius:16,border:`1px solid ${THEME.border}`,overflow:"hidden"}}>

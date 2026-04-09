@@ -10,6 +10,7 @@ import { getTasks, getEvents, getTags } from '../storage';
 
 interface MilestonesModalProps {
   onClose: () => void;
+  onNavigate?: (view: string) => void;
 }
 
 type MilestoneItem = {
@@ -21,7 +22,7 @@ type MilestoneItem = {
   daysRemaining: number;
 };
 
-const MilestonesModal: React.FC<MilestonesModalProps> = ({ onClose }) => {
+const MilestonesModal: React.FC<MilestonesModalProps> = ({ onClose, onNavigate }) => {
   const [milestones, setMilestones] = useState<MilestoneItem[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -207,13 +208,31 @@ const MilestonesModal: React.FC<MilestonesModalProps> = ({ onClose }) => {
           <p>Loading milestones...</p>
         </div>
       ) : milestones.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: '2rem' }}>
-          <p style={{ color: '#6b7280', fontSize: '1.1rem' }}>
-            No milestones found. Tag tasks or events with "milestone" to see them here!
+        <div style={{ textAlign: 'center', padding: '2rem 1.5rem' }}>
+          <div style={{ fontSize: 40, marginBottom: 12 }}>🎯</div>
+          <p style={{ color: '#6b7280', fontSize: '1rem', lineHeight: 1.6, marginBottom: 16 }}>
+            No milestones yet. To create one, go to <strong>Tasks &amp; Events</strong> and add (or edit) a task or event — then assign the tag <strong>"milestone"</strong>.
           </p>
+          {onNavigate && (
+            <button
+              onClick={() => { onClose(); onNavigate('tasks-events'); }}
+              style={{
+                background: '#1a1a1a', color: '#fff', border: 'none', borderRadius: 8,
+                padding: '10px 20px', fontSize: 13, fontWeight: 600, cursor: 'pointer',
+              }}
+            >
+              + Create in Tasks &amp; Events
+            </button>
+          )}
         </div>
       ) : (
         <div className="milestones-grid">
+          <div style={{ padding: '8px 12px', marginBottom: 8, background: '#f9f9f6', borderRadius: 8, border: '1px dashed #d5d3cc', fontSize: 12, color: '#888', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+            <span>Tag any task or event with <strong>"milestone"</strong> to track it here.</span>
+            {onNavigate && (
+              <button onClick={() => { onClose(); onNavigate('tasks-events'); }} style={{ background: 'none', border: '1px solid #ccc', borderRadius: 6, padding: '4px 10px', fontSize: 11, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap', color: '#555' }}>+ Add</button>
+            )}
+          </div>
           {milestones.map((milestone) => (
             <div 
               key={`${milestone.type}-${milestone.id}`} 

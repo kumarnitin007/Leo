@@ -166,6 +166,15 @@ export interface UserSettings {
     city?: string;
     country?: string;
   };
+  birthData?: {
+    year: number;
+    month: number;
+    day: number;
+    hour?: number;
+    minute?: number;
+    city: string;
+    timeKnown?: boolean;
+  };
 }
 
 export interface Routine {

@@ -11,6 +11,7 @@ import React, { useState, useEffect } from 'react';
 import { Resolution } from '../types';
 import { getResolutions } from '../storage';
 import { useTheme } from '../contexts/ThemeContext';
+import { perfStart } from '../utils/perfLogger';
 
 interface ProgressData {
   resolution: Resolution;
@@ -24,6 +25,28 @@ interface ProgressData {
   totalDays: number;
   progressRate: number;        // Items per day actual
   requiredRate: number;        // Items per day needed to finish
+}
+
+const RESOLUTION_CACHE_KEY = 'resolution_progress_cache';
+const RESOLUTION_CACHE_TTL = 60 * 60 * 1000; // 1 hour
+
+function getCachedResolutions(): ProgressData[] | null {
+  try {
+    const raw = sessionStorage.getItem(RESOLUTION_CACHE_KEY);
+    if (!raw) return null;
+    const { ts, data } = JSON.parse(raw);
+    if (Date.now() - ts > RESOLUTION_CACHE_TTL) {
+      sessionStorage.removeItem(RESOLUTION_CACHE_KEY);
+      return null;
+    }
+    return data;
+  } catch { return null; }
+}
+
+function setCachedResolutions(data: ProgressData[]): void {
+  try {
+    sessionStorage.setItem(RESOLUTION_CACHE_KEY, JSON.stringify({ ts: Date.now(), data }));
+  } catch { /* quota exceeded — ignore */ }
 }
 
 const ResolutionProgressWidget: React.FC = () => {
@@ -41,6 +64,16 @@ const ResolutionProgressWidget: React.FC = () => {
   }, [isExpanded]);
 
   const loadResolutions = async () => {
+    const endPerf = perfStart('TodayView', 'loadResolutions');
+
+    // Check 1hr sessionStorage cache first
+    const cached = getCachedResolutions();
+    if (cached && cached.length > 0) {
+      setResolutions(cached);
+      endPerf();
+      return;
+    }
+
     setIsLoading(true);
     setError(null);
     try {
@@ -48,6 +81,7 @@ const ResolutionProgressWidget: React.FC = () => {
       const activeResolutions = data.filter(r => r.status === 'active' && r.progressMetric === 'count' && r.targetValue);
       const progressData = activeResolutions.map(r => calculateProgress(r));
       setResolutions(progressData);
+      setCachedResolutions(progressData);
       
       // Check for resolutions that need alerts (only once per day)
       const today = new Date().toISOString().split('T')[0];
@@ -78,6 +112,7 @@ const ResolutionProgressWidget: React.FC = () => {
       setError(err instanceof Error ? err.message : 'Failed to load resolutions');
     } finally {
       setIsLoading(false);
+      endPerf();
     }
   };
 
@@ -180,7 +215,7 @@ const ResolutionProgressWidget: React.FC = () => {
         onClick={() => setIsExpanded(!isExpanded)}
         style={{
           width: '100%',
-          padding: isWP ? '14px 18px' : '1rem 1.25rem',
+          padding: isWP ? '10px 14px' : '1rem 1.25rem',
           background: isWP ? '#ffffff' : 'transparent',
           border: 'none',
           borderRadius: isWP && !isExpanded ? '12px' : isWP ? '12px 12px 0 0' : undefined,
@@ -188,55 +223,49 @@ const ResolutionProgressWidget: React.FC = () => {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          gap: '1rem'
+          gap: isWP ? 8 : '1rem'
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: isWP ? '10px' : '0.75rem' }}>
-          {isWP ? (
-            <div style={{ width: 28, height: 28, borderRadius: 8, background: '#EAF3DE', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, flexShrink: 0 }}>🎯</div>
-          ) : (
-            <span style={{ fontSize: '1.5rem' }}>🎯</span>
-          )}
-          <div style={{ textAlign: 'left' }}>
-            <div style={{ fontWeight: isWP ? 700 : 600, color: isWP ? '#1a1a1a' : '#6b21a8', fontSize: isWP ? '14px' : '1rem' }}>
-              Resolutions Progress
+        {isWP ? (
+          <>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1 }}>
+              <span style={{ fontSize: 14 }}>🎯</span>
+              <span style={{ fontWeight: 700, fontSize: 14, color: '#1a1a1a' }}>Resolutions</span>
+              {totalCount > 0 && (
+                <span style={{ fontSize: 11, color: '#3B6D11', fontWeight: 500, marginLeft: 'auto' }}>
+                  {onTrackCount}/{totalCount} on track
+                </span>
+              )}
             </div>
-            {totalCount > 0 && (
-              <div style={{ fontSize: isWP ? '11px' : '0.8rem', color: isWP ? '#bbb' : '#9333ea' }}>
-                {onTrackCount}/{totalCount} on track
+            <span style={{ fontSize: 10, color: '#ccc', transition: 'transform 0.2s', transform: isExpanded ? 'rotate(180deg)' : 'rotate(0)' }}>▼</span>
+          </>
+        ) : (
+          <>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+              <span style={{ fontSize: '1.5rem' }}>🎯</span>
+              <div style={{ textAlign: 'left' }}>
+                <div style={{ fontWeight: 600, color: '#6b21a8', fontSize: '1rem' }}>Resolutions Progress</div>
+                {totalCount > 0 && (
+                  <div style={{ fontSize: '0.8rem', color: '#9333ea' }}>{onTrackCount}/{totalCount} on track</div>
+                )}
               </div>
-            )}
-          </div>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          {!isExpanded && totalCount > 0 && (
-            <div style={{ display: 'flex', gap: '0.25rem' }}>
-              {resolutions.slice(0, 3).map((p, i) => {
-                const config = getStatusConfig(p.status);
-                return (
-                  <div
-                    key={i}
-                    style={{
-                      width: '12px',
-                      height: '12px',
-                      borderRadius: '50%',
-                      background: config.color,
-                    }}
-                    title={`${p.resolution.title}: ${config.label}`}
-                  />
-                );
-              })}
             </div>
-          )}
-          <span style={{
-            transform: isExpanded ? 'rotate(180deg)' : 'rotate(0)',
-            transition: 'transform 0.2s',
-            color: isWP ? '#ccc' : '#9333ea',
-            fontSize: isWP ? '10px' : '1.25rem'
-          }}>
-            ▼
-          </span>
-        </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              {!isExpanded && totalCount > 0 && (
+                <div style={{ display: 'flex', gap: '0.25rem' }}>
+                  {resolutions.slice(0, 3).map((p, i) => {
+                    const config = getStatusConfig(p.status);
+                    return (
+                      <div key={i} style={{ width: 12, height: 12, borderRadius: '50%', background: config.color }}
+                        title={`${p.resolution.title}: ${config.label}`} />
+                    );
+                  })}
+                </div>
+              )}
+              <span style={{ transform: isExpanded ? 'rotate(180deg)' : 'rotate(0)', transition: 'transform 0.2s', color: '#9333ea', fontSize: '1.25rem' }}>▼</span>
+            </div>
+          </>
+        )}
       </button>
 
       {/* Expanded Content */}

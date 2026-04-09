@@ -244,55 +244,44 @@ const FinancialAlertsWidget: React.FC<FinancialAlertsWidgetProps> = ({
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          padding: '12px 16px',
+          padding: isWP ? '10px 14px' : '12px 16px',
+          gap: isWP ? 8 : undefined,
           background: 'transparent',
           border: 'none',
           cursor: 'pointer'
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <span style={{ fontSize: 20 }}>🏦</span>
-          <div style={{ textAlign: 'left' }}>
-            <div style={{ fontSize: 14, fontWeight: 600, color: '#1a1a2e' }}>Financial Alerts</div>
-            <div style={{ fontSize: 11, color: 'rgba(0,0,0,0.5)' }}>
-              {alertSummary}
+        {isWP ? (
+          <>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1 }}>
+              <span style={{ fontSize: 14 }}>🏦</span>
+              <span style={{ fontWeight: 700, fontSize: 14, color: '#1a1a1a' }}>Financial</span>
+              <span style={{ fontSize: 11, color: urgentCount > 0 ? '#A32D2D' : '#999', fontWeight: 500, marginLeft: 'auto' }}>
+                {urgentCount > 0 ? `${urgentCount} urgent` : warningCount > 0 ? `${warningCount} warning` : `${alerts.length} alerts`}
+              </span>
             </div>
-          </div>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          {urgentCount > 0 && (
-            <span style={{
-              background: isWP ? 'transparent' : '#dc2626',
-              color: isWP ? '#d32f2f' : '#fff',
-              border: isWP ? '1.5px solid #d32f2f' : 'none',
-              fontSize: 10,
-              fontWeight: 700,
-              padding: '2px 8px',
-              borderRadius: isWP ? 4 : 10
-            }}>
-              {urgentCount}
-            </span>
-          )}
-          {warningCount > 0 && urgentCount === 0 && (
-            <span style={{
-              background: isWP ? 'transparent' : '#d97706',
-              color: isWP ? '#1a1a1a' : '#fff',
-              border: isWP ? '1.5px solid #1a1a1a' : 'none',
-              fontSize: 10,
-              fontWeight: 700,
-              padding: '2px 8px',
-              borderRadius: isWP ? 4 : 10
-            }}>
-              {warningCount}
-            </span>
-          )}
-          <span style={{ 
-            color: 'rgba(0,0,0,0.35)', 
-            fontSize: 12,
-            transform: expanded ? 'rotate(180deg)' : 'rotate(0deg)',
-            transition: 'transform 0.2s'
-          }}>▼</span>
-        </div>
+            <span style={{ fontSize: 10, color: '#ccc', transition: 'transform 0.2s', transform: expanded ? 'rotate(180deg)' : 'rotate(0)' }}>▼</span>
+          </>
+        ) : (
+          <>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <span style={{ fontSize: 20 }}>🏦</span>
+              <div style={{ textAlign: 'left' }}>
+                <div style={{ fontSize: 14, fontWeight: 600, color: '#1a1a2e' }}>Financial Alerts</div>
+                <div style={{ fontSize: 11, color: 'rgba(0,0,0,0.5)' }}>{alertSummary}</div>
+              </div>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              {urgentCount > 0 && (
+                <span style={{ background: '#dc2626', color: '#fff', fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 10 }}>{urgentCount}</span>
+              )}
+              {warningCount > 0 && urgentCount === 0 && (
+                <span style={{ background: '#d97706', color: '#fff', fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 10 }}>{warningCount}</span>
+              )}
+              <span style={{ color: 'rgba(0,0,0,0.35)', fontSize: 12, transform: expanded ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }}>▼</span>
+            </div>
+          </>
+        )}
       </button>
 
       {/* Expanded Content */}

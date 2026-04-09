@@ -1305,13 +1305,29 @@ const USER_SETTINGS_KEY = 'routine-ruby-user-settings';
 export const loadUserSettings = async (): Promise<UserSettings> => {
   try {
     const { client, userId } = await requireAuth();
-    const { data, error } = await client
+    let data: any = null;
+    let error: any = null;
+
+    const fullResult = await client
       .from('myday_user_settings')
-      .select('theme, dashboard_layout, notifications_enabled, location, temperature_unit, financial_preferences, ai_opt_in, ai_personality')
+      .select('theme, dashboard_layout, notifications_enabled, location, temperature_unit, financial_preferences, ai_opt_in, ai_personality, extra_settings')
       .eq('user_id', userId)
       .single();
+    data = fullResult.data;
+    error = fullResult.error;
+
+    // If extra_settings column doesn't exist yet, retry without it
+    if (error && (error.message?.includes('extra_settings') || error.code === '42703')) {
+      const fallback = await client
+        .from('myday_user_settings')
+        .select('theme, dashboard_layout, notifications_enabled, location, temperature_unit, financial_preferences, ai_opt_in, ai_personality')
+        .eq('user_id', userId)
+        .single();
+      data = fallback.data;
+      error = fallback.error;
+    }
     
-    if (error && error.code !== 'PGRST116') { // PGRST116 means no rows found
+    if (error && error.code !== 'PGRST116') {
       console.error('❌ Error loading user settings:', error);
     }
     
@@ -1331,6 +1347,14 @@ export const loadUserSettings = async (): Promise<UserSettings> => {
       const tu = data.temperature_unit as string | undefined;
       const temperatureUnit: TemperatureUnit | undefined =
         tu === 'celsius' || tu === 'fahrenheit' ? tu : undefined;
+      // Parse extra_settings JSONB bag (birthData, future extensions)
+      let extraSettings: Record<string, any> = {};
+      try {
+        if (data.extra_settings) {
+          extraSettings = typeof data.extra_settings === 'string' ? JSON.parse(data.extra_settings) : data.extra_settings;
+        }
+      } catch { /* ignore */ }
+
       return {
         theme: data.theme || 'purple',
         dashboardLayout: data.dashboard_layout || 'uniform',
@@ -1340,6 +1364,7 @@ export const loadUserSettings = async (): Promise<UserSettings> => {
         financialPreferences,
         aiOptIn: data.ai_opt_in ?? false,
         aiPersonality: data.ai_personality ?? undefined,
+        birthData: extraSettings.birthData ?? undefined,
       };
     }
   } catch (error: any) {
@@ -1400,6 +1425,14 @@ export const saveUserSettings = async (settings: Partial<UserSettings>): Promise
     dbUpdates.ai_personality = settings.aiPersonality;
   }
 
+  // Generic extensible JSONB bag for new settings (birthData, etc.)
+  // Column: extra_settings JSONB DEFAULT '{}'::jsonb
+  const extraFields: Record<string, unknown> = {};
+  if (settings.birthData !== undefined) extraFields.birthData = settings.birthData;
+  if (Object.keys(extraFields).length > 0) {
+    dbUpdates.extra_settings = extraFields;
+  }
+
   console.log('🔄 Upserting to myday_user_settings for user:', userId);
   const { error } = await client
     .from('myday_user_settings')
@@ -1411,8 +1444,18 @@ export const saveUserSettings = async (settings: Partial<UserSettings>): Promise
     });
   
   if (error) {
-    console.error('❌ Database error:', error);
-    throw error;
+    // If extra_settings column doesn't exist yet, retry without it
+    if (error.message?.includes('extra_settings') || error.code === '42703') {
+      console.warn('⚠️ extra_settings column missing — saving without it. Run: ALTER TABLE myday_user_settings ADD COLUMN extra_settings JSONB DEFAULT \'{}\'::jsonb;');
+      const { extra_settings: _dropped, ...fallbackUpdates } = dbUpdates;
+      const { error: retryError } = await client
+        .from('myday_user_settings')
+        .upsert([{ user_id: userId, ...fallbackUpdates }], { onConflict: 'user_id' });
+      if (retryError) { console.error('❌ Database error (retry):', retryError); throw retryError; }
+    } else {
+      console.error('❌ Database error:', error);
+      throw error;
+    }
   }
   
   console.log('✅ Successfully saved to database');

@@ -10,9 +10,10 @@ import { getItems, updateItem } from '../storage';
 
 interface GiftCardsModalProps {
   onClose: () => void;
+  onNavigate?: (view: string) => void;
 }
 
-const GiftCardsModal: React.FC<GiftCardsModalProps> = ({ onClose }) => {
+const GiftCardsModal: React.FC<GiftCardsModalProps> = ({ onClose, onNavigate }) => {
   const [giftCards, setGiftCards] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -89,13 +90,31 @@ const GiftCardsModal: React.FC<GiftCardsModalProps> = ({ onClose }) => {
           <p>Loading gift cards...</p>
         </div>
       ) : giftCards.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: '2rem' }}>
-          <p style={{ color: '#6b7280', fontSize: '1.1rem' }}>
-            No gift cards yet. Add them in the Items section!
+        <div style={{ textAlign: 'center', padding: '2rem 1.5rem' }}>
+          <div style={{ fontSize: 40, marginBottom: 12 }}>🎁</div>
+          <p style={{ color: '#6b7280', fontSize: '1rem', lineHeight: 1.6, marginBottom: 16 }}>
+            No gift cards yet. To add one, go to <strong>Items</strong> and create an item with category <strong>"Gift Card"</strong>. You can set the balance, merchant, expiration, and card number.
           </p>
+          {onNavigate && (
+            <button
+              onClick={() => { onClose(); onNavigate('items'); }}
+              style={{
+                background: '#1a1a1a', color: '#fff', border: 'none', borderRadius: 8,
+                padding: '10px 20px', fontSize: 13, fontWeight: 600, cursor: 'pointer',
+              }}
+            >
+              + Create in Items
+            </button>
+          )}
         </div>
       ) : (
         <div className="giftcards-grid">
+          <div style={{ padding: '8px 12px', marginBottom: 8, background: '#f9f9f6', borderRadius: 8, border: '1px dashed #d5d3cc', fontSize: 12, color: '#888', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+            <span>Add items with category <strong>"Gift Card"</strong> in the Items section.</span>
+            {onNavigate && (
+              <button onClick={() => { onClose(); onNavigate('items'); }} style={{ background: 'none', border: '1px solid #ccc', borderRadius: 6, padding: '4px 10px', fontSize: 11, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap', color: '#555' }}>+ Add</button>
+            )}
+          </div>
           {giftCards.map((card) => (
             <div 
               key={card.id} 

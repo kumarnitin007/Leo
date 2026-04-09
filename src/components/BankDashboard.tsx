@@ -146,6 +146,8 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
   const [showLegend, setShowLegend] = useState<Set<string>>(new Set());
   /** Accounts tab — "by bank" visualization: donut (merged slices) vs horizontal bars (all banks, readable labels) */
   const [accountsBankViz, setAccountsBankViz] = useState<'donut' | 'bars'>('donut');
+  /** Deposits tab — "by bank" visualization */
+  const [depositsBankViz, setDepositsBankViz] = useState<'donut' | 'bars'>('donut');
   const [showMoreMenu, setShowMoreMenu] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -1160,11 +1162,36 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
     },
     [THEME.text, THEME.textLight, accountsBankTotalConverted, accountsBankCur]
   );
+
+  const accountsDonutLabel = useCallback(
+    (props: { cx?: number; cy?: number; midAngle?: number; outerRadius?: number; name?: string; value?: number }) => {
+      const cx = Number(props.cx ?? 0);
+      const cy = Number(props.cy ?? 0);
+      const midAngle = Number(props.midAngle ?? 0);
+      const outerRadius = Number(props.outerRadius ?? 0);
+      const name = String(props.name ?? '');
+      const value = Number(props.value ?? 0);
+      const total = accountsBankTotalConverted || 1;
+      const pct = ((value / total) * 100).toFixed(0);
+      if (Number(pct) < 3) return null;
+      const RADIAN = Math.PI / 180;
+      const radius = outerRadius + 20;
+      const x = cx + radius * Math.cos(-midAngle * RADIAN);
+      const y = cy + radius * Math.sin(-midAngle * RADIAN);
+      const shortName = name.length > 10 ? name.slice(0, 8) + '…' : name;
+      return (
+        <text x={x} y={y} fill="#9CA3AF" textAnchor={x > cx ? 'start' : 'end'} dominantBaseline="central" fontSize={9} fontWeight={600}>
+          {shortName} {pct}%
+        </text>
+      );
+    },
+    [accountsBankTotalConverted]
+  );
   
   const typePieData = (() => {
     const banks: Record<string, number> = {};
     deposits.forEach(d => {
-      const b = d.bank || 'Unknown';
+      const b = (d.bank || '').trim() || d.depositId || d.type || 'Unnamed';
       banks[b] = (banks[b] || 0) + (Number(d.deposit) || 0);
     });
     return Object.entries(banks).map(([name, value]) => ({ 
@@ -1232,7 +1259,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
     return [minTs - pad, maxTs + pad];
   }, [portfolioHistoryChartData]);
 
-  // Y-axis domain: stacked chart total = accounts + deposits per snapshot (top of stack)
+  // Y-axis domains per series — 10% padding above max and below min
   const portfolioHistoryYDomain = useMemo((): [number, number] | undefined => {
     if (!portfolioHistoryChartData.length) return undefined;
     const totals = portfolioHistoryChartData.map(
@@ -1241,8 +1268,28 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
     const dataMin = Math.min(0, ...totals);
     const dataMax = Math.max(...totals, 1);
     const range = dataMax - dataMin || 1;
-    const padding = range > 0 ? Math.max(range * 0.08, 1) : Math.max(Math.abs(dataMin) * 0.05, 1);
-    return [dataMin - padding, dataMax + padding];
+    const padding = Math.max(range * 0.10, 1);
+    return [Math.max(0, dataMin - padding), dataMax + padding];
+  }, [portfolioHistoryChartData]);
+
+  const portfolioHistoryYDomainAccounts = useMemo((): [number, number] | undefined => {
+    if (!portfolioHistoryChartData.length) return undefined;
+    const vals = portfolioHistoryChartData.map(p => Number(p.totalAccountValue) || 0);
+    const lo = Math.min(...vals);
+    const hi = Math.max(...vals, 1);
+    const range = hi - lo || 1;
+    const pad = Math.max(range * 0.10, 1);
+    return [Math.max(0, lo - pad), hi + pad];
+  }, [portfolioHistoryChartData]);
+
+  const portfolioHistoryYDomainDeposits = useMemo((): [number, number] | undefined => {
+    if (!portfolioHistoryChartData.length) return undefined;
+    const vals = portfolioHistoryChartData.map(p => Number(p.totalDepositValue) || 0);
+    const lo = Math.min(...vals);
+    const hi = Math.max(...vals, 1);
+    const range = hi - lo || 1;
+    const pad = Math.max(range * 0.10, 1);
+    return [Math.max(0, lo - pad), hi + pad];
   }, [portfolioHistoryChartData]);
 
   const mainTabs = [
@@ -1268,29 +1315,35 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
     return true;
   });
 
-  // ── Next 30 days: FD maturities + manual actions (due) + linked Next action rows (resolved date) ──
-  const next30DaysUnified = useMemo(() => {
+  // ── Build all upcoming/overdue action rows (used for "Next 30 days" and "Past Due") ──
+  const allActionRows = useMemo(() => {
     const rows: Next30DayRow[] = [];
     deposits.forEach((d) => {
       if (d.done) return;
       const days = daysUntil(d.maturityDate);
-      if (days !== null && days >= 0 && days <= 30) {
+      if (days !== null) {
+        const depCur = (d.currency || 'INR') as Currency;
+        const parts = ['Deposit', d.bank, d.type || 'FD', d.maturityAction].filter(Boolean);
         rows.push({
           kind: 'maturity',
-          title: `${d.type || 'FD'} matures`,
+          title: `Maturity - ${fmtDate(d.maturityDate)}`,
           bank: d.bank || d.depositId || d.type || 'Unnamed',
           date: d.maturityDate,
           days,
           amount: String(d.maturityAmt),
           currency: d.currency || 'INR',
           sourceField: 'Maturity date',
+          rowType: d.type || 'FD',
+          actionLabel: d.maturityAction || 'Review & Reinvest',
+          descriptiveLabel: parts.join(' - '),
+          amountFormatted: fmt(Number(d.maturityAmt) || Number(d.deposit) || 0, depCur),
         });
       }
     });
     actions.forEach((a) => {
       if (a.done) return;
       const days = daysUntil(a.date);
-      if (days !== null && days <= 30) {
+      if (days !== null) {
         rows.push({
           kind: 'manual',
           title: a.title,
@@ -1298,32 +1351,66 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
           date: a.date,
           days,
           sourceField: 'Due date',
+          rowType: 'Action',
+          actionLabel: a.title,
+          descriptiveLabel: ['Action', a.bank, a.title].filter(Boolean).join(' - '),
+          amountFormatted: '',
         });
       }
     });
     linkedFromRecords.forEach((row) => {
       if (!row.date || !String(row.date).trim()) return;
       const days = daysUntil(row.date);
-      if (days === null || days > 30) return;
-      const sourceField =
-        row.source === 'account'
-          ? 'Account · Next action'
-          : row.source === 'deposit'
-            ? 'Deposit · Next action'
-            : 'Bill · Next action';
+      if (days === null) return;
+      const sourceLabel =
+        row.source === 'account' ? 'Account'
+        : row.source === 'deposit' ? 'Deposit'
+        : 'Bill';
+      let amtStr = '';
+      let descParts = [sourceLabel, row.bank];
+      if (row.source === 'account') {
+        const matchAcc = accounts.find(a => a.bank === row.bank && a.nextAction === row.title);
+        if (matchAcc) {
+          descParts.push(matchAcc.type || '');
+          amtStr = fmt(Number(matchAcc.amount) || 0, (matchAcc.currency || 'INR') as Currency);
+        }
+      } else if (row.source === 'deposit') {
+        const matchDep = deposits.find(dd => dd.bank === row.bank && dd.nextAction === row.title);
+        if (matchDep) {
+          descParts.push(matchDep.type || 'FD');
+          amtStr = fmt(Number(matchDep.maturityAmt) || Number(matchDep.deposit) || 0, (matchDep.currency || 'INR') as Currency);
+        }
+      } else {
+        const matchBill = bills.find(b => b.nextAction === row.title);
+        if (matchBill) {
+          descParts.push(matchBill.name || '');
+          amtStr = matchBill.amount ? fmt(Number(matchBill.amount) || 0, (matchBill.currency || 'INR') as Currency) : '';
+        }
+      }
       rows.push({
         kind: 'linked',
         title: row.title,
         bank: row.bank,
         date: row.date,
         days,
-        sourceField,
+        sourceField: sourceLabel,
         linkedSource: row.source,
+        rowType: sourceLabel + ' · Next action',
+        actionLabel: row.title,
+        descriptiveLabel: descParts.filter(Boolean).join(' - '),
+        amountFormatted: amtStr,
       });
     });
-    rows.sort((x, y) => x.days - y.days);
     return rows;
-  }, [deposits, actions, linkedFromRecords]);
+  }, [deposits, accounts, bills, actions, linkedFromRecords]);
+
+  const next30DaysUnified = useMemo(() => {
+    return allActionRows.filter((r) => r.days >= 0 && r.days <= 30).sort((a, b) => a.days - b.days);
+  }, [allActionRows]);
+
+  const pastDueUnified = useMemo(() => {
+    return allActionRows.filter((r) => r.days < 0).sort((a, b) => a.days - b.days);
+  }, [allActionRows]);
 
   // ── Render ───────────────────────────────────────────────────────────────
   if (loading) {
@@ -1440,10 +1527,13 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
             totalMaturity={totalMaturity}
             depositsPrincipalConverted={depositsTablePrincipalConverted}
             next30DaysUnified={next30DaysUnified}
+            pastDueUnified={pastDueUnified}
             overviewActionsCount={overviewActionsCount}
             portfolioHistoryChartData={portfolioHistoryChartData}
             portfolioHistoryXDomain={portfolioHistoryXDomain}
             portfolioHistoryYDomain={portfolioHistoryYDomain}
+            portfolioHistoryYDomainAccounts={portfolioHistoryYDomainAccounts}
+            portfolioHistoryYDomainDeposits={portfolioHistoryYDomainDeposits}
             portfolioHistorySnapshotCount={portfolioHistorySnapshotCount}
             showPortfolioHistory={showPortfolioHistory}
             setShowPortfolioHistory={setShowPortfolioHistory}
@@ -1516,6 +1606,8 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
             showLegend={showLegend}
             setShowLegend={setShowLegend}
             typePieData={typePieData}
+            depositsBankViz={depositsBankViz}
+            setDepositsBankViz={setDepositsBankViz}
             openAdd={openAdd}
             openEdit={openEdit}
             deleteRow={deleteRow}
@@ -1829,8 +1921,8 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                       </div>
                     </div>
                     {accountsBankViz === "donut" ? (
-                      <div style={{position:"relative",width:"100%",minHeight:200}}>
-                        <ResponsiveContainer width="100%" height={200}>
+                      <div style={{position:"relative",width:"100%",minHeight:240}}>
+                        <ResponsiveContainer width="100%" height={240}>
                           <PieChart>
                             <Pie
                               data={accountsPieMerged}
@@ -1840,7 +1932,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                               outerRadius={68}
                               paddingAngle={2}
                               dataKey="value"
-                              label={false}
+                              label={accountsDonutLabel}
                               labelLine={false}
                               stroke="#111827"
                               strokeWidth={1.5}
@@ -2365,8 +2457,8 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                           </div>
                         </div>
                         {accountsBankViz === "donut" ? (
-                          <div style={{position:"relative",width:"100%",minHeight:260}}>
-                            <ResponsiveContainer width="100%" height={260}>
+                          <div style={{position:"relative",width:"100%",minHeight:300}}>
+                            <ResponsiveContainer width="100%" height={300}>
                               <PieChart>
                                 <Pie
                                   data={accountsPieMerged}
@@ -2376,7 +2468,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                                   outerRadius={92}
                                   paddingAngle={2}
                                   dataKey="value"
-                                  label={false}
+                                  label={accountsDonutLabel}
                                   labelLine={false}
                                   stroke="#111827"
                                   strokeWidth={1.5}

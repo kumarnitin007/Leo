@@ -56,6 +56,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ show, onClose }) => {
   const [dashboardLayout, setDashboardLayout] = useState<DashboardLayout>('uniform');
   const [location, setLocation] = useState<{ zipCode?: string; city?: string; country?: string }>({});
   const [temperatureUnit, setTemperatureUnit] = useState<TemperatureUnit | undefined>(undefined);
+  const [birthData, setBirthData] = useState<{ year?: number; month?: number; day?: number; hour?: number; minute?: number; city?: string; timeKnown?: boolean }>({});
   const [financialPreferences, setFinancialPreferences] = useState<FinancialPreferences>({
     exchangeRates: { USD: 83, EUR: 90, GBP: 105 },
   });
@@ -73,6 +74,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ show, onClose }) => {
         setDashboardLayout(settings.dashboardLayout);
         setLocation(settings.location || {});
         setTemperatureUnit(settings.temperatureUnit);
+        setBirthData(settings.birthData || {});
         setAiOptIn(settings.aiOptIn ?? false);
         setAiPersonality(settings.aiPersonality ?? {});
         setFinancialPreferences({
@@ -112,6 +114,9 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ show, onClose }) => {
         financialPreferences,
         aiOptIn,
         aiPersonality: aiOptIn ? aiPersonality : undefined,
+        birthData: birthData.year && birthData.month && birthData.day && birthData.city
+          ? { year: birthData.year, month: birthData.month, day: birthData.day, hour: birthData.hour, minute: birthData.minute, city: birthData.city, timeKnown: birthData.hour != null }
+          : undefined,
       });
       console.log('✅ Settings saved successfully!');
       onClose();
@@ -510,6 +515,48 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ show, onClose }) => {
                 </div>
                 <small style={{ display: 'block', marginTop: '0.5rem', fontSize: '0.75rem', color: '#6b7280' }}>
                   {!temperatureUnit ? 'Auto-detected from country (most countries use °C, US uses °F)' : 'Saved to your profile and synced when signed in'}
+                </small>
+              </div>
+
+              {/* Birth Data for Astrology */}
+              <div style={{ marginTop: '1.5rem', paddingTop: '1rem', borderTop: '1px solid #fbbf24' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                  <span style={{ fontSize: '1.25rem' }}>🔮</span>
+                  <span style={{ fontSize: '0.95rem', fontWeight: 700, color: '#92400e' }}>Birth Data (Astrology)</span>
+                </div>
+                <p style={{ fontSize: '0.75rem', color: '#6b7280', marginBottom: '0.75rem' }}>
+                  Used for natal chart &amp; personalized daily horoscope on the home page
+                </p>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.5rem', marginBottom: '0.75rem' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '0.25rem' }}>Year</label>
+                    <input type="number" value={birthData.year || ''} onChange={(e) => setBirthData({ ...birthData, year: e.target.value ? Number(e.target.value) : undefined })} placeholder="1990" style={{ width: '100%', padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: '0.5rem', fontSize: '0.875rem' }} />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '0.25rem' }}>Month</label>
+                    <input type="number" min={1} max={12} value={birthData.month || ''} onChange={(e) => setBirthData({ ...birthData, month: e.target.value ? Number(e.target.value) : undefined })} placeholder="5" style={{ width: '100%', padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: '0.5rem', fontSize: '0.875rem' }} />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '0.25rem' }}>Day</label>
+                    <input type="number" min={1} max={31} value={birthData.day || ''} onChange={(e) => setBirthData({ ...birthData, day: e.target.value ? Number(e.target.value) : undefined })} placeholder="15" style={{ width: '100%', padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: '0.5rem', fontSize: '0.875rem' }} />
+                  </div>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.5rem', marginBottom: '0.75rem' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '0.25rem' }}>Hour (0-23)</label>
+                    <input type="number" min={0} max={23} value={birthData.hour ?? ''} onChange={(e) => setBirthData({ ...birthData, hour: e.target.value !== '' ? Number(e.target.value) : undefined })} placeholder="14" style={{ width: '100%', padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: '0.5rem', fontSize: '0.875rem' }} />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '0.25rem' }}>Minute</label>
+                    <input type="number" min={0} max={59} value={birthData.minute ?? ''} onChange={(e) => setBirthData({ ...birthData, minute: e.target.value !== '' ? Number(e.target.value) : undefined })} placeholder="30" style={{ width: '100%', padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: '0.5rem', fontSize: '0.875rem' }} />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '0.25rem' }}>Birth City</label>
+                    <input type="text" value={birthData.city || ''} onChange={(e) => setBirthData({ ...birthData, city: e.target.value })} placeholder="New York" style={{ width: '100%', padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: '0.5rem', fontSize: '0.875rem' }} />
+                  </div>
+                </div>
+                <small style={{ fontSize: '0.7rem', color: '#6b7280' }}>
+                  Hour &amp; minute are optional — without them, houses &amp; ascendant won't be calculated.
                 </small>
               </div>
 

@@ -649,8 +649,31 @@ body.theme-warm-paper div[style*="linear-gradient(135deg, #f3f4f6"] {
   border: 1.5px solid var(--cp-ink);
 }
 
+/* ===== LOWER-SECTION single-column stacked ===== */
+body.theme-warm-paper .home-lower-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 16px;
+}
+body.theme-warm-paper .home-lower-section > * {
+  margin-top: 0 !important;
+}
+
 /* ===== RESPONSIVE ===== */
-@media (max-width: 768px) {
+@media (max-width: 767px) {
+  /* Step 7: Mobile task cards — single column, no grid */
+  body.theme-warm-paper .tasks-grid {
+    display: flex !important;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  body.theme-warm-paper .tasks-grid .task-card {
+    grid-column: span 1 !important;
+    grid-row: span 1 !important;
+  }
+
   body.theme-warm-paper .date-header h2 {
     font-size: 1.5rem;
   }
@@ -663,6 +686,7 @@ body.theme-warm-paper div[style*="linear-gradient(135deg, #f3f4f6"] {
   body.theme-warm-paper .header {
     padding: 0.5rem 0.75rem;
   }
+
 }
 
 @media (max-width: 480px) {

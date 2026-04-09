@@ -398,36 +398,43 @@ export function BankActionsTab({
             </table>
           </div>
         </div>
-      ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-          {linkedVisible.length > 0 && (
-            <div>
-              <div style={{ fontSize: 11, fontWeight: 700, color: THEME.textMuted, marginBottom: 10, textTransform: "uppercase", letterSpacing: "0.04em" }}>
-                From spreadsheet / records ({linkedVisible.length})
-              </div>
-              <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fill,minmax(280px,1fr))", gap: 12 }}>
-                {linkedVisible.map((row, i) => renderLinkedCard(row, i))}
-              </div>
-            </div>
-          )}
-
-          {manualVisible.length > 0 && (
-            <div>
-              {linkedVisible.length > 0 && (
-                <div style={{ fontSize: 11, fontWeight: 700, color: THEME.textMuted, marginBottom: 10, textTransform: "uppercase", letterSpacing: "0.04em" }}>
-                  Manual actions ({manualVisible.length})
+      ) : (() => {
+        type CardEntry = { type: 'linked'; row: LinkedNextActionRow; idx: number } | { type: 'manual'; item: ActionItem; origIdx: number; idx: number };
+        const allCards: CardEntry[] = [
+          ...linkedVisible.map((row, i) => ({ type: 'linked' as const, row, idx: i })),
+          ...manualVisible.map((a, i) => ({ type: 'manual' as const, item: a, origIdx: actions.indexOf(a), idx: i })),
+        ];
+        const getDate = (c: CardEntry) => c.type === 'linked' ? c.row.date : c.item.date;
+        const getDays = (c: CardEntry) => { const d = getDate(c); return d ? daysUntil(d) : null; };
+        const pastDue = allCards.filter(c => { const d = getDays(c); return d !== null && d < 0; }).sort((a, b) => (getDays(a) ?? 0) - (getDays(b) ?? 0));
+        const upcoming = allCards.filter(c => { const d = getDays(c); return d === null || d >= 0; }).sort((a, b) => (getDays(a) ?? 999) - (getDays(b) ?? 999));
+        const renderCard = (c: CardEntry) => c.type === 'linked' ? renderLinkedCard(c.row, c.idx) : renderManualCard(c.item, c.origIdx, c.idx);
+        const gridSt = { display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fill,minmax(280px,1fr))", gap: 12 } as const;
+        return (
+          <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+            {pastDue.length > 0 && (
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: "#EF4444", marginBottom: 10, textTransform: "uppercase", letterSpacing: "0.04em", display: "flex", alignItems: "center", gap: 6 }}>
+                  <span>🔥</span> Past Due ({pastDue.length})
                 </div>
-              )}
-              <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fill,minmax(280px,1fr))", gap: 12 }}>
-                {manualVisible.map((a, i) => {
-                  const origIdx = actions.indexOf(a);
-                  return renderManualCard(a, origIdx, i);
-                })}
+                <div style={gridSt}>
+                  {pastDue.map(renderCard)}
+                </div>
               </div>
-            </div>
-          )}
-        </div>
-      )}
+            )}
+            {upcoming.length > 0 && (
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: "#F59E0B", marginBottom: 10, textTransform: "uppercase", letterSpacing: "0.04em", display: "flex", alignItems: "center", gap: 6 }}>
+                  <span>⚡</span> Upcoming ({upcoming.length})
+                </div>
+                <div style={gridSt}>
+                  {upcoming.map(renderCard)}
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })()}
     </div>
   );
 }

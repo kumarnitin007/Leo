@@ -27,6 +27,11 @@ import { useAuth } from './contexts/AuthContext';
 import { useTrackedTaskSync } from './hooks/useTrackedTaskSync';
 import MonthlyView from './MonthlyView';
 import WeatherWidget from './components/WeatherWidget';
+import AstroWidget from './components/AstroWidget';
+import CosmicDayPlanner from './components/CosmicDayPlanner';
+import VedicAstroWidget from './components/VedicAstroWidget';
+import NatalChartVisual from './components/NatalChartVisual';
+import TransitsWidget from './components/TransitsWidget';
 import ResolutionProgressWidget from './components/ResolutionProgressWidget';
 import FinancialAlertsWidget from './components/FinancialAlertsWidget';
 import DailyBriefingCard from './components/DailyBriefingCard';
@@ -37,6 +42,7 @@ import { findEnrichmentByNameAndDate } from './services/referenceCalendarService
 import { TodoItem, TodoGroup } from './types';
 import { PerformanceConfig } from './config/performanceConfig';
 import { useTheme } from './contexts/ThemeContext';
+import { perfStart } from './utils/perfLogger';
 
 type DashboardItem = {
   type: 'task' | 'event';
@@ -137,15 +143,32 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
     await loadItems();
   };
 
-  // Load observances only when expanded (lazy loading for faster initial page load)
   const loadObservances = async () => {
     if (observancesLoaded || isLoadingObservances) return;
+    const endObs = perfStart('TodayView', 'loadObservances');
     setIsLoadingObservances(true);
     try {
-      const endDateForRef = new Date(selectedDate);
-      endDateForRef.setDate(endDateForRef.getDate() + 365);
-      const refDays = await getUserVisibleDaysByRange(selectedDate, endDateForRef.toISOString().split('T')[0]);
-      setReferenceCalendarDays(refDays);
+      // 24hr localStorage cache for observances (static calendar data)
+      const cacheKey = `observances_cache_${selectedDate}`;
+      const cached = (() => {
+        try {
+          const raw = localStorage.getItem(cacheKey);
+          if (!raw) return null;
+          const { ts, data } = JSON.parse(raw);
+          if (Date.now() - ts > 24 * 60 * 60 * 1000) { localStorage.removeItem(cacheKey); return null; }
+          return data as UserVisibleDay[];
+        } catch { return null; }
+      })();
+
+      if (cached) {
+        setReferenceCalendarDays(cached);
+      } else {
+        const endDateForRef = new Date(selectedDate);
+        endDateForRef.setDate(endDateForRef.getDate() + 365);
+        const refDays = await getUserVisibleDaysByRange(selectedDate, endDateForRef.toISOString().split('T')[0]);
+        setReferenceCalendarDays(refDays);
+        try { localStorage.setItem(cacheKey, JSON.stringify({ ts: Date.now(), data: refDays })); } catch { /* quota */ }
+      }
       setObservancesLoaded(true);
     } catch (err) {
       console.warn('Could not load reference calendar days:', err);
@@ -153,12 +176,13 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
       setObservancesLoaded(true);
     } finally {
       setIsLoadingObservances(false);
+      endObs();
     }
   };
 
-  // Load dashboard list items: due in the next 7 days or overdue (until completed)
   const loadUpcomingTodos = async () => {
     if (isLoadingTodos) return;
+    const endTodos = perfStart('TodayView', 'loadUpcomingTodos');
     setIsLoadingTodos(true);
     try {
       const [todos, groups] = await Promise.all([getDashboardTodos(), getTodoGroups()]);
@@ -186,12 +210,13 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
       setUpcomingTodos([]);
     } finally {
       setIsLoadingTodos(false);
+      endTodos();
     }
   };
 
-  // Load dashboard comments (with action dates)
   const loadDashboardComments = async () => {
     if (isLoadingComments) return;
+    const endComments = perfStart('TodayView', 'loadDashboardComments');
     setIsLoadingComments(true);
     try {
       const comments = await getDashboardComments();
@@ -201,6 +226,7 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
       setDashboardComments([]);
     } finally {
       setIsLoadingComments(false);
+      endComments();
     }
   };
 
@@ -213,7 +239,7 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
     }
   }, [authLoading, user]);
 
-  // Load TODOs when section is expanded OR on initial load if there might be todos
+  // Lazy-load TODOs only when section is expanded
   useEffect(() => {
     if (authLoading || !user) return;
     if (isTodosExpanded && upcomingTodos.length === 0 && !isLoadingTodos) {
@@ -221,29 +247,13 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
     }
   }, [isTodosExpanded, authLoading, user]);
 
-  // Also try to load todos on mount to check if section should be visible (after auth ready)
-  useEffect(() => {
-    if (authLoading || !user) return;
-    if (!isLoadingTodos && upcomingTodos.length === 0) {
-      loadUpcomingTodos();
-    }
-  }, [authLoading, user]);
-
-  // Load comments when section is expanded
+  // Lazy-load comments only when section is expanded
   useEffect(() => {
     if (authLoading || !user) return;
     if (isCommentsExpanded && dashboardComments.length === 0 && !isLoadingComments) {
       loadDashboardComments();
     }
   }, [isCommentsExpanded, authLoading, user]);
-
-  // Load comments on mount (after auth ready)
-  useEffect(() => {
-    if (authLoading || !user) return;
-    if (!isLoadingComments && dashboardComments.length === 0) {
-      loadDashboardComments();
-    }
-  }, [authLoading, user]);
 
   // Load observances when section is expanded
   useEffect(() => {
@@ -303,27 +313,34 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
   // Track previous selectedDate to prevent unnecessary reloads
   const prevSelectedDateRef = useRef<string>('');
   const hasLoadedRef = useRef<boolean>(false);
+  const initRunningRef = useRef<boolean>(false);
   
   useEffect(() => {
     // Skip if selectedDate hasn't actually changed AND we've already loaded data
-    // Always load on first run or when auth state changes
     if (prevSelectedDateRef.current === selectedDate && hasLoadedRef.current && !authLoading) {
       return;
     }
     
+    const dateChanged = prevSelectedDateRef.current !== selectedDate;
     prevSelectedDateRef.current = selectedDate;
     
     const init = async () => {
-      // Only load data if user is authenticated
       if (!authLoading && user) {
-        await loadItems();
-        await calculateStreak();
-        // AI insights now lazy-loaded when user clicks AI button
-        hasLoadedRef.current = true;
+        // Prevent concurrent init calls (StrictMode + auth state transitions)
+        if (initRunningRef.current && !dateChanged) return;
+        initRunningRef.current = true;
+        try {
+          const endInit = perfStart('TodayView', 'init (total)');
+          await loadItems();
+          await calculateStreak();
+          endInit();
+          hasLoadedRef.current = true;
+        } finally {
+          initRunningRef.current = false;
+        }
       } else if (!authLoading && !user) {
-        // User is not authenticated, set loading to false
         setIsLoading(false);
-        hasLoadedRef.current = false; // Reset when user logs out
+        hasLoadedRef.current = false;
       }
     };
     init();
@@ -377,15 +394,24 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
   };
 
   const loadItems = async () => {
+    const endLoadItems = perfStart('TodayView', 'loadItems');
     try {
       setIsLoading(true);
       
-      // Use optimized loading for dashboard (or fallback to old method)
-      const data = PerformanceConfig.USE_OPTIMIZED_DASHBOARD_LOADING 
-        ? await loadDashboardData(selectedDate, PerformanceConfig.DASHBOARD_DATA_RANGE_DAYS)
-        : await loadData();
+      // Parallel fetch: dashboard data + upcoming events + spillovers
+      const endFetch = perfStart('TodayView', 'loadItems → fetchData+events (parallel)');
+      const [data, upcomingEventsRaw, spillovers] = await Promise.all([
+        PerformanceConfig.USE_OPTIMIZED_DASHBOARD_LOADING 
+          ? loadDashboardData(selectedDate, PerformanceConfig.DASHBOARD_DATA_RANGE_DAYS)
+          : loadData(),
+        getUpcomingEvents(0, selectedDate),
+        getTaskSpilloversForDate(selectedDate),
+      ]);
+      endFetch();
+
+      const upcomingEvents = upcomingEventsRaw.filter(({ event }) => !event.hideFromDashboard);
       
-      setAppData(data); // Store data in state
+      setAppData(data);
       
       // Get tasks for selected date (not just today)
       let dateTasks = data.tasks.filter(task => shouldTaskShowOnDate(task, selectedDate));
@@ -394,38 +420,28 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
       const selectedDateObj = new Date(selectedDate + 'T00:00:00');
       dateTasks = dateTasks.filter(task => {
         if (task.frequency === 'count-based' && task.frequencyCount && task.frequencyPeriod) {
-          // Get period bounds
           let periodBounds;
           if (task.frequencyPeriod === 'week') {
             periodBounds = getWeekBounds(selectedDateObj);
           } else {
             periodBounds = getMonthBounds(selectedDateObj);
           }
-          
-          // Count completions in this period
           const completionsInPeriod = data.completions.filter(
             c => c.taskId === task.id && 
                  c.date >= periodBounds.start && 
                  c.date <= periodBounds.end
           ).length;
-          
-          // Only show if not yet completed the required number of times
           return completionsInPeriod < task.frequencyCount;
         }
-        return true; // Show all non-count-based tasks
+        return true;
       });
       
-      // Get spillover tasks
-      const spillovers = await getTaskSpilloversForDate(selectedDate);
       const spilloverTaskIds = spillovers.map(s => s.taskId);
       const spilloverTasks = data.tasks.filter(t => spilloverTaskIds.includes(t.id));
       
       // Combine tasks
       const allTaskIds = new Set([...dateTasks.map(t => t.id), ...spilloverTasks.map(t => t.id)]);
       let combinedTasks = data.tasks.filter(t => allTaskIds.has(t.id));
-      
-      // Get events for selected date (show events on that specific date)
-      const upcomingEvents = (await getUpcomingEvents(0, selectedDate)).filter(({ event }) => !event.hideFromDashboard);
       
       // Reset observances when date changes (will reload when expanded)
       setObservancesLoaded(false);
@@ -529,6 +545,7 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
       }
     } finally {
       setIsLoading(false);
+      endLoadItems();
     }
   };
 
@@ -756,8 +773,8 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
 
 
   const calculateStreak = async () => {
+    const endStreak = perfStart('TodayView', 'calculateStreak');
     try {
-      // Use optimized loading for streak calculation (or fallback to old method)
       const data = PerformanceConfig.USE_OPTIMIZED_DASHBOARD_LOADING 
         ? await loadDashboardData(selectedDate, PerformanceConfig.DASHBOARD_DATA_RANGE_DAYS)
         : await loadData();
@@ -827,11 +844,12 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
       }
     }
     } catch (error: any) {
-      // Silently ignore authentication errors (user not signed in yet)
       if (!error?.message?.includes('User must be signed in')) {
         console.error('Error calculating streak:', error);
       }
       setCurrentStreak(0);
+    } finally {
+      endStreak();
     }
   };
 
@@ -870,8 +888,8 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
     
     const allCompletions = appData.completions;
     let streak = 0;
-    let checkDate = new Date();
-    checkDate.setDate(checkDate.getDate() - 1); // Start from yesterday
+    let checkDate = new Date(selectedDate + 'T00:00:00');
+    checkDate.setDate(checkDate.getDate() - 1); // Start from day before selectedDate
     
     // Get task creation date
     const taskCreatedDate = task.createdAt ? new Date(task.createdAt) : null;
@@ -993,12 +1011,12 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
     const allSpillovers = appData.spillovers;
     let missedCount = 0;
     
-    // Get task creation date (only check days after task was created)
     const taskCreatedDate = task.createdAt ? new Date(task.createdAt) : null;
     const taskCreatedDateStr = taskCreatedDate ? formatDate(taskCreatedDate) : null;
     
+    // Use selectedDate as anchor so past-date views show correct missed counts
     for (let i = 1; i <= 7; i++) {
-      const checkDate = new Date();
+      const checkDate = new Date(selectedDate + 'T00:00:00');
       checkDate.setDate(checkDate.getDate() - i);
       const dateStr = formatDate(checkDate);
       const dayOfWeek = checkDate.getDay();
@@ -1128,7 +1146,7 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
     
     if (selectedItem.type === 'task' && selectedItem.task) {
       const completedTaskId = selectedItem.task.id;
-      await completeTask(completedTaskId, today, durationMinutes);
+      await completeTask(completedTaskId, selectedDate, durationMinutes);
       
       // Check for dependent tasks and auto-complete them
       if (appData) {
@@ -1137,15 +1155,14 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
         );
       
         for (const depTask of dependentTasks) {
-          // Only auto-complete if the dependent task shows today
-          if (shouldTaskShowToday(depTask)) {
-            await completeTask(depTask.id, today);
+          if (shouldTaskShowOnDate(depTask, selectedDate)) {
+            await completeTask(depTask.id, selectedDate);
           }
         }
       }
       
     } else if (selectedItem.type === 'event' && selectedItem.event) {
-      acknowledgeEvent(selectedItem.event.id, today);
+      acknowledgeEvent(selectedItem.event.id, selectedDate);
     }
     
     setSelectedItem(null);
@@ -1176,7 +1193,7 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
 
   const handleTimerComplete = async (durationMinutes: number) => {
     if (timerTask) {
-      await completeTask(timerTask.id, today, durationMinutes);
+      await completeTask(timerTask.id, selectedDate, durationMinutes);
       
       // Check for dependent tasks
       if (appData) {
@@ -1185,8 +1202,8 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
         );
         
         for (const depTask of dependentTasks) {
-          if (shouldTaskShowToday(depTask)) {
-            await completeTask(depTask.id, today);
+          if (shouldTaskShowOnDate(depTask, selectedDate)) {
+            await completeTask(depTask.id, selectedDate);
           }
         }
       }
@@ -1408,199 +1425,96 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
             </div>
           </div>
           <div className="desktop-action-buttons" style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
-            {/* View Toggle — Ghost */}
-            <button
-              onClick={() => setViewMode(viewMode === 'dashboard' ? 'monthly' : 'dashboard')}
-              className="btn-secondary"
-              style={isWarmPaper ? {
-                height: 34, padding: '0 14px', borderRadius: 8,
-                fontSize: 12, fontWeight: 700,
-                background: '#ffffff', color: '#555555', border: '1px solid #E0DDD6',
-                display: 'inline-flex', alignItems: 'center', gap: 5, cursor: 'pointer'
-              } : {
-                display: 'flex', alignItems: 'center', gap: '0.5rem'
-              }}
-              onMouseEnter={isWarmPaper ? (e) => { e.currentTarget.style.background = '#F5F4F0'; } : undefined}
-              onMouseLeave={isWarmPaper ? (e) => { e.currentTarget.style.background = '#ffffff'; } : undefined}
-            >
-              <span>{viewMode === 'dashboard' ? '📅' : '🏠'}</span>
-              <span>{viewMode === 'dashboard' ? 'Monthly' : 'Dashboard'}</span>
-            </button>
-            {/* Progress — Ghost */}
-            <button 
-              onClick={() => setShowProgressAndReview(true)}
-              className="btn-secondary"
-              style={isWarmPaper ? {
-                height: 34, padding: '0 14px', borderRadius: 8,
-                fontSize: 12, fontWeight: 700,
-                background: '#ffffff', color: '#555555', border: '1px solid #E0DDD6',
-                display: 'inline-flex', alignItems: 'center', gap: 5, cursor: 'pointer'
-              } : {
-                display: 'flex', alignItems: 'center', gap: '0.5rem'
-              }}
-              onMouseEnter={isWarmPaper ? (e) => { e.currentTarget.style.background = '#F5F4F0'; } : undefined}
-              onMouseLeave={isWarmPaper ? (e) => { e.currentTarget.style.background = '#ffffff'; } : undefined}
-            >
-              <span>📊</span>
-              <span>Progress</span>
-            </button>
-            {/* AI Assistant — Accent outline */}
-            <div style={{ position: 'relative', display: 'inline-flex' }}>
-              <button
-                onClick={async () => {
-                  await loadAIInsights();
-                  const prompt = await buildOpenAIPrompt();
-                  setOpenAIPromptText(prompt);
-                  setShowOpenAIPrompt(true);
-                }}
-                className="btn-secondary"
-                style={isWarmPaper ? {
-                  height: 34, padding: '0 14px', borderRadius: 8,
-                  fontSize: 12, fontWeight: 700,
-                  background: '#ffffff', color: '#1a1a1a', border: '1.5px solid #1a1a1a',
-                  display: 'inline-flex', alignItems: 'center', gap: 5, cursor: 'pointer',
-                  paddingRight: aiInsight ? '2.75rem' : '14px'
-                } : {
-                  display: 'flex', alignItems: 'center', gap: '0.5rem',
-                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                  color: 'white', border: 'none',
-                  paddingRight: aiInsight ? '2.75rem' : undefined
-                }}
-              >
-                <span>✦</span>
-                <span>AI Assistant</span>
-              </button>
-              {aiInsight && (
-                <button 
-                  onClick={() => setShowSmartCoachModal(true)}
-                  title="View Coach Insights"
-                  style={{ 
-                    position: 'absolute', right: '0.35rem', top: '50%',
-                    transform: 'translateY(-50%)',
-                    background: isWarmPaper ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.25)',
-                    border: 'none', borderRadius: '50%',
-                    width: '1.75rem', height: '1.75rem',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    cursor: 'pointer', fontSize: '0.85rem',
-                    color: isWarmPaper ? '#1a1a1a' : 'white'
-                  }}
-                >
-                  💡
-                </button>
-              )}
-            </div>
-            {/* Reorder — Ghost */}
-            <button 
-              onClick={() => setIsReorderMode(!isReorderMode)}
-              className="btn-secondary"
-              style={isWarmPaper ? {
-                height: 34, padding: '0 14px', borderRadius: 8,
-                fontSize: 12, fontWeight: 700,
-                background: isReorderMode ? '#1a1a1a' : '#ffffff',
-                color: isReorderMode ? '#ffffff' : '#555555',
-                border: isReorderMode ? '1px solid #1a1a1a' : '1px solid #E0DDD6',
-                display: 'inline-flex', alignItems: 'center', gap: 5, cursor: 'pointer'
-              } : {
-                background: isReorderMode ? '#667eea' : 'white',
-                color: isReorderMode ? 'white' : '#667eea',
-                border: '2px solid #667eea',
-                display: 'flex', alignItems: 'center', gap: '0.5rem'
-              }}
-              onMouseEnter={isWarmPaper && !isReorderMode ? (e) => { e.currentTarget.style.background = '#F5F4F0'; } : undefined}
-              onMouseLeave={isWarmPaper && !isReorderMode ? (e) => { e.currentTarget.style.background = '#ffffff'; } : undefined}
-            >
-              <span>{isReorderMode ? '✓' : '⇅'}</span>
-              <span>{isReorderMode ? 'Done' : 'Reorder'}</span>
-            </button>
-            {/* Hold — Ghost */}
-            <button 
-              onClick={() => setShowBulkHoldModal(true)}
-              className="btn-secondary"
-              style={isWarmPaper ? {
-                height: 34, padding: '0 14px', borderRadius: 8,
-                fontSize: 12, fontWeight: 700,
-                background: '#ffffff', color: '#555555', border: '1px solid #E0DDD6',
-                display: 'inline-flex', alignItems: 'center', gap: 5, cursor: 'pointer'
-              } : {
-                display: 'flex', alignItems: 'center', gap: '0.5rem',
-                background: 'white', color: '#f97316', border: '2px solid #f97316'
-              }}
-              onMouseEnter={isWarmPaper ? (e) => { e.currentTarget.style.background = '#F5F4F0'; } : undefined}
-              onMouseLeave={isWarmPaper ? (e) => { e.currentTarget.style.background = '#ffffff'; } : undefined}
-            >
-              <span>⏸</span>
-              <span>Hold</span>
-            </button>
-            {/* + New — Primary (warm-paper only) */}
-            {isWarmPaper && (
-              <button
-                onClick={() => {
-                  const el = document.querySelector('.quick-add-widget button');
-                  if (el) (el as HTMLButtonElement).click();
-                }}
-                style={{
-                  height: 34, padding: '0 14px', borderRadius: 8,
-                  fontSize: 12, fontWeight: 700,
-                  background: '#1a1a1a', color: '#ffffff', border: '1px solid #1a1a1a',
-                  display: 'inline-flex', alignItems: 'center', gap: 5, cursor: 'pointer'
-                }}
-              >
-                + New
-              </button>
-            )}
+            {(() => {
+              // Shared muted-pill style for warm-paper toolbar buttons
+              const wpMuted: React.CSSProperties = {
+                background: 'transparent', color: '#888', border: '0.5px solid #E0DDD6',
+                fontSize: 12, borderRadius: 6, padding: '4px 10px',
+                display: 'inline-flex', alignItems: 'center', gap: 4, cursor: 'pointer',
+                fontWeight: 500, whiteSpace: 'nowrap',
+              };
+              return isWarmPaper ? (
+                <>
+                  <button onClick={() => setViewMode(viewMode === 'dashboard' ? 'monthly' : 'dashboard')} style={wpMuted}>
+                    {viewMode === 'dashboard' ? 'Monthly' : 'Dashboard'}
+                  </button>
+                  <button onClick={() => setShowProgressAndReview(true)} style={wpMuted}>Progress</button>
+                  <div style={{ position: 'relative', display: 'inline-flex' }}>
+                    <button
+                      onClick={async () => { await loadAIInsights(); const prompt = await buildOpenAIPrompt(); setOpenAIPromptText(prompt); setShowOpenAIPrompt(true); }}
+                      style={{ ...wpMuted, paddingRight: aiInsight ? 30 : 10 }}
+                    >AI Assistant</button>
+                    {aiInsight && (
+                      <button onClick={() => setShowSmartCoachModal(true)} title="View Coach Insights"
+                        style={{ position: 'absolute', right: 4, top: '50%', transform: 'translateY(-50%)', background: 'rgba(0,0,0,0.06)', border: 'none', borderRadius: '50%', width: 22, height: 22, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: 12 }}>
+                        💡
+                      </button>
+                    )}
+                  </div>
+                  <button onClick={() => setIsReorderMode(!isReorderMode)}
+                    style={isReorderMode
+                      ? { ...wpMuted, background: '#1a1a1a', color: '#fff', border: 'none' }
+                      : wpMuted
+                    }>{isReorderMode ? 'Done' : 'Reorder'}</button>
+                  <button onClick={() => setShowBulkHoldModal(true)} style={wpMuted}>Hold</button>
+                  <button
+                    onClick={() => { const el = document.querySelector('.quick-add-widget button'); if (el) (el as HTMLButtonElement).click(); }}
+                    style={{ background: '#1a1a1a', color: '#fff', border: 'none', fontSize: 12, fontWeight: 500, borderRadius: 6, padding: '4px 14px', cursor: 'pointer', whiteSpace: 'nowrap' as const }}
+                  >+ New</button>
+                </>
+              ) : (
+                <>
+                  <button onClick={() => setViewMode(viewMode === 'dashboard' ? 'monthly' : 'dashboard')} className="btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <span>{viewMode === 'dashboard' ? '📅' : '🏠'}</span><span>{viewMode === 'dashboard' ? 'Monthly' : 'Dashboard'}</span>
+                  </button>
+                  <button onClick={() => setShowProgressAndReview(true)} className="btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <span>📊</span><span>Progress</span>
+                  </button>
+                  <div style={{ position: 'relative', display: 'inline-flex' }}>
+                    <button
+                      onClick={async () => { await loadAIInsights(); const prompt = await buildOpenAIPrompt(); setOpenAIPromptText(prompt); setShowOpenAIPrompt(true); }}
+                      className="btn-secondary"
+                      style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', color: 'white', border: 'none', paddingRight: aiInsight ? '2.75rem' : undefined }}
+                    ><span>✦</span><span>AI Assistant</span></button>
+                    {aiInsight && (
+                      <button onClick={() => setShowSmartCoachModal(true)} title="View Coach Insights"
+                        style={{ position: 'absolute', right: '0.35rem', top: '50%', transform: 'translateY(-50%)', background: 'rgba(255,255,255,0.25)', border: 'none', borderRadius: '50%', width: '1.75rem', height: '1.75rem', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '0.85rem', color: 'white' }}>
+                        💡
+                      </button>
+                    )}
+                  </div>
+                  <button onClick={() => setIsReorderMode(!isReorderMode)} className="btn-secondary"
+                    style={{ background: isReorderMode ? '#667eea' : 'white', color: isReorderMode ? 'white' : '#667eea', border: '2px solid #667eea', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <span>{isReorderMode ? '✓' : '⇅'}</span><span>{isReorderMode ? 'Done' : 'Reorder'}</span>
+                  </button>
+                  <button onClick={() => setShowBulkHoldModal(true)} className="btn-secondary"
+                    style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'white', color: '#f97316', border: '2px solid #f97316' }}>
+                    <span>⏸</span><span>Hold</span>
+                  </button>
+                </>
+              );
+            })()}
           </div>
         </div>
         {isWarmPaper ? (() => {
           const wpCompletedCount = items.filter(i => i.isCompleted).length;
           const wpTotalCount = items.length;
           const wpPct = wpTotalCount === 0 ? 0 : Math.round((wpCompletedCount / wpTotalCount) * 100);
-          let wpTopStreak: { name: string; streak: number } | null = null;
-          items.forEach(item => {
-            if (item.type === 'task') {
-              const s = getTaskStreak(item.id);
-              if (s > 0 && (!wpTopStreak || s > wpTopStreak.streak)) {
-                wpTopStreak = { name: item.name, streak: s };
-              }
-            }
-          });
           const wpOverdueCount = items.filter(item =>
             item.type === 'task' && !item.isCompleted && getTaskMissedCount(item.id) > 0
           ).length;
           return (
-            <div style={{
-              background: '#fff',
-              border: '1px solid #E5E3DC',
-              borderRadius: 12,
-              padding: '13px 18px',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 14,
-              marginTop: '1rem',
-            }}>
-              <span style={{ fontSize: 13, fontWeight: 800, whiteSpace: 'nowrap', color: '#1a1a1a' }}>
-                {wpPct}% complete
-              </span>
-              <div style={{ flex: 1, height: 5, background: '#ECEAE3', borderRadius: 100, overflow: 'hidden' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 12 }}>
+              <div style={{ flex: 1, height: 3, background: '#ECEAE3', borderRadius: 100, overflow: 'hidden' }}>
                 <div style={{ width: `${wpPct}%`, height: '100%', background: '#1a1a1a', borderRadius: 100, transition: 'width 0.4s ease' }} />
               </div>
-              <span style={{ fontSize: 12, color: '#999', whiteSpace: 'nowrap' }}>
-                {wpCompletedCount} of {wpTotalCount} done
+              <span style={{ fontSize: 12, color: '#888', whiteSpace: 'nowrap' }}>
+                {wpCompletedCount} / {wpTotalCount} done
               </span>
-              {wpTopStreak && (
-                <>
-                  <div style={{ width: 1, height: 20, background: '#E5E3DC', flexShrink: 0 }} />
-                  <span style={{ fontSize: 11, fontWeight: 700, color: '#1a1a1a', background: 'transparent', border: '1.5px solid #1a1a1a', padding: '2px 8px', borderRadius: 4, whiteSpace: 'nowrap', textTransform: 'uppercase' as const, letterSpacing: '0.03em' }}>
-                    🔥 {wpTopStreak.name}
-                  </span>
-                </>
-              )}
               {wpOverdueCount > 0 && (
-                <>
-                  <div style={{ width: 1, height: 20, background: '#E5E3DC', flexShrink: 0 }} />
-                  <span style={{ fontSize: 11, fontWeight: 700, color: '#d32f2f', background: 'transparent', border: '1.5px solid #d32f2f', padding: '2px 8px', borderRadius: 4, whiteSpace: 'nowrap', textTransform: 'uppercase' as const, letterSpacing: '0.03em' }}>
-                    {wpOverdueCount} OVERDUE
-                  </span>
-                </>
+                <span style={{ fontSize: 11, fontWeight: 500, background: '#FCEBEB', color: '#A32D2D', borderRadius: 4, padding: '2px 8px', whiteSpace: 'nowrap' as const, border: 'none' }}>
+                  {wpOverdueCount} overdue
+                </span>
               )}
             </div>
           );
@@ -1651,7 +1565,11 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
         </div>
       ) : (
         <>
-
+          {isWarmPaper && (
+            <div style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase' as const, letterSpacing: '0.08em', color: '#bbb', marginBottom: 8, paddingLeft: 2 }}>
+              Tasks &amp; Events
+            </div>
+          )}
           <div className={`tasks-grid layout-${dashboardLayout}`}>
           {items
             .slice()
@@ -1786,184 +1704,254 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
                     </button>
                   </div>
                 )}
-                <div>
-                  {/* Source Badge (Event/Task) - Top Left */}
-                  {!isReorderMode && (
-                    <div style={{
-                      position: 'absolute',
-                      top: '0.75rem',
-                      left: '0.75rem',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '0.25rem',
-                      background: isWarmPaper ? '#f5f3ef' : (item.type === 'event' ? '#ec489915' : '#3b82f615'),
-                      border: isWarmPaper ? '1px solid #e8e5e0' : `1.5px solid ${item.type === 'event' ? '#ec4899' : '#3b82f6'}`,
-                      borderRadius: isWarmPaper ? '4px' : '12px',
-                      padding: '0.25rem 0.5rem',
-                      fontSize: '0.75rem',
-                      fontWeight: isWarmPaper ? 500 : 600,
-                      color: isWarmPaper ? '#888680' : (item.type === 'event' ? '#ec4899' : '#3b82f6'),
-                      zIndex: 5
-                    }}>
-                      <span>{item.type === 'event' ? '📅' : '✓'}</span>
-                      <span>{item.type === 'event' ? 'Event' : 'Task'}</span>
-                      {/* Recurring indicator */}
-                      {((item.type === 'event' && item.event && 
-                         (item.event.frequency === 'yearly' || item.event.frequency === 'custom')) ||
-                        (item.type === 'task' && item.task && 
-                         (['daily', 'weekly', 'monthly', 'count-based', 'interval'].includes(item.task.frequency) ||
-                          (item.task.frequency === 'custom' && !item.task.specificDate)))) && (
-                        <span style={{ fontSize: '0.7rem', marginLeft: '0.15rem' }} title="Recurring">🔄</span>
+                {isWarmPaper ? (
+                  /* ── Redesigned card body (warm-paper) ── */
+                  <div style={{ position: 'relative' }}>
+                    {/* Status dot — top-right health signal */}
+                    {!isReorderMode && !item.task?.onHold && (
+                      <div style={{
+                        position: 'absolute', top: 10, right: 10,
+                        width: 7, height: 7, borderRadius: '50%',
+                        background: missedCount > 0 ? '#E24B4A' : taskStreak > 0 ? '#3B6D11' : '#d5d3cc',
+                      }} />
+                    )}
+
+                    {/* Hold Badge (kept) */}
+                    {item.task?.onHold && (
+                      <div style={{
+                        position: 'absolute', top: 10, right: 10,
+                        display: 'flex', alignItems: 'center', gap: 4,
+                        background: '#f5f3ef', border: '1px solid #f9731640', borderRadius: 4,
+                        padding: '2px 8px', fontSize: 11, fontWeight: 500, color: '#f97316',
+                      }}>
+                        <span>⏸️</span>
+                        <span>Hold</span>
+                      </div>
+                    )}
+
+                    {/* Category icon */}
+                    <div style={{ fontSize: 20, marginBottom: 6 }}>{getCategoryIcon()}</div>
+
+                    {/* Title */}
+                    <div className="task-name" style={{ fontSize: 14, fontWeight: 600, lineHeight: 1.35, marginBottom: 4 }}>
+                      {item.name}
+                      {item.type === 'event' && item.eventDate && (
+                        <span style={{ fontSize: '0.85em', color: '#6b7280', fontWeight: 'normal', marginLeft: '0.5rem' }}>
+                          ({item.eventDate})
+                        </span>
                       )}
-                    </div>
-                  )}
-
-                  {/* Priority Badge - Top Right */}
-                  {!isReorderMode && item.weightage >= 7 && !item.task?.onHold && (() => {
-                    const pLevel = getPriorityLevel(item.weightage);
-                    const wpBadgeColor = pLevel === 'critical' ? '#d32f2f' : pLevel === 'high' ? '#b45309' : '#666';
-                    return (
-                    <div style={{
-                      position: 'absolute',
-                      top: '0.75rem',
-                      right: '0.75rem',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '0.25rem',
-                      background: isWarmPaper ? 'transparent' : `${getPriorityStyle(item.weightage).badgeColor}15`,
-                      border: isWarmPaper ? `1.5px solid ${wpBadgeColor}` : `1.5px solid ${getPriorityStyle(item.weightage).badgeColor}`,
-                      borderRadius: isWarmPaper ? '4px' : '12px',
-                      padding: isWarmPaper ? '0.15rem 0.5rem' : '0.25rem 0.5rem',
-                      fontSize: isWarmPaper ? '0.65rem' : '0.75rem',
-                      fontWeight: 700,
-                      color: isWarmPaper ? wpBadgeColor : getPriorityStyle(item.weightage).badgeColor,
-                      zIndex: 5,
-                      textTransform: isWarmPaper ? 'uppercase' as const : undefined,
-                      letterSpacing: isWarmPaper ? '0.05em' : undefined
-                    }}>
-                      {!isWarmPaper && <span>{getPriorityStyle(item.weightage).badge}</span>}
-                      <span>{isWarmPaper ? getPriorityStyle(item.weightage).badgeText.toUpperCase() : getPriorityStyle(item.weightage).badgeText}</span>
-                    </div>
-                    );
-                  })()}
-
-                  {/* Hold Badge */}
-                  {item.task?.onHold && (
-                    <div style={{
-                      position: 'absolute',
-                      top: '0.75rem',
-                      right: '0.75rem',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '0.25rem',
-                      background: isWarmPaper ? '#f5f3ef' : '#f9731615',
-                      border: isWarmPaper ? '1px solid #f9731640' : '1.5px solid #f97316',
-                      borderRadius: isWarmPaper ? '4px' : '12px',
-                      padding: '0.25rem 0.5rem',
-                      fontSize: '0.75rem',
-                      fontWeight: isWarmPaper ? 500 : 600,
-                      color: '#f97316'
-                    }}>
-                      <span>⏸️</span>
-                      <span>On Hold</span>
-                      {item.task.holdEndDate && (
-                        <span style={{ fontSize: '0.7rem', opacity: 0.8 }}>
-                          (until {new Date(item.task.holdEndDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })})
+                      {item.task?.trackedMetric && (
+                        <span style={{ fontSize: '0.7em', color: '#059669', fontWeight: 600, marginLeft: 4 }}>
+                          📊 {item.task.trackedMetric.target.toLocaleString()} {item.task.trackedMetric.unit}
                         </span>
                       )}
                     </div>
-                  )}
-                  
-                  {/* Category icon for both tasks and events */}
-                  <div style={{ fontSize: '2.5rem', textAlign: 'center', marginBottom: '0.5rem' }}>
-                    {getCategoryIcon()}
-                  </div>
-                  
-                  <div className="task-name">
-                    {item.name}
-                    {item.type === 'event' && item.eventDate && (
-                      <span style={{ fontSize: '0.85em', color: '#6b7280', fontWeight: 'normal', marginLeft: '0.5rem' }}>
-                        ({item.eventDate})
-                      </span>
-                    )}
-                    {item.task?.trackedMetric && (
-                      <span style={{ fontSize: '0.7em', color: '#059669', fontWeight: 600, marginLeft: '0.4rem' }}>
-                        📊 {item.task.trackedMetric.target.toLocaleString()} {item.task.trackedMetric.unit}
-                      </span>
-                    )}
-                  </div>
-                  
-                  {item.category && (
-                    <div className="task-category">
-                      {item.category}
-                    </div>
-                  )}
-                  {progress && (
-                    <div className="task-progress">
-                      <span className={isCountBasedComplete ? 'progress-complete' : 'progress-pending'}>
-                        {progress.label}
-                      </span>
-                    </div>
-                  )}
-                  
-                  {/* Stats Badges (for both tasks and events) */}
-                  <div className="task-stats">
-                    {/* Task stats */}
-                    {item.type === 'task' && taskStreak > 0 && (
-                      <div className="task-stat-badge streak-badge">
-                        <span className="badge-icon">🔥</span>
-                        <span className="badge-text">{taskStreak} day{taskStreak > 1 ? 's' : ''} streak</span>
-                      </div>
-                    )}
-                    {/* Count-based task progress */}
-                    {item.type === 'task' && item.task && (() => {
-                      const countProgress = getCountBasedProgress(item.id);
-                      if (countProgress) {
-                        const isComplete = countProgress.current >= countProgress.target;
-                        if (isComplete) {
-                          return null; // Don't show badge if completed
-                        }
-                        return (
-                          <div className="task-stat-badge" style={ isWarmPaper ? {
-                            background: 'transparent',
-                            color: '#1a1a1a',
-                            border: '1.5px solid #1a1a1a'
-                          } : { 
-                            background: countProgress.current > 0 ? '#dbeafe' : '#fee2e2',
-                            color: countProgress.current > 0 ? '#1e40af' : '#991b1b'
-                          }}>
-                            {!isWarmPaper && <span className="badge-icon">{countProgress.current > 0 ? '📊' : '⏳'}</span>}
-                            <span className="badge-text">
-                              {countProgress.current} out of {countProgress.target} done ({countProgress.period})
+
+                    {/* Meta row: category tag + stat pills */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexWrap: 'wrap', marginTop: 6 }}>
+                      {item.category && (
+                        <span style={{ fontSize: 11, color: '#888680', background: '#f5f3ef', borderRadius: 4, padding: '2px 7px' }}>
+                          {item.category}
+                        </span>
+                      )}
+                      {/* Missed pill */}
+                      {item.type === 'task' && missedCount > 0 && (
+                        <span style={{ fontSize: 11, fontWeight: 500, background: '#FCEBEB', color: '#A32D2D', borderRadius: 4, padding: '2px 7px' }}>
+                          {missedCount} missed
+                        </span>
+                      )}
+                      {/* Streak pill */}
+                      {item.type === 'task' && taskStreak > 0 && (
+                        <span style={{ fontSize: 11, fontWeight: 500, background: '#EAF3DE', color: '#3B6D11', borderRadius: 4, padding: '2px 7px' }}>
+                          {taskStreak} streak
+                        </span>
+                      )}
+                      {/* Count-based progress pill */}
+                      {item.type === 'task' && (() => {
+                        const cp = getCountBasedProgress(item.id);
+                        if (cp && cp.current < cp.target) {
+                          return (
+                            <span style={{ fontSize: 11, fontWeight: 500, background: '#E6F1FB', color: '#185FA5', borderRadius: 4, padding: '2px 7px' }}>
+                              {cp.current} / {cp.target} {cp.period}
                             </span>
-                          </div>
-                        );
-                      }
-                      // For non-count-based tasks, show missed count
-                      if (missedCount > 0) {
-                        return (
-                          <div className="task-stat-badge missed-badge">
-                            <span className="badge-icon">❌</span>
-                            <span className="badge-text">{missedCount} missed in last 7 days</span>
-                          </div>
-                        );
-                      }
-                      return null;
-                    })()}
-                    {/* Event days until badge */}
-                    {item.type === 'event' && item.daysUntil !== undefined && (
-                      <div className={`task-stat-badge ${item.daysUntil === 0 ? 'event-today-badge' : 'event-upcoming-badge'}`}>
-                        <span className="badge-icon">{item.daysUntil === 0 ? '🎊' : '📅'}</span>
-                        <span className="badge-text">
-                          {item.daysUntil === 0 ? 'Today' : `in ${item.daysUntil} day${item.daysUntil > 1 ? 's' : ''}`}
+                          );
+                        }
+                        return null;
+                      })()}
+                      {/* Event "Today" or "in N days" pill */}
+                      {item.type === 'event' && item.daysUntil !== undefined && (
+                        <span style={{ fontSize: 11, fontWeight: 500, background: '#E6F1FB', color: '#185FA5', borderRadius: 4, padding: '2px 7px' }}>
+                          {item.daysUntil === 0 ? 'Today' : `in ${item.daysUntil}d`}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  /* ── Original card body (all other themes) ── */
+                  <div>
+                    {/* Source Badge (Event/Task) - Top Left */}
+                    {!isReorderMode && (
+                      <div style={{
+                        position: 'absolute',
+                        top: '0.75rem',
+                        left: '0.75rem',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.25rem',
+                        background: item.type === 'event' ? '#ec489915' : '#3b82f615',
+                        border: `1.5px solid ${item.type === 'event' ? '#ec4899' : '#3b82f6'}`,
+                        borderRadius: '12px',
+                        padding: '0.25rem 0.5rem',
+                        fontSize: '0.75rem',
+                        fontWeight: 600,
+                        color: item.type === 'event' ? '#ec4899' : '#3b82f6',
+                        zIndex: 5
+                      }}>
+                        <span>{item.type === 'event' ? '📅' : '✓'}</span>
+                        <span>{item.type === 'event' ? 'Event' : 'Task'}</span>
+                        {((item.type === 'event' && item.event &&
+                           (item.event.frequency === 'yearly' || item.event.frequency === 'custom')) ||
+                          (item.type === 'task' && item.task &&
+                           (['daily', 'weekly', 'monthly', 'count-based', 'interval'].includes(item.task.frequency) ||
+                            (item.task.frequency === 'custom' && !item.task.specificDate)))) && (
+                          <span style={{ fontSize: '0.7rem', marginLeft: '0.15rem' }} title="Recurring">🔄</span>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Priority Badge - Top Right */}
+                    {!isReorderMode && item.weightage >= 7 && !item.task?.onHold && (
+                      <div style={{
+                        position: 'absolute',
+                        top: '0.75rem',
+                        right: '0.75rem',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.25rem',
+                        background: `${getPriorityStyle(item.weightage).badgeColor}15`,
+                        border: `1.5px solid ${getPriorityStyle(item.weightage).badgeColor}`,
+                        borderRadius: '12px',
+                        padding: '0.25rem 0.5rem',
+                        fontSize: '0.75rem',
+                        fontWeight: 700,
+                        color: getPriorityStyle(item.weightage).badgeColor,
+                        zIndex: 5
+                      }}>
+                        <span>{getPriorityStyle(item.weightage).badge}</span>
+                        <span>{getPriorityStyle(item.weightage).badgeText}</span>
+                      </div>
+                    )}
+
+                    {/* Hold Badge */}
+                    {item.task?.onHold && (
+                      <div style={{
+                        position: 'absolute',
+                        top: '0.75rem',
+                        right: '0.75rem',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.25rem',
+                        background: '#f9731615',
+                        border: '1.5px solid #f97316',
+                        borderRadius: '12px',
+                        padding: '0.25rem 0.5rem',
+                        fontSize: '0.75rem',
+                        fontWeight: 600,
+                        color: '#f97316'
+                      }}>
+                        <span>⏸️</span>
+                        <span>On Hold</span>
+                        {item.task.holdEndDate && (
+                          <span style={{ fontSize: '0.7rem', opacity: 0.8 }}>
+                            (until {new Date(item.task.holdEndDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })})
+                          </span>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Category icon */}
+                    <div style={{ fontSize: '2.5rem', textAlign: 'center', marginBottom: '0.5rem' }}>
+                      {getCategoryIcon()}
+                    </div>
+
+                    <div className="task-name">
+                      {item.name}
+                      {item.type === 'event' && item.eventDate && (
+                        <span style={{ fontSize: '0.85em', color: '#6b7280', fontWeight: 'normal', marginLeft: '0.5rem' }}>
+                          ({item.eventDate})
+                        </span>
+                      )}
+                      {item.task?.trackedMetric && (
+                        <span style={{ fontSize: '0.7em', color: '#059669', fontWeight: 600, marginLeft: '0.4rem' }}>
+                          📊 {item.task.trackedMetric.target.toLocaleString()} {item.task.trackedMetric.unit}
+                        </span>
+                      )}
+                    </div>
+
+                    {item.category && (
+                      <div className="task-category">
+                        {item.category}
+                      </div>
+                    )}
+                    {progress && (
+                      <div className="task-progress">
+                        <span className={isCountBasedComplete ? 'progress-complete' : 'progress-pending'}>
+                          {progress.label}
                         </span>
                       </div>
                     )}
+
+                    {/* Stats Badges */}
+                    <div className="task-stats">
+                      {item.type === 'task' && taskStreak > 0 && (
+                        <div className="task-stat-badge streak-badge">
+                          <span className="badge-icon">🔥</span>
+                          <span className="badge-text">{taskStreak} day{taskStreak > 1 ? 's' : ''} streak</span>
+                        </div>
+                      )}
+                      {item.type === 'task' && item.task && (() => {
+                        const countProgress = getCountBasedProgress(item.id);
+                        if (countProgress) {
+                          const isComplete = countProgress.current >= countProgress.target;
+                          if (isComplete) return null;
+                          return (
+                            <div className="task-stat-badge" style={{
+                              background: countProgress.current > 0 ? '#dbeafe' : '#fee2e2',
+                              color: countProgress.current > 0 ? '#1e40af' : '#991b1b'
+                            }}>
+                              <span className="badge-icon">{countProgress.current > 0 ? '📊' : '⏳'}</span>
+                              <span className="badge-text">
+                                {countProgress.current} out of {countProgress.target} done ({countProgress.period})
+                              </span>
+                            </div>
+                          );
+                        }
+                        if (missedCount > 0) {
+                          return (
+                            <div className="task-stat-badge missed-badge">
+                              <span className="badge-icon">❌</span>
+                              <span className="badge-text">{missedCount} missed in last 7 days</span>
+                            </div>
+                          );
+                        }
+                        return null;
+                      })()}
+                      {item.type === 'event' && item.daysUntil !== undefined && (
+                        <div className={`task-stat-badge ${item.daysUntil === 0 ? 'event-today-badge' : 'event-upcoming-badge'}`}>
+                          <span className="badge-icon">{item.daysUntil === 0 ? '🎊' : '📅'}</span>
+                          <span className="badge-text">
+                            {item.daysUntil === 0 ? 'Today' : `in ${item.daysUntil} day${item.daysUntil > 1 ? 's' : ''}`}
+                          </span>
+                        </div>
+                      )}
+                    </div>
                   </div>
-                </div>
-                <div className="task-weightage">
-                  Priority: {item.weightage}/10
-                </div>
+                )}
+                {!isWarmPaper && (
+                  <div className="task-weightage">
+                    Priority: {item.weightage}/10
+                  </div>
+                )}
               </div>
             );
           })}
@@ -2266,9 +2254,12 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
         </div>
       )}
 
+      {/* ── Lower sections — wrapped in 2-col grid for warm-paper desktop ── */}
+      <div className={isWarmPaper ? 'home-lower-section' : ''}>
+
       {/* Upcoming My Lists Section - Collapsible, above Observances */}
       {upcomingTodos.length > 0 && (
-        <div style={{
+        <div className="home-col-left" style={{
           marginTop: '1.5rem',
           borderRadius: isWarmPaper ? '12px' : '1rem',
           overflow: 'hidden',
@@ -2280,38 +2271,45 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
             onClick={() => setIsTodosExpanded(!isTodosExpanded)}
             style={{
               width: '100%',
-              padding: '1rem 1.25rem',
+              padding: isWarmPaper ? '10px 14px' : '1rem 1.25rem',
               background: 'transparent',
               border: 'none',
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
-              gap: '1rem'
+              gap: isWarmPaper ? 8 : '1rem'
             }}
           >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: isWarmPaper ? 8 : '0.75rem', flex: 1 }}>
               {isWarmPaper ? (
-                <span style={{ fontSize: '1rem' }}>📝</span>
+                <span style={{ fontSize: 14 }}>📝</span>
               ) : (
                 <span style={{ fontSize: '1.5rem' }}>📝</span>
               )}
-              <div style={{ textAlign: 'left' }}>
-                <div style={{ fontWeight: isWarmPaper ? 700 : 600, color: isWarmPaper ? '#1a1a1a' : '#92400e', fontSize: isWarmPaper ? '14px' : '1rem' }}>
-                  My Lists
+              {isWarmPaper ? (
+                <span style={{ fontWeight: 700, fontSize: 14, color: '#1a1a1a' }}>My Lists</span>
+              ) : (
+                <div style={{ textAlign: 'left' }}>
+                  <div style={{ fontWeight: 600, color: '#92400e', fontSize: '1rem' }}>My Lists</div>
+                  <div style={{ fontSize: '0.8rem', color: '#b45309' }}>
+                    {isTodosExpanded 
+                      ? `${upcomingTodos.length} due soon or overdue`
+                      : 'Tap to view My Lists'}
+                  </div>
                 </div>
-                <div style={{ fontSize: isWarmPaper ? '11px' : '0.8rem', color: isWarmPaper ? '#666' : '#b45309' }}>
-                  {isTodosExpanded 
-                    ? `${upcomingTodos.length} due soon or overdue`
-                    : 'Tap to view My Lists'}
-                </div>
-              </div>
+              )}
+              {isWarmPaper && upcomingTodos.length > 0 && (
+                <span style={{ fontSize: 11, color: '#A32D2D', fontWeight: 500, marginLeft: 'auto' }}>
+                  {upcomingTodos.length} overdue
+                </span>
+              )}
             </div>
             <span style={{
               transform: isTodosExpanded ? 'rotate(180deg)' : 'rotate(0)',
               transition: 'transform 0.2s',
-              color: isWarmPaper ? '#999' : '#b45309',
-              fontSize: isWarmPaper ? '10px' : '1.25rem'
+              color: isWarmPaper ? '#ccc' : '#b45309',
+              fontSize: isWarmPaper ? 10 : '1.25rem'
             }}>
               ▼
             </span>
@@ -2319,8 +2317,8 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
 
           {isTodosExpanded && (
             <div style={{ 
-              padding: '0 1.25rem 1.25rem', 
-              borderTop: isWarmPaper ? '1.5px solid #1a1a1a' : '1px solid #fcd34d',
+              padding: isWarmPaper ? '0 14px 10px' : '0 1.25rem 1.25rem', 
+              borderTop: isWarmPaper ? '1px solid #E5E3DC' : '1px solid #fcd34d',
               background: isWarmPaper ? '#fff' : 'rgba(255,255,255,0.7)'
             }}>
               {isLoadingTodos ? (
@@ -2437,7 +2435,7 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
 
       {/* Dashboard Comments Section - Collapsible */}
       {dashboardComments.length > 0 && (
-        <div style={{
+        <div className="home-col-left" style={{
           marginTop: isWarmPaper ? '0.75rem' : '1.5rem',
           borderRadius: isWarmPaper ? '12px' : '1rem',
           overflow: 'hidden',
@@ -2449,7 +2447,7 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
             onClick={() => setIsCommentsExpanded(!isCommentsExpanded)}
             style={{
               width: '100%',
-              padding: isWarmPaper ? '14px 18px' : '1rem 1.25rem',
+              padding: isWarmPaper ? '10px 14px' : '1rem 1.25rem',
               background: 'transparent',
               border: 'none',
               cursor: 'pointer',
@@ -2461,30 +2459,35 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
               fontSize: isWarmPaper ? '14px' : '1rem'
             }}
           >
-            <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: isWarmPaper ? 8 : '0.5rem', flex: 1 }}>
               {isWarmPaper ? (
-                <span style={{ fontSize: '1rem' }}>💬</span>
+                <span style={{ fontSize: 14 }}>💬</span>
               ) : '💬'}
-              <span>Comments & Messages</span>
-              {/* CrispPaper: count badge → outlined, not filled */}
-              <span style={{
-                padding: isWarmPaper ? '0.1rem 0.4rem' : '0.25rem 0.5rem',
-                background: isWarmPaper ? 'transparent' : '#3b82f6',
-                color: isWarmPaper ? '#1a1a1a' : 'white',
-                border: isWarmPaper ? '1.5px solid #1a1a1a' : 'none',
-                borderRadius: isWarmPaper ? '4px' : '12px',
-                fontSize: isWarmPaper ? '0.65rem' : '0.75rem',
-                fontWeight: 700
-              }}>
-                {dashboardComments.length}
-              </span>
+              <span style={{ fontWeight: isWarmPaper ? 700 : undefined, fontSize: isWarmPaper ? 14 : undefined }}>Comments</span>
+              {isWarmPaper ? (
+                <span style={{ fontSize: 11, color: '#185FA5', fontWeight: 500, marginLeft: 'auto' }}>
+                  {dashboardComments.length} new
+                </span>
+              ) : (
+                <span style={{
+                  padding: '0.25rem 0.5rem',
+                  background: '#3b82f6',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '12px',
+                  fontSize: '0.75rem',
+                  fontWeight: 700
+                }}>
+                  {dashboardComments.length}
+                </span>
+              )}
             </span>
             <span style={{
               display: 'inline-block',
               transform: isCommentsExpanded ? 'rotate(180deg)' : 'rotate(0)',
               transition: 'transform 0.2s',
-              color: isWarmPaper ? '#999' : '#1e40af',
-              fontSize: isWarmPaper ? '10px' : '1.25rem'
+              color: isWarmPaper ? '#ccc' : '#1e40af',
+              fontSize: isWarmPaper ? 10 : '1.25rem'
             }}>
               ▼
             </span>
@@ -2493,7 +2496,7 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
           {isCommentsExpanded && (
             <div style={{ 
               padding: '0 1.25rem 1.25rem', 
-              borderTop: isWarmPaper ? '1.5px solid #1a1a1a' : '1px solid #93c5fd',
+              borderTop: isWarmPaper ? '1px solid #E5E3DC' : '1px solid #93c5fd',
               background: isWarmPaper ? '#fff' : 'rgba(255,255,255,0.7)'
             }}>
               {isLoadingComments ? (
@@ -2607,8 +2610,14 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
         </div>
       )}
 
+      {isWarmPaper && (
+        <div style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase' as const, letterSpacing: '0.08em', color: '#bbb', marginTop: 12, paddingLeft: 2 }}>
+          At a glance
+        </div>
+      )}
+
       {/* Reference Calendar Days Section - Collapsible, loads on expand */}
-      <div style={{
+      <div className="home-col-right home-widget-observances" style={{
         marginTop: '1.5rem',
         borderRadius: isWarmPaper ? '12px' : '1rem',
         overflow: 'hidden',
@@ -2621,7 +2630,7 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
           onClick={() => setIsObservancesExpanded(!isObservancesExpanded)}
           style={{
             width: '100%',
-            padding: '1rem 1.25rem',
+            padding: isWarmPaper ? '10px 14px' : '1rem 1.25rem',
             background: 'transparent',
             border: 'none',
             cursor: 'pointer',
@@ -2631,26 +2640,35 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
             gap: '1rem'
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: isWarmPaper ? 8 : '0.75rem', flex: 1 }}>
             {isWarmPaper ? (
-              <span style={{ fontSize: '1rem' }}>📅</span>
+              <span style={{ fontSize: 14 }}>📅</span>
             ) : (
               <span style={{ fontSize: '1.5rem' }}>📅</span>
             )}
-            <div style={{ textAlign: 'left' }}>
-              <div style={{ fontWeight: isWarmPaper ? 700 : 600, color: isWarmPaper ? '#1a1a1a' : '#3730a3', fontSize: isWarmPaper ? '14px' : '1rem' }}>
-                Upcoming Observances
+            {isWarmPaper ? (
+              <span style={{ fontWeight: 700, fontSize: 14, color: '#1a1a1a' }}>Upcoming</span>
+            ) : (
+              <div style={{ textAlign: 'left' }}>
+                <div style={{ fontWeight: 600, color: '#3730a3', fontSize: '1rem' }}>
+                  Upcoming Observances
+                </div>
+                <div style={{ fontSize: '0.8rem', color: '#4f46e5' }}>
+                  {isObservancesExpanded 
+                    ? (observancesLoaded 
+                        ? (referenceCalendarDays.length > 0 
+                            ? `${referenceCalendarDays.length} in next year` 
+                            : 'None in next year')
+                        : 'Loading...')
+                    : 'Tap to view holidays & special days'}
+                </div>
               </div>
-              <div style={{ fontSize: isWarmPaper ? '11px' : '0.8rem', color: isWarmPaper ? '#666' : '#4f46e5' }}>
-                {isObservancesExpanded 
-                  ? (observancesLoaded 
-                      ? (referenceCalendarDays.length > 0 
-                          ? `${referenceCalendarDays.length} in next year` 
-                          : 'None in next year')
-                      : 'Loading...')
-                  : 'Tap to view holidays & special days'}
-              </div>
-            </div>
+            )}
+            {isWarmPaper && observancesLoaded && referenceCalendarDays.length > 0 && (
+              <span style={{ fontSize: 11, color: '#185FA5', fontWeight: 500, marginLeft: 'auto' }}>
+                {referenceCalendarDays.length} soon
+              </span>
+            )}
           </div>
           <span style={{
             transform: isObservancesExpanded ? 'rotate(180deg)' : 'rotate(0)',
@@ -2665,8 +2683,8 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
         {/* Expanded Content */}
         {isObservancesExpanded && (
           <div style={{ 
-            padding: '0 1.25rem 1.25rem', 
-            borderTop: isWarmPaper ? '1.5px solid #1a1a1a' : '1px solid #a5b4fc',
+            padding: isWarmPaper ? '0 14px 10px' : '0 1.25rem 1.25rem', 
+            borderTop: isWarmPaper ? '1px solid #E5E3DC' : '1px solid #a5b4fc',
             background: isWarmPaper ? '#fff' : 'rgba(255,255,255,0.7)'
           }}>
             {/* Loading state */}
@@ -2698,24 +2716,36 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
 
             {/* Observances list */}
             {!isLoadingObservances && referenceCalendarDays.length > 0 && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginTop: '1rem' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: isWarmPaper ? 0 : '0.75rem', marginTop: isWarmPaper ? 6 : '1rem' }}>
                 {referenceCalendarDays.slice(0, 5).map(day => {
                   const isToday = day.date === selectedDate;
                   const dayDate = new Date(day.date + 'T00:00:00');
                   const daysUntil = Math.ceil((dayDate.getTime() - new Date(selectedDate + 'T00:00:00').getTime()) / (1000 * 60 * 60 * 24));
                   
-                  return (
+                  return isWarmPaper ? (
                     <div
                       key={day.id}
                       onClick={async () => {
-                        // Check for enriched data BEFORE opening modal
                         const identifier = await findEnrichmentByNameAndDate(day.eventName, day.date);
-                        if (identifier) {
-                          (day as any)._enrichmentIdentifier = identifier;
-                          setHasEnrichedObservanceData(true);
-                        } else {
-                          setHasEnrichedObservanceData(false);
-                        }
+                        if (identifier) { (day as any)._enrichmentIdentifier = identifier; setHasEnrichedObservanceData(true); } else { setHasEnrichedObservanceData(false); }
+                        setSelectedObservance(day);
+                      }}
+                      style={{
+                        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                        padding: '8px 0', borderBottom: '1px solid #f0ede8', cursor: 'pointer',
+                      }}
+                    >
+                      <span style={{ fontSize: 13, fontWeight: 500, color: '#1a1a1a' }}>{day.eventName}</span>
+                      <span style={{ fontSize: 11, color: isToday ? '#185FA5' : '#999', fontWeight: isToday ? 600 : 400, whiteSpace: 'nowrap' as const, marginLeft: 8 }}>
+                        {isToday ? 'Today' : daysUntil > 0 ? `in ${daysUntil}d` : ''}
+                      </span>
+                    </div>
+                  ) : (
+                    <div
+                      key={day.id}
+                      onClick={async () => {
+                        const identifier = await findEnrichmentByNameAndDate(day.eventName, day.date);
+                        if (identifier) { (day as any)._enrichmentIdentifier = identifier; setHasEnrichedObservanceData(true); } else { setHasEnrichedObservanceData(false); }
                         setSelectedObservance(day);
                       }}
                       style={{
@@ -2809,114 +2839,81 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
         )}
       </div>
 
-      <ResolutionProgressWidget />
+      <div className="home-col-right home-widget-resolutions"><ResolutionProgressWidget /></div>
 
-      <FinancialAlertsWidget onNavigateToSafe={() => onNavigate('safe')} />
+      <div className="home-col-right home-widget-financial"><FinancialAlertsWidget onNavigateToSafe={() => onNavigate('safe')} /></div>
 
-      <WeatherWidget />
+      <div className="home-col-right home-widget-weather"><WeatherWidget /></div>
+      <div className="home-col-right home-widget-astro"><AstroWidget /></div>
+      <div className="home-col-right home-widget-cosmic">
+        <CosmicDayPlanner
+          tasks={items.filter(i => i.type === 'task' && i.task).map(i => i.task!)}
+          events={items.filter(i => i.type === 'event' && i.event).map(i => ({ event: i.event!, isToday: i.daysUntil === 0 }))}
+          completedTaskIds={new Set(items.filter(i => i.type === 'task' && i.isCompleted).map(i => i.id))}
+        />
+      </div>
+      <div className="home-col-right home-widget-natal-chart"><NatalChartVisual /></div>
+      <div className="home-col-right home-widget-transits"><TransitsWidget /></div>
+      <div className="home-col-right home-widget-vedic"><VedicAstroWidget /></div>
+
+      </div>{/* end home-lower-section */}
 
       {/* Mobile Action Buttons - shown only on mobile after weather */}
       <div className="mobile-action-buttons" style={{
         display: 'none',
         flexWrap: 'wrap',
-        gap: '0.625rem',
+        gap: isWarmPaper ? 6 : '0.625rem',
         marginTop: '1rem',
-        padding: '0.875rem',
+        padding: isWarmPaper ? '8px' : '0.875rem',
         background: 'white',
-        borderRadius: '1rem',
+        borderRadius: isWarmPaper ? 8 : '1rem',
         justifyContent: 'center',
-        boxShadow: '0 2px 12px rgba(0,0,0,0.08)'
+        boxShadow: isWarmPaper ? 'none' : '0 2px 12px rgba(0,0,0,0.08)',
+        border: isWarmPaper ? '0.5px solid #E0DDD6' : undefined,
       }}>
-        <button
-          onClick={() => setViewMode(viewMode === 'dashboard' ? 'monthly' : 'dashboard')}
-          style={{ 
-            display: 'flex', 
-            alignItems: 'center', 
-            gap: '0.375rem', 
-            padding: '0.625rem 1rem', 
-            fontSize: '0.8rem',
-            fontWeight: 600,
-            background: 'white',
-            color: '#374151',
-            border: '1.5px solid #e5e7eb',
-            borderRadius: '2rem',
-            boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
+        {(() => {
+          const mobileBtnBase: React.CSSProperties = isWarmPaper ? {
+            display: 'inline-flex', alignItems: 'center', gap: 4,
+            padding: '4px 10px', fontSize: 11, fontWeight: 500,
+            background: 'transparent', color: '#888',
+            border: '0.5px solid #E0DDD6', borderRadius: 6,
             cursor: 'pointer',
-            transition: 'all 0.15s ease'
-          }}
-        >
-          <span style={{ fontSize: '1rem' }}>{viewMode === 'dashboard' ? '📅' : '🏠'}</span>
-          <span>{viewMode === 'dashboard' ? 'Monthly' : 'Dashboard'}</span>
-        </button>
-        <button 
-          onClick={() => setShowProgressAndReview(true)}
-          style={{ 
-            display: 'flex', 
-            alignItems: 'center', 
-            gap: '0.375rem', 
-            padding: '0.625rem 1rem', 
-            fontSize: '0.8rem',
-            fontWeight: 600,
-            background: 'white',
-            color: '#374151',
-            border: '1.5px solid #e5e7eb',
-            borderRadius: '2rem',
-            boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
-            cursor: 'pointer',
-            transition: 'all 0.15s ease'
-          }}
-        >
-          <span style={{ fontSize: '1rem' }}>📊</span>
-          <span>Progress</span>
-        </button>
-        <button
-          onClick={async () => {
-            await loadAIInsights();
-            const prompt = await buildOpenAIPrompt();
-            setOpenAIPromptText(prompt);
-            setShowOpenAIPrompt(true);
-          }}
-          style={{ 
-            display: 'flex', 
-            alignItems: 'center', 
-            gap: '0.375rem',
-            padding: '0.625rem 1rem',
-            fontSize: '0.8rem',
-            fontWeight: 600,
-            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-            color: 'white',
-            border: 'none',
-            borderRadius: '2rem',
-            boxShadow: '0 2px 8px rgba(102, 126, 234, 0.35)',
-            cursor: 'pointer',
-            transition: 'all 0.15s ease'
-          }}
-        >
-          <span style={{ fontSize: '1rem' }}>🤖</span>
-          <span>AI</span>
-          {aiInsight && <span style={{ marginLeft: '0.125rem' }}>💡</span>}
-        </button>
-        <button 
-          onClick={() => setShowBulkHoldModal(true)}
-          style={{ 
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.375rem',
-            padding: '0.625rem 1rem',
-            fontSize: '0.8rem',
-            fontWeight: 600,
-            background: 'white',
-            color: '#f97316',
-            border: '1.5px solid #f97316',
-            borderRadius: '2rem',
-            boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
-            cursor: 'pointer',
-            transition: 'all 0.15s ease'
-          }}
-        >
-          <span style={{ fontSize: '1rem' }}>⏸️</span>
-          <span>Hold</span>
-        </button>
+          } : {
+            display: 'flex', alignItems: 'center', gap: '0.375rem',
+            padding: '0.625rem 1rem', fontSize: '0.8rem', fontWeight: 600,
+            background: 'white', color: '#374151',
+            border: '1.5px solid #e5e7eb', borderRadius: '2rem',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.06)', cursor: 'pointer',
+          };
+          return (
+            <>
+              <button onClick={() => setViewMode(viewMode === 'dashboard' ? 'monthly' : 'dashboard')} style={mobileBtnBase}>
+                {!isWarmPaper && <span style={{ fontSize: '1rem' }}>{viewMode === 'dashboard' ? '📅' : '🏠'}</span>}
+                <span>{viewMode === 'dashboard' ? 'Monthly' : 'Dashboard'}</span>
+              </button>
+              <button onClick={() => setShowProgressAndReview(true)} style={mobileBtnBase}>
+                {!isWarmPaper && <span style={{ fontSize: '1rem' }}>📊</span>}
+                <span>Progress</span>
+              </button>
+              <button onClick={async () => { await loadAIInsights(); const prompt = await buildOpenAIPrompt(); setOpenAIPromptText(prompt); setShowOpenAIPrompt(true); }}
+                style={isWarmPaper ? { ...mobileBtnBase } : {
+                  ...mobileBtnBase, background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                  color: 'white', border: 'none', boxShadow: '0 2px 8px rgba(102, 126, 234, 0.35)',
+                }}>
+                {!isWarmPaper && <span style={{ fontSize: '1rem' }}>🤖</span>}
+                <span>AI</span>
+                {aiInsight && <span style={{ marginLeft: 2 }}>💡</span>}
+              </button>
+              <button onClick={() => setShowBulkHoldModal(true)}
+                style={isWarmPaper ? { ...mobileBtnBase } : {
+                  ...mobileBtnBase, color: '#f97316', border: '1.5px solid #f97316',
+                }}>
+                {!isWarmPaper && <span style={{ fontSize: '1rem' }}>⏸️</span>}
+                <span>Hold</span>
+              </button>
+            </>
+          );
+        })()}
       </div>
 
       {/* Observance Details Modal */}

@@ -1,9 +1,9 @@
 import React from "react";
-import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
 import type { Deposit, Currency } from "../../types/bankRecords";
 import type { BankDashboardTheme } from "../../bank/bankDashboardTheme";
 import { daysUntil, fmt, fmtDate, getBankColor } from "../../bank/bankDashboardFormat";
 import { UrgencyBadge, inputSt } from "./BankDashboardPrimitives";
+import { BankDonutBarChart, type ChartSlice } from "./BankChartWidgets";
 
 export type DepositsPieSlice = { name: string; value: number; color: string };
 
@@ -24,6 +24,8 @@ export interface BankDepositsTabProps {
   showLegend: Set<string>;
   setShowLegend: React.Dispatch<React.SetStateAction<Set<string>>>;
   typePieData: DepositsPieSlice[];
+  depositsBankViz: 'donut' | 'bars';
+  setDepositsBankViz: (m: 'donut' | 'bars') => void;
   openAdd: (t: string) => void;
   openEdit: (t: string, i: number) => void;
   deleteRow: (t: string, i: number) => void;
@@ -47,6 +49,8 @@ export function BankDepositsTab({
   showLegend,
   setShowLegend,
   typePieData,
+  depositsBankViz,
+  setDepositsBankViz,
   openAdd,
   openEdit,
   deleteRow,
@@ -56,10 +60,11 @@ export function BankDepositsTab({
   const groupedDeps: Record<string, { deps: typeof filtered; indices: number[]; total: number }> = {};
   filtered.forEach((d) => {
     const origIdx = deposits.indexOf(d);
-    if (!groupedDeps[d.bank]) groupedDeps[d.bank] = { deps: [], indices: [], total: 0 };
-    groupedDeps[d.bank].deps.push(d);
-    groupedDeps[d.bank].indices.push(origIdx);
-    groupedDeps[d.bank].total += Number(d.deposit) || 0;
+    const bankKey = (d.bank || '').trim() || (d.depositId || '').trim() || (d.type || '').trim() || 'Unnamed';
+    if (!groupedDeps[bankKey]) groupedDeps[bankKey] = { deps: [], indices: [], total: 0 };
+    groupedDeps[bankKey].deps.push(d);
+    groupedDeps[bankKey].indices.push(origIdx);
+    groupedDeps[bankKey].total += Number(d.deposit) || 0;
   });
   // Sort by total deposited amount (highest first)
   const depBankNames = Object.keys(groupedDeps).sort((a, b) => groupedDeps[b].total - groupedDeps[a].total);
@@ -115,7 +120,8 @@ export function BankDepositsTab({
               {filtered.map((d, idx) => {
                 const origIdx = deposits.indexOf(d);
                 const days = daysUntil(d.maturityDate);
-                const color = getBankColor(d.bank);
+                const bankLabel = (d.bank || '').trim() || d.depositId || d.type || 'Unnamed';
+                const color = getBankColor(bankLabel);
                 const urgency = days === null ? "none" : days < 0 ? "expired" : days <= 7 ? "urgent" : days <= 30 ? "soon" : "none";
                 return (
                   <div 
@@ -130,7 +136,7 @@ export function BankDepositsTab({
                   >
                     <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:10}}>
                       <div>
-                        <div style={{fontSize:15,fontWeight:700,color:THEME.text}}>{d.bank}</div>
+                        <div style={{fontSize:15,fontWeight:700,color:THEME.text}}>{(d.bank || '').trim() || d.depositId || d.type || 'Unnamed'}</div>
                         <div style={{fontSize:11,color:"#6B7280",marginTop:2}}>{d.type || "FD"} {d.depositId && `• ${d.depositId}`}</div>
                       </div>
                       {days !== null && !d.done && (
@@ -450,7 +456,7 @@ export function BankDepositsTab({
                     <div style={{display:"flex",alignItems:"center",gap:10}}>
                       <span style={{fontSize:10,color:"#6B7280",transition:"transform 0.2s",transform:isExpanded?"rotate(90deg)":"rotate(0deg)"}}>▶</span>
                       <div>
-                        <div style={{fontSize:14,fontWeight:700,color:"#F3F4F6"}}>{bankName}</div>
+                        <div style={{fontSize:14,fontWeight:700,color:THEME.text}}>{bankName}</div>
                         <div style={{fontSize:10,color:THEME.textLight}}>{bankDeps.length} FD{bankDeps.length > 1 ? "s" : ""}</div>
                       </div>
                     </div>
@@ -533,58 +539,22 @@ export function BankDepositsTab({
         <div style={{background:THEME.cardBgAlt,borderRadius:8,padding:"8px 14px",border:`1px solid ${THEME.border}`,fontSize:11}}>Maturity: <strong style={{fontFamily:"monospace",color:THEME.accent}}>{fmt(filtered.reduce((s, d) => s + (Number(d.maturityAmt) || Number(d.deposit) || 0), 0))}</strong></div>
       </div>
 
-      {/* By Bank Chart - Below data */}
-      <div style={{background:THEME.cardBg,borderRadius:12,border:`1px solid ${THEME.border}`,padding:14,marginTop:16}}>
-        <div style={{fontSize:12,fontWeight:700,color:THEME.textLight,marginBottom:10}}>🏦 Deposits by Bank</div>
-        {typePieData.length === 0 ? (
-          <div style={{color:THEME.textMuted,padding:20,textAlign:"center"}}>No data</div>
-        ) : (
-          <>
-            <ResponsiveContainer width="100%" height={160}>
-              <PieChart>
-                <Pie 
-                  data={typePieData} 
-                  cx="50%" 
-                  cy="50%" 
-                  outerRadius={60} 
-                  paddingAngle={3} 
-                  dataKey="value"
-                  label={({name, percent}) => `${name.slice(0, 8)} ${(percent * 100).toFixed(0)}%`}
-                  labelLine={false}
-                >
-                  {typePieData.map((e, i) => <Cell key={i} fill={e.color} stroke="#111827" strokeWidth={2} />)}
-                </Pie>
-                <Tooltip 
-                  formatter={(v: number) => fmt(v)} 
-                  contentStyle={{background:THEME.cardBgAlt,border:`1px solid ${THEME.border}`,borderRadius:8,fontSize:12}} 
-                />
-              </PieChart>
-            </ResponsiveContainer>
-            <button 
-              onClick={() => setShowLegend(prev => prev.has('dep_type') ? new Set([...prev].filter(k => k !== 'dep_type')) : new Set([...prev, 'dep_type']))}
-              style={{marginTop:6,background:THEME.cardBgAlt,border:`1px solid ${THEME.border}`,color:THEME.textLight,padding:"4px 12px",borderRadius:6,fontSize:11,cursor:"pointer",display:"flex",alignItems:"center",gap:6}}
-            >
-              <span style={{fontSize:10,transition:"transform 0.2s",transform:showLegend.has('dep_type')?"rotate(90deg)":"rotate(0deg)"}}>▶</span>
-              Legend ({typePieData.length})
-            </button>
-            {showLegend.has('dep_type') && (
-              <div style={{display:"flex",flexWrap:"wrap",gap:6,marginTop:8}}>
-                {typePieData.map((e, i) => {
-                  const total = typePieData.reduce((s, x) => s + x.value, 0);
-                  const pct = total ? (e.value / total) * 100 : 0;
-                  return (
-                    <div key={i} style={{display:"flex",alignItems:"center",gap:4,fontSize:11,background:THEME.cardBgAlt,padding:"3px 8px",borderRadius:12}}>
-                      <div style={{width:8,height:8,borderRadius:"50%",background:e.color}} />
-                      <span style={{color:"#D1D5DB"}}>{e.name}</span>
-                      <span style={{color:e.color,fontWeight:600}}>{fmt(e.value)}</span>
-                      <span style={{color:THEME.textLight,fontSize:10}}>({pct.toFixed(1)}%)</span>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </>
-        )}
+      {/* By Bank Chart - shared Donut / Bar widget */}
+      <div style={{marginTop:16}}>
+        <BankDonutBarChart
+          theme={THEME}
+          data={typePieData as ChartSlice[]}
+          vizMode={depositsBankViz}
+          setVizMode={setDepositsBankViz}
+          currency="INR"
+          title="🏦 Deposits by Bank"
+          subtitle={`${typePieData.length} banks · invested amounts`}
+          isMobile={isMobile}
+          showLabels
+          legendKey="dep_bank_chart"
+          showLegend={showLegend}
+          setShowLegend={setShowLegend}
+        />
       </div>
       </>
       )}

@@ -715,7 +715,7 @@ const AppContent: React.FC = () => {
       {showGiftCardsModal && (
         <div className="modal-overlay active" onClick={() => setShowGiftCardsModal(false)}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <GiftCardsModal onClose={() => setShowGiftCardsModal(false)} />
+            <GiftCardsModal onClose={() => setShowGiftCardsModal(false)} onNavigate={(v) => { setShowGiftCardsModal(false); handleNavigate(v); }} />
           </div>
         </div>
       )}
@@ -724,7 +724,7 @@ const AppContent: React.FC = () => {
       {showMilestonesModal && (
         <div className="modal-overlay active" onClick={() => setShowMilestonesModal(false)}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <MilestonesModal onClose={() => setShowMilestonesModal(false)} />
+            <MilestonesModal onClose={() => setShowMilestonesModal(false)} onNavigate={(v) => { setShowMilestonesModal(false); handleNavigate(v); }} />
           </div>
         </div>
       )}
@@ -733,7 +733,7 @@ const AppContent: React.FC = () => {
       {showPinnedModal && (
         <div className="modal-overlay active" onClick={() => setShowPinnedModal(false)}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <PinnedModal onClose={() => setShowPinnedModal(false)} />
+            <PinnedModal onClose={() => setShowPinnedModal(false)} onNavigate={(v) => { setShowPinnedModal(false); handleNavigate(v); }} />
           </div>
         </div>
       )}

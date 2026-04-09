@@ -48,19 +48,19 @@ export function BankTimelineTab({
             const isPast = days !== null && days < 0;
             const isDone = d.done;
             const color = getBankColor(d.bank);
-            const dotColor = isDone ? "#22c55e" : isPast ? THEME.textMuted : color;
+            const dotColor = isDone ? "#22c55e" : isPast ? "#DC2626" : color;
             const depCur = (d.currency || "INR") as Currency;
             const rowBg = isDone
               ? "rgba(34,197,94,0.08)"
               : isPast
-                ? `${THEME.cardBg}`
+                ? "rgba(239,68,68,0.06)"
                 : days != null && days <= 90
                   ? "rgba(239,68,68,0.07)"
                   : THEME.cardBg;
             const cardBorder = isDone
               ? "rgba(34,197,94,0.45)"
               : isPast
-                ? THEME.border
+                ? "rgba(220,38,38,0.4)"
                 : days != null && days <= 90
                   ? "rgba(239,68,68,0.35)"
                   : THEME.border;
@@ -140,6 +140,19 @@ export function BankTimelineTab({
                       </span>
                       {depCur !== "INR" && <span style={{ fontSize: 10, color: THEME.textMuted, fontWeight: 600 }}>{depCur}</span>}
                       {isDone && <span style={{ fontSize: 11, color: "#15803d", fontWeight: 700 }}>✓ Done</span>}
+                      {isPast && !isDone && (
+                        <span style={{
+                          fontSize: 10,
+                          fontWeight: 700,
+                          color: "#fff",
+                          background: "#DC2626",
+                          padding: "2px 8px",
+                          borderRadius: 4,
+                          whiteSpace: "nowrap",
+                        }}>
+                          {days !== null ? `${Math.abs(days)}d OVERDUE` : "OVERDUE"}
+                        </span>
+                      )}
                     </div>
                     <div style={{ fontSize: 12, color: THEME.textMuted, marginTop: 4 }}>
                       {[d.nominee, d.roi ? `${(Number(d.roi) * 100).toFixed(2)}% pa` : "", d.duration || ""].filter(Boolean).join(" · ")}

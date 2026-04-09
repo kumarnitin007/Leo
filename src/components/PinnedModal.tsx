@@ -6,9 +6,10 @@ import { Task, Event } from '../types';
 
 interface PinnedModalProps {
   onClose: () => void;
+  onNavigate?: (view: string) => void;
 }
 
-const PinnedModal: React.FC<PinnedModalProps> = ({ onClose }) => {
+const PinnedModal: React.FC<PinnedModalProps> = ({ onClose, onNavigate }) => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [events, setEvents] = useState<Event[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -58,11 +59,31 @@ const PinnedModal: React.FC<PinnedModalProps> = ({ onClose }) => {
           <p>Loading pinned items...</p>
         </div>
       ) : tasks.length === 0 && events.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: '2rem' }}>
-          <p style={{ color: '#6b7280', fontSize: '1.1rem' }}>No pinned items yet. Tag tasks or events with "Pinned" to see them here.</p>
+        <div style={{ textAlign: 'center', padding: '2rem 1.5rem' }}>
+          <div style={{ fontSize: 40, marginBottom: 12 }}>📌</div>
+          <p style={{ color: '#6b7280', fontSize: '1rem', lineHeight: 1.6, marginBottom: 16 }}>
+            No pinned items yet. To pin something, go to <strong>Tasks &amp; Events</strong> and add (or edit) a task or event — then assign the tag <strong>"pinned"</strong>. Pinned items stay visible on your dashboard until completed.
+          </p>
+          {onNavigate && (
+            <button
+              onClick={() => { onClose(); onNavigate('tasks-events'); }}
+              style={{
+                background: '#1a1a1a', color: '#fff', border: 'none', borderRadius: 8,
+                padding: '10px 20px', fontSize: 13, fontWeight: 600, cursor: 'pointer',
+              }}
+            >
+              + Create in Tasks &amp; Events
+            </button>
+          )}
         </div>
       ) : (
         <div className="giftcards-grid">
+          <div style={{ padding: '8px 12px', marginBottom: 8, background: '#f9f9f6', borderRadius: 8, border: '1px dashed #d5d3cc', fontSize: 12, color: '#888', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+            <span>Tag any task or event with <strong>"pinned"</strong> to track it here.</span>
+            {onNavigate && (
+              <button onClick={() => { onClose(); onNavigate('tasks-events'); }} style={{ background: 'none', border: '1px solid #ccc', borderRadius: 6, padding: '4px 10px', fontSize: 11, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap', color: '#555' }}>+ Add</button>
+            )}
+          </div>
           {tasks.map((t: any) => (
             <div key={t.id} className="giftcard-item" style={{ borderLeft: `6px solid ${t.color || '#667eea'}` }}>
               <div className="giftcard-header">
