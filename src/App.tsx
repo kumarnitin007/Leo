@@ -706,7 +706,9 @@ const AppContent: React.FC = () => {
       {showTimerModal && (
         <div className="modal-overlay active" onClick={() => setShowTimerModal(false)}>
           <div className="modal timer-modal" onClick={(e) => e.stopPropagation()}>
-            <TimerView key={`timer-${key}`} onClose={() => setShowTimerModal(false)} />
+            <Suspense fallback={<ViewLoader />}>
+              <TimerView key={`timer-${key}`} onClose={() => setShowTimerModal(false)} />
+            </Suspense>
           </div>
         </div>
       )}

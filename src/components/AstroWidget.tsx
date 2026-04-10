@@ -129,7 +129,7 @@ const AstroWidget: React.FC = () => {
 
       // Sequential to avoid hitting rate limits
       if (!natalData) {
-        const r = await fetch('/api/astro-natal', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(bd) });
+        const r = await fetch('/api/astro?action=natal', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(bd) });
         if (!r.ok) throw new Error(`Natal chart: ${r.status}`);
         const d = await r.json();
         setNatalData(d);
@@ -138,7 +138,7 @@ const AstroWidget: React.FC = () => {
 
       if (!dailyData) {
         const today = new Date().toISOString().slice(0, 10);
-        const r = await fetch('/api/astro-daily', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...bd, date: today }) });
+        const r = await fetch('/api/astro?action=daily', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...bd, date: today }) });
         if (!r.ok) throw new Error(`Daily horoscope: ${r.status}`);
         const d = await r.json();
         setDailyData(d);
@@ -150,7 +150,7 @@ const AstroWidget: React.FC = () => {
         moonAttempted.current = true;
         try {
           const city = bd.city || '';
-          const r = await fetch(`/api/astro-moon?city=${encodeURIComponent(city)}`);
+          const r = await fetch(`/api/astro?action=moon&city=${encodeURIComponent(city)}`);
           if (r.ok) {
             const d = await r.json();
             setMoonData(d);

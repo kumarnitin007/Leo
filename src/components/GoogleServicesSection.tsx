@@ -7,6 +7,7 @@
 
 import React, { useState, lazy, Suspense } from 'react';
 import { useGoogleAuth } from '../integrations/google';
+import { hasFitScopes } from '../integrations/google/GoogleAuthManager';
 import { useGoogleContacts } from '../integrations/google/hooks/useGoogleContacts';
 import { useAuth } from '../contexts/AuthContext';
 import { createContactEvents } from '../integrations/google/services/ContactEventsService';
@@ -19,6 +20,7 @@ const GoogleServicesSection: React.FC = () => {
     loading,
     isFitConnected,
     isContactsConnected,
+    tokenExpired,
     connectService,
     disconnectGoogle,
     tokens,
@@ -68,7 +70,15 @@ const GoogleServicesSection: React.FC = () => {
     }
   };
 
+  const hasTokens = !!tokens;
   const isAnyConnected = isFitConnected || isContactsConnected;
+  const headerStatus = loading
+    ? 'Checking connection...'
+    : tokenExpired && hasTokens
+    ? 'Token expired — reconnect needed'
+    : isAnyConnected
+    ? `Connected — ${tokens?.scopesGranted?.length || 0} scope(s)`
+    : 'Not connected';
 
   return (
     <div style={{
@@ -77,7 +87,9 @@ const GoogleServicesSection: React.FC = () => {
       overflow: 'hidden',
       marginBottom: '1.5rem',
       boxShadow: '0 2px 12px rgba(0,0,0,0.08)',
-      border: isAnyConnected ? '2px solid #10B98140' : '2px solid #E5E7EB',
+      border: tokenExpired && hasTokens
+        ? '2px solid #EF444440'
+        : isAnyConnected ? '2px solid #10B98140' : '2px solid #E5E7EB',
     }}>
       {/* Section Header */}
       <button
@@ -88,7 +100,9 @@ const GoogleServicesSection: React.FC = () => {
           alignItems: 'center',
           justifyContent: 'space-between',
           padding: '1rem 1.25rem',
-          background: isAnyConnected
+          background: tokenExpired && hasTokens
+            ? 'linear-gradient(135deg, #FEF2F2 0%, #FEE2E2 100%)'
+            : isAnyConnected
             ? 'linear-gradient(135deg, #F0FDF4 0%, #ECFDF5 100%)'
             : '#F9FAFB',
           border: 'none',
@@ -102,10 +116,8 @@ const GoogleServicesSection: React.FC = () => {
             <div style={{ fontSize: 15, fontWeight: 700, color: '#111827' }}>
               Google Services
             </div>
-            <div style={{ fontSize: 11, color: '#6B7280', marginTop: 2 }}>
-              {loading ? 'Checking connection...' :
-               isAnyConnected ? `Connected — ${tokens?.scopesGranted?.length || 0} scope(s)` :
-               'Not connected'}
+            <div style={{ fontSize: 11, color: tokenExpired ? '#EF4444' : '#6B7280', marginTop: 2 }}>
+              {headerStatus}
             </div>
           </div>
         </div>
@@ -117,7 +129,92 @@ const GoogleServicesSection: React.FC = () => {
 
       {expanded && (
         <div style={{ padding: '0 1.25rem 1.25rem' }}>
+          {/* Token expired warning */}
+          {tokenExpired && tokens && (
+            <div style={{
+              margin: '12px 0 0',
+              padding: '10px 14px',
+              borderRadius: 10,
+              background: '#FEF2F2',
+              border: '1px solid #FECACA',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 10,
+            }}>
+              <span style={{ fontSize: 18 }}>⚠️</span>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: '#991B1B' }}>
+                  Google token expired or revoked
+                </div>
+                <div style={{ fontSize: 11, color: '#B91C1C', marginTop: 2 }}>
+                  Your Google session has expired. Please reconnect to restore services.
+                </div>
+              </div>
+              <button
+                onClick={() => connectService('fit')}
+                style={{
+                  padding: '6px 14px', fontSize: 12, fontWeight: 600,
+                  background: '#4285F4', color: 'white', border: 'none',
+                  borderRadius: 8, cursor: 'pointer', whiteSpace: 'nowrap',
+                }}
+              >Reconnect</button>
+            </div>
+          )}
+
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 12 }}>
+
+            {/* Google Fit card */}
+            <div style={{
+              padding: '12px 14px',
+              background: isFitConnected ? '#F0FDF4' : tokenExpired ? '#FEF2F2' : '#F9FAFB',
+              borderRadius: 12,
+              border: `1px solid ${isFitConnected ? '#10B98130' : tokenExpired ? '#FECACA' : '#E5E7EB'}`,
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <span style={{ fontSize: 24, flexShrink: 0 }}>🏃</span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span style={{ fontSize: 13, fontWeight: 600, color: '#111827' }}>Google Fit</span>
+                    {isFitConnected && (
+                      <span style={{
+                        fontSize: 9, fontWeight: 700, color: '#10B981',
+                        background: '#10B98115', padding: '2px 6px', borderRadius: 4,
+                      }}>CONNECTED</span>
+                    )}
+                    {tokenExpired && tokens && hasFitScopes(tokens) && (
+                      <span style={{
+                        fontSize: 9, fontWeight: 700, color: '#EF4444',
+                        background: '#EF444415', padding: '2px 6px', borderRadius: 4,
+                      }}>EXPIRED</span>
+                    )}
+                  </div>
+                  <div style={{ fontSize: 11, color: '#6B7280', marginTop: 2 }}>
+                    {isFitConnected
+                      ? 'Steps, calories, distance, heart rate, and more'
+                      : tokenExpired
+                      ? 'Token expired — reconnect to resume syncing'
+                      : 'Connect to sync fitness data (steps, calories, etc.)'}
+                  </div>
+                  <div style={{ fontSize: 10, color: '#9CA3AF', marginTop: 1 }}>Scopes: fitness.activity.read, fitness.body.read</div>
+                </div>
+                <div style={{ flexShrink: 0 }}>
+                  {!isFitConnected && (
+                    <button
+                      onClick={() => connectService('fit')}
+                      disabled={loading}
+                      style={{
+                        padding: '6px 14px', fontSize: 12, fontWeight: 600,
+                        background: tokenExpired ? '#EF4444' : '#4285F4', color: 'white', border: 'none',
+                        borderRadius: 8, cursor: 'pointer',
+                      }}
+                    >{tokenExpired ? 'Reconnect' : 'Connect'}</button>
+                  )}
+                  {isFitConnected && (
+                    <span style={{ fontSize: 18, color: '#10B981' }}>✓</span>
+                  )}
+                </div>
+              </div>
+            </div>
 
             {/* Google Contacts card */}
             <div style={{
@@ -214,7 +311,7 @@ const GoogleServicesSection: React.FC = () => {
           </div>
 
           {/* Disconnect button */}
-          {isAnyConnected && (
+          {(isAnyConnected || (hasTokens && tokenExpired)) && (
             <div style={{ marginTop: 14, borderTop: '1px solid #E5E7EB', paddingTop: 12 }}>
               <button
                 onClick={handleDisconnect}

@@ -67,7 +67,7 @@ const TransitsWidget: React.FC = () => {
     setIsLoading(true);
     setError(null);
     try {
-      const r = await fetch('/api/astro-transits', {
+      const r = await fetch('/api/astro?action=transits', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(birthData),

@@ -22,8 +22,10 @@ const FitnessProviderSection: React.FC = () => {
   const { user } = useAuth();
   const {
     isFitConnected,
+    tokenExpired: googleTokenExpired,
     loading: googleLoading,
     connectService: connectGoogleService,
+    disconnectGoogle,
   } = useGoogleAuth();
   const {
     isConnected: fitbitConnected,
@@ -49,6 +51,14 @@ const FitnessProviderSection: React.FC = () => {
       case 'google_fit': return isFitConnected;
       case 'fitbit': return fitbitConnected;
       case 'garmin': return true;
+    }
+  };
+
+  const isExpired = (id: FitnessProviderId) => {
+    switch (id) {
+      case 'google_fit': return googleTokenExpired && !isFitConnected;
+      case 'fitbit': return false;
+      case 'garmin': return false;
     }
   };
 
@@ -94,7 +104,7 @@ const FitnessProviderSection: React.FC = () => {
   }, [user?.id]);
 
   const handleSync = useCallback(async () => {
-    await fetchRecent(7);
+    await fetchRecent();
   }, [fetchRecent]);
 
   const providerEntries = (['google_fit', 'fitbit', 'garmin'] as FitnessProviderId[]).map(
@@ -131,9 +141,9 @@ const FitnessProviderSection: React.FC = () => {
             <div style={{ fontSize: 15, fontWeight: 700, color: '#111827' }}>
               Fitness Provider
             </div>
-            <div style={{ fontSize: 11, color: '#6B7280', marginTop: 2 }}>
+            <div style={{ fontSize: 11, color: isExpired(activeProvider) ? '#EF4444' : '#6B7280', marginTop: 2 }}>
               Active: {FITNESS_PROVIDERS[activeProvider].name}
-              {isConnected(activeProvider) ? ' — Connected' : ''}
+              {isConnected(activeProvider) ? ' — Connected' : isExpired(activeProvider) ? ' — Token Expired' : ''}
             </div>
           </div>
         </div>
@@ -154,15 +164,18 @@ const FitnessProviderSection: React.FC = () => {
             {providerEntries.map(p => {
               const isActive = activeProvider === p.id;
               const conn = p.connected;
+              const expired = isExpired(p.id);
               return (
                 <div
                   key={p.id}
                   style={{
                     padding: '12px 14px',
-                    background: isActive ? '#EEF2FF' : conn ? '#F0FDF4' : '#F9FAFB',
+                    background: isActive ? '#EEF2FF' : expired ? '#FEF2F2' : conn ? '#F0FDF4' : '#F9FAFB',
                     borderRadius: 12,
                     border: isActive
                       ? '2px solid #6366F1'
+                      : expired
+                      ? '1px solid #FECACA'
                       : `1px solid ${conn ? '#10B98130' : '#E5E7EB'}`,
                     cursor: 'pointer',
                     transition: 'all 0.15s',
@@ -188,13 +201,19 @@ const FitnessProviderSection: React.FC = () => {
                     <span style={{ fontSize: 22, flexShrink: 0 }}>{p.icon}</span>
 
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                         <span style={{ fontSize: 13, fontWeight: 600, color: '#111827' }}>{p.name}</span>
                         {conn && (
                           <span style={{
                             fontSize: 9, fontWeight: 700, color: '#10B981',
                             background: '#10B98115', padding: '2px 6px', borderRadius: 4,
                           }}>CONNECTED</span>
+                        )}
+                        {expired && (
+                          <span style={{
+                            fontSize: 9, fontWeight: 700, color: '#EF4444',
+                            background: '#EF444415', padding: '2px 6px', borderRadius: 4,
+                          }}>EXPIRED</span>
                         )}
                         {p.authType === 'manual_import' && (
                           <span style={{
@@ -203,13 +222,13 @@ const FitnessProviderSection: React.FC = () => {
                           }}>CSV IMPORT</span>
                         )}
                       </div>
-                      <div style={{ fontSize: 11, color: '#6B7280', marginTop: 2 }}>
-                        {p.description}
+                      <div style={{ fontSize: 11, color: expired ? '#B91C1C' : '#6B7280', marginTop: 2 }}>
+                        {expired ? 'Token expired — click Reconnect to restore' : p.description}
                       </div>
                     </div>
 
-                    <div style={{ flexShrink: 0 }}>
-                      {p.id !== 'garmin' && !conn && (
+                    <div style={{ flexShrink: 0, display: 'flex', gap: 6, alignItems: 'center' }}>
+                      {p.id !== 'garmin' && !conn && !expired && (
                         <button
                           onClick={(e) => { e.stopPropagation(); handleConnect(p.id); }}
                           disabled={googleLoading || fitbitLoading}
@@ -220,6 +239,17 @@ const FitnessProviderSection: React.FC = () => {
                             borderRadius: 8, cursor: 'pointer',
                           }}
                         >Connect</button>
+                      )}
+                      {p.id !== 'garmin' && expired && (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handleConnect(p.id); }}
+                          disabled={googleLoading || fitbitLoading}
+                          style={{
+                            padding: '6px 14px', fontSize: 12, fontWeight: 600,
+                            background: '#EF4444', color: 'white', border: 'none',
+                            borderRadius: 8, cursor: 'pointer',
+                          }}
+                        >Reconnect</button>
                       )}
                       {p.id === 'garmin' && (
                         <button
@@ -243,9 +273,9 @@ const FitnessProviderSection: React.FC = () => {
             })}
           </div>
 
-          {/* Sync button for connected OAuth providers */}
-          {(activeProvider === 'google_fit' && isFitConnected) ||
-           (activeProvider === 'fitbit' && fitbitConnected) ? (
+          {/* Sync button for connected OAuth providers (not shown if token is expired) */}
+          {((activeProvider === 'google_fit' && isFitConnected && !googleTokenExpired) ||
+           (activeProvider === 'fitbit' && fitbitConnected)) ? (
             <div style={{ marginTop: 12, display: 'flex', gap: 8 }}>
               <button
                 onClick={handleSync}
@@ -285,6 +315,24 @@ const FitnessProviderSection: React.FC = () => {
                 style={{ color: '#2563EB' }}>connect.garmin.com</a>
               {' '}→ Reports → Daily Summary → Export CSV.
               Upload that file here. Garmin's API requires a business partnership for direct integration.
+            </div>
+          )}
+
+          {/* Google Fit disconnect */}
+          {(isFitConnected || googleTokenExpired) && (
+            <div style={{ marginTop: 10 }}>
+              <button
+                onClick={async () => {
+                  if (confirm('Disconnect Google Fit? This will also disconnect other Google services (Contacts, etc.).')) {
+                    await disconnectGoogle();
+                  }
+                }}
+                style={{
+                  padding: '5px 12px', fontSize: 11, fontWeight: 600,
+                  color: '#EF4444', background: '#EF444410', border: '1px solid #EF444430',
+                  borderRadius: 8, cursor: 'pointer',
+                }}
+              >Disconnect Google Fit</button>
             </div>
           )}
 

@@ -26,7 +26,7 @@ export function setActiveProvider(id: FitnessProviderId): void {
 
 export async function fetchFitnessDataUnified(
   userId: string,
-  days: number = 3,
+  days: number = 30,
 ): Promise<DailyFitnessData[]> {
   const provider = getActiveProvider();
 
@@ -51,7 +51,7 @@ export async function fetchFitnessDataUnified(
 
 export async function loadCachedFitnessDataUnified(
   userId: string,
-  days: number = 7,
+  days: number = 30,
 ): Promise<DailyFitnessData[]> {
   const client = getSupabaseClient();
   if (!client) return [];

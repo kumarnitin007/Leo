@@ -24,6 +24,7 @@ export interface GoogleAuthState {
   loading: boolean;
   isFitConnected: boolean;
   isContactsConnected: boolean;
+  tokenExpired: boolean;
   connectService: (serviceId: string) => void;
   disconnectGoogle: () => Promise<void>;
   refresh: () => Promise<void>;
@@ -33,12 +34,38 @@ export function useGoogleAuth(): GoogleAuthState {
   const { user } = useAuth();
   const [tokens, setTokens] = useState<GoogleTokens | null>(null);
   const [loading, setLoading] = useState(true);
+  const [tokenExpired, setTokenExpired] = useState(false);
 
   const refresh = useCallback(async () => {
     if (!user?.id) { setTokens(null); setLoading(false); return; }
     setLoading(true);
     const t = await loadTokens(user.id);
     setTokens(t);
+
+    if (t && t.refreshToken) {
+      try {
+        const res = await fetch('/api/google-refresh-token', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ refreshToken: t.refreshToken }),
+        });
+        if (!res.ok) {
+          console.warn('[GoogleAuth] Token health check failed — token expired/revoked');
+          setTokenExpired(true);
+        } else {
+          setTokenExpired(false);
+          const data = await res.json();
+          await saveTokens(user.id, data.access_token, t.refreshToken, data.expires_in, t.scopesGranted);
+        }
+      } catch {
+        setTokenExpired(true);
+      }
+    } else if (t) {
+      setTokenExpired(true);
+    } else {
+      setTokenExpired(false);
+    }
+
     setLoading(false);
   }, [user?.id]);
 
@@ -103,8 +130,9 @@ export function useGoogleAuth(): GoogleAuthState {
   return {
     tokens,
     loading,
-    isFitConnected: tokens ? hasFitScopes(tokens) : false,
-    isContactsConnected: tokens ? hasContactsScope(tokens) : false,
+    isFitConnected: tokens ? hasFitScopes(tokens) && !tokenExpired : false,
+    isContactsConnected: tokens ? hasContactsScope(tokens) && !tokenExpired : false,
+    tokenExpired,
     connectService,
     disconnectGoogle,
     refresh,

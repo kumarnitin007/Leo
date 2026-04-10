@@ -43,7 +43,7 @@ export function useGoogleFit(): GoogleFitState {
     }
   }, [user?.id]);
 
-  const fetchRecent = useCallback(async (days = 3) => {
+  const fetchRecent = useCallback(async (days = 30) => {
     if (!user?.id) return;
     setLoading(true);
     setError(null);
@@ -58,7 +58,7 @@ export function useGoogleFit(): GoogleFitState {
     }
   }, [user?.id, runTrackedAutoComplete]);
 
-  const loadCached = useCallback(async (days = 7) => {
+  const loadCached = useCallback(async (days = 30) => {
     if (!user?.id) return;
     setLoading(true);
     try {

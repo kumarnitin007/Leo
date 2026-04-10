@@ -56,7 +56,7 @@ interface FitbitWeightResponse {
 
 export async function fetchFitbitData(
   userId: string,
-  days: number = 3,
+  days: number = 30,
 ): Promise<DailyFitnessData[]> {
   const dates = buildDateRange(days);
   const results: DailyFitnessData[] = [];
@@ -142,7 +142,7 @@ export async function fetchFitbitData(
 
 export async function fetchAndCacheFitbitData(
   userId: string,
-  days: number = 3,
+  days: number = 30,
 ): Promise<DailyFitnessData[]> {
   const data = await fetchFitbitData(userId, days);
   await cacheFitnessData(userId, data, 'fitbit');
@@ -150,6 +150,19 @@ export async function fetchAndCacheFitbitData(
 }
 
 // ── Cache (shared table) ─────────────────────────────────────────────
+
+function hasAnyMetric(r: DailyFitnessData): boolean {
+  return (
+    (r.steps != null && r.steps > 0) ||
+    (r.caloriesBurned != null && r.caloriesBurned > 0) ||
+    (r.distanceMeters != null && r.distanceMeters > 0) ||
+    (r.activeMinutes != null && r.activeMinutes > 0) ||
+    (r.heartRateAvg != null && r.heartRateAvg > 0) ||
+    (r.sleepMinutes != null && r.sleepMinutes > 0) ||
+    (r.weightKg != null && r.weightKg > 0) ||
+    (r.floorsClimbed != null && r.floorsClimbed > 0)
+  );
+}
 
 async function cacheFitnessData(
   userId: string,
@@ -159,7 +172,13 @@ async function cacheFitnessData(
   const client = getSupabaseClient();
   if (!client || !rows.length) return;
 
-  const upsertRows = rows.map(r => ({
+  const nonEmptyRows = rows.filter(hasAnyMetric);
+  if (!nonEmptyRows.length) {
+    console.warn('[FitbitService] All fetched rows are empty — skipping cache to protect existing data');
+    return;
+  }
+
+  const upsertRows = nonEmptyRows.map(r => ({
     user_id: userId,
     date: r.date,
     steps: r.steps,
@@ -175,6 +194,8 @@ async function cacheFitnessData(
     source,
     synced_at: new Date().toISOString(),
   }));
+
+  console.info(`[FitbitService] Caching ${upsertRows.length} non-empty rows (skipped ${rows.length - nonEmptyRows.length} empty)`);
 
   await client
     .from('myday_fitness_data')

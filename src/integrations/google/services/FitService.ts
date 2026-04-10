@@ -37,13 +37,15 @@ const FIT_SCOPE_HINTS: Record<string, string> = {
  */
 export async function fetchFitnessData(
   userId: string,
-  days: number = 3,
+  days: number = 30,
 ): Promise<DailyFitnessData[]> {
   const endMs = startOfDayMs(0) + ONE_DAY_MS;
   const startMs = startOfDayMs(days - 1);
   const url = `${GOOGLE_API.FITNESS}/dataset:aggregate`;
 
   const emptyDays = initEmptyDays(days);
+  let anySuccess = false;
+  let authError: string | null = null;
 
   for (const dataType of Object.values(FIT_DATA_TYPES)) {
     try {
@@ -58,6 +60,7 @@ export async function fetchFitnessData(
         userId, url, { method: 'POST', body: request },
       );
 
+      anySuccess = true;
       for (const bucket of response.bucket || []) {
         const date = new Date(Number(bucket.startTimeMillis)).toISOString().slice(0, 10);
         const day = emptyDays.get(date);
@@ -65,6 +68,10 @@ export async function fetchFitnessData(
       }
     } catch (err: any) {
       const msg = err.message || '';
+      if (msg.includes('Token refresh failed') || msg.includes('not connected') || msg.includes('reconnect Google')) {
+        authError = msg;
+        break;
+      }
       if (msg.includes('403')) {
         const hint = FIT_SCOPE_HINTS[dataType] || 'additional OAuth scope';
         console.warn(
@@ -83,6 +90,14 @@ export async function fetchFitnessData(
       }
       console.error(`[FitService] Unexpected error fetching ${dataType}:`, msg);
     }
+  }
+
+  if (authError) {
+    throw new Error(authError);
+  }
+
+  if (!anySuccess) {
+    throw new Error('Google Fit: all data type requests failed — no data fetched');
   }
 
   return Array.from(emptyDays.values());
@@ -143,7 +158,7 @@ function mergeBucketIntoDay(day: DailyFitnessData, bucket: FitBucket): void {
  */
 export async function fetchAndCacheFitnessData(
   userId: string,
-  days: number = 3,
+  days: number = 30,
 ): Promise<DailyFitnessData[]> {
   const data = await fetchFitnessData(userId, days);
   await cacheFitnessData(userId, data);
@@ -155,7 +170,7 @@ export async function fetchAndCacheFitnessData(
  */
 export async function loadCachedFitnessData(
   userId: string,
-  days: number = 7,
+  days: number = 30,
 ): Promise<DailyFitnessData[]> {
   const client = getSupabaseClient();
   if (!client) return [];
@@ -189,11 +204,30 @@ export async function loadCachedFitnessData(
 
 // ── Caching ───────────────────────────────────────────────────────────
 
+function hasAnyMetric(r: DailyFitnessData): boolean {
+  return (
+    (r.steps != null && r.steps > 0) ||
+    (r.caloriesBurned != null && r.caloriesBurned > 0) ||
+    (r.distanceMeters != null && r.distanceMeters > 0) ||
+    (r.activeMinutes != null && r.activeMinutes > 0) ||
+    (r.heartRateAvg != null && r.heartRateAvg > 0) ||
+    (r.sleepMinutes != null && r.sleepMinutes > 0) ||
+    (r.weightKg != null && r.weightKg > 0) ||
+    (r.floorsClimbed != null && r.floorsClimbed > 0)
+  );
+}
+
 async function cacheFitnessData(userId: string, rows: DailyFitnessData[]): Promise<void> {
   const client = getSupabaseClient();
   if (!client || !rows.length) return;
 
-  const upsertRows = rows.map(r => ({
+  const nonEmptyRows = rows.filter(hasAnyMetric);
+  if (!nonEmptyRows.length) {
+    console.warn('[FitService] All fetched rows are empty — skipping cache to protect existing data');
+    return;
+  }
+
+  const upsertRows = nonEmptyRows.map(r => ({
     user_id: userId,
     date: r.date,
     steps: r.steps,
@@ -209,6 +243,8 @@ async function cacheFitnessData(userId: string, rows: DailyFitnessData[]): Promi
     source: 'google_fit',
     synced_at: new Date().toISOString(),
   }));
+
+  console.info(`[FitService] Caching ${upsertRows.length} non-empty rows (skipped ${rows.length - nonEmptyRows.length} empty)`);
 
   await client
     .from('myday_fitness_data')

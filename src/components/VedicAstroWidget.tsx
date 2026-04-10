@@ -152,7 +152,7 @@ const VedicAstroWidget: React.FC = () => {
     setIsLoading(true);
     setError(null);
     try {
-      const r = await fetch('/api/astro-vedic', {
+      const r = await fetch('/api/astro?action=vedic', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(birthData),

@@ -52,7 +52,7 @@ const JournalFitSteps: React.FC<JournalFitStepsProps> = ({ onNavigateToIntegrati
   return (
     <div style={{ padding: '8px 0.5rem' }}>
       <button
-        onClick={() => fetchRecent(3)}
+        onClick={() => fetchRecent()}
         disabled={loading}
         style={{
           display: 'flex', alignItems: 'center', gap: 8,

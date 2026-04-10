@@ -44,7 +44,7 @@ const NatalChartVisual: React.FC = () => {
     setIsLoading(true);
     setError(null);
     try {
-      const r = await fetch('/api/astro-chart-svg', {
+      const r = await fetch('/api/astro?action=chart', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
