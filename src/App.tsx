@@ -19,21 +19,36 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { VoiceCommandPrefillProvider, useVoiceCommandPrefill } from './contexts/VoiceCommandPrefillContext';
 import { useUserLevel } from './hooks/useUserLevel';
 
+// Auto-retry dynamic imports: on chunk 404 (stale deploy), reload once
+function lazyWithRetry(factory: () => Promise<{ default: React.ComponentType<any> }>) {
+  return lazy(() =>
+    factory().catch((err: any) => {
+      const key = 'chunk_reload_ts';
+      const last = Number(sessionStorage.getItem(key) || '0');
+      if (Date.now() - last > 10_000) {
+        sessionStorage.setItem(key, String(Date.now()));
+        window.location.reload();
+      }
+      throw err;
+    }),
+  );
+}
+
 // Lazy-loaded views for code splitting (PERF-001)
-const TodayView = lazy(() => import('./TodayView'));
-const TasksAndEventsView = lazy(() => import('./TasksAndEventsView'));
-const JournalView = lazy(() => import('./JournalView'));
-const AnalyticsView = lazy(() => import('./AnalyticsView'));
-const SettingsView = lazy(() => import('./SettingsView'));
-const ItemsView = lazy(() => import('./ItemsView'));
-const SafeView = lazy(() => import('./SafeView'));
-const TimerView = lazy(() => import('./TimerView'));
-const ResolutionsView = lazy(() => import('./ResolutionsView'));
-const TodoView = lazy(() => import('./TodoView'));
-const SmartView = lazy(() => import('./SmartView'));
-const GroupsManager = lazy(() => import('./components/GroupsManager'));
-const VoiceCommandHistory = lazy(() => import('./components/VoiceCommand/VoiceCommandHistory'));
-const AIHistoryView = lazy(() => import('./components/ai/AIHistoryView'));
+const TodayView = lazyWithRetry(() => import('./TodayView'));
+const TasksAndEventsView = lazyWithRetry(() => import('./TasksAndEventsView'));
+const JournalView = lazyWithRetry(() => import('./JournalView'));
+const AnalyticsView = lazyWithRetry(() => import('./AnalyticsView'));
+const SettingsView = lazyWithRetry(() => import('./SettingsView'));
+const ItemsView = lazyWithRetry(() => import('./ItemsView'));
+const SafeView = lazyWithRetry(() => import('./SafeView'));
+const TimerView = lazyWithRetry(() => import('./TimerView'));
+const ResolutionsView = lazyWithRetry(() => import('./ResolutionsView'));
+const TodoView = lazyWithRetry(() => import('./TodoView'));
+const SmartView = lazyWithRetry(() => import('./SmartView'));
+const GroupsManager = lazyWithRetry(() => import('./components/GroupsManager'));
+const VoiceCommandHistory = lazyWithRetry(() => import('./components/VoiceCommand/VoiceCommandHistory'));
+const AIHistoryView = lazyWithRetry(() => import('./components/ai/AIHistoryView'));
 
 // Eagerly loaded components (small, frequently used)
 import SpeedDialFAB from './components/SpeedDialFAB';
@@ -71,6 +86,51 @@ const ViewLoader: React.FC = () => (
     </div>
   </div>
 );
+
+// Error boundary: catches chunk-load failures and offers manual reload
+class ChunkErrorBoundary extends React.Component<
+  { children: React.ReactNode },
+  { hasError: boolean }
+> {
+  state = { hasError: false };
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          height: '50vh', color: '#374151',
+        }}>
+          <div style={{ textAlign: 'center', maxWidth: 340 }}>
+            <div style={{ fontSize: '2rem', marginBottom: 8 }}>⚠️</div>
+            <div style={{ fontWeight: 600, marginBottom: 4 }}>New version available</div>
+            <div style={{ fontSize: 13, color: '#6b7280', marginBottom: 12 }}>
+              The app was updated since your last visit. A quick reload will fix this.
+            </div>
+            <button
+              onClick={() => {
+                sessionStorage.setItem('chunk_reload_ts', String(Date.now()));
+                window.location.reload();
+              }}
+              style={{
+                padding: '8px 20px', borderRadius: 8, fontSize: 13, fontWeight: 600,
+                border: '1px solid #111', background: '#111', color: '#fff',
+                cursor: 'pointer', fontFamily: 'inherit',
+              }}
+            >
+              Reload
+            </button>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 type View = 'today' | 'tasks-events' | 'items' | 'journal' | 'resolutions' | 'analytics' | 'settings' | 'safe' | 'todo' | 'groups' | 'smart' | 'history' | 'voice-pending' | 'ai-history';
 
@@ -638,9 +698,11 @@ const AppContent: React.FC = () => {
       />
 
       <main className="main-content">
-        <Suspense fallback={<ViewLoader />}>
-          {renderView()}
-        </Suspense>
+        <ChunkErrorBoundary>
+          <Suspense fallback={<ViewLoader />}>
+            {renderView()}
+          </Suspense>
+        </ChunkErrorBoundary>
       </main>
 
       {/* Modals */}
