@@ -11,6 +11,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { getUserSettings } from '../storage';
 import { useTheme } from '../contexts/ThemeContext';
+import { perfStart } from '../utils/perfLogger';
 
 /* ── Sign emoji + symbols ──────────────────────────────────────── */
 const SIGN_EMOJI: Record<string, string> = {
@@ -124,12 +125,14 @@ const AstroWidget: React.FC = () => {
     fetchingRef.current = true;
     setIsLoading(true);
     setError(null);
+    const endTotal = perfStart('AstroWidget', 'fetchAll (total)');
     try {
       const bd = birthData;
 
-      // Sequential to avoid hitting rate limits
       if (!natalData) {
+        const endNatal = perfStart('AstroWidget', 'natal API');
         const r = await fetch('/api/astro?action=natal', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(bd) });
+        endNatal();
         if (!r.ok) throw new Error(`Natal chart: ${r.status}`);
         const d = await r.json();
         setNatalData(d);
@@ -137,20 +140,23 @@ const AstroWidget: React.FC = () => {
       }
 
       if (!dailyData) {
+        const endDaily = perfStart('AstroWidget', 'daily API');
         const today = new Date().toISOString().slice(0, 10);
         const r = await fetch('/api/astro?action=daily', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...bd, date: today }) });
+        endDaily();
         if (!r.ok) throw new Error(`Daily horoscope: ${r.status}`);
         const d = await r.json();
         setDailyData(d);
         setDayCached(DAILY_CACHE_KEY, d);
       }
 
-      // Moon phase is optional — don't block or error the whole widget
       if (!moonData && !moonAttempted.current) {
         moonAttempted.current = true;
         try {
+          const endMoon = perfStart('AstroWidget', 'moon API');
           const city = bd.city || '';
           const r = await fetch(`/api/astro?action=moon&city=${encodeURIComponent(city)}`);
+          endMoon();
           if (r.ok) {
             const d = await r.json();
             setMoonData(d);
@@ -166,6 +172,7 @@ const AstroWidget: React.FC = () => {
       console.error('[AstroWidget]', e);
       setError(e.message || 'Failed to fetch astrology data');
     } finally {
+      endTotal();
       setIsLoading(false);
       fetchingRef.current = false;
     }

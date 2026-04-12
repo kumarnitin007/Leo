@@ -5,11 +5,15 @@
  * from the Google Fitness REST API and caches results in myday_fitness_data.
  *
  * Uses GoogleApiClient for automatic token handling.
+ *
+ * Cache strategy: "only-increase" — a past date's metric can only go up,
+ * never down. This protects against partial syncs overwriting full-day data.
  */
 
 import { googleApiFetch } from '../GoogleApiClient';
 import { getSupabaseClient } from '../../../lib/supabase';
 import { GOOGLE_API, FIT_DATA_TYPES } from '../constants';
+import { perfStart } from '../../../utils/perfLogger';
 import type {
   DailyFitnessData,
   FitAggregateRequest,
@@ -34,20 +38,25 @@ const FIT_SCOPE_HINTS: Record<string, string> = {
  * Fetch fitness data for a date range from Google Fit.
  * Fetches each data type individually so a 403 on one type
  * doesn't block the others (not all types are available for every user).
+ * Returns parsed data AND raw API responses for archival.
  */
 export async function fetchFitnessData(
   userId: string,
   days: number = 30,
-): Promise<DailyFitnessData[]> {
+): Promise<{ parsed: DailyFitnessData[]; rawByDate: Map<string, any[]> }> {
   const endMs = startOfDayMs(0) + ONE_DAY_MS;
   const startMs = startOfDayMs(days - 1);
   const url = `${GOOGLE_API.FITNESS}/dataset:aggregate`;
 
   const emptyDays = initEmptyDays(days);
+  const rawByDate = new Map<string, any[]>();
   let anySuccess = false;
   let authError: string | null = null;
 
+  console.info(`[FitService] Fetching ${days} days of fitness data (${new Date(startMs).toISOString().slice(0, 10)} → ${new Date(endMs).toISOString().slice(0, 10)})`);
+
   for (const dataType of Object.values(FIT_DATA_TYPES)) {
+    const endPerf = perfStart('FitService', `API ${dataType.split('.').pop()}`);
     try {
       const request: FitAggregateRequest = {
         aggregateBy: [{ dataTypeName: dataType }],
@@ -60,13 +69,19 @@ export async function fetchFitnessData(
         userId, url, { method: 'POST', body: request },
       );
 
+      endPerf();
       anySuccess = true;
       for (const bucket of response.bucket || []) {
         const date = new Date(Number(bucket.startTimeMillis)).toISOString().slice(0, 10);
         const day = emptyDays.get(date);
         if (day) mergeBucketIntoDay(day, bucket);
+
+        // Collect raw buckets per date for archival
+        if (!rawByDate.has(date)) rawByDate.set(date, []);
+        rawByDate.get(date)!.push({ dataType, bucket });
       }
     } catch (err: any) {
+      endPerf();
       const msg = err.message || '';
       if (msg.includes('Token refresh failed') || msg.includes('not connected') || msg.includes('reconnect Google')) {
         authError = msg;
@@ -100,7 +115,7 @@ export async function fetchFitnessData(
     throw new Error('Google Fit: all data type requests failed — no data fetched');
   }
 
-  return Array.from(emptyDays.values());
+  return { parsed: Array.from(emptyDays.values()), rawByDate };
 }
 
 function initEmptyDays(days: number): Map<string, DailyFitnessData> {
@@ -155,14 +170,18 @@ function mergeBucketIntoDay(day: DailyFitnessData, bucket: FitBucket): void {
 
 /**
  * Fetch and cache fitness data in Supabase for persistence.
+ * Returns the **merged** DB values (keepMax applied) so the UI
+ * always shows the highest known value for each metric/date.
  */
 export async function fetchAndCacheFitnessData(
   userId: string,
   days: number = 30,
 ): Promise<DailyFitnessData[]> {
-  const data = await fetchFitnessData(userId, days);
-  await cacheFitnessData(userId, data);
-  return data;
+  const { parsed, rawByDate } = await fetchFitnessData(userId, days);
+  await cacheFitnessData(userId, parsed, rawByDate);
+  // Re-read from DB so the caller gets the merged (highest) values,
+  // not the raw API values which may be lower for past dates.
+  return loadCachedFitnessData(userId, days);
 }
 
 /**
@@ -172,8 +191,9 @@ export async function loadCachedFitnessData(
   userId: string,
   days: number = 30,
 ): Promise<DailyFitnessData[]> {
+  const endPerf = perfStart('FitService', 'loadCached (DB)');
   const client = getSupabaseClient();
-  if (!client) return [];
+  if (!client) { endPerf(); return []; }
 
   const since = new Date();
   since.setDate(since.getDate() - days);
@@ -185,6 +205,7 @@ export async function loadCachedFitnessData(
     .gte('date', since.toISOString().slice(0, 10))
     .order('date', { ascending: false });
 
+  endPerf();
   if (!data?.length) return [];
 
   return data.map(row => ({
@@ -202,7 +223,7 @@ export async function loadCachedFitnessData(
   }));
 }
 
-// ── Caching ───────────────────────────────────────────────────────────
+// ── Caching with "only-increase" merge ──────────────────────────────
 
 function hasAnyMetric(r: DailyFitnessData): boolean {
   return (
@@ -217,38 +238,93 @@ function hasAnyMetric(r: DailyFitnessData): boolean {
   );
 }
 
-async function cacheFitnessData(userId: string, rows: DailyFitnessData[]): Promise<void> {
+/**
+ * Pick the higher of two values. null/0 never overwrites a positive number.
+ */
+function keepMax(existing: number | null | undefined, incoming: number | null): number | null {
+  const e = existing ?? null;
+  const i = incoming ?? null;
+  if (e == null) return i;
+  if (i == null) return e;
+  return Math.max(e, i);
+}
+
+async function cacheFitnessData(
+  userId: string,
+  rows: DailyFitnessData[],
+  rawByDate?: Map<string, any[]>,
+): Promise<void> {
+  const endPerf = perfStart('FitService', 'cacheFitnessData (merge+upsert)');
   const client = getSupabaseClient();
-  if (!client || !rows.length) return;
+  if (!client || !rows.length) { endPerf(); return; }
 
   const nonEmptyRows = rows.filter(hasAnyMetric);
   if (!nonEmptyRows.length) {
     console.warn('[FitService] All fetched rows are empty — skipping cache to protect existing data');
+    endPerf();
     return;
   }
 
-  const upsertRows = nonEmptyRows.map(r => ({
-    user_id: userId,
-    date: r.date,
-    steps: r.steps,
-    calories_burned: r.caloriesBurned,
-    distance_meters: r.distanceMeters,
-    active_minutes: r.activeMinutes,
-    heart_rate_avg: r.heartRateAvg,
-    heart_rate_min: r.heartRateMin,
-    heart_rate_max: r.heartRateMax,
-    sleep_minutes: r.sleepMinutes,
-    weight_kg: r.weightKg,
-    floors_climbed: r.floorsClimbed,
-    source: 'google_fit',
-    synced_at: new Date().toISOString(),
-  }));
+  // Load existing rows for these dates so we can merge (only-increase)
+  const dates = nonEmptyRows.map(r => r.date);
+  const { data: existingRows } = await client
+    .from('myday_fitness_data')
+    .select('date, steps, calories_burned, distance_meters, active_minutes, heart_rate_avg, heart_rate_min, heart_rate_max, sleep_minutes, weight_kg, floors_climbed')
+    .eq('user_id', userId)
+    .in('date', dates);
 
-  console.info(`[FitService] Caching ${upsertRows.length} non-empty rows (skipped ${rows.length - nonEmptyRows.length} empty)`);
+  const existingMap = new Map<string, any>();
+  if (existingRows) {
+    for (const r of existingRows) existingMap.set(r.date, r);
+  }
+
+  const upsertRows = nonEmptyRows.map(r => {
+    const old = existingMap.get(r.date);
+    const rawJson = rawByDate?.get(r.date);
+
+    return {
+      user_id: userId,
+      date: r.date,
+      steps: keepMax(old?.steps, r.steps),
+      calories_burned: keepMax(old?.calories_burned, r.caloriesBurned),
+      distance_meters: keepMax(old?.distance_meters, r.distanceMeters),
+      active_minutes: keepMax(old?.active_minutes, r.activeMinutes),
+      heart_rate_avg: keepMax(old?.heart_rate_avg, r.heartRateAvg),
+      heart_rate_min: keepMax(old?.heart_rate_min, r.heartRateMin),
+      heart_rate_max: keepMax(old?.heart_rate_max, r.heartRateMax),
+      sleep_minutes: keepMax(old?.sleep_minutes, r.sleepMinutes),
+      weight_kg: keepMax(old?.weight_kg, r.weightKg),
+      floors_climbed: keepMax(old?.floors_climbed, r.floorsClimbed),
+      source: 'google_fit',
+      raw_data: rawJson ? JSON.stringify(rawJson) : undefined,
+      synced_at: new Date().toISOString(),
+    };
+  });
+
+  const merged = upsertRows.filter(r => {
+    const old = existingMap.get(r.date);
+    if (!old) return true;
+    return (
+      r.steps !== old.steps ||
+      r.calories_burned !== old.calories_burned ||
+      r.distance_meters !== old.distance_meters ||
+      r.active_minutes !== old.active_minutes
+    );
+  });
+
+  if (merged.length === 0) {
+    console.info('[FitService] No new/increased data to write — all existing values are equal or higher');
+    endPerf();
+    return;
+  }
+
+  console.info(`[FitService] Upserting ${merged.length} rows (${nonEmptyRows.length} non-empty fetched, ${existingMap.size} existing in DB, ${nonEmptyRows.length - merged.length} unchanged)`);
 
   await client
     .from('myday_fitness_data')
-    .upsert(upsertRows, { onConflict: 'user_id,date' });
+    .upsert(merged, { onConflict: 'user_id,date' });
+
+  endPerf();
 }
 
 // ── Numeric helpers ───────────────────────────────────────────────────

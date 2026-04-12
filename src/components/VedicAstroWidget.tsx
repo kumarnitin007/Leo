@@ -6,6 +6,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { getUserSettings } from '../storage';
 import { useTheme } from '../contexts/ThemeContext';
+import { perfStart } from '../utils/perfLogger';
 
 const CACHE_KEY = 'astro_vedic_cache';
 const SIGN_NAMES = ['', 'Aries', 'Taurus', 'Gemini', 'Cancer', 'Leo', 'Virgo', 'Libra', 'Scorpio', 'Sagittarius', 'Capricorn', 'Aquarius', 'Pisces'];
@@ -151,6 +152,7 @@ const VedicAstroWidget: React.FC = () => {
     fetchingRef.current = true;
     setIsLoading(true);
     setError(null);
+    const endTotal = perfStart('VedicAstroWidget', 'vedic API');
     try {
       const r = await fetch('/api/astro?action=vedic', {
         method: 'POST',
@@ -165,6 +167,7 @@ const VedicAstroWidget: React.FC = () => {
       console.error('[VedicAstro]', e);
       setError(e.message);
     } finally {
+      endTotal();
       setIsLoading(false);
       fetchingRef.current = false;
     }

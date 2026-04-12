@@ -8,6 +8,7 @@
 
 import { useState, useCallback, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
+import { perfStart } from '../../utils/perfLogger';
 import {
   fetchFitnessDataUnified,
   loadCachedFitnessDataUnified,
@@ -41,7 +42,15 @@ export function useFitness(): FitnessState {
 
   useEffect(() => {
     if (!user?.id) return;
-    isProviderConnected(user.id).then(setConnected).catch(() => setConnected(false));
+    isProviderConnected(user.id).then(c => {
+      setConnected(c);
+      // Auto-load cached DB data so the UI shows previous values immediately
+      if (c) {
+        loadCachedFitnessDataUnified(user.id, 30)
+          .then(cached => { if (cached.length) setData(cached); })
+          .catch(() => {});
+      }
+    }).catch(() => setConnected(false));
   }, [user?.id]);
 
   const runTrackedAutoComplete = useCallback(async (fitnessData: DailyFitnessData[]) => {
@@ -61,13 +70,17 @@ export function useFitness(): FitnessState {
     if (!user?.id) return;
     setLoading(true);
     setError(null);
+    const endPerf = perfStart('FitnessSync', `fetchRecent (${days} days)`);
     try {
       const result = await fetchFitnessDataUnified(user.id, days);
       setData(result);
+      const endAutoComplete = perfStart('FitnessSync', 'autoComplete');
       await runTrackedAutoComplete(result);
+      endAutoComplete();
     } catch (err: any) {
       setError(err.message || 'Failed to fetch fitness data');
     } finally {
+      endPerf();
       setLoading(false);
     }
   }, [user?.id, runTrackedAutoComplete]);

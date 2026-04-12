@@ -164,6 +164,14 @@ function hasAnyMetric(r: DailyFitnessData): boolean {
   );
 }
 
+function keepMax(existing: number | null | undefined, incoming: number | null): number | null {
+  const e = existing ?? null;
+  const i = incoming ?? null;
+  if (e == null) return i;
+  if (i == null) return e;
+  return Math.max(e, i);
+}
+
 async function cacheFitnessData(
   userId: string,
   rows: DailyFitnessData[],
@@ -178,24 +186,39 @@ async function cacheFitnessData(
     return;
   }
 
-  const upsertRows = nonEmptyRows.map(r => ({
-    user_id: userId,
-    date: r.date,
-    steps: r.steps,
-    calories_burned: r.caloriesBurned,
-    distance_meters: r.distanceMeters,
-    active_minutes: r.activeMinutes,
-    heart_rate_avg: r.heartRateAvg,
-    heart_rate_min: r.heartRateMin,
-    heart_rate_max: r.heartRateMax,
-    sleep_minutes: r.sleepMinutes,
-    weight_kg: r.weightKg,
-    floors_climbed: r.floorsClimbed,
-    source,
-    synced_at: new Date().toISOString(),
-  }));
+  const dates = nonEmptyRows.map(r => r.date);
+  const { data: existingRows } = await client
+    .from('myday_fitness_data')
+    .select('date, steps, calories_burned, distance_meters, active_minutes, heart_rate_avg, heart_rate_min, heart_rate_max, sleep_minutes, weight_kg, floors_climbed')
+    .eq('user_id', userId)
+    .in('date', dates);
 
-  console.info(`[FitbitService] Caching ${upsertRows.length} non-empty rows (skipped ${rows.length - nonEmptyRows.length} empty)`);
+  const existingMap = new Map<string, any>();
+  if (existingRows) {
+    for (const r of existingRows) existingMap.set(r.date, r);
+  }
+
+  const upsertRows = nonEmptyRows.map(r => {
+    const old = existingMap.get(r.date);
+    return {
+      user_id: userId,
+      date: r.date,
+      steps: keepMax(old?.steps, r.steps),
+      calories_burned: keepMax(old?.calories_burned, r.caloriesBurned),
+      distance_meters: keepMax(old?.distance_meters, r.distanceMeters),
+      active_minutes: keepMax(old?.active_minutes, r.activeMinutes),
+      heart_rate_avg: keepMax(old?.heart_rate_avg, r.heartRateAvg),
+      heart_rate_min: keepMax(old?.heart_rate_min, r.heartRateMin),
+      heart_rate_max: keepMax(old?.heart_rate_max, r.heartRateMax),
+      sleep_minutes: keepMax(old?.sleep_minutes, r.sleepMinutes),
+      weight_kg: keepMax(old?.weight_kg, r.weightKg),
+      floors_climbed: keepMax(old?.floors_climbed, r.floorsClimbed),
+      source,
+      synced_at: new Date().toISOString(),
+    };
+  });
+
+  console.info(`[FitbitService] Upserting ${upsertRows.length} non-empty rows (${existingMap.size} existing in DB)`);
 
   await client
     .from('myday_fitness_data')

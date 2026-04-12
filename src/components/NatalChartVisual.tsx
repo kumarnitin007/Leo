@@ -7,6 +7,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { getUserSettings } from '../storage';
 import { useTheme } from '../contexts/ThemeContext';
+import { perfStart } from '../utils/perfLogger';
 
 const CACHE_PREFIX = 'astro_chart_svg_';
 
@@ -43,6 +44,7 @@ const NatalChartVisual: React.FC = () => {
     fetchingRef.current = true;
     setIsLoading(true);
     setError(null);
+    const endPerf = perfStart('NatalChartVisual', `chart API (${zodiacType})`);
     try {
       const r = await fetch('/api/astro?action=chart', {
         method: 'POST',
@@ -64,6 +66,7 @@ const NatalChartVisual: React.FC = () => {
       console.error('[NatalChartVisual]', e);
       setError(e.message);
     } finally {
+      endPerf();
       setIsLoading(false);
       fetchingRef.current = false;
     }

@@ -119,9 +119,26 @@ const ContextPanel: React.FC<ContextPanelProps> = ({
 
         {/* Steps Card */}
         <div className="j-insight-card">
-          <div className="j-ic-title">
-            <span className="j-ic-dot" style={{ background: 'var(--j-green)' }} />
-            Steps today
+          <div className="j-ic-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span className="j-ic-dot" style={{ background: 'var(--j-green)' }} />
+              Steps today
+            </span>
+            {fitnessConnected !== false && fitnessData.length > 0 && (
+              <button
+                onClick={onFetchFitness}
+                disabled={fitnessLoading}
+                type="button"
+                style={{
+                  padding: '2px 8px', borderRadius: 6, fontSize: 10, fontWeight: 600,
+                  border: '1px solid var(--j-green)', color: 'var(--j-green)',
+                  background: 'transparent', cursor: 'pointer', fontFamily: 'inherit',
+                  opacity: fitnessLoading ? 0.5 : 1,
+                }}
+              >
+                {fitnessLoading ? '…' : 'Refresh'}
+              </button>
+            )}
           </div>
           {fitnessData.length > 0 ? (
             <>
@@ -169,7 +186,7 @@ const ContextPanel: React.FC<ContextPanelProps> = ({
                 marginTop: 4,
               }}
             >
-              {fitnessLoading ? '⏳ Loading…' : '🏃 Fetch Steps'}
+              {fitnessLoading ? 'Loading…' : 'Fetch Steps'}
             </button>
           )}
         </div>

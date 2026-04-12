@@ -6,6 +6,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { getUserSettings } from '../storage';
 import { useTheme } from '../contexts/ThemeContext';
+import { perfStart } from '../utils/perfLogger';
 
 const CACHE_KEY = 'astro_transits_cache';
 const SIGN_EMOJI: Record<string, string> = {
@@ -66,6 +67,7 @@ const TransitsWidget: React.FC = () => {
     fetchingRef.current = true;
     setIsLoading(true);
     setError(null);
+    const endPerf = perfStart('TransitsWidget', 'transits API');
     try {
       const r = await fetch('/api/astro?action=transits', {
         method: 'POST',
@@ -80,6 +82,7 @@ const TransitsWidget: React.FC = () => {
       console.error('[TransitsWidget]', e);
       setError(e.message);
     } finally {
+      endPerf();
       setIsLoading(false);
       fetchingRef.current = false;
     }

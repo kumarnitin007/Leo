@@ -373,7 +373,7 @@ const JournalView: React.FC<JournalViewProps> = ({ prefillContent, prefillMood, 
     fitnessData,
     fitnessLoading,
     fitnessConnected,
-    onFetchFitness: () => fetchFitness(3),
+    onFetchFitness: () => fetchFitness(),
   };
 
   return (

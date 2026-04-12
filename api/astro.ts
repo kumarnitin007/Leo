@@ -24,7 +24,8 @@ export default async function handler(req: any, res: any) {
       case 'transits': return await handleTransits(req, res, API_KEY);
       default: return res.status(400).json(createErrorResponse('VALIDATION_ERROR', `Unknown action: ${action}`));
     }
-  } catch (err) {
+  } catch (err: any) {
+    console.error(`[astro:${action}] Unhandled error:`, err?.message || err, err?.stack?.slice(0, 500));
     handleApiError(res, err, `astro-${action}`);
   }
 }
@@ -32,27 +33,42 @@ export default async function handler(req: any, res: any) {
 /* ── Natal Chart (JSON) ───────────────────────────────────────── */
 async function handleNatal(req: any, res: any, API_KEY: string) {
   const { year, month, day, hour, minute, city, timeKnown } = req.body || {};
-  if (!year || !month || !day || !city) return res.status(400).json(createErrorResponse('VALIDATION_ERROR', 'year, month, day, city required'));
+  if (!year || !month || !day || !city) {
+    console.error('[astro:natal] Missing fields:', { year, month, day, city, body: req.body });
+    return res.status(400).json(createErrorResponse('VALIDATION_ERROR', 'year, month, day, city required'));
+  }
 
   const payload: Record<string, unknown> = {
-    year, month, day, city,
+    year: Number(year), month: Number(month), day: Number(day), city: String(city),
     time_known: timeKnown !== false && hour != null,
     house_system: 'placidus', zodiac_type: 'tropical',
     include_speed: true, include_dignity: true, include_minor_aspects: false,
     include_stelliums: true, include_features: ['chiron', 'lilith', 'true_node'],
     interpretation: { enable: true, style: 'improved' },
   };
-  if (hour != null) payload.hour = hour;
-  if (minute != null) payload.minute = minute;
+  if (hour != null) payload.hour = Number(hour);
+  if (minute != null) payload.minute = Number(minute);
+
+  console.log('[astro:natal] Sending payload:', JSON.stringify(payload));
 
   const resp = await fetch('https://api.freeastroapi.com/api/v1/natal/calculate', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'x-api-key': API_KEY },
     body: JSON.stringify(payload),
   });
-  if (!resp.ok) { const e = await resp.text(); console.error(`[astro:natal] ${resp.status}:`, e); return res.status(resp.status).json(createErrorResponse('EXTERNAL_API_ERROR', `Natal: ${resp.status}`)); }
-  res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
-  return res.status(200).json(await resp.json());
+  const bodyText = await resp.text();
+  if (!resp.ok) {
+    console.error(`[astro:natal] ${resp.status}:`, bodyText.slice(0, 500));
+    return res.status(resp.status).json(createErrorResponse('EXTERNAL_API_ERROR', `Natal: ${resp.status}`));
+  }
+  try {
+    const data = JSON.parse(bodyText);
+    res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+    return res.status(200).json(data);
+  } catch (parseErr) {
+    console.error('[astro:natal] JSON parse error:', bodyText.slice(0, 200));
+    return res.status(502).json(createErrorResponse('PARSE_ERROR', 'Invalid response from astrology API'));
+  }
 }
 
 /* ── Daily Horoscope ──────────────────────────────────────────── */
@@ -60,7 +76,9 @@ async function handleDaily(req: any, res: any, API_KEY: string) {
   const { year, month, day, hour, minute, city, date } = req.body || {};
   if (!year || !month || !day || !city) return res.status(400).json(createErrorResponse('VALIDATION_ERROR', 'year, month, day, city required'));
 
-  const payload: Record<string, unknown> = { birth: { year, month, day, hour: hour ?? 12, minute: minute ?? 0, city } };
+  const payload: Record<string, unknown> = {
+    birth: { year: Number(year), month: Number(month), day: Number(day), hour: Number(hour ?? 12), minute: Number(minute ?? 0), city },
+  };
   if (date) payload.date = date;
 
   const resp = await fetch('https://api.freeastroapi.com/api/v2/horoscope/daily/personal', {
@@ -68,7 +86,7 @@ async function handleDaily(req: any, res: any, API_KEY: string) {
     headers: { 'Content-Type': 'application/json', 'x-api-key': API_KEY },
     body: JSON.stringify(payload),
   });
-  if (!resp.ok) { const e = await resp.text(); console.error(`[astro:daily] ${resp.status}:`, e); return res.status(resp.status).json(createErrorResponse('EXTERNAL_API_ERROR', `Daily: ${resp.status}`)); }
+  if (!resp.ok) { const e = await resp.text(); console.error(`[astro:daily] ${resp.status}:`, e.slice(0, 500)); return res.status(resp.status).json(createErrorResponse('EXTERNAL_API_ERROR', `Daily: ${resp.status}`)); }
   return res.status(200).json(await resp.json());
 }
 
