@@ -151,7 +151,12 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
   /** Deposits tab — "by bank" visualization */
   const [depositsBankViz, setDepositsBankViz] = useState<'donut' | 'bars'>('donut');
   const [showMoreMenu, setShowMoreMenu] = useState(false);
+  const [hasLocalBackup, setHasLocalBackup] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+  const dataLoadedOk = useRef(false);
+  const BACKUP_KEY = `myday_bank_backup_${userId}`;
+  const BACKUP_TS_KEY = `myday_bank_backup_ts_${userId}`;
+  const BACKUP_PREV_KEY = `myday_bank_prev_${userId}`;
 
   // ── Responsive detection ───────────────────────────────────────────────────
   useEffect(() => {
@@ -189,6 +194,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
 
   // ── Storage ───────────────────────────────────────────────────────────────
   useEffect(() => {
+    setHasLocalBackup(!!localStorage.getItem(BACKUP_KEY) || !!localStorage.getItem(BACKUP_PREV_KEY));
     loadData();
   }, [supabase, userId, encryptionKey]);
 
@@ -272,6 +278,43 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
     alert('✅ Financial import applied successfully!');
   };
 
+  async function restoreFromLocalBackup(which: 'current' | 'previous' = 'current'): Promise<boolean> {
+    const key = which === 'previous' ? BACKUP_PREV_KEY : BACKUP_KEY;
+    const raw = localStorage.getItem(key);
+    if (!raw || !encryptionKey) return false;
+    try {
+      const { encrypted, iv } = JSON.parse(raw);
+      const decrypted = await decryptData(encrypted, iv, encryptionKey);
+      const parsed: BankRecordsData = JSON.parse(decrypted);
+      setDeposits(parsed.deposits || []);
+      setAccounts(parsed.accounts || []);
+      setBills(parsed.bills || []);
+      setActions(parsed.actions || []);
+      setGoals(parsed.goals || []);
+      setTotalValueHistory(parsed.totalValueHistory || []);
+      if (parsed.exchangeRates) setExchangeRates(parsed.exchangeRates);
+      if (parsed.displayCurrency) setDisplayCurrency(parsed.displayCurrency);
+      dataLoadedOk.current = true;
+      console.log(`[BankDashboard] ✅ Restored from local backup (${which})`);
+
+      // Re-encrypt and save back to Supabase so it's consistent
+      if (supabase && userId) {
+        const { encrypted: enc2, iv: iv2 } = await encryptData(decrypted, encryptionKey);
+        await supabase
+          .from('myday_bank_records')
+          .upsert(
+            { user_id: userId, data: JSON.stringify({ encrypted: enc2, iv: iv2 }), updated_at: new Date().toISOString() },
+            { onConflict: 'user_id' }
+          );
+        console.log('[BankDashboard] ✅ Backup pushed back to Supabase');
+      }
+      return true;
+    } catch (e) {
+      console.error(`[BankDashboard] Restore from ${which} backup failed:`, e);
+      return false;
+    }
+  }
+
   async function loadData() {
     let profileFin: FinancialPreferences | undefined;
     try {
@@ -302,6 +345,12 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
         } else if (data?.data) {
           // Decrypt the data - parse the stored JSON containing encrypted data and IV
           try {
+            // Debug hook: simulate decryption failure for testing
+            if ((window as any).__testBankDecryptFail) {
+              (window as any).__testBankDecryptFail = false;
+              throw new Error('[TEST] Simulated decryption failure');
+            }
+
             const { encrypted, iv } = JSON.parse(data.data);
             const decrypted = await decryptData(encrypted, iv, encryptionKey);
             const parsed: BankRecordsData = JSON.parse(decrypted);
@@ -318,20 +367,87 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
             if (parsed.displayCurrency) setDisplayCurrency(parsed.displayCurrency);
             else if (profileFin?.preferredDisplayCurrency) setDisplayCurrency(profileFin.preferredDisplayCurrency);
             else setDisplayCurrency(getDefaultDisplayCurrency());
+            dataLoadedOk.current = true;
             console.log('[BankDashboard] ✅ Loaded data from Supabase');
+
+            // Backup to localStorage on every successful load
+            try {
+              localStorage.setItem(BACKUP_KEY, data.data);
+              localStorage.setItem(BACKUP_TS_KEY, new Date().toISOString());
+              setHasLocalBackup(true);
+            } catch { /* localStorage full — not critical */ }
           } catch (decryptError) {
             console.error('[BankDashboard] Decryption error:', decryptError);
-            // Clear corrupt data from database and start fresh
-            console.warn('[BankDashboard] ⚠️ Data corrupted, clearing and starting fresh...');
-            await supabase.from('myday_bank_records').delete().eq('user_id', userId);
-            alert('Bank data was corrupted (possibly due to encryption key change). Data has been cleared. Please re-import your Excel file.');
-            setDeposits([]);
-            setAccounts([]);
-            setBills([]);
-            setActions([]);
+            console.warn('[BankDashboard] ⚠️ Decryption failed — data is NOT deleted. Showing error to user.');
+
+            // NEVER auto-delete data. Try automatic recovery first.
+            const rawPayload = data.data;
+
+            // Save the raw encrypted payload to localStorage as emergency backup
+            try {
+              localStorage.setItem(BACKUP_KEY, rawPayload);
+              console.info('[BankDashboard] 💾 Emergency backup of encrypted blob saved to localStorage');
+            } catch { /* localStorage full */ }
+
+            // Step 1: Retry — re-fetch from Supabase (network glitch may have returned bad data)
+            let recovered = false;
+            try {
+              console.log('[BankDashboard] 🔄 Retrying Supabase fetch...');
+              const { data: retryData } = await supabase
+                .from('myday_bank_records')
+                .select('data')
+                .eq('user_id', userId)
+                .maybeSingle();
+
+              if (retryData?.data) {
+                const { encrypted: enc2, iv: iv2 } = JSON.parse(retryData.data);
+                const dec2 = await decryptData(enc2, iv2, encryptionKey);
+                const parsed2: BankRecordsData = JSON.parse(dec2);
+                setDeposits(parsed2.deposits || []);
+                setAccounts(parsed2.accounts || []);
+                setBills(parsed2.bills || []);
+                setActions(parsed2.actions || []);
+                setGoals(parsed2.goals || []);
+                setTotalValueHistory(parsed2.totalValueHistory || []);
+                if (parsed2.exchangeRates) setExchangeRates(parsed2.exchangeRates);
+                if (parsed2.displayCurrency) setDisplayCurrency(parsed2.displayCurrency);
+                dataLoadedOk.current = true;
+                recovered = true;
+                console.log('[BankDashboard] ✅ Retry from Supabase succeeded');
+              }
+            } catch (retryErr) {
+              console.warn('[BankDashboard] Supabase retry also failed:', retryErr);
+            }
+
+            // Step 2: Fall back to local backup
+            if (!recovered) {
+              const hasBackup = !!localStorage.getItem(BACKUP_KEY);
+              const hasPrev = !!localStorage.getItem(BACKUP_PREV_KEY);
+              if (hasBackup || hasPrev) {
+                console.log('[BankDashboard] 🔄 Trying local backup restore...');
+                recovered = await restoreFromLocalBackup('current');
+                if (!recovered && hasPrev) {
+                  recovered = await restoreFromLocalBackup('previous');
+                }
+              }
+            }
+
+            // Step 3: If all auto-recovery failed, show a helpful message
+            if (!recovered) {
+              setHasLocalBackup(!!localStorage.getItem(BACKUP_KEY) || !!localStorage.getItem(BACKUP_PREV_KEY));
+              alert(
+                'Failed to decrypt financial data.\n\n' +
+                'This can happen if:\n' +
+                '• Your session expired (try locking and re-entering your Safe password)\n' +
+                '• The network returned incomplete data\n\n' +
+                'Your data is safe in the database and has NOT been deleted.\n\n' +
+                'Try:\n1. Lock the Safe and unlock again\n2. Refresh the page\n3. Use the "Restore Backup" option in the ⋯ menu'
+              );
+            }
           }
         } else {
-          // No data yet — start empty; keep display currency from locale
+          // No data yet — start empty; allow persist for first-time imports
+          dataLoadedOk.current = true;
           console.log('[BankDashboard] 📊 No data found, starting empty');
           setDeposits([]);
           setAccounts([]);
@@ -538,10 +654,24 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
   }
 
   async function persist(deps: Deposit[], accs: BankAccount[], bls: Bill[], acts: ActionItem[], gls?: SavingsGoal[], rates?: {USD: number; EUR: number; GBP: number}, dispCur?: 'ORIGINAL' | 'INR' | 'USD' | 'EUR' | 'GBP', totalValueHist?: TotalValueHistoryEntry[]) {
+    if (!dataLoadedOk.current) {
+      console.warn('[BankDashboard] ⛔ persist() blocked — data was never loaded successfully. Refusing to overwrite DB.');
+      return;
+    }
+    const totalItems = deps.length + accs.length + bls.length + acts.length;
+    if (totalItems === 0) {
+      console.warn('[BankDashboard] ⛔ persist() blocked — all arrays are empty. Refusing to overwrite DB with empty data.');
+      return;
+    }
     const payload: BankRecordsData = { deposits: deps, accounts: accs, bills: bls, actions: acts, goals: gls || goals, exchangeRates: rates || exchangeRates, displayCurrency: dispCur || displayCurrency, totalValueHistory: totalValueHist ?? totalValueHistory, updatedAt: new Date().toISOString(), version: 1 };
     try {
       if (supabase && userId && encryptionKey) {
-        // Encrypt before saving - store both encrypted data and IV as JSON
+        // Before overwriting, rotate backup: current → previous
+        try {
+          const cur = localStorage.getItem(BACKUP_KEY);
+          if (cur) localStorage.setItem(BACKUP_PREV_KEY, cur);
+        } catch { /* best-effort */ }
+
         const { encrypted, iv } = await encryptData(JSON.stringify(payload), encryptionKey);
         const encryptedPayload = JSON.stringify({ encrypted, iv });
         await supabase
@@ -550,6 +680,13 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
             { user_id: userId, data: encryptedPayload, updated_at: new Date().toISOString() },
             { onConflict: 'user_id' }
           );
+
+        // Update current backup after successful write
+        try {
+          localStorage.setItem(BACKUP_KEY, encryptedPayload);
+          localStorage.setItem(BACKUP_TS_KEY, new Date().toISOString());
+          setHasLocalBackup(true);
+        } catch { /* best-effort */ }
       }
       setSavedMsg(true);
       setTimeout(() => setSavedMsg(false), 2000);
@@ -755,7 +892,8 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
         }
       });
       
-      // Save merged data
+      // Excel import is an explicit user action — allow persist
+      dataLoadedOk.current = true;
       save(mergedDeposits, mergedAccounts, mergedBills, mergedActions, undefined, { recordTotalValue: true, totalValueSource: 'Excel import' });
       
       alert(`✅ Excel imported!\n📊 ${addedCount} new records added\n✏️ ${updatedCount} records updated\n🗑️ ${deletedCount} records deleted\n📁 Total: ${mergedDeposits.length} deposits, ${mergedAccounts.length} accounts, ${mergedBills.length} bills, ${mergedActions.length} actions`);
@@ -1524,6 +1662,18 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
             <button onClick={()=>fileRef.current?.click()} style={{background:"white",color:THEME.accent,border:"none",borderRadius:6,padding:isMobile?"5px 8px":"6px 10px",fontSize:isMobile?10:11,fontWeight:600,cursor:"pointer",fontFamily:"inherit",display:"flex",alignItems:"center",gap:4}} title="Import Excel">📂{!isMobile && " Import"}</button>
             <input ref={fileRef} type="file" accept=".xlsx,.xls" style={{display:"none"}} onChange={e=>{if(e.target.files?.[0])handleExcel(e.target.files[0]);e.target.value="";}} />
             <button onClick={handleClearAll} style={{background:"rgba(255,255,255,0.15)",color:"#fecaca",border:"1px solid rgba(255,255,255,0.2)",borderRadius:6,padding:isMobile?"5px 8px":"6px 10px",fontSize:isMobile?10:11,fontWeight:600,cursor:"pointer",fontFamily:"inherit",display:"flex",alignItems:"center",gap:4}} title="Clear all financial data">🗑{!isMobile && " Clear"}</button>
+            {!isMobile && hasLocalBackup && (
+              <button onClick={async () => {
+                const ok = await restoreFromLocalBackup('current');
+                if (!ok) {
+                  const ok2 = await restoreFromLocalBackup('previous');
+                  if (!ok2) alert('No usable backup found.');
+                  else alert('✅ Restored from previous backup!');
+                } else {
+                  alert('✅ Restored from local backup!');
+                }
+              }} style={{background:"rgba(255,255,255,0.15)",color:"#86efac",border:"1px solid rgba(255,255,255,0.2)",borderRadius:6,padding:"6px 10px",fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:"inherit",display:"flex",alignItems:"center",gap:4}} title="Restore data from last known good local backup">🔄 Restore</button>
+            )}
           </div>
         </div>
         {/* Tabs - Desktop only (mobile uses bottom bar) */}
@@ -3050,6 +3200,29 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                   <span>{t.label}</span>
                 </button>
               ))}
+              {hasLocalBackup && (
+                <button
+                  onClick={async () => {
+                    setShowMoreMenu(false);
+                    const ok = await restoreFromLocalBackup('current');
+                    if (!ok) {
+                      const ok2 = await restoreFromLocalBackup('previous');
+                      if (!ok2) alert('No usable backup found.');
+                      else alert('✅ Restored from previous backup!');
+                    } else {
+                      alert('✅ Restored from local backup!');
+                    }
+                  }}
+                  style={{
+                    display:"flex",alignItems:"center",gap:10,width:"100%",
+                    padding:"12px 18px",background:"transparent",color:"#16a34a",
+                    border:"none",fontSize:13,fontWeight:500,textAlign:"left",cursor:"pointer"
+                  }}
+                >
+                  <span style={{fontSize:16}}>🔄</span>
+                  <span>Restore Backup</span>
+                </button>
+              )}
             </div>
           )}
           
