@@ -146,6 +146,8 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
   const [showLegend, setShowLegend] = useState<Set<string>>(new Set());
   /** Accounts tab — "by bank" visualization: donut (merged slices) vs horizontal bars (all banks, readable labels) */
   const [accountsBankViz, setAccountsBankViz] = useState<'donut' | 'bars'>('donut');
+  /** Accounts tab — filter by account type (Saving, FD, SCSS, etc.) */
+  const [accountsTypeFilter, setAccountsTypeFilter] = useState<string>('ALL');
   /** Deposits tab — "by bank" visualization */
   const [depositsBankViz, setDepositsBankViz] = useState<'donut' | 'bars'>('donut');
   const [showMoreMenu, setShowMoreMenu] = useState(false);
@@ -1108,6 +1110,51 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
 
   const accountsBankCur = displayCurrency === 'ORIGINAL' ? 'INR' : displayCurrency;
 
+  // Unique account types for the filter dropdown
+  const accountTypesList = useMemo(() => {
+    const types = new Set<string>();
+    accounts.forEach(a => { if (a.type) types.add(a.type); });
+    return Array.from(types).sort();
+  }, [accounts]);
+
+  // "By Type" donut data — aggregate balances per account type
+  const TYPE_COLORS: Record<string, string> = {
+    Saving: '#10B981', FD: '#3B82F6', SCSS: '#8B5CF6', PPF: '#F59E0B', NPS: '#06B6D4',
+    'Credit Card': '#EF4444', Loan: '#DC2626', Current: '#14B8A6', 'Mutual Fund': '#A78BFA',
+    RD: '#6366F1', EPF: '#0EA5E9', Demat: '#F97316',
+  };
+  const accountsTypePieData = useMemo(() => {
+    const byType: Record<string, number> = {};
+    (showAllAccounts ? accounts : accounts.filter(a => !a.hidden)).forEach(a => {
+      const typ = (a.type || '').trim() || 'Other';
+      const accCurrency = (a.currency && CURRENCY_SYMBOLS[a.currency as Currency]) ? a.currency as Currency : 'INR';
+      const converted = convertCurrency(Number(a.amount) || 0, accCurrency, displayCurrency === 'ORIGINAL' ? 'INR' : displayCurrency as Currency, exchangeRates);
+      byType[typ] = (byType[typ] || 0) + converted;
+    });
+    const fallbackColors = ['#6366f1', '#ec4899', '#f97316', '#14b8a6', '#84cc16', '#a855f7', '#64748b'];
+    let ci = 0;
+    return Object.entries(byType)
+      .filter(([, v]) => v !== 0)
+      .map(([name, value]) => ({ name, value: Math.abs(value), color: TYPE_COLORS[name] || fallbackColors[ci++ % fallbackColors.length] }))
+      .sort((a, b) => b.value - a.value);
+  }, [accounts, showAllAccounts, displayCurrency, exchangeRates]);
+
+  const accountsTypePieTooltip = useCallback(
+    (props: { active?: boolean; payload?: ReadonlyArray<{ payload: { name: string; value: number } }> }) => {
+      if (!props.active || !props.payload?.length) return null;
+      const d = props.payload[0].payload;
+      const total = accountsTypePieData.reduce((s, x) => s + x.value, 0);
+      const pct = total ? ((d.value / total) * 100).toFixed(1) : '0';
+      return (
+        <div style={{ background: '#1F2937', color: '#F3F4F6', padding: '8px 12px', borderRadius: 8, fontSize: 11, lineHeight: 1.6 }}>
+          <div style={{ fontWeight: 700 }}>{d.name}</div>
+          <div>{fmt(d.value, accountsBankCur)} ({pct}%)</div>
+        </div>
+      );
+    },
+    [accountsTypePieData, accountsBankCur],
+  );
+
   const accountsBankPieTooltip = useCallback(
     (props: { active?: boolean; payload?: ReadonlyArray<{ payload: { name: string; value: number; otherDetails?: { name: string; value: number }[] } }> }) => {
       const { active, payload } = props;
@@ -1617,9 +1664,12 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
 
         {/* ══ ACCOUNTS TAB - Grouped by Bank (Collapsible) ═══════════════ */}
         {tab === "accounts" && (() => {
-          // Separate visible and hidden accounts
+          // Separate visible and hidden accounts, then apply type filter
           const hiddenAccounts = accounts.filter(acc => acc.hidden && !showAllAccounts);
-          const visibleAccounts = (showAllAccounts ? [...accounts] : accounts.filter(acc => !acc.hidden))
+          const typeFiltered = accountsTypeFilter === 'ALL'
+            ? accounts
+            : accounts.filter(acc => acc.type === accountsTypeFilter);
+          const visibleAccounts = (showAllAccounts ? [...typeFiltered] : typeFiltered.filter(acc => !acc.hidden))
             .sort((a, b) => Math.abs(Number(b.amount) || 0) - Math.abs(Number(a.amount) || 0));
           const hiddenCount = accounts.filter(acc => acc.hidden).length;
           
@@ -1742,7 +1792,24 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                       </div>
                     )}
                   </div>
-                  
+
+                  {/* Mobile: Type Filter Pills */}
+                  {accountTypesList.length > 1 && (
+                    <div style={{display:"flex",gap:6,flexWrap:"wrap",paddingTop:2}}>
+                      <button
+                        onClick={() => setAccountsTypeFilter('ALL')}
+                        style={{background:accountsTypeFilter==='ALL'?'#10B981':'transparent',color:accountsTypeFilter==='ALL'?'#fff':THEME.textMuted,border:`1px solid ${accountsTypeFilter==='ALL'?'#10B981':THEME.border}`,borderRadius:16,padding:'4px 12px',fontSize:10,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}
+                      >All</button>
+                      {accountTypesList.map(t => (
+                        <button
+                          key={t}
+                          onClick={() => setAccountsTypeFilter(accountsTypeFilter === t ? 'ALL' : t)}
+                          style={{background:accountsTypeFilter===t?(TYPE_COLORS[t]||'#6366f1'):'transparent',color:accountsTypeFilter===t?'#fff':THEME.textMuted,border:`1px solid ${accountsTypeFilter===t?(TYPE_COLORS[t]||'#6366f1'):THEME.border}`,borderRadius:16,padding:'4px 12px',fontSize:10,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}
+                        >{t}</button>
+                      ))}
+                    </div>
+                  )}
+
                   {/* Mobile: Bank List with Inline Accounts - Vertical Layout */}
                   {visibleAccounts.length === 0 && hiddenAccounts.length === 0 ? (
                     <div style={{padding:40,textAlign:"center",color:"#6B7280"}}>No accounts found</div>
@@ -2070,6 +2137,27 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                   >
                     <span>$1=₹{exchangeRates.USD}</span>
                   </button>
+                  {/* Type Filter */}
+                  {accountTypesList.length > 1 && (
+                    <select
+                      value={accountsTypeFilter}
+                      onChange={e => setAccountsTypeFilter(e.target.value)}
+                      style={{
+                        background: accountsTypeFilter !== 'ALL' ? THEME.accent : THEME.cardBgAlt,
+                        color: accountsTypeFilter !== 'ALL' ? '#FFF' : THEME.textMuted,
+                        border: `1px solid ${THEME.border}`,
+                        borderRadius: 4,
+                        padding: '3px 8px',
+                        fontSize: 10,
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        fontFamily: 'inherit',
+                      }}
+                    >
+                      <option value="ALL">All Types</option>
+                      {accountTypesList.map(t => <option key={t} value={t}>{t}</option>)}
+                    </select>
+                  )}
                   {/* Show All / Active Accounts Toggle */}
                   {hiddenCount > 0 && (
                     <button
@@ -2531,6 +2619,71 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                       </>
                     )}
                   </div>
+
+                  {/* Accounts by Type — donut */}
+                  {accountsTypePieData.length > 1 && (
+                    <div style={{marginTop:16,background:THEME.cardBg,borderRadius:12,border:`1px solid ${THEME.border}`,padding:14}}>
+                      <div style={{fontSize:12,fontWeight:700,color:THEME.textLight,marginBottom:4}}>📊 Accounts by Type</div>
+                      <div style={{fontSize:11,color:THEME.textMuted,marginBottom:12}}>
+                        Portfolio split across Savings, FD, SCSS, Credit Card, and other account types.
+                      </div>
+                      <div style={{position:"relative",width:"100%",minHeight:300}}>
+                        <ResponsiveContainer width="100%" height={300}>
+                          <PieChart>
+                            <Pie
+                              data={accountsTypePieData}
+                              cx="50%"
+                              cy="48%"
+                              innerRadius={58}
+                              outerRadius={92}
+                              paddingAngle={2}
+                              dataKey="value"
+                              label={(p: { cx?: number; cy?: number; midAngle?: number; outerRadius?: number; name?: string; value?: number }) => {
+                                const cx = p.cx ?? 0, cy = p.cy ?? 0, mid = p.midAngle ?? 0, r = (p.outerRadius ?? 0) + 18;
+                                const rad = (-mid * Math.PI) / 180;
+                                const total = accountsTypePieData.reduce((s, x) => s + x.value, 0);
+                                const pct = total ? ((p.value ?? 0) / total * 100).toFixed(0) : '0';
+                                return (
+                                  <text x={cx + r * Math.cos(rad)} y={cy + r * Math.sin(rad)} textAnchor={cx + r * Math.cos(rad) > cx ? "start" : "end"} dominantBaseline="central" fill={THEME.text} fontSize={10} fontWeight={600}>
+                                    {p.name} {pct}%
+                                  </text>
+                                );
+                              }}
+                              labelLine={false}
+                              stroke="#111827"
+                              strokeWidth={1.5}
+                            >
+                              {accountsTypePieData.map((e, i) => (
+                                <Cell key={i} fill={e.color} />
+                              ))}
+                            </Pie>
+                            <Tooltip content={accountsTypePieTooltip} wrapperStyle={{ outline: "none" }} />
+                          </PieChart>
+                        </ResponsiveContainer>
+                        <div style={{position:"absolute",left:"50%",top:"44%",transform:"translate(-50%,-50%)",textAlign:"center",pointerEvents:"none",maxWidth:160}}>
+                          <div style={{fontSize:10,color:THEME.textMuted,textTransform:"uppercase",letterSpacing:0.8}}>By Type</div>
+                          <div style={{fontSize:16,fontWeight:800,fontFamily:"monospace",color:THEME.text,lineHeight:1.2}}>
+                            {accountsTypePieData.length} types
+                          </div>
+                        </div>
+                      </div>
+                      <div style={{display:"flex",flexDirection:"column",gap:6,marginTop:8}}>
+                        {accountsTypePieData.map((e, i) => {
+                          const total = accountsTypePieData.reduce((s, x) => s + x.value, 0);
+                          const pct = total ? (e.value / total * 100).toFixed(1) : '0';
+                          return (
+                            <div key={i} style={{display:"flex",alignItems:"center",gap:8,fontSize:12,background:THEME.cardBgAlt,padding:"6px 10px",borderRadius:8,borderLeft:`4px solid ${e.color}`,cursor:"pointer"}} onClick={() => setAccountsTypeFilter(accountsTypeFilter === e.name ? 'ALL' : e.name)}>
+                              <div style={{width:10,height:10,borderRadius:"50%",background:e.color,flexShrink:0}} />
+                              <span style={{color:THEME.text,flex:1,fontWeight:accountsTypeFilter === e.name ? 700 : 400}}>{e.name}</span>
+                              <span style={{color:e.color,fontWeight:600,fontSize:12,whiteSpace:"nowrap"}}>
+                                {fmt(e.value, accountsBankCur)} <span style={{fontSize:10,color:THEME.textLight}}>({pct}%)</span>
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
                 </>
               )}
               </>
