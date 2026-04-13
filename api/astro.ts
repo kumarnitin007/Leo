@@ -1,4 +1,4 @@
-import { handleApiError, createErrorResponse } from './_utils/errorHandler';
+import { handleApiError, createErrorResponse } from './_utils/errorHandler.js';
 
 /**
  * Unified astro proxy — all FreeAstroAPI calls go through this single
