@@ -29,6 +29,7 @@ const NatalChartVisual: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [mode, setMode] = useState<'western' | 'vedic'>('western');
   const fetchingRef = React.useRef(false);
+  const failedRef = React.useRef<Record<string, boolean>>({});
 
   useEffect(() => {
     (async () => {
@@ -40,7 +41,7 @@ const NatalChartVisual: React.FC = () => {
   }, []);
 
   const fetchChart = useCallback(async (zodiacType: 'tropical' | 'sidereal') => {
-    if (!birthData || fetchingRef.current) return;
+    if (!birthData || fetchingRef.current || failedRef.current[zodiacType]) return;
     fetchingRef.current = true;
     setIsLoading(true);
     setError(null);
@@ -65,6 +66,7 @@ const NatalChartVisual: React.FC = () => {
     } catch (e: any) {
       console.error('[NatalChartVisual]', e);
       setError(e.message);
+      failedRef.current[zodiacType] = true;
     } finally {
       endPerf();
       setIsLoading(false);
@@ -74,8 +76,8 @@ const NatalChartVisual: React.FC = () => {
 
   useEffect(() => {
     if (!isExpanded || !birthData) return;
-    if (mode === 'western' && !svgWestern && !isLoading) fetchChart('tropical');
-    if (mode === 'vedic' && !svgVedic && !isLoading) fetchChart('sidereal');
+    if (mode === 'western' && !svgWestern && !isLoading && !failedRef.current['tropical']) fetchChart('tropical');
+    if (mode === 'vedic' && !svgVedic && !isLoading && !failedRef.current['sidereal']) fetchChart('sidereal');
   }, [isExpanded, birthData, mode, svgWestern, svgVedic, isLoading, fetchChart]);
 
   if (!birthData) return null;

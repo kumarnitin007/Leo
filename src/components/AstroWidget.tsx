@@ -102,6 +102,7 @@ const AstroWidget: React.FC = () => {
   const [showNatal, setShowNatal] = useState(false);
   const [showMoon, setShowMoon] = useState(false);
   const fetchingRef = React.useRef(false);
+  const failedRef = React.useRef(false);
 
   useEffect(() => {
     const h = () => setIsMobile(window.innerWidth < 768);
@@ -121,7 +122,7 @@ const AstroWidget: React.FC = () => {
   }, []);
 
   const fetchAstro = useCallback(async () => {
-    if (!birthData || fetchingRef.current) return;
+    if (!birthData || fetchingRef.current || failedRef.current) return;
     fetchingRef.current = true;
     setIsLoading(true);
     setError(null);
@@ -171,6 +172,7 @@ const AstroWidget: React.FC = () => {
     } catch (e: any) {
       console.error('[AstroWidget]', e);
       setError(e.message || 'Failed to fetch astrology data');
+      failedRef.current = true;
     } finally {
       endTotal();
       setIsLoading(false);
@@ -179,7 +181,7 @@ const AstroWidget: React.FC = () => {
   }, [birthData, natalData, dailyData, moonData]);
 
   useEffect(() => {
-    if (isExpanded && birthData && (!natalData || !dailyData) && !isLoading && !fetchingRef.current) fetchAstro();
+    if (isExpanded && birthData && (!natalData || !dailyData) && !isLoading && !fetchingRef.current && !failedRef.current) fetchAstro();
   }, [isExpanded, birthData, natalData, dailyData, isLoading, fetchAstro]);
 
   if (!birthData) {
@@ -643,6 +645,8 @@ const AstroWidget: React.FC = () => {
                       localStorage.removeItem(DAILY_CACHE_KEY);
                       localStorage.removeItem(MOON_CACHE_KEY);
                       moonAttempted.current = false;
+                      failedRef.current = false;
+                      setError(null);
                       setDailyData(null);
                       setMoonData(null);
                     }}
@@ -657,6 +661,8 @@ const AstroWidget: React.FC = () => {
                       localStorage.removeItem(DAILY_CACHE_KEY);
                       localStorage.removeItem(MOON_CACHE_KEY);
                       moonAttempted.current = false;
+                      failedRef.current = false;
+                      setError(null);
                       setNatalData(null);
                       setDailyData(null);
                       setMoonData(null);

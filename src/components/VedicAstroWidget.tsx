@@ -129,6 +129,7 @@ const VedicAstroWidget: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'kundali' | 'shadbala' | 'ashtakavarga'>('kundali');
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const fetchingRef = React.useRef(false);
+  const failedRef = React.useRef(false);
 
   useEffect(() => {
     const h = () => setIsMobile(window.innerWidth < 768);
@@ -148,7 +149,7 @@ const VedicAstroWidget: React.FC = () => {
   }, []);
 
   const fetchVedic = useCallback(async () => {
-    if (!birthData || fetchingRef.current) return;
+    if (!birthData || fetchingRef.current || failedRef.current) return;
     fetchingRef.current = true;
     setIsLoading(true);
     setError(null);
@@ -166,6 +167,7 @@ const VedicAstroWidget: React.FC = () => {
     } catch (e: any) {
       console.error('[VedicAstro]', e);
       setError(e.message);
+      failedRef.current = true;
     } finally {
       endTotal();
       setIsLoading(false);
@@ -174,7 +176,7 @@ const VedicAstroWidget: React.FC = () => {
   }, [birthData]);
 
   useEffect(() => {
-    if (isExpanded && birthData && !vedic && !isLoading && !fetchingRef.current) fetchVedic();
+    if (isExpanded && birthData && !vedic && !isLoading && !fetchingRef.current && !failedRef.current) fetchVedic();
   }, [isExpanded, birthData, vedic, isLoading, fetchVedic]);
 
   if (!birthData) return null;
@@ -367,7 +369,7 @@ const VedicAstroWidget: React.FC = () => {
               {/* Action bar */}
               <div style={{ padding: '8px 16px', display: 'flex', justifyContent: 'flex-end', borderTop: `0.5px solid ${theme.colors.cardBorder}` }}>
                 <button
-                  onClick={() => { localStorage.removeItem(CACHE_KEY); setVedic(null); }}
+                  onClick={() => { localStorage.removeItem(CACHE_KEY); setVedic(null); failedRef.current = false; setError(null); }}
                   style={{ fontSize: 10, color: isWP ? '#92400e' : '#a78bfa', background: isWP ? '#fef3c7' : 'rgba(139,92,246,0.15)', border: 'none', cursor: 'pointer', padding: '4px 10px', borderRadius: 6, fontWeight: 600 }}
                 >
                   ↻ Recalculate

@@ -46,6 +46,7 @@ const TransitsWidget: React.FC = () => {
   const [showMinor, setShowMinor] = useState(false);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const fetchingRef = React.useRef(false);
+  const failedRef = React.useRef(false);
 
   useEffect(() => {
     const h = () => setIsMobile(window.innerWidth < 768);
@@ -63,7 +64,7 @@ const TransitsWidget: React.FC = () => {
   }, []);
 
   const fetchTransits = useCallback(async () => {
-    if (!birthData || fetchingRef.current) return;
+    if (!birthData || fetchingRef.current || failedRef.current) return;
     fetchingRef.current = true;
     setIsLoading(true);
     setError(null);
@@ -81,6 +82,7 @@ const TransitsWidget: React.FC = () => {
     } catch (e: any) {
       console.error('[TransitsWidget]', e);
       setError(e.message);
+      failedRef.current = true;
     } finally {
       endPerf();
       setIsLoading(false);
@@ -89,7 +91,7 @@ const TransitsWidget: React.FC = () => {
   }, [birthData]);
 
   useEffect(() => {
-    if (isExpanded && birthData && !transits && !isLoading && !fetchingRef.current) fetchTransits();
+    if (isExpanded && birthData && !transits && !isLoading && !fetchingRef.current && !failedRef.current) fetchTransits();
   }, [isExpanded, birthData, transits, isLoading, fetchTransits]);
 
   if (!birthData) return null;
@@ -244,7 +246,7 @@ const TransitsWidget: React.FC = () => {
               {/* Action bar */}
               <div style={{ padding: '8px 16px', display: 'flex', justifyContent: 'flex-end', borderTop: `0.5px solid ${theme.colors.cardBorder}` }}>
                 <button
-                  onClick={() => { localStorage.removeItem(CACHE_KEY); setTransits(null); }}
+                  onClick={() => { localStorage.removeItem(CACHE_KEY); setTransits(null); failedRef.current = false; setError(null); }}
                   style={{ fontSize: 10, color: isWP ? '#92400e' : '#a78bfa', background: isWP ? '#fef3c7' : 'rgba(139,92,246,0.15)', border: 'none', cursor: 'pointer', padding: '4px 10px', borderRadius: 6, fontWeight: 600 }}
                 >
                   ↻ Refresh
