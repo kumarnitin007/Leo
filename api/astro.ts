@@ -22,6 +22,11 @@ export default async function handler(req: any, res: any) {
       case 'chart': return await handleChart(req, res, API_KEY);
       case 'vedic': return await handleVedic(req, res, API_KEY);
       case 'transits': return await handleTransits(req, res, API_KEY);
+      case 'bazi': return await handleBazi(req, res, API_KEY);
+      case 'panchang': return await handlePanchang(req, res, API_KEY);
+      case 'yogas': return await handleYogas(req, res, API_KEY);
+      case 'dasha': return await handleDasha(req, res, API_KEY);
+      case 'numerology': return await handleNumerology(req, res);
       default: return res.status(400).json(createErrorResponse('VALIDATION_ERROR', `Unknown action: ${action}`));
     }
   } catch (err: any) {
@@ -228,5 +233,228 @@ async function handleTransits(req: any, res: any, API_KEY: string) {
   } catch {
     console.error('[astro:transits] JSON parse error:', bodyText.slice(0, 200));
     return res.status(502).json(createErrorResponse('PARSE_ERROR', 'Invalid response from transits API'));
+  }
+}
+
+/* ── BaZi Four Pillars (Chinese) ──────────────────────────────── */
+async function handleBazi(req: any, res: any, API_KEY: string) {
+  const { year, month, day, hour, minute, city, sex, lat, lng } = req.body || {};
+  if (!year || !month || !day || !city) {
+    return res.status(400).json(createErrorResponse('VALIDATION_ERROR', 'year, month, day, city required'));
+  }
+  const payload: Record<string, unknown> = {
+    year: Number(year), month: Number(month), day: Number(day),
+    hour: Number(hour ?? 12), minute: Number(minute ?? 0),
+    city: String(city), sex: sex || 'M',
+    include_pinyin: true,
+    include_shen_sha: true,
+    include_interactions: true,
+    include_luck_cycle: true,
+    include_element_balance: true,
+    time_standard: 'civil',
+  };
+  if (lat != null) { payload.lat = Number(lat); payload.lng = Number(lng); }
+
+  console.log('[astro:bazi] Sending payload:', JSON.stringify(payload));
+  const resp = await fetch('https://api.freeastroapi.com/api/v1/chinese/bazi', {
+    method: 'POST', headers: { 'Content-Type': 'application/json', 'x-api-key': API_KEY }, body: JSON.stringify(payload),
+  });
+  const bodyText = await resp.text();
+  if (!resp.ok) {
+    console.error(`[astro:bazi] ${resp.status}:`, bodyText.slice(0, 500));
+    return res.status(resp.status).json(createErrorResponse('EXTERNAL_API_ERROR', `BaZi: ${resp.status}`));
+  }
+  try {
+    res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+    return res.status(200).json(JSON.parse(bodyText));
+  } catch {
+    console.error('[astro:bazi] JSON parse error:', bodyText.slice(0, 200));
+    return res.status(502).json(createErrorResponse('PARSE_ERROR', 'Invalid response from BaZi API'));
+  }
+}
+
+/* ── City → Coordinates lookup (for endpoints that require lat/lng) ── */
+const CITY_COORDS: Record<string, [number, number]> = {
+  'new delhi': [28.6139, 77.2090], delhi: [28.6139, 77.2090], mumbai: [19.0760, 72.8777],
+  bangalore: [12.9716, 77.5946], bengaluru: [12.9716, 77.5946], chennai: [13.0827, 80.2707],
+  kolkata: [22.5726, 88.3639], hyderabad: [17.3850, 78.4867], pune: [18.5204, 73.8567],
+  ahmedabad: [23.0225, 72.5714], jaipur: [26.9124, 75.7873], lucknow: [26.8467, 80.9462],
+  chandigarh: [30.7333, 76.7794], indore: [22.7196, 75.8577], bhopal: [23.2599, 77.4126],
+  patna: [25.6093, 85.1376], noida: [28.5355, 77.3910], gurgaon: [28.4595, 77.0266],
+  gurugram: [28.4595, 77.0266], surat: [21.1702, 72.8311], nagpur: [21.1458, 79.0882],
+  varanasi: [25.3176, 82.9739], kochi: [9.9312, 76.2673], thiruvananthapuram: [8.5241, 76.9366],
+  coimbatore: [11.0168, 76.9558], visakhapatnam: [17.6868, 83.2185], goa: [15.2993, 74.1240],
+  amritsar: [31.6340, 74.8723], dehradun: [30.3165, 78.0322], shimla: [31.1048, 77.1734],
+  london: [51.5074, -0.1278], 'new york': [40.7128, -74.0060], toronto: [43.6532, -79.3832],
+  sydney: [-33.8688, 151.2093], singapore: [1.3521, 103.8198], dubai: [25.2048, 55.2708],
+  kathmandu: [27.7172, 85.3240], colombo: [6.9271, 79.8612], dhaka: [23.8103, 90.4125],
+};
+
+async function geocodeCity(city: string): Promise<{ lat: number; lng: number } | null> {
+  const key = city.toLowerCase().trim();
+  const known = CITY_COORDS[key];
+  if (known) return { lat: known[0], lng: known[1] };
+
+  try {
+    const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(city)}&format=json&limit=1`;
+    const r = await fetch(url, { headers: { 'User-Agent': 'MyDay-App/1.0' } });
+    if (r.ok) {
+      const data = await r.json();
+      if (data?.[0]?.lat && data?.[0]?.lon) {
+        return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
+      }
+    }
+  } catch (e) {
+    console.warn('[geocode] Nominatim lookup failed for', city, e);
+  }
+  return null;
+}
+
+/* ── Panchang (Hindu daily almanac) ───────────────────────────── */
+async function handlePanchang(req: any, res: any, API_KEY: string) {
+  const { lat, lng, city, year, month, day } = req.body || {};
+  if (lat == null && lng == null && !city) {
+    return res.status(400).json(createErrorResponse('VALIDATION_ERROR', 'city (or lat+lng) required'));
+  }
+
+  let resolvedLat = lat != null ? Number(lat) : undefined;
+  let resolvedLng = lng != null ? Number(lng) : undefined;
+
+  if (resolvedLat == null || resolvedLng == null) {
+    if (city) {
+      const coords = await geocodeCity(String(city));
+      if (coords) {
+        resolvedLat = coords.lat;
+        resolvedLng = coords.lng;
+        console.log(`[astro:panchang] Geocoded "${city}" → ${resolvedLat}, ${resolvedLng}`);
+      } else {
+        console.error(`[astro:panchang] Could not geocode city: ${city}`);
+        return res.status(400).json(createErrorResponse('VALIDATION_ERROR', `Could not resolve coordinates for city: ${city}. Provide lat and lng directly.`));
+      }
+    }
+  }
+
+  const now = new Date();
+  const payload: Record<string, unknown> = {
+    year: Number(year ?? now.getFullYear()), month: Number(month ?? now.getMonth() + 1), day: Number(day ?? now.getDate()),
+    hour: now.getHours(), minute: now.getMinutes(),
+    lat: resolvedLat, lng: resolvedLng, tz_str: 'AUTO',
+  };
+  if (city) payload.city = String(city);
+
+  console.log('[astro:panchang] Sending payload:', JSON.stringify(payload));
+  const resp = await fetch('https://api.freeastroapi.com/api/v1/vedic/panchang', {
+    method: 'POST', headers: { 'Content-Type': 'application/json', 'x-api-key': API_KEY }, body: JSON.stringify(payload),
+  });
+  const bodyText = await resp.text();
+  if (!resp.ok) {
+    console.error(`[astro:panchang] ${resp.status}:`, bodyText.slice(0, 500));
+    return res.status(resp.status).json(createErrorResponse('EXTERNAL_API_ERROR', `Panchang: ${resp.status}`));
+  }
+  try {
+    res.setHeader('Cache-Control', 'public, max-age=3600');
+    return res.status(200).json(JSON.parse(bodyText));
+  } catch {
+    console.error('[astro:panchang] JSON parse error:', bodyText.slice(0, 200));
+    return res.status(502).json(createErrorResponse('PARSE_ERROR', 'Invalid response from Panchang API'));
+  }
+}
+
+/* ── Yoga Detection ───────────────────────────────────────────── */
+async function handleYogas(req: any, res: any, API_KEY: string) {
+  const { year, month, day, hour, minute, city, lat, lng } = req.body || {};
+  if (!year || !month || !day) {
+    return res.status(400).json(createErrorResponse('VALIDATION_ERROR', 'year, month, day required'));
+  }
+  const payload: Record<string, unknown> = {
+    year: Number(year), month: Number(month), day: Number(day),
+    hour: Number(hour ?? 12), minute: Number(minute ?? 0),
+    tz_str: 'AUTO', ayanamsha: 'lahiri', house_system: 'whole_sign', node_type: 'mean',
+  };
+  if (city) payload.city = String(city);
+  if (lat != null) { payload.lat = Number(lat); payload.lng = Number(lng); }
+
+  console.log('[astro:yogas] Sending payload:', JSON.stringify(payload));
+  const resp = await fetch('https://api.freeastroapi.com/api/v1/vedic/yogas', {
+    method: 'POST', headers: { 'Content-Type': 'application/json', 'x-api-key': API_KEY }, body: JSON.stringify(payload),
+  });
+  const bodyText = await resp.text();
+  if (!resp.ok) {
+    console.error(`[astro:yogas] ${resp.status}:`, bodyText.slice(0, 500));
+    return res.status(resp.status).json(createErrorResponse('EXTERNAL_API_ERROR', `Yogas: ${resp.status}`));
+  }
+  try {
+    res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+    return res.status(200).json(JSON.parse(bodyText));
+  } catch {
+    console.error('[astro:yogas] JSON parse error:', bodyText.slice(0, 200));
+    return res.status(502).json(createErrorResponse('PARSE_ERROR', 'Invalid response from Yogas API'));
+  }
+}
+
+/* ── Vimshottari Dasha (life periods) ─────────────────────────── */
+async function handleDasha(req: any, res: any, API_KEY: string) {
+  const { year, month, day, hour, minute, city, lat, lng } = req.body || {};
+  if (!year || !month || !day) {
+    return res.status(400).json(createErrorResponse('VALIDATION_ERROR', 'year, month, day required'));
+  }
+  const payload: Record<string, unknown> = {
+    year: Number(year), month: Number(month), day: Number(day),
+    hour: Number(hour ?? 12), minute: Number(minute ?? 0),
+    tz_str: 'AUTO', ayanamsha: 'lahiri', house_system: 'whole_sign', node_type: 'mean',
+    levels: 2,
+  };
+  if (city) payload.city = String(city);
+  if (lat != null) { payload.lat = Number(lat); payload.lng = Number(lng); }
+
+  console.log('[astro:dasha] Sending payload:', JSON.stringify(payload));
+  const resp = await fetch('https://api.freeastroapi.com/api/v1/vedic/dasha', {
+    method: 'POST', headers: { 'Content-Type': 'application/json', 'x-api-key': API_KEY }, body: JSON.stringify(payload),
+  });
+  const bodyText = await resp.text();
+  if (!resp.ok) {
+    console.error(`[astro:dasha] ${resp.status}:`, bodyText.slice(0, 500));
+    return res.status(resp.status).json(createErrorResponse('EXTERNAL_API_ERROR', `Dasha: ${resp.status}`));
+  }
+  try {
+    res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+    return res.status(200).json(JSON.parse(bodyText));
+  } catch {
+    console.error('[astro:dasha] JSON parse error:', bodyText.slice(0, 200));
+    return res.status(502).json(createErrorResponse('PARSE_ERROR', 'Invalid response from Dasha API'));
+  }
+}
+
+// ── RapidAPI Numerology (optional — works without it, client-side fallback) ──
+// Uses env var RAPIDAPI_KEY. If missing, returns 501 and client uses local engine.
+// Standalone handler — delete this block to remove RapidAPI numerology.
+async function handleNumerology(req: any, res: any) {
+  const RAPIDAPI_KEY = process.env.RAPIDAPI_KEY;
+  if (!RAPIDAPI_KEY) {
+    return res.status(501).json(createErrorResponse('NOT_CONFIGURED', 'RapidAPI key not set — using client-side calculations'));
+  }
+  const { birthdate, full_name, gender } = req.body || {};
+  if (!birthdate || !full_name) {
+    return res.status(400).json(createErrorResponse('VALIDATION_ERROR', 'birthdate (YYYY-MM-DD) and full_name required'));
+  }
+  const url = `https://numerology-api6.p.rapidapi.com/calculate_numerology_numbers?birthdate=${encodeURIComponent(birthdate)}&full_name=${encodeURIComponent(full_name)}&gender=${encodeURIComponent(gender || 'Male')}`;
+  const resp = await fetch(url, {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-rapidapi-key': RAPIDAPI_KEY,
+      'x-rapidapi-host': 'numerology-api6.p.rapidapi.com',
+    },
+  });
+  const bodyText = await resp.text();
+  if (!resp.ok) {
+    console.error(`[astro:numerology] ${resp.status}:`, bodyText.slice(0, 500));
+    return res.status(resp.status).json(createErrorResponse('EXTERNAL_API_ERROR', `Numerology API: ${resp.status}`));
+  }
+  try {
+    res.setHeader('Cache-Control', 'public, max-age=86400');
+    return res.status(200).json(JSON.parse(bodyText));
+  } catch {
+    return res.status(502).json(createErrorResponse('PARSE_ERROR', 'Invalid response from Numerology API'));
   }
 }

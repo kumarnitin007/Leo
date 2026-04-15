@@ -7,8 +7,10 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { getUserSettings } from '../storage';
 import { useTheme } from '../contexts/ThemeContext';
 import { perfStart } from '../utils/perfLogger';
+import { saveAstroCache, getAstroCache, getLastSuccessfulAstroCache } from '../services/astroCacheService';
 
 const CACHE_KEY = 'astro_vedic_cache';
+const NATAL_CACHE_KEY = 'astro_natal_cache';
 const SIGN_NAMES = ['', 'Aries', 'Taurus', 'Gemini', 'Cancer', 'Leo', 'Virgo', 'Libra', 'Scorpio', 'Sagittarius', 'Capricorn', 'Aquarius', 'Pisces'];
 const SIGN_SHORT = ['', 'Ari', 'Tau', 'Gem', 'Can', 'Leo', 'Vir', 'Lib', 'Sco', 'Sag', 'Cap', 'Aqu', 'Pis'];
 const SIGN_EMOJI: Record<string, string> = { Aries: '♈', Taurus: '♉', Gemini: '♊', Cancer: '♋', Leo: '♌', Virgo: '♍', Libra: '♎', Scorpio: '♏', Sagittarius: '♐', Capricorn: '♑', Aquarius: '♒', Pisces: '♓' };
@@ -126,7 +128,11 @@ const VedicAstroWidget: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [birthData, setBirthData] = useState<any>(null);
   const [vedic, setVedic] = useState<any>(() => getCached());
+  const [natalData, setNatalData] = useState<any>(() => {
+    try { const r = localStorage.getItem(NATAL_CACHE_KEY); return r ? JSON.parse(r) : null; } catch { return null; }
+  });
   const [activeTab, setActiveTab] = useState<'kundali' | 'shadbala' | 'ashtakavarga'>('kundali');
+  const [cachedFromDate, setCachedFromDate] = useState<string | null>(null);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const fetchingRef = React.useRef(false);
   const failedRef = React.useRef(false);
@@ -148,11 +154,32 @@ const VedicAstroWidget: React.FC = () => {
     })();
   }, []);
 
+  const fetchNatalFallback = useCallback(async () => {
+    if (natalData) return;
+    try {
+      const cached = await getAstroCache('natal', birthData);
+      if (cached) { setNatalData(cached.data); return; }
+
+      const nr = await fetch('/api/astro?action=natal', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(birthData),
+      });
+      if (nr.ok) {
+        const nd = await nr.json();
+        setNatalData(nd);
+        try { localStorage.setItem(NATAL_CACHE_KEY, JSON.stringify(nd)); } catch { /* */ }
+        saveAstroCache('natal', birthData, nd);
+      }
+    } catch { /* best-effort */ }
+  }, [birthData, natalData]);
+
   const fetchVedic = useCallback(async () => {
     if (!birthData || fetchingRef.current || failedRef.current) return;
     fetchingRef.current = true;
     setIsLoading(true);
     setError(null);
+    setCachedFromDate(null);
     const endTotal = perfStart('VedicAstroWidget', 'vedic API');
     try {
       const r = await fetch('/api/astro?action=vedic', {
@@ -164,16 +191,29 @@ const VedicAstroWidget: React.FC = () => {
       const d = await r.json();
       setVedic(d);
       setCache(d);
+      saveAstroCache('vedic', birthData, d);
+
+      if (!d?.vargas?.vargas?.D1) await fetchNatalFallback();
     } catch (e: any) {
       console.error('[VedicAstro]', e);
-      setError(e.message);
-      failedRef.current = true;
+
+      const fallback = await getLastSuccessfulAstroCache('vedic');
+      if (fallback?.data) {
+        setVedic(fallback.data);
+        setCache(fallback.data);
+        const dt = new Date(fallback.fetchedAt);
+        setCachedFromDate(dt.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }));
+      } else {
+        setError(e.message);
+        failedRef.current = true;
+      }
+      await fetchNatalFallback();
     } finally {
       endTotal();
       setIsLoading(false);
       fetchingRef.current = false;
     }
-  }, [birthData]);
+  }, [birthData, natalData, fetchNatalFallback]);
 
   useEffect(() => {
     if (isExpanded && birthData && !vedic && !isLoading && !fetchingRef.current && !failedRef.current) fetchVedic();
@@ -184,6 +224,8 @@ const VedicAstroWidget: React.FC = () => {
   const vargas = vedic?.vargas?.vargas;
   const shadbala = vedic?.strength?.shadbala;
   const ashtak = vedic?.strength?.ashtakavarga;
+  const vargasError = vedic?.vargasError;
+  const strengthError = vedic?.strengthError;
 
   const d1 = vargas?.D1;
   const d9 = vargas?.D9;
@@ -192,6 +234,9 @@ const VedicAstroWidget: React.FC = () => {
   const d1Asc = d1?.ascendant?.sign_num || 1;
   const d9Asc = d9?.ascendant?.sign_num || 1;
   const d10Asc = d10?.ascendant?.sign_num || 1;
+
+  const natalPlanets = natalData?.planets;
+  const natalInterpretation = natalData?.interpretation?.sections;
 
   const tabs = [
     { id: 'kundali' as const, label: 'Kundali', icon: '🕉️' },
@@ -230,15 +275,20 @@ const VedicAstroWidget: React.FC = () => {
       {isExpanded && (
         <div style={{ borderTop: `0.5px solid ${theme.colors.cardBorder}` }}>
           {error && <div style={{ padding: 12, color: '#dc2626', fontSize: 11 }}>⚠️ {error}</div>}
+          {cachedFromDate && (
+            <div style={{ padding: '8px 16px', fontSize: 11, color: '#92400e', background: isWP ? '#fffbeb' : '#fefce8', borderBottom: `0.5px solid ${theme.colors.cardBorder}` }}>
+              Current API call failed — showing data from {cachedFromDate}
+            </div>
+          )}
 
-          {isLoading && !vedic && (
+          {isLoading && !vedic && !natalData && (
             <div style={{ padding: 20, textAlign: 'center' }}>
               <div style={{ fontSize: 24, marginBottom: 8 }}>🕉️</div>
               <div style={{ fontSize: 11, color: theme.colors.textLight }}>Calculating Vedic chart…</div>
             </div>
           )}
 
-          {vedic && (
+          {(vedic || natalData) && (
             <>
               {/* Tabs */}
               <div style={{ display: 'flex', borderBottom: `0.5px solid ${theme.colors.cardBorder}`, padding: '0 16px' }}>
@@ -261,39 +311,132 @@ const VedicAstroWidget: React.FC = () => {
               {/* ── Kundali Tab ────────────────────────────────── */}
               {activeTab === 'kundali' && (
                 <div style={{ padding: isMobile ? '12px 16px' : '16px 20px' }}>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: isMobile ? 12 : 20 }}>
-                    {d1 && <KundaliGrid planets={d1.planets} ascSign={d1Asc} title="D1 Rashi Chart" isWP={isWP} theme={theme} isMobile={isMobile} />}
-                    {d9 && <KundaliGrid planets={d9.planets} ascSign={d9Asc} title="D9 Navamsha" isWP={isWP} theme={theme} isMobile={isMobile} />}
-                    {d10 && <KundaliGrid planets={d10.planets} ascSign={d10Asc} title="D10 Dashamsha" isWP={isWP} theme={theme} isMobile={isMobile} />}
-                  </div>
+                  {(d1 || d9 || d10) ? (
+                    <>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: isMobile ? 12 : 20 }}>
+                        {d1 && <KundaliGrid planets={d1.planets} ascSign={d1Asc} title="D1 Rashi Chart" isWP={isWP} theme={theme} isMobile={isMobile} />}
+                        {d9 && <KundaliGrid planets={d9.planets} ascSign={d9Asc} title="D9 Navamsha" isWP={isWP} theme={theme} isMobile={isMobile} />}
+                        {d10 && <KundaliGrid planets={d10.planets} ascSign={d10Asc} title="D10 Dashamsha" isWP={isWP} theme={theme} isMobile={isMobile} />}
+                      </div>
 
-                  {/* Planet positions table for D1 */}
-                  {d1?.planets?.length > 0 && (
-                    <div style={{ marginTop: 12 }}>
-                      <div style={{ fontSize: 10, fontWeight: 500, color: theme.colors.textLight, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 6 }}>
-                        Rashi Placements (Sidereal)
-                      </div>
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: 4 }}>
-                        {d1.planets.map((p: any, i: number) => (
-                          <div key={i} style={{
-                            fontSize: 10, padding: '4px 8px', borderRadius: 6,
-                            background: isWP ? '#faf8f4' : '#f9fafb',
-                            border: `0.5px solid ${theme.colors.cardBorder}`,
-                            display: 'flex', justifyContent: 'space-between',
-                          }}>
-                            <span style={{ fontWeight: 600, color: theme.colors.text }}>{p.name}</span>
-                            <span style={{ color: theme.colors.textLight }}>
-                              {SIGN_EMOJI[p.sign] || ''} {p.sign} {p.degree?.toFixed(1)}°
-                            </span>
+                      {d1?.planets?.length > 0 && (
+                        <div style={{ marginTop: 12 }}>
+                          <div style={{ fontSize: 10, fontWeight: 500, color: theme.colors.textLight, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 6 }}>
+                            Rashi Placements (Sidereal)
                           </div>
-                        ))}
-                      </div>
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: 4 }}>
+                            {d1.planets.map((p: any, i: number) => (
+                              <div key={i} style={{
+                                fontSize: 10, padding: '4px 8px', borderRadius: 6,
+                                background: isWP ? '#faf8f4' : '#f9fafb',
+                                border: `0.5px solid ${theme.colors.cardBorder}`,
+                                display: 'flex', justifyContent: 'space-between',
+                              }}>
+                                <span style={{ fontWeight: 600, color: theme.colors.text }}>{p.name}</span>
+                                <span style={{ color: theme.colors.textLight }}>
+                                  {SIGN_EMOJI[p.sign] || ''} {p.sign} {p.degree?.toFixed(1)}°
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <div>
+                      {/* Vedic vargas unavailable — show natal fallback */}
+                      {vargasError && (
+                        <div style={{
+                          padding: 12, marginBottom: 12, borderRadius: 8,
+                          background: isWP ? '#fef3c7' : '#fffbeb',
+                          border: `1px solid ${isWP ? '#d97706' : '#fbbf24'}`,
+                          fontSize: 11, color: '#92400e', lineHeight: 1.5,
+                        }}>
+                          Vedic chart API temporarily unavailable (error {vargasError}).
+                          {vargasError === 403 && ' This is usually a rate limit or quota issue — try again later.'}
+                          {natalPlanets ? ' Showing birth chart data from Western calculations below.' : ''}
+                        </div>
+                      )}
+
+                      {natalPlanets && natalPlanets.length > 0 ? (
+                        <>
+                          <div style={{ fontSize: 10, fontWeight: 500, color: theme.colors.textLight, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 8 }}>
+                            Birth Chart — Planet Positions (Tropical)
+                          </div>
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 4, marginBottom: 16 }}>
+                            {natalPlanets.map((p: any, i: number) => (
+                              <div key={i} style={{
+                                fontSize: 10, padding: '6px 10px', borderRadius: 6,
+                                background: isWP ? '#faf8f4' : '#f9fafb',
+                                border: `0.5px solid ${theme.colors.cardBorder}`,
+                                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                              }}>
+                                <span style={{ fontWeight: 600, color: theme.colors.text }}>{p.name || p.id}</span>
+                                <span style={{ color: theme.colors.textLight }}>
+                                  {SIGN_EMOJI[p.sign] || ''} {p.sign} {p.degree?.toFixed(1)}°
+                                  {p.retrograde ? ' ℞' : ''}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+
+                          {/* Natal interpretation sections as life readings */}
+                          {natalInterpretation && (
+                            <div>
+                              <div style={{ fontSize: 10, fontWeight: 500, color: theme.colors.textLight, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 8 }}>
+                                Kundali Life Readings
+                              </div>
+                              {Object.entries(natalInterpretation).map(([sectionKey, items]: [string, any]) => {
+                                if (!Array.isArray(items) || items.length === 0) return null;
+                                const sectionTitle = sectionKey.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+                                return (
+                                  <div key={sectionKey} style={{ marginBottom: 12 }}>
+                                    <div style={{ fontSize: 11, fontWeight: 600, color: theme.colors.text, marginBottom: 4 }}>
+                                      {sectionTitle}
+                                    </div>
+                                    {items.slice(0, 3).map((item: any, idx: number) => (
+                                      <div key={idx} style={{
+                                        fontSize: 11, lineHeight: 1.6, color: theme.colors.textLight,
+                                        padding: '6px 10px', marginBottom: 4, borderRadius: 6,
+                                        background: isWP ? '#faf8f4' : '#f9fafb',
+                                        border: `0.5px solid ${theme.colors.cardBorder}`,
+                                      }}>
+                                        {item.title && <strong style={{ color: theme.colors.text }}>{item.title}: </strong>}
+                                        {typeof item.body === 'string' ? item.body.slice(0, 300) : String(item.body || '').slice(0, 300)}
+                                        {(item.body?.length || 0) > 300 ? '…' : ''}
+                                      </div>
+                                    ))}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </>
+                      ) : !vargasError ? (
+                        <div style={{ textAlign: 'center', padding: 20, color: theme.colors.textLight, fontSize: 11 }}>
+                          No Kundali data available. Tap "Recalculate" below to retry.
+                        </div>
+                      ) : null}
                     </div>
                   )}
                 </div>
               )}
 
               {/* ── Shadbala Tab ───────────────────────────────── */}
+              {activeTab === 'shadbala' && !shadbala && (
+                <div style={{ padding: '16px 20px' }}>
+                  <div style={{
+                    padding: 12, borderRadius: 8,
+                    background: isWP ? '#fef3c7' : '#fffbeb',
+                    border: `1px solid ${isWP ? '#d97706' : '#fbbf24'}`,
+                    fontSize: 11, color: '#92400e', lineHeight: 1.5,
+                  }}>
+                    {strengthError
+                      ? <>Shadbala API temporarily unavailable (error {strengthError}).{strengthError === 403 && ' Rate limit or quota exceeded — try again later.'}</>
+                      : 'Shadbala data not yet available. Tap "Recalculate" below to fetch it.'}
+                  </div>
+                </div>
+              )}
               {activeTab === 'shadbala' && shadbala && (
                 <div style={{ padding: isMobile ? '12px 16px' : '16px 20px' }}>
                   <div style={{ fontSize: 11, color: theme.colors.textLight, marginBottom: 10, lineHeight: 1.5 }}>
@@ -335,6 +478,20 @@ const VedicAstroWidget: React.FC = () => {
               )}
 
               {/* ── Ashtakavarga Tab ───────────────────────────── */}
+              {activeTab === 'ashtakavarga' && !ashtak && (
+                <div style={{ padding: '16px 20px' }}>
+                  <div style={{
+                    padding: 12, borderRadius: 8,
+                    background: isWP ? '#fef3c7' : '#fffbeb',
+                    border: `1px solid ${isWP ? '#d97706' : '#fbbf24'}`,
+                    fontSize: 11, color: '#92400e', lineHeight: 1.5,
+                  }}>
+                    {strengthError
+                      ? <>Ashtakavarga API temporarily unavailable (error {strengthError}).{strengthError === 403 && ' Rate limit or quota exceeded — try again later.'}</>
+                      : 'Ashtakavarga data not yet available. Tap "Recalculate" below to fetch it.'}
+                  </div>
+                </div>
+              )}
               {activeTab === 'ashtakavarga' && ashtak && (
                 <div style={{ padding: isMobile ? '12px 16px' : '16px 20px' }}>
                   <div style={{ fontSize: 11, color: theme.colors.textLight, marginBottom: 10, lineHeight: 1.5 }}>
@@ -369,7 +526,7 @@ const VedicAstroWidget: React.FC = () => {
               {/* Action bar */}
               <div style={{ padding: '8px 16px', display: 'flex', justifyContent: 'flex-end', borderTop: `0.5px solid ${theme.colors.cardBorder}` }}>
                 <button
-                  onClick={() => { localStorage.removeItem(CACHE_KEY); setVedic(null); failedRef.current = false; setError(null); }}
+                  onClick={() => { localStorage.removeItem(CACHE_KEY); localStorage.removeItem(NATAL_CACHE_KEY); setVedic(null); setNatalData(null); failedRef.current = false; setError(null); }}
                   style={{ fontSize: 10, color: isWP ? '#92400e' : '#a78bfa', background: isWP ? '#fef3c7' : 'rgba(139,92,246,0.15)', border: 'none', cursor: 'pointer', padding: '4px 10px', borderRadius: 6, fontWeight: 600 }}
                 >
                   ↻ Recalculate

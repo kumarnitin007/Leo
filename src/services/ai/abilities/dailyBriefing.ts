@@ -255,8 +255,16 @@ export async function getDailyBriefing(
     userMessage,
   });
 
+  // OpenAI sometimes returns briefing as an object {main, supporting, tags} instead of a string
+  const rawBriefing = result.data.briefing;
+  const briefingText = typeof rawBriefing === 'string'
+    ? rawBriefing
+    : typeof rawBriefing === 'object' && rawBriefing !== null
+      ? (rawBriefing.main || JSON.stringify(rawBriefing))
+      : String(rawBriefing ?? '');
+
   const briefing: DailyBriefingResult = {
-    briefing: result.data.briefing,
+    briefing: briefingText,
     tone: result.data.tone || 'neutral',
     funQuote: result.data.funQuote || result.data.fun_quote,
     date: today,
@@ -266,7 +274,7 @@ export async function getDailyBriefing(
   };
 
   // 5. Persist
-  saveDbCache(userId, result.data.briefing, today, result.usage).catch(() => {});
+  saveDbCache(userId, briefingText, today, result.usage).catch(() => {});
   if (result.data.digests?.length) saveDigests(userId, result.data.digests).catch(() => {});
   setSessionCache(briefing);
 

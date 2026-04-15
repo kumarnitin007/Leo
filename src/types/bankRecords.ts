@@ -171,6 +171,9 @@ export interface TotalValueHistoryEntry {
   totalAccountValue: number;  // Sum of all account amounts (loans negative)
   totalDepositValue: number;  // Sum of all deposit amounts
   source?: string;       // e.g. 'Manual edit', 'Financial import', 'Created', 'Excel import'
+  currency?: string;     // Currency values were recorded in (INR for all new entries; old entries assumed INR)
+  /** Per-type account breakdowns (recorded since v1.5) */
+  accountsByType?: Record<string, number>;
 }
 
 export interface BankRecordsData {

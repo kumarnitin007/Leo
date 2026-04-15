@@ -188,6 +188,29 @@ export function BankOverviewTab({
   const [showPastDue, setShowPastDue] = React.useState(true);
   const [portfolioChartMode, setPortfolioChartMode] = React.useState<'accounts' | 'deposits'>('accounts');
 
+  const TYPE_LINE_COLORS: Record<string, string> = {
+    Saving: '#10B981', FD: '#3B82F6', SCSS: '#8B5CF6', PPF: '#F59E0B', NPS: '#06B6D4',
+    'Credit Card': '#EF4444', Loan: '#DC2626', Current: '#14B8A6', 'Mutual Fund': '#A78BFA',
+    RD: '#6366F1', EPF: '#0EA5E9', Demat: '#F97316', Other: '#6B7280',
+  };
+  const fallbackLineColors = ['#ec4899', '#f97316', '#84cc16', '#a855f7', '#64748b', '#0d9488', '#e11d48'];
+
+  const portfolioFlatData = React.useMemo(() => {
+    const typeSet = new Set<string>();
+    portfolioHistoryChartData.forEach(p => {
+      if (p.accountsByType) Object.keys(p.accountsByType).forEach(k => typeSet.add(k));
+    });
+    const types = Array.from(typeSet).sort();
+    const flat = portfolioHistoryChartData.map(p => {
+      const row: Record<string, any> = { ...p };
+      types.forEach(t => { row[`type_${t}`] = p.accountsByType?.[t] ?? null; });
+      return row;
+    });
+    let ci = 0;
+    const typeColors = types.map(t => ({ key: `type_${t}`, name: t, color: TYPE_LINE_COLORS[t] || fallbackLineColors[ci++ % fallbackLineColors.length] }));
+    return { flat, typeColors, hasTypeData: types.length > 0 };
+  }, [portfolioHistoryChartData]);
+
   return (
     <div style={{display:"flex",flexDirection:"column",gap:isMobile?12:16}}>
       {/* ═══ MOBILE OVERVIEW ═══ */}
@@ -368,7 +391,7 @@ export function BankOverviewTab({
                     </div>
                   </div>
                   <ResponsiveContainer width="100%" height={200}>
-                    <AreaChart data={portfolioHistoryChartData} margin={{top:4,right:4,left:4,bottom:4}}>
+                    <AreaChart data={portfolioFlatData.flat} margin={{top:4,right:4,left:4,bottom:4}}>
                       <defs>
                         <linearGradient id="mobileGradAccounts" x1="0" y1="0" x2="0" y2="1">
                           <stop offset="5%" stopColor="#10B981" stopOpacity={0.85} />
@@ -397,7 +420,12 @@ export function BankOverviewTab({
                         }}
                       />
                       {portfolioChartMode === 'accounts' ? (
-                        <Area type="monotone" dataKey="totalAccountValue" name="Accounts" stroke="#059669" strokeWidth={1.5} fill="url(#mobileGradAccounts)" />
+                        <>
+                          <Area type="monotone" dataKey="totalAccountValue" name="Accounts" stroke="#059669" strokeWidth={1.5} fill="url(#mobileGradAccounts)" />
+                          {portfolioFlatData.hasTypeData && portfolioFlatData.typeColors.map(tc => (
+                            <Area key={tc.key} type="monotone" dataKey={tc.key} name={tc.name} stroke={tc.color} strokeWidth={1} strokeDasharray="4 2" fill="none" dot={false} connectNulls />
+                          ))}
+                        </>
                       ) : (
                         <Area type="monotone" dataKey="totalDepositValue" name="Deposits" stroke="#2563EB" strokeWidth={1.5} fill="url(#mobileGradDeposits)" />
                       )}
@@ -604,7 +632,7 @@ export function BankOverviewTab({
                   <span style={{fontSize:10,color:THEME.textMuted}}>{portfolioChartMode === 'accounts' ? 'Account balances' : 'Deposit (invested) values'}</span>
                 </div>
                 <ResponsiveContainer width="100%" height={260}>
-                  <AreaChart data={portfolioHistoryChartData} margin={{top:8,right:8,left:8,bottom:8}}>
+                  <AreaChart data={portfolioFlatData.flat} margin={{top:8,right:8,left:8,bottom:8}}>
                     <defs>
                       <linearGradient id="desktopGradAccounts" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="5%" stopColor="#10B981" stopOpacity={0.85} />
@@ -633,12 +661,27 @@ export function BankOverviewTab({
                       }}
                     />
                     {portfolioChartMode === 'accounts' ? (
-                      <Area type="monotone" dataKey="totalAccountValue" name="Accounts" stroke="#059669" strokeWidth={2} fill="url(#desktopGradAccounts)" />
+                      <>
+                        <Area type="monotone" dataKey="totalAccountValue" name="Accounts" stroke="#059669" strokeWidth={2} fill="url(#desktopGradAccounts)" />
+                        {portfolioFlatData.hasTypeData && portfolioFlatData.typeColors.map(tc => (
+                          <Area key={tc.key} type="monotone" dataKey={tc.key} name={tc.name} stroke={tc.color} strokeWidth={1} strokeDasharray="4 2" fill="none" dot={false} connectNulls />
+                        ))}
+                      </>
                     ) : (
                       <Area type="monotone" dataKey="totalDepositValue" name="Deposits" stroke="#2563EB" strokeWidth={2} fill="url(#desktopGradDeposits)" />
                     )}
                   </AreaChart>
                 </ResponsiveContainer>
+                {portfolioChartMode === 'accounts' && portfolioFlatData.hasTypeData && (
+                  <div style={{display:"flex",flexWrap:"wrap",gap:10,marginTop:8}}>
+                    {portfolioFlatData.typeColors.map(tc => (
+                      <div key={tc.key} style={{display:"flex",alignItems:"center",gap:4,fontSize:10,color:THEME.textLight}}>
+                        <div style={{width:16,height:2,background:tc.color,borderRadius:1}} />
+                        <span>{tc.name}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
                 <div style={{marginTop:12}}>
                   <button
                     type="button"

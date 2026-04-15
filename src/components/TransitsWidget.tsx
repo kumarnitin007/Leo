@@ -7,6 +7,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { getUserSettings } from '../storage';
 import { useTheme } from '../contexts/ThemeContext';
 import { perfStart } from '../utils/perfLogger';
+import { saveAstroCache, getLastSuccessfulAstroCache } from '../services/astroCacheService';
 
 const CACHE_KEY = 'astro_transits_cache';
 const SIGN_EMOJI: Record<string, string> = {
@@ -44,6 +45,7 @@ const TransitsWidget: React.FC = () => {
   const [birthData, setBirthData] = useState<any>(null);
   const [transits, setTransits] = useState<any>(() => getDayCached());
   const [showMinor, setShowMinor] = useState(false);
+  const [cachedFromDate, setCachedFromDate] = useState<string | null>(null);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const fetchingRef = React.useRef(false);
   const failedRef = React.useRef(false);
@@ -68,6 +70,7 @@ const TransitsWidget: React.FC = () => {
     fetchingRef.current = true;
     setIsLoading(true);
     setError(null);
+    setCachedFromDate(null);
     const endPerf = perfStart('TransitsWidget', 'transits API');
     try {
       const r = await fetch('/api/astro?action=transits', {
@@ -79,10 +82,20 @@ const TransitsWidget: React.FC = () => {
       const d = await r.json();
       setTransits(d);
       setDayCache(d);
+      saveAstroCache('transits', birthData, d);
     } catch (e: any) {
       console.error('[TransitsWidget]', e);
-      setError(e.message);
-      failedRef.current = true;
+
+      const fallback = await getLastSuccessfulAstroCache('transits');
+      if (fallback?.data) {
+        setTransits(fallback.data);
+        setDayCache(fallback.data);
+        const dt = new Date(fallback.fetchedAt);
+        setCachedFromDate(dt.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }));
+      } else {
+        setError(e.message);
+        failedRef.current = true;
+      }
     } finally {
       endPerf();
       setIsLoading(false);
@@ -136,6 +149,11 @@ const TransitsWidget: React.FC = () => {
       {isExpanded && (
         <div style={{ borderTop: `0.5px solid ${theme.colors.cardBorder}` }}>
           {error && <div style={{ padding: 12, color: '#dc2626', fontSize: 11 }}>⚠️ {error}</div>}
+          {cachedFromDate && (
+            <div style={{ padding: '8px 16px', fontSize: 11, color: '#92400e', background: isWP ? '#fffbeb' : '#fefce8', borderBottom: `0.5px solid ${theme.colors.cardBorder}` }}>
+              Current API call failed — showing data from {cachedFromDate}
+            </div>
+          )}
 
           {isLoading && !transits && (
             <div style={{ padding: 20, textAlign: 'center' }}>
@@ -152,20 +170,24 @@ const TransitsWidget: React.FC = () => {
                   Current Sky — {transits.transit_date}
                 </div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                  {transitPlanets.slice(0, 10).map((p: any, i: number) => (
-                    <div key={i} style={{
-                      display: 'flex', alignItems: 'center', gap: 4,
-                      padding: '4px 8px', borderRadius: 6,
-                      background: isWP ? '#faf8f4' : '#f9fafb',
-                      border: `0.5px solid ${theme.colors.cardBorder}`,
-                      fontSize: 10,
-                    }}>
-                      <span style={{ fontWeight: 600, color: theme.colors.text }}>{p.name?.slice(0, 3)}</span>
-                      <span>{SIGN_EMOJI[p.sign] || ''}</span>
-                      <span style={{ color: theme.colors.textLight }}>{p.sign} {p.pos?.toFixed(1)}°</span>
-                      {p.retrograde && <span style={{ fontSize: 8, color: '#EF4444', fontWeight: 700 }}>℞</span>}
-                    </div>
-                  ))}
+                  {transitPlanets.slice(0, 10).map((p: any, i: number) => {
+                    const name = typeof p.name === 'string' ? p.name : String(p.name || '');
+                    const sign = typeof p.sign === 'string' ? p.sign : String(p.sign || '');
+                    return (
+                      <div key={i} style={{
+                        display: 'flex', alignItems: 'center', gap: 4,
+                        padding: '4px 8px', borderRadius: 6,
+                        background: isWP ? '#faf8f4' : '#f9fafb',
+                        border: `0.5px solid ${theme.colors.cardBorder}`,
+                        fontSize: 10,
+                      }}>
+                        <span style={{ fontWeight: 600, color: theme.colors.text }}>{name.slice(0, 3)}</span>
+                        <span>{SIGN_EMOJI[sign] || ''}</span>
+                        <span style={{ color: theme.colors.textLight }}>{sign} {p.pos?.toFixed(1)}°</span>
+                        {p.retrograde && <span style={{ fontSize: 8, color: '#EF4444', fontWeight: 700 }}>℞</span>}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
 
@@ -183,24 +205,29 @@ const TransitsWidget: React.FC = () => {
                 </div>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                  {majorAspects.slice(0, 12).map((a: any, i: number) => (
-                    <div key={i} style={{
-                      display: 'flex', alignItems: 'center', gap: 6, padding: '5px 8px',
-                      borderRadius: 6, fontSize: 10,
-                      background: a.is_applying ? (isWP ? '#fefce8' : '#fef3c7') : 'transparent',
-                      border: `0.5px solid ${theme.colors.cardBorder}`,
-                    }}>
-                      <span style={{ color: ASPECT_COLORS[a.type] || theme.colors.text, fontWeight: 700, fontSize: 13, width: 16 }}>
-                        {ASPECT_SYMBOLS[a.type] || '·'}
-                      </span>
-                      <span style={{ fontWeight: 500, color: theme.colors.text, flex: 1 }}>
-                        {a.p1} {a.type} {a.p2}
-                      </span>
-                      <span style={{ color: theme.colors.textLight, fontSize: 9 }}>
-                        {a.orb?.toFixed(1)}° {a.is_applying ? '→' : '←'}
-                      </span>
-                    </div>
-                  ))}
+                  {majorAspects.slice(0, 12).map((a: any, i: number) => {
+                    const aType = typeof a.type === 'string' ? a.type : String(a.type || '');
+                    const p1 = typeof a.p1 === 'string' ? a.p1 : String(a.p1 || '');
+                    const p2 = typeof a.p2 === 'string' ? a.p2 : String(a.p2 || '');
+                    return (
+                      <div key={i} style={{
+                        display: 'flex', alignItems: 'center', gap: 6, padding: '5px 8px',
+                        borderRadius: 6, fontSize: 10,
+                        background: a.is_applying ? (isWP ? '#fefce8' : '#fef3c7') : 'transparent',
+                        border: `0.5px solid ${theme.colors.cardBorder}`,
+                      }}>
+                        <span style={{ color: ASPECT_COLORS[aType] || theme.colors.text, fontWeight: 700, fontSize: 13, width: 16 }}>
+                          {ASPECT_SYMBOLS[aType] || '·'}
+                        </span>
+                        <span style={{ fontWeight: 500, color: theme.colors.text, flex: 1 }}>
+                          {p1} {aType} {p2}
+                        </span>
+                        <span style={{ color: theme.colors.textLight, fontSize: 9 }}>
+                          {a.orb?.toFixed(1)}° {a.is_applying ? '→' : '←'}
+                        </span>
+                      </div>
+                    );
+                  })}
                 </div>
 
                 {/* Minor toggle */}
@@ -231,14 +258,17 @@ const TransitsWidget: React.FC = () => {
                   </div>
                   {Object.entries(interp.sections).slice(0, 4).map(([section, items]: [string, any]) => {
                     if (!items?.length) return null;
-                    return items.slice(0, 2).map((item: any, i: number) => (
-                      <div key={`${section}-${i}`} style={{ marginBottom: 8 }}>
-                        <div style={{ fontSize: 11, fontWeight: 600, color: theme.colors.text, marginBottom: 2 }}>{item.title}</div>
-                        <div style={{ fontSize: 11, color: theme.colors.textLight, lineHeight: 1.5 }}>
-                          {item.body?.length > 200 ? item.body.slice(0, 200) + '…' : item.body}
+                    return items.slice(0, 2).map((item: any, i: number) => {
+                      const title = typeof item.title === 'object' ? (item.title?.main || JSON.stringify(item.title)) : String(item.title || '');
+                      const rawBody = typeof item.body === 'object' ? (item.body?.main || JSON.stringify(item.body)) : String(item.body || '');
+                      const body = rawBody.length > 200 ? rawBody.slice(0, 200) + '…' : rawBody;
+                      return (
+                        <div key={`${section}-${i}`} style={{ marginBottom: 8 }}>
+                          <div style={{ fontSize: 11, fontWeight: 600, color: theme.colors.text, marginBottom: 2 }}>{title}</div>
+                          <div style={{ fontSize: 11, color: theme.colors.textLight, lineHeight: 1.5 }}>{body}</div>
                         </div>
-                      </div>
-                    ));
+                      );
+                    });
                   })}
                 </div>
               )}

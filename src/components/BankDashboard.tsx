@@ -144,10 +144,12 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
   const MAX_TOTAL_VALUE_HISTORY = 500;
   const [expandedBanks, setExpandedBanks] = useState<Set<string>>(new Set());
   const [showLegend, setShowLegend] = useState<Set<string>>(new Set());
-  /** Accounts tab — "by bank" visualization: donut (merged slices) vs horizontal bars (all banks, readable labels) */
-  const [accountsBankViz, setAccountsBankViz] = useState<'donut' | 'bars'>('donut');
+  /** Accounts tab — visualization: donut by bank, bar by bank, or donut by type */
+  const [accountsBankViz, setAccountsBankViz] = useState<'donut' | 'bars' | 'type'>('donut');
   /** Accounts tab — filter by account type (Saving, FD, SCSS, etc.) */
   const [accountsTypeFilter, setAccountsTypeFilter] = useState<string>('ALL');
+  /** Accounts tab — assets vs liabilities view */
+  const [accountsAssetView, setAccountsAssetView] = useState<'all' | 'assets' | 'liabilities'>('all');
   /** Deposits tab — "by bank" visualization */
   const [depositsBankViz, setDepositsBankViz] = useState<'donut' | 'bars'>('donut');
   const [showMoreMenu, setShowMoreMenu] = useState(false);
@@ -700,8 +702,14 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
     if (gls !== undefined) setGoals(gls);
     let hist = totalValueHistory;
     if (options?.recordTotalValue) {
-      const { totalAccountValue, totalDepositValue } = computeTotalValues(deps, accs, exchangeRates, displayCurrency);
-      const entry: TotalValueHistoryEntry = { date: new Date().toISOString(), totalAccountValue, totalDepositValue, source: options.totalValueSource || 'Balance change' };
+      // Always record in INR so switching display currency doesn't corrupt history
+      const { totalAccountValue, totalDepositValue } = computeTotalValues(deps, accs, exchangeRates, 'INR');
+      const byType: Record<string, number> = {};
+      accs.forEach(a => {
+        const typ = (a.type || '').trim() || 'Other';
+        byType[typ] = (byType[typ] || 0) + convertCurrency(Number(a.amount) || 0, (a.currency || 'INR') as Currency, 'INR', exchangeRates);
+      });
+      const entry: TotalValueHistoryEntry = { date: new Date().toISOString(), totalAccountValue, totalDepositValue, source: options.totalValueSource || 'Balance change', currency: 'INR', accountsByType: byType };
       hist = [...totalValueHistory, entry].slice(-MAX_TOTAL_VALUE_HISTORY);
       setTotalValueHistory(hist);
     }
@@ -1402,9 +1410,10 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
         timestamp: d.getTime(),
         dateLabel,
         fullDate: e.date,
-        totalAccountValue: Number(e.totalAccountValue) || 0,
-        totalDepositValue: Number(e.totalDepositValue) || 0,
+        totalAccountValue: (() => { const s = ((e as any).currency || 'INR') as Currency, t = (displayCurrency === 'ORIGINAL' ? 'INR' : displayCurrency) as Currency; return s === t ? (Number(e.totalAccountValue) || 0) : convertCurrency(Number(e.totalAccountValue) || 0, s, t, exchangeRates); })(),
+        totalDepositValue: (() => { const s = ((e as any).currency || 'INR') as Currency, t = (displayCurrency === 'ORIGINAL' ? 'INR' : displayCurrency) as Currency; return s === t ? (Number(e.totalDepositValue) || 0) : convertCurrency(Number(e.totalDepositValue) || 0, s, t, exchangeRates); })(),
         source: e.source,
+        accountsByType: (e as any).accountsByType ? (() => { const s = ((e as any).currency || 'INR') as Currency, t = (displayCurrency === 'ORIGINAL' ? 'INR' : displayCurrency) as Currency; return Object.fromEntries(Object.entries((e as any).accountsByType).map(([k, v]) => [k, s === t ? (Number(v) || 0) : convertCurrency(Number(v) || 0, s, t, exchangeRates)])); })() : undefined,
       };
     });
     // Extend timeline to end of today: same values as last snapshot so the line runs flat to “today” on the X axis
@@ -1423,7 +1432,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
       });
     }
     return points;
-  }, [totalValueHistory]);
+  }, [totalValueHistory, displayCurrency, exchangeRates]);
 
   const portfolioHistorySnapshotCount = useMemo(
     () => portfolioHistoryChartData.filter(p => !p.isProjected).length,
@@ -1816,10 +1825,16 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
         {tab === "accounts" && (() => {
           // Separate visible and hidden accounts, then apply type filter
           const hiddenAccounts = accounts.filter(acc => acc.hidden && !showAllAccounts);
+          const LIABILITY_TYPES = new Set(['Credit Card', 'Loan']);
           const typeFiltered = accountsTypeFilter === 'ALL'
             ? accounts
             : accounts.filter(acc => acc.type === accountsTypeFilter);
-          const visibleAccounts = (showAllAccounts ? [...typeFiltered] : typeFiltered.filter(acc => !acc.hidden))
+          const assetFiltered = accountsAssetView === 'all'
+            ? typeFiltered
+            : accountsAssetView === 'assets'
+              ? typeFiltered.filter(acc => (Number(acc.amount) || 0) >= 0 && !LIABILITY_TYPES.has(acc.type || ''))
+              : typeFiltered.filter(acc => (Number(acc.amount) || 0) < 0 || LIABILITY_TYPES.has(acc.type || ''));
+          const visibleAccounts = (showAllAccounts ? [...assetFiltered] : assetFiltered.filter(acc => !acc.hidden))
             .sort((a, b) => Math.abs(Number(b.amount) || 0) - Math.abs(Number(a.amount) || 0));
           const hiddenCount = accounts.filter(acc => acc.hidden).length;
           
@@ -1959,6 +1974,18 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                       ))}
                     </div>
                   )}
+
+                  {/* Mobile: Assets / Liabilities toggle */}
+                  <div style={{display:"flex",gap:4,paddingTop:4}}>
+                    {(['all','assets','liabilities'] as const).map(v => (
+                      <button key={v} onClick={() => setAccountsAssetView(v)} style={{
+                        background: accountsAssetView === v ? (v === 'liabilities' ? '#EF4444' : v === 'assets' ? '#10B981' : THEME.accent) : 'transparent',
+                        color: accountsAssetView === v ? '#fff' : THEME.textMuted,
+                        border: `1px solid ${accountsAssetView === v ? 'transparent' : THEME.border}`,
+                        borderRadius: 16, padding: '4px 12px', fontSize: 10, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', textTransform: 'capitalize',
+                      }}>{v}</button>
+                    ))}
+                  </div>
 
                   {/* Mobile: Bank List with Inline Accounts - Vertical Layout */}
                   {visibleAccounts.length === 0 && hiddenAccounts.length === 0 ? (
@@ -2129,34 +2156,21 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                   <div style={{background:THEME.cardBg,borderRadius:14,padding:"14px",marginTop:12,border:`1px solid ${THEME.border}`}}>
                     <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:10,flexWrap:"wrap",marginBottom:10}}>
                       <div>
-                        <div style={{fontSize:12,fontWeight:700,color:THEME.textLight}}>🏦 Accounts by Bank</div>
-                        <div style={{fontSize:10,color:THEME.textMuted,marginTop:2}}>{accountsPieData.length} banks · converted</div>
+                        <div style={{fontSize:12,fontWeight:700,color:THEME.textLight}}>{accountsBankViz === 'type' ? '📊 By Type' : '🏦 By Bank'}</div>
+                        <div style={{fontSize:10,color:THEME.textMuted,marginTop:2}}>{accountsBankViz === 'type' ? `${accountsTypePieData.length} types` : `${accountsPieData.length} banks`} · converted</div>
                       </div>
                       <div style={{display:"flex",gap:2,background:THEME.cardBgAlt,borderRadius:8,padding:2,border:`1px solid ${THEME.border}`}}>
-                        <button type="button" onClick={() => setAccountsBankViz("donut")} style={{border:"none",borderRadius:6,padding:"5px 10px",fontSize:10,fontWeight:700,cursor:"pointer",background:accountsBankViz==="donut"?"#238636":"transparent",color:accountsBankViz==="donut"?"#fff":THEME.textMuted}} title="Merged donut — major banks + Other">Donut</button>
-                        <button type="button" onClick={() => setAccountsBankViz("bars")} style={{border:"none",borderRadius:6,padding:"5px 10px",fontSize:10,fontWeight:700,cursor:"pointer",background:accountsBankViz==="bars"?"#238636":"transparent",color:accountsBankViz==="bars"?"#fff":THEME.textMuted}} title="Every bank name on the axis">Bars</button>
+                        <button type="button" onClick={() => setAccountsBankViz("donut")} style={{border:"none",borderRadius:6,padding:"5px 10px",fontSize:10,fontWeight:700,cursor:"pointer",background:accountsBankViz==="donut"?"#238636":"transparent",color:accountsBankViz==="donut"?"#fff":THEME.textMuted}}>Bank</button>
+                        <button type="button" onClick={() => setAccountsBankViz("type")} style={{border:"none",borderRadius:6,padding:"5px 10px",fontSize:10,fontWeight:700,cursor:"pointer",background:accountsBankViz==="type"?"#238636":"transparent",color:accountsBankViz==="type"?"#fff":THEME.textMuted}}>Type</button>
+                        <button type="button" onClick={() => setAccountsBankViz("bars")} style={{border:"none",borderRadius:6,padding:"5px 10px",fontSize:10,fontWeight:700,cursor:"pointer",background:accountsBankViz==="bars"?"#238636":"transparent",color:accountsBankViz==="bars"?"#fff":THEME.textMuted}}>Bars</button>
                       </div>
                     </div>
                     {accountsBankViz === "donut" ? (
                       <div style={{position:"relative",width:"100%",minHeight:240}}>
                         <ResponsiveContainer width="100%" height={240}>
                           <PieChart>
-                            <Pie
-                              data={accountsPieMerged}
-                              cx="50%"
-                              cy="48%"
-                              innerRadius={44}
-                              outerRadius={68}
-                              paddingAngle={2}
-                              dataKey="value"
-                              label={accountsDonutLabel}
-                              labelLine={false}
-                              stroke="#111827"
-                              strokeWidth={1.5}
-                            >
-                              {accountsPieMerged.map((e, i) => (
-                                <Cell key={i} fill={e.color} />
-                              ))}
+                            <Pie data={accountsPieMerged} cx="50%" cy="48%" innerRadius={44} outerRadius={68} paddingAngle={2} dataKey="value" label={accountsDonutLabel} labelLine={false} stroke="#111827" strokeWidth={1.5}>
+                              {accountsPieMerged.map((e, i) => (<Cell key={i} fill={e.color} />))}
                             </Pie>
                             <Tooltip content={accountsBankPieTooltip} wrapperStyle={{ outline: "none" }} />
                           </PieChart>
@@ -2164,6 +2178,44 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                         <div style={{position:"absolute",left:"50%",top:"44%",transform:"translate(-50%,-50%)",textAlign:"center",pointerEvents:"none",maxWidth:120}}>
                           <div style={{fontSize:9,color:THEME.textMuted,textTransform:"uppercase",letterSpacing:0.6}}>Total</div>
                           <div style={{fontSize:14,fontWeight:800,fontFamily:"monospace",color:THEME.text,lineHeight:1.2}}>{fmt(accountsBankTotalConverted, accountsBankCur)}</div>
+                        </div>
+                      </div>
+                    ) : accountsBankViz === "type" ? (
+                      <div>
+                        <div style={{position:"relative",width:"100%",minHeight:240}}>
+                          <ResponsiveContainer width="100%" height={240}>
+                            <PieChart>
+                              <Pie data={accountsTypePieData} cx="50%" cy="48%" innerRadius={44} outerRadius={68} paddingAngle={2} dataKey="value"
+                                label={(p: { cx?: number; cy?: number; midAngle?: number; outerRadius?: number; name?: string; value?: number }) => {
+                                  const cx0 = p.cx ?? 0, cy0 = p.cy ?? 0, mid = p.midAngle ?? 0, r = (p.outerRadius ?? 0) + 14;
+                                  const rad = (-mid * Math.PI) / 180;
+                                  const total = accountsTypePieData.reduce((s, x) => s + x.value, 0);
+                                  const pct = total ? ((p.value ?? 0) / total * 100).toFixed(0) : '0';
+                                  return (<text x={cx0 + r * Math.cos(rad)} y={cy0 + r * Math.sin(rad)} textAnchor={cx0 + r * Math.cos(rad) > cx0 ? "start" : "end"} dominantBaseline="central" fill={THEME.text} fontSize={9} fontWeight={600}>{p.name} {pct}%</text>);
+                                }}
+                                labelLine={false} stroke="#111827" strokeWidth={1.5}>
+                                {accountsTypePieData.map((e, i) => (<Cell key={i} fill={e.color} />))}
+                              </Pie>
+                              <Tooltip content={accountsTypePieTooltip} wrapperStyle={{ outline: "none" }} />
+                            </PieChart>
+                          </ResponsiveContainer>
+                          <div style={{position:"absolute",left:"50%",top:"44%",transform:"translate(-50%,-50%)",textAlign:"center",pointerEvents:"none",maxWidth:120}}>
+                            <div style={{fontSize:9,color:THEME.textMuted,textTransform:"uppercase",letterSpacing:0.6}}>By Type</div>
+                            <div style={{fontSize:14,fontWeight:800,fontFamily:"monospace",color:THEME.text,lineHeight:1.2}}>{accountsTypePieData.length} types</div>
+                          </div>
+                        </div>
+                        <div style={{display:"flex",flexDirection:"column",gap:4,marginTop:6}}>
+                          {accountsTypePieData.map((e, i) => {
+                            const total = accountsTypePieData.reduce((s, x) => s + x.value, 0);
+                            const pct = total ? (e.value / total * 100).toFixed(1) : '0';
+                            return (
+                              <div key={i} style={{display:"flex",alignItems:"center",gap:6,fontSize:11,background:THEME.cardBgAlt,padding:"5px 8px",borderRadius:6,borderLeft:`3px solid ${e.color}`,cursor:"pointer"}} onClick={() => setAccountsTypeFilter(accountsTypeFilter === e.name ? 'ALL' : e.name)}>
+                                <div style={{width:8,height:8,borderRadius:"50%",background:e.color,flexShrink:0}} />
+                                <span style={{color:THEME.text,flex:1,fontWeight:accountsTypeFilter === e.name ? 700 : 400}}>{e.name}</span>
+                                <span style={{color:e.color,fontWeight:600,fontSize:11,whiteSpace:"nowrap"}}>{fmt(e.value, accountsBankCur)} <span style={{fontSize:9,color:THEME.textLight}}>({pct}%)</span></span>
+                              </div>
+                            );
+                          })}
                         </div>
                       </div>
                     ) : (
@@ -2308,6 +2360,20 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                       {accountTypesList.map(t => <option key={t} value={t}>{t}</option>)}
                     </select>
                   )}
+                  {/* Assets / Liabilities filter */}
+                  <select
+                    value={accountsAssetView}
+                    onChange={e => setAccountsAssetView(e.target.value as any)}
+                    style={{
+                      background: accountsAssetView !== 'all' ? (accountsAssetView === 'liabilities' ? '#EF4444' : '#10B981') : THEME.cardBgAlt,
+                      color: accountsAssetView !== 'all' ? '#FFF' : THEME.textMuted,
+                      border: `1px solid ${THEME.border}`, borderRadius: 4, padding: '3px 8px', fontSize: 10, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
+                    }}
+                  >
+                    <option value="all">All</option>
+                    <option value="assets">Assets</option>
+                    <option value="liabilities">Liabilities</option>
+                  </select>
                   {/* Show All / Active Accounts Toggle */}
                   {hiddenCount > 0 && (
                     <button
@@ -2684,36 +2750,27 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                       <>
                         <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:12,flexWrap:"wrap",marginBottom:12}}>
                           <div>
-                            <div style={{fontSize:12,fontWeight:700,color:THEME.textLight}}>🏦 Accounts by Bank</div>
+                            <div style={{fontSize:12,fontWeight:700,color:THEME.textLight}}>
+                              {accountsBankViz === 'type' ? '📊 Accounts by Type' : '🏦 Accounts by Bank'}
+                            </div>
                             <div style={{fontSize:11,color:THEME.textMuted,marginTop:4,maxWidth:420}}>
-                              Compare share of portfolio by bank (converted). <strong style={{color:THEME.text}}>Donut</strong> highlights majors + groups the rest; <strong style={{color:THEME.text}}>Bars</strong> shows every bank name clearly.
+                              {accountsBankViz === 'type'
+                                ? 'Portfolio split across Savings, FD, SCSS, Credit Card, and other account types. Click a type to filter.'
+                                : <>Compare share of portfolio by bank (converted). <strong style={{color:THEME.text}}>By Bank</strong> highlights majors + groups the rest; <strong style={{color:THEME.text}}>Bars</strong> shows every bank name clearly.</>}
                             </div>
                           </div>
                           <div style={{display:"flex",gap:2,background:THEME.cardBgAlt,borderRadius:8,padding:3,border:`1px solid ${THEME.border}`}}>
-                            <button type="button" onClick={() => setAccountsBankViz("donut")} style={{border:"none",borderRadius:6,padding:"6px 14px",fontSize:11,fontWeight:700,cursor:"pointer",background:accountsBankViz==="donut"?"#238636":"transparent",color:accountsBankViz==="donut"?"#fff":THEME.textMuted}}>Donut</button>
-                            <button type="button" onClick={() => setAccountsBankViz("bars")} style={{border:"none",borderRadius:6,padding:"6px 14px",fontSize:11,fontWeight:700,cursor:"pointer",background:accountsBankViz==="bars"?"#238636":"transparent",color:accountsBankViz==="bars"?"#fff":THEME.textMuted}}>Bar chart</button>
+                            <button type="button" onClick={() => setAccountsBankViz("donut")} style={{border:"none",borderRadius:6,padding:"6px 14px",fontSize:11,fontWeight:700,cursor:"pointer",background:accountsBankViz==="donut"?"#238636":"transparent",color:accountsBankViz==="donut"?"#fff":THEME.textMuted}}>By Bank</button>
+                            <button type="button" onClick={() => setAccountsBankViz("type")} style={{border:"none",borderRadius:6,padding:"6px 14px",fontSize:11,fontWeight:700,cursor:"pointer",background:accountsBankViz==="type"?"#238636":"transparent",color:accountsBankViz==="type"?"#fff":THEME.textMuted}}>By Type</button>
+                            <button type="button" onClick={() => setAccountsBankViz("bars")} style={{border:"none",borderRadius:6,padding:"6px 14px",fontSize:11,fontWeight:700,cursor:"pointer",background:accountsBankViz==="bars"?"#238636":"transparent",color:accountsBankViz==="bars"?"#fff":THEME.textMuted}}>Bars</button>
                           </div>
                         </div>
                         {accountsBankViz === "donut" ? (
                           <div style={{position:"relative",width:"100%",minHeight:300}}>
                             <ResponsiveContainer width="100%" height={300}>
                               <PieChart>
-                                <Pie
-                                  data={accountsPieMerged}
-                                  cx="50%"
-                                  cy="48%"
-                                  innerRadius={58}
-                                  outerRadius={92}
-                                  paddingAngle={2}
-                                  dataKey="value"
-                                  label={accountsDonutLabel}
-                                  labelLine={false}
-                                  stroke="#111827"
-                                  strokeWidth={1.5}
-                                >
-                                  {accountsPieMerged.map((e, i) => (
-                                    <Cell key={i} fill={e.color} />
-                                  ))}
+                                <Pie data={accountsPieMerged} cx="50%" cy="48%" innerRadius={58} outerRadius={92} paddingAngle={2} dataKey="value" label={accountsDonutLabel} labelLine={false} stroke="#111827" strokeWidth={1.5}>
+                                  {accountsPieMerged.map((e, i) => (<Cell key={i} fill={e.color} />))}
                                 </Pie>
                                 <Tooltip content={accountsBankPieTooltip} wrapperStyle={{ outline: "none" }} />
                               </PieChart>
@@ -2722,6 +2779,44 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                               <div style={{fontSize:10,color:THEME.textMuted,textTransform:"uppercase",letterSpacing:0.8}}>Total (converted)</div>
                               <div style={{fontSize:18,fontWeight:800,fontFamily:"monospace",color:THEME.text,lineHeight:1.2}}>{fmt(accountsBankTotalConverted, accountsBankCur)}</div>
                               <div style={{fontSize:10,color:THEME.textMuted,marginTop:2}}>{accountsPieData.length} banks</div>
+                            </div>
+                          </div>
+                        ) : accountsBankViz === "type" ? (
+                          <div>
+                            <div style={{position:"relative",width:"100%",minHeight:300}}>
+                              <ResponsiveContainer width="100%" height={300}>
+                                <PieChart>
+                                  <Pie data={accountsTypePieData} cx="50%" cy="48%" innerRadius={58} outerRadius={92} paddingAngle={2} dataKey="value"
+                                    label={(p: { cx?: number; cy?: number; midAngle?: number; outerRadius?: number; name?: string; value?: number }) => {
+                                      const cx0 = p.cx ?? 0, cy0 = p.cy ?? 0, mid = p.midAngle ?? 0, r = (p.outerRadius ?? 0) + 18;
+                                      const rad = (-mid * Math.PI) / 180;
+                                      const total = accountsTypePieData.reduce((s, x) => s + x.value, 0);
+                                      const pct = total ? ((p.value ?? 0) / total * 100).toFixed(0) : '0';
+                                      return (<text x={cx0 + r * Math.cos(rad)} y={cy0 + r * Math.sin(rad)} textAnchor={cx0 + r * Math.cos(rad) > cx0 ? "start" : "end"} dominantBaseline="central" fill={THEME.text} fontSize={10} fontWeight={600}>{p.name} {pct}%</text>);
+                                    }}
+                                    labelLine={false} stroke="#111827" strokeWidth={1.5}>
+                                    {accountsTypePieData.map((e, i) => (<Cell key={i} fill={e.color} />))}
+                                  </Pie>
+                                  <Tooltip content={accountsTypePieTooltip} wrapperStyle={{ outline: "none" }} />
+                                </PieChart>
+                              </ResponsiveContainer>
+                              <div style={{position:"absolute",left:"50%",top:"44%",transform:"translate(-50%,-50%)",textAlign:"center",pointerEvents:"none",maxWidth:160}}>
+                                <div style={{fontSize:10,color:THEME.textMuted,textTransform:"uppercase",letterSpacing:0.8}}>By Type</div>
+                                <div style={{fontSize:16,fontWeight:800,fontFamily:"monospace",color:THEME.text,lineHeight:1.2}}>{accountsTypePieData.length} types</div>
+                              </div>
+                            </div>
+                            <div style={{display:"flex",flexDirection:"column",gap:6,marginTop:8}}>
+                              {accountsTypePieData.map((e, i) => {
+                                const total = accountsTypePieData.reduce((s, x) => s + x.value, 0);
+                                const pct = total ? (e.value / total * 100).toFixed(1) : '0';
+                                return (
+                                  <div key={i} style={{display:"flex",alignItems:"center",gap:8,fontSize:12,background:THEME.cardBgAlt,padding:"6px 10px",borderRadius:8,borderLeft:`4px solid ${e.color}`,cursor:"pointer"}} onClick={() => setAccountsTypeFilter(accountsTypeFilter === e.name ? 'ALL' : e.name)}>
+                                    <div style={{width:10,height:10,borderRadius:"50%",background:e.color,flexShrink:0}} />
+                                    <span style={{color:THEME.text,flex:1,fontWeight:accountsTypeFilter === e.name ? 700 : 400}}>{e.name}</span>
+                                    <span style={{color:e.color,fontWeight:600,fontSize:12,whiteSpace:"nowrap"}}>{fmt(e.value, accountsBankCur)} <span style={{fontSize:10,color:THEME.textLight}}>({pct}%)</span></span>
+                                  </div>
+                                );
+                              })}
                             </div>
                           </div>
                         ) : (
@@ -2770,70 +2865,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                     )}
                   </div>
 
-                  {/* Accounts by Type — donut */}
-                  {accountsTypePieData.length > 1 && (
-                    <div style={{marginTop:16,background:THEME.cardBg,borderRadius:12,border:`1px solid ${THEME.border}`,padding:14}}>
-                      <div style={{fontSize:12,fontWeight:700,color:THEME.textLight,marginBottom:4}}>📊 Accounts by Type</div>
-                      <div style={{fontSize:11,color:THEME.textMuted,marginBottom:12}}>
-                        Portfolio split across Savings, FD, SCSS, Credit Card, and other account types.
-                      </div>
-                      <div style={{position:"relative",width:"100%",minHeight:300}}>
-                        <ResponsiveContainer width="100%" height={300}>
-                          <PieChart>
-                            <Pie
-                              data={accountsTypePieData}
-                              cx="50%"
-                              cy="48%"
-                              innerRadius={58}
-                              outerRadius={92}
-                              paddingAngle={2}
-                              dataKey="value"
-                              label={(p: { cx?: number; cy?: number; midAngle?: number; outerRadius?: number; name?: string; value?: number }) => {
-                                const cx = p.cx ?? 0, cy = p.cy ?? 0, mid = p.midAngle ?? 0, r = (p.outerRadius ?? 0) + 18;
-                                const rad = (-mid * Math.PI) / 180;
-                                const total = accountsTypePieData.reduce((s, x) => s + x.value, 0);
-                                const pct = total ? ((p.value ?? 0) / total * 100).toFixed(0) : '0';
-                                return (
-                                  <text x={cx + r * Math.cos(rad)} y={cy + r * Math.sin(rad)} textAnchor={cx + r * Math.cos(rad) > cx ? "start" : "end"} dominantBaseline="central" fill={THEME.text} fontSize={10} fontWeight={600}>
-                                    {p.name} {pct}%
-                                  </text>
-                                );
-                              }}
-                              labelLine={false}
-                              stroke="#111827"
-                              strokeWidth={1.5}
-                            >
-                              {accountsTypePieData.map((e, i) => (
-                                <Cell key={i} fill={e.color} />
-                              ))}
-                            </Pie>
-                            <Tooltip content={accountsTypePieTooltip} wrapperStyle={{ outline: "none" }} />
-                          </PieChart>
-                        </ResponsiveContainer>
-                        <div style={{position:"absolute",left:"50%",top:"44%",transform:"translate(-50%,-50%)",textAlign:"center",pointerEvents:"none",maxWidth:160}}>
-                          <div style={{fontSize:10,color:THEME.textMuted,textTransform:"uppercase",letterSpacing:0.8}}>By Type</div>
-                          <div style={{fontSize:16,fontWeight:800,fontFamily:"monospace",color:THEME.text,lineHeight:1.2}}>
-                            {accountsTypePieData.length} types
-                          </div>
-                        </div>
-                      </div>
-                      <div style={{display:"flex",flexDirection:"column",gap:6,marginTop:8}}>
-                        {accountsTypePieData.map((e, i) => {
-                          const total = accountsTypePieData.reduce((s, x) => s + x.value, 0);
-                          const pct = total ? (e.value / total * 100).toFixed(1) : '0';
-                          return (
-                            <div key={i} style={{display:"flex",alignItems:"center",gap:8,fontSize:12,background:THEME.cardBgAlt,padding:"6px 10px",borderRadius:8,borderLeft:`4px solid ${e.color}`,cursor:"pointer"}} onClick={() => setAccountsTypeFilter(accountsTypeFilter === e.name ? 'ALL' : e.name)}>
-                              <div style={{width:10,height:10,borderRadius:"50%",background:e.color,flexShrink:0}} />
-                              <span style={{color:THEME.text,flex:1,fontWeight:accountsTypeFilter === e.name ? 700 : 400}}>{e.name}</span>
-                              <span style={{color:e.color,fontWeight:600,fontSize:12,whiteSpace:"nowrap"}}>
-                                {fmt(e.value, accountsBankCur)} <span style={{fontSize:10,color:THEME.textLight}}>({pct}%)</span>
-                              </span>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
+                  {/* "Accounts by Type" donut is now merged into the chart toggle above (By Bank / By Type / Bars) */}
                 </>
               )}
               </>

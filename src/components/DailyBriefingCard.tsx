@@ -194,7 +194,11 @@ const DailyBriefingCard: React.FC = () => {
           {briefing && !loading && (
             <>
               <div style={{ fontSize: 13, lineHeight: 1.7, color: '#E5E7EB', paddingTop: 14, whiteSpace: 'pre-line' }}>
-                {briefing.briefing}
+                {typeof briefing.briefing === 'string'
+                  ? briefing.briefing
+                  : typeof briefing.briefing === 'object' && briefing.briefing !== null
+                    ? (briefing.briefing as any).main || JSON.stringify(briefing.briefing)
+                    : String(briefing.briefing ?? '')}
               </div>
               {briefing.funQuote && (
                 <div style={{

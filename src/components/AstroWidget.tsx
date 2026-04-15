@@ -130,6 +130,8 @@ const AstroWidget: React.FC = () => {
     try {
       const bd = birthData;
 
+      const rateDelay = () => new Promise(r => setTimeout(r, 600));
+
       if (!natalData) {
         const endNatal = perfStart('AstroWidget', 'natal API');
         const r = await fetch('/api/astro?action=natal', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(bd) });
@@ -141,6 +143,7 @@ const AstroWidget: React.FC = () => {
       }
 
       if (!dailyData) {
+        await rateDelay();
         const endDaily = perfStart('AstroWidget', 'daily API');
         const today = new Date().toISOString().slice(0, 10);
         const r = await fetch('/api/astro?action=daily', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...bd, date: today }) });
@@ -152,6 +155,7 @@ const AstroWidget: React.FC = () => {
       }
 
       if (!moonData && !moonAttempted.current) {
+        await rateDelay();
         moonAttempted.current = true;
         try {
           const endMoon = perfStart('AstroWidget', 'moon API');

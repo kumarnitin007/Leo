@@ -32,6 +32,8 @@ import CosmicDayPlanner from './components/CosmicDayPlanner';
 import VedicAstroWidget from './components/VedicAstroWidget';
 import NatalChartVisual from './components/NatalChartVisual';
 import TransitsWidget from './components/TransitsWidget';
+import CosmicFingerprint from './components/CosmicFingerprint';
+import NumerologyDashboard from './components/NumerologyDashboard';
 import ResolutionProgressWidget from './components/ResolutionProgressWidget';
 import FinancialAlertsWidget from './components/FinancialAlertsWidget';
 import DailyBriefingCard from './components/DailyBriefingCard';
@@ -75,6 +77,7 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [isReorderMode, setIsReorderMode] = useState(false);
   const [showProgressAndReview, setShowProgressAndReview] = useState(false);
+  const [showNumerology, setShowNumerology] = useState(false);
   const [showOpenAIPrompt, setShowOpenAIPrompt] = useState(false);
   const [openAIPromptText, setOpenAIPromptText] = useState('');
   const [showSmartCoachModal, setShowSmartCoachModal] = useState(false);
@@ -2844,6 +2847,30 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
       <div className="home-col-right home-widget-financial"><FinancialAlertsWidget onNavigateToSafe={() => onNavigate('safe')} /></div>
 
       <div className="home-col-right home-widget-weather"><WeatherWidget /></div>
+      <div className="home-col-right home-widget-cosmic-fingerprint"><CosmicFingerprint /></div>
+
+      {/* Numerology — on-demand section */}
+      <div className="home-col-right home-widget-numerology">
+        <button
+          onClick={() => setShowNumerology(v => !v)}
+          style={{
+            width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            padding: '10px 14px', borderRadius: 12, cursor: 'pointer', fontFamily: 'inherit',
+            background: 'var(--card-bg, #1a1a2e)', border: '1px solid var(--card-border, #2d2d44)',
+            color: 'var(--text-color, #e2e8f0)',
+          }}
+        >
+          <span style={{ fontSize: 13, fontWeight: 700 }}>
+            {showNumerology ? '▾' : '▸'} Your Numbers — Numerology Dashboard
+          </span>
+          <span style={{ fontSize: 10, opacity: 0.6 }}>{showNumerology ? 'collapse' : 'click to open'}</span>
+        </button>
+        {showNumerology && (
+          <div style={{ marginTop: 8 }}>
+            <NumerologyDashboard />
+          </div>
+        )}
+      </div>
       <div className="home-col-right home-widget-astro"><AstroWidget /></div>
       <div className="home-col-right home-widget-cosmic">
         <CosmicDayPlanner
