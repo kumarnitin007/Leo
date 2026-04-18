@@ -708,13 +708,40 @@ export function BankOverviewTab({
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 10 }}>
                       <button type="button" onClick={clearPortfolioHistory} style={{alignSelf:"flex-start",background:"transparent",border:"none",color:THEME.textLight,fontSize:11,cursor:"pointer",textDecoration:"underline"}}>Clear all chart history</button>
                       <div style={{fontSize:10,color:THEME.textMuted,marginBottom:4}}>Remove a snapshot:</div>
-                      <div style={{display:"flex",flexDirection:"column",gap:4,maxHeight:120,overflowY:"auto"}}>
-                        {[...portfolioHistoryChartData].filter(p => !p.isProjected).reverse().slice(0, 10).map((p) => (
-                          <div key={p.fullDate} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"4px 8px",background:THEME.cardBgAlt,borderRadius:6,fontSize:11}}>
-                            <span style={{color:THEME.text}}>{fmtDate(p.fullDate)} · {fmt(p.totalAccountValue, targetCurrency)}{p.source ? ` (${p.source})` : ''}</span>
-                            <button type="button" onClick={() => deletePortfolioHistoryEntry(p.fullDate)} title="Remove this snapshot" style={{background:"none",border:"none",cursor:"pointer",padding:2,color:THEME.textLight,fontSize:12}}>🗑</button>
-                          </div>
-                        ))}
+                      <div style={{display:"flex",flexDirection:"column",gap:4,maxHeight:220,overflowY:"auto"}}>
+                        {(() => {
+                          const clean = [...portfolioHistoryChartData].filter(p => !p.isProjected);
+                          const sortedAsc = [...clean].sort((a, b) => a.fullDate.localeCompare(b.fullDate));
+                          const deltaMap = new Map<string, number>();
+                          sortedAsc.forEach((p, i) => {
+                            const total = (p.totalAccountValue || 0) + ((p as any).totalDepositValue || 0);
+                            const prev = i > 0 ? (sortedAsc[i - 1].totalAccountValue || 0) + ((sortedAsc[i - 1] as any).totalDepositValue || 0) : total;
+                            deltaMap.set(p.fullDate, total - prev);
+                          });
+                          return [...clean].reverse().slice(0, 10).map((p) => {
+                            const total = (p.totalAccountValue || 0) + ((p as any).totalDepositValue || 0);
+                            const delta = deltaMap.get(p.fullDate) || 0;
+                            const deltaColor = delta > 0 ? '#065f46' : delta < 0 ? '#991b1b' : THEME.textMuted;
+                            const deltaStr = delta === 0 ? '—' : (delta > 0 ? '+' : '') + fmt(delta, targetCurrency);
+                            return (
+                              <div key={p.fullDate} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 8px",background:THEME.cardBgAlt,borderRadius:6,fontSize:11,gap:8}}>
+                                <div style={{display:"flex",flexDirection:"column",flex:1,minWidth:0}}>
+                                  <div style={{display:"flex",gap:8,alignItems:"baseline",flexWrap:"wrap"}}>
+                                    <span style={{color:THEME.textMuted,fontSize:10,minWidth:64}}>{fmtDate(p.fullDate)}</span>
+                                    <span style={{color:THEME.text,fontWeight:600}} title="Total portfolio value">{fmt(total, targetCurrency)}</span>
+                                    <span style={{color:deltaColor,fontWeight:600}} title="Change since previous snapshot">{deltaStr}</span>
+                                  </div>
+                                  {p.source && (
+                                    <span style={{color:THEME.textLight,fontSize:10,marginTop:2,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+                                      {p.source}
+                                    </span>
+                                  )}
+                                </div>
+                                <button type="button" onClick={() => deletePortfolioHistoryEntry(p.fullDate)} title="Remove this snapshot" style={{background:"none",border:"none",cursor:"pointer",padding:2,color:THEME.textLight,fontSize:12,flexShrink:0}}>🗑</button>
+                              </div>
+                            );
+                          });
+                        })()}
                       </div>
                     </div>
                   )}

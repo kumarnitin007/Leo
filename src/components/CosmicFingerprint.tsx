@@ -10,10 +10,23 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { getUserSettings } from '../storage';
 import { useTheme } from '../contexts/ThemeContext';
-import { saveAstroCache, getLastSuccessfulAstroCache } from '../services/astroCacheService';
+import { saveAstroCache, getLastSuccessfulAstroCache, getAstroCache } from '../services/astroCacheService';
+import { perfStart } from '../utils/perfLogger';
+import { logAICall } from '../services/ai/aiAuditService';
+import { useAuth } from '../contexts/AuthContext';
+import { getSupabaseClient } from '../lib/supabase';
 
 // ── Types (loose — we rely on API shapes) ──────────────────────
 interface BirthData { year: number; month: number; day: number; hour?: number; minute?: number; city: string; timeKnown?: boolean }
+
+const SIGN_FULL_NAME: Record<string, string> = {
+  Ari: 'Aries', Tau: 'Taurus', Gem: 'Gemini', Can: 'Cancer', Leo: 'Leo', Vir: 'Virgo',
+  Lib: 'Libra', Sco: 'Scorpio', Sag: 'Sagittarius', Cap: 'Capricorn', Aqu: 'Aquarius', Pis: 'Pisces',
+};
+function expandSign(s: string | null): string | null {
+  if (!s) return null;
+  return SIGN_FULL_NAME[s] || s;
+}
 
 // ── Cache helpers ──────────────────────────────────────────────
 const LS = {
@@ -245,6 +258,8 @@ function SourceTags({ tags }: { tags: { label: string; cached: boolean }[] }) {
 // ═══════════════════════════════════════════════════════════════
 export default function CosmicFingerprint() {
   const { theme } = useTheme();
+  const { user } = useAuth();
+  const userId = user?.id || null;
   const [birthData, setBirthData] = useState<BirthData | null>(null);
   const [isExpanded, setIsExpanded] = useState(false);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
@@ -261,6 +276,13 @@ export default function CosmicFingerprint() {
   const [error, setError] = useState<string | null>(null);
   const [aiQuestion, setAiQuestion] = useState('');
   const [showPrompt, setShowPrompt] = useState(false);
+  const [aiSimpleAnswer, setAiSimpleAnswer] = useState<string | null>(null);
+  const [aiDetailedAnswer, setAiDetailedAnswer] = useState<string | null>(null);
+  const [aiTiming, setAiTiming] = useState<string | null>(null);
+  const [aiConfidence, setAiConfidence] = useState<string | null>(null);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
+  const [readingHistory, setReadingHistory] = useState<any[]>([]);
 
   const fetchingRef = useRef(false);
   const failedRef = useRef(false);
@@ -437,7 +459,7 @@ export default function CosmicFingerprint() {
   const sunSign = useMemo(() => {
     if (!natalData?.planets) return null;
     const sun = (natalData.planets as any[]).find(p => p.id === 'sun' || p.name === 'Sun');
-    return sun?.sign || null;
+    return expandSign(sun?.sign) || null;
   }, [natalData]);
 
   // ── Build AI prompt ───────────────────────────────────────────
@@ -512,12 +534,134 @@ export default function CosmicFingerprint() {
     lines.push('');
     lines.push('=== INSTRUCTIONS ===');
     lines.push('You are a wise, warm astrologer who synthesises Western, Vedic, and Chinese BaZi traditions.');
-    lines.push('Use the astrological context above to give a thoughtful, personalised answer to the user\'s question.');
-    lines.push('Be specific — reference their actual planets, yogas, pillars, and current dasha period.');
-    lines.push('Keep it practical and actionable. 3-4 paragraphs max. Use a conversational but insightful tone.');
+    lines.push('Use ALL of the context above to give a personalised, specific answer.');
+    lines.push('Reference the user\'s actual Dasha period, Day Master, yogas, and current transits.');
+    lines.push('Be practical and actionable — the user wants to make a real decision.');
+    lines.push('If any field above is marked [UNAVAILABLE], acknowledge briefly but still give the best answer.');
+    lines.push('');
+    lines.push('Respond ONLY in this exact JSON format (no markdown fences):');
+    lines.push('{');
+    lines.push('  "simple": "3-4 lines. Warm, direct, actionable. No jargon.",');
+    lines.push('  "detailed": "3-4 paragraphs. Reference specific planets, yogas, pillars, dasha. Conversational but insightful.",');
+    lines.push('  "timing": "1-2 sentences on WHEN to act — specific moon phase, upcoming transit, or dasha window.",');
+    lines.push('  "confidence": "high | medium | low — based on completeness of astrological data provided."');
+    lines.push('}');
 
     return lines.join('\n');
   }, [birthData, sunSign, dayMaster, baziData, pillars, activeYogas, dashaData, shenShaStars, moonData, panchangData, aiQuestion]);
+
+  // Load reading history from Supabase
+  useEffect(() => {
+    if (!userId) return;
+    const client = getSupabaseClient();
+    if (!client) return;
+    client.from('myday_astrology_readings').select('id,created_at,user_question,simple_answer,confidence,timing_advice')
+      .eq('user_id', userId).order('created_at', { ascending: false }).limit(5)
+      .then(({ data }) => { if (data) setReadingHistory(data); });
+  }, [userId]);
+
+  const askAI = useCallback(async () => {
+    if (!aiQuestion.trim() || aiLoading) return;
+    setAiLoading(true);
+    setAiError(null);
+    setAiSimpleAnswer(null);
+    setAiDetailedAnswer(null);
+    setAiTiming(null);
+    setAiConfidence(null);
+
+    const cacheKey = { question: aiQuestion.trim().toLowerCase().slice(0, 100), city: birthData?.city || '' };
+    const endCacheCheck = perfStart('CosmicFingerprint', 'askAI → cache check');
+    const cached = await getAstroCache('ask-ai', cacheKey);
+    endCacheCheck();
+    if (cached?.data) {
+      const d = cached.data as { simple?: string; detailed?: string; timing?: string; confidence?: string };
+      setAiSimpleAnswer(d.simple || null);
+      setAiDetailedAnswer(d.detailed || null);
+      setAiTiming(d.timing || null);
+      setAiConfidence(d.confidence || null);
+      setAiLoading(false);
+      return;
+    }
+
+    const endAI = perfStart('CosmicFingerprint', 'askAI → OpenAI API');
+    try {
+      const prompt = buildPrompt();
+      const r = await fetch('/api/astro?action=ask-ai', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt, question: aiQuestion.trim() }),
+      });
+      if (!r.ok) throw new Error(`AI reading failed: ${r.status}`);
+      const data = await r.json();
+      endAI();
+      setAiSimpleAnswer(data.simple || null);
+      setAiDetailedAnswer(data.detailed || null);
+      setAiTiming(data.timing || null);
+      setAiConfidence(data.confidence || null);
+      saveAstroCache('ask-ai', cacheKey, { simple: data.simple, detailed: data.detailed, timing: data.timing, confidence: data.confidence });
+
+      // Log to AI audit
+      if (userId && data.usage) {
+        const costUsd = data.usage.cost_usd || 0;
+        logAICall({
+          userId,
+          abilityId: 'astro_reading',
+          requestPayload: { question: aiQuestion.trim(), city: birthData?.city },
+          systemPrompt: '(astro context — see prompt)',
+          userMessage: aiQuestion.trim(),
+          responsePayload: { simple: data.simple, detailed: data.detailed, timing: data.timing, confidence: data.confidence },
+          rawResponse: JSON.stringify(data),
+          usage: {
+            promptTokens: data.usage.prompt_tokens || 0,
+            completionTokens: data.usage.completion_tokens || 0,
+            totalTokens: data.usage.total_tokens || 0,
+            model: data.usage.model || 'gpt-4o-mini',
+            costUsd,
+          },
+          durationMs: data.durationMs || 0,
+          success: true,
+        }).catch(() => {});
+      }
+
+      // Save to myday_astrology_readings table
+      if (userId) {
+        const client = getSupabaseClient();
+        if (client) {
+          client.from('myday_astrology_readings').insert({
+            user_id: userId,
+            user_question: aiQuestion.trim(),
+            ai_prompt_sent: prompt.slice(0, 8000),
+            ai_response_raw: JSON.stringify(data).slice(0, 8000),
+            simple_answer: data.simple || '',
+            detailed_answer: data.detailed || '',
+            timing_advice: data.timing || '',
+            confidence: data.confidence || 'medium',
+            model_used: data.usage?.model || 'gpt-4o-mini',
+            prompt_tokens: data.usage?.prompt_tokens,
+            completion_tokens: data.usage?.completion_tokens,
+            total_tokens: data.usage?.total_tokens,
+            cost_usd: data.usage?.cost_usd,
+            latency_ms: data.durationMs,
+            moon_phase: moonData?.phase?.name,
+            moon_sign: moonData?.zodiac?.sign,
+            tithi: panchangData?.tithi?.name || panchangData?.tithi,
+            nakshatra: panchangData?.nakshatra?.name || panchangData?.nakshatra,
+            birth_snapshot: { sunSign, dayMaster, pillars, yogasCount: activeYogas.length },
+          }).then(() => {
+            client.from('myday_astrology_readings').select('id,created_at,user_question,simple_answer,confidence,timing_advice')
+              .eq('user_id', userId).order('created_at', { ascending: false }).limit(5)
+              .then(({ data: hist }) => { if (hist) setReadingHistory(hist); });
+          }).then(() => {}, () => {});
+        }
+      }
+    } catch (e: any) {
+      endAI();
+      console.error('[CosmicFingerprint] AI error:', e);
+      setAiError(e.message || 'Failed to get AI reading');
+    } finally {
+      setAiLoading(false);
+    }
+  }, [aiQuestion, aiLoading, birthData, buildPrompt, userId, sunSign, dayMaster, pillars, activeYogas, moonData, panchangData]);
 
   // ── No birth data ─────────────────────────────────────────────
   if (!birthData) {
@@ -720,41 +864,147 @@ export default function CosmicFingerprint() {
             </div>
           )}
 
-          {/* ── Section 5: Ask AI ────────────────────────────── */}
-          <div style={{ background: '#f5f3ff', border: '1px solid #ede9fe', borderRadius: 14, padding: 16, marginBottom: 12 }}>
-            <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 8, color: '#5b21b6' }}>
-              Ask the Stars — AI-Powered Reading
+          {/* ── Section 5: Ask the Stars — Celestial Oracle Card ── */}
+          <div style={{ background: '#0d0f1a', border: '1px solid #2a2f4a', borderRadius: 16, padding: 18, marginBottom: 12 }}>
+            <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 4, color: '#c9a84c', fontFamily: "'Playfair Display', Georgia, serif" }}>
+              Ask the Stars
             </div>
-            <div style={{ fontSize: 11, color: '#7c3aed', marginBottom: 10 }}>
-              Type a question below. We'll combine your BaZi, Yogas, Dasha period, moon phase, and natal chart into a single prompt for OpenAI.
+            <div style={{ fontSize: 11, color: '#7a7d9a', marginBottom: 12 }}>
+              Your BaZi, Yogas, Dasha, moon phase, and natal chart are woven into a single reading.
             </div>
             <textarea
               value={aiQuestion}
-              onChange={e => setAiQuestion(e.target.value)}
-              placeholder="e.g. What should I focus on this month? / Is this a good time to start a business? / Tell me about my career potential..."
+              onChange={e => { setAiQuestion(e.target.value); setAiSimpleAnswer(null); setAiDetailedAnswer(null); setAiTiming(null); setAiConfidence(null); setAiError(null); }}
+              placeholder="What should I focus on this month? Is this a good time for change?"
               style={{
-                width: '100%', minHeight: 60, borderRadius: 10, border: '1px solid #ddd6fe',
+                width: '100%', minHeight: 56, borderRadius: 10, border: '1px solid #2a2f4a',
                 padding: '10px 12px', fontSize: 13, fontFamily: 'inherit', resize: 'vertical',
-                background: '#fff', color: '#1e1b18', outline: 'none', boxSizing: 'border-box',
+                background: '#151829', color: '#e8e6f0', outline: 'none', boxSizing: 'border-box',
               }}
             />
             <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
               <button
+                onClick={askAI}
+                disabled={!aiQuestion.trim() || aiLoading}
+                style={{
+                  flex: 2, padding: '10px 14px', borderRadius: 10,
+                  background: !aiQuestion.trim() ? '#2a2f4a' : aiLoading ? '#9b6dff44' : 'linear-gradient(135deg, #c9a84c, #e8c97a)',
+                  color: !aiQuestion.trim() ? '#7a7d9a' : aiLoading ? '#9b6dff' : '#0d0f1a', border: 'none', fontWeight: 700,
+                  cursor: !aiQuestion.trim() || aiLoading ? 'not-allowed' : 'pointer',
+                  fontSize: 12, fontFamily: 'inherit',
+                }}>
+                {aiLoading ? '✨ Reading the stars...' : '✨ Ask the Stars'}
+              </button>
+              <button
                 onClick={() => setShowPrompt(!showPrompt)}
                 style={{
                   flex: 1, padding: '10px 14px', borderRadius: 10,
-                  background: showPrompt ? '#5b21b6' : '#ede9fe', color: showPrompt ? '#fff' : '#5b21b6',
-                  border: 'none', fontWeight: 700, cursor: 'pointer', fontSize: 12, fontFamily: 'inherit',
+                  background: showPrompt ? '#2a2f4a' : 'transparent', color: '#7a7d9a',
+                  border: '1px solid #2a2f4a', fontWeight: 600, cursor: 'pointer', fontSize: 11, fontFamily: 'inherit',
                 }}>
-                {showPrompt ? 'Hide Prompt' : 'Show Full Prompt'}
+                {showPrompt ? 'Hide' : 'Prompt'}
               </button>
             </div>
 
+            {aiError && (
+              <div style={{ marginTop: 10, padding: 10, borderRadius: 8, background: '#3b1111', border: '1px solid #7f1d1d', color: '#fca5a5', fontSize: 11 }}>
+                {aiError}
+              </div>
+            )}
+
+            {/* Oracle Card — AI Answer */}
+            {aiSimpleAnswer && (
+              <div style={{
+                marginTop: 14, background: 'linear-gradient(160deg, #151829 0%, #1a1d35 100%)',
+                border: '1px solid #c9a84c33', borderRadius: 14, padding: 16, position: 'relative', overflow: 'hidden',
+              }}>
+                {/* Confidence dots */}
+                {aiConfidence && (
+                  <div style={{ position: 'absolute', top: 12, right: 14, display: 'flex', gap: 3 }}>
+                    {[1, 2, 3].map(i => (
+                      <div key={i} style={{
+                        width: 6, height: 6, borderRadius: '50%',
+                        background: (aiConfidence === 'high' || (aiConfidence === 'medium' && i <= 2) || (aiConfidence === 'low' && i <= 1)) ? '#c9a84c' : '#2a2f4a',
+                      }} />
+                    ))}
+                  </div>
+                )}
+
+                <div style={{ fontSize: 9, fontWeight: 600, color: '#7a7d9a', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>
+                  Your Cosmic Reading · {new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                </div>
+                <div style={{ fontSize: 14, color: '#e8c97a', lineHeight: 1.8, fontFamily: "'Playfair Display', Georgia, serif", fontStyle: 'italic' }}>
+                  {aiSimpleAnswer}
+                </div>
+
+                {/* Timing badge */}
+                {aiTiming && (
+                  <div style={{
+                    marginTop: 12, display: 'inline-flex', alignItems: 'center', gap: 6,
+                    background: '#9b6dff22', border: '1px solid #9b6dff44', borderRadius: 20, padding: '4px 12px',
+                  }}>
+                    <span style={{ fontSize: 12 }}>🕐</span>
+                    <span style={{ fontSize: 10, color: '#9b6dff', fontWeight: 600 }}>{aiTiming}</span>
+                  </div>
+                )}
+
+                {/* Detailed reading */}
+                {aiDetailedAnswer && (
+                  <details style={{ marginTop: 14 }}>
+                    <summary style={{ fontSize: 11, fontWeight: 600, color: '#c9a84c', cursor: 'pointer', padding: '4px 0' }}>
+                      Read full reading ↓
+                    </summary>
+                    <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid #2a2f4a' }}>
+                      <div style={{ fontSize: 12, color: '#e8e6f0', lineHeight: 1.9, whiteSpace: 'pre-wrap' }}>{aiDetailedAnswer}</div>
+                    </div>
+                  </details>
+                )}
+              </div>
+            )}
+
+            {/* Reading history — always shown if we have any */}
+            {readingHistory.length > 0 && (
+              <details style={{ marginTop: 14 }} open={!aiSimpleAnswer}>
+                <summary style={{
+                  fontSize: 11, fontWeight: 700, color: '#c9a84c', cursor: 'pointer', padding: '6px 0',
+                  display: 'flex', alignItems: 'center', gap: 6,
+                }}>
+                  <span>📜</span>
+                  <span>Past Readings ({readingHistory.length})</span>
+                </summary>
+                <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  {readingHistory.map((r: any) => (
+                    <div key={r.id} style={{ background: '#151829', border: '1px solid #2a2f4a', borderRadius: 8, padding: '8px 12px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                        <span style={{ fontSize: 10, color: '#c9a84c', fontWeight: 600 }}>
+                          {new Date(r.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                        </span>
+                        {r.confidence && (
+                          <span style={{ fontSize: 8, color: '#7a7d9a', textTransform: 'uppercase' }}>{r.confidence}</span>
+                        )}
+                      </div>
+                      <div style={{ fontSize: 10, color: '#9b6dff', marginBottom: 3, fontWeight: 600 }}>
+                        Q: {(r.user_question || '').slice(0, 80)}{(r.user_question || '').length > 80 ? '...' : ''}
+                      </div>
+                      <div style={{ fontSize: 10, color: '#e8e6f0', lineHeight: 1.5 }}>
+                        {(r.simple_answer || '').slice(0, 160)}{(r.simple_answer || '').length > 160 ? '...' : ''}
+                      </div>
+                      {r.timing_advice && (
+                        <div style={{ fontSize: 9, color: '#9b6dff', marginTop: 4, fontStyle: 'italic' }}>
+                          🕐 {r.timing_advice}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </details>
+            )}
+
             {showPrompt && (
               <pre style={{
-                marginTop: 12, background: '#1e1b18', color: '#d6d3d1', borderRadius: 10,
-                padding: 14, fontSize: 11, lineHeight: 1.5, overflow: 'auto', maxHeight: 400,
-                whiteSpace: 'pre-wrap', wordBreak: 'break-word',
+                marginTop: 12, background: '#0a0c14', color: '#7a7d9a', borderRadius: 10,
+                padding: 14, fontSize: 10, lineHeight: 1.5, overflow: 'auto', maxHeight: 400,
+                whiteSpace: 'pre-wrap', wordBreak: 'break-word', border: '1px solid #2a2f4a',
               }}>
                 {buildPrompt()}
               </pre>

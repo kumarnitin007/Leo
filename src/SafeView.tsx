@@ -1046,24 +1046,56 @@ const SafeView: React.FC = () => {
           </p>
         </div>
         <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
-          <button
-            onClick={() => setShowSharedWithMe(true)}
-            style={{
-              padding: '0.625rem 1rem',
-              backgroundColor: '#14b8a6',
-              color: 'white',
-              border: 'none',
-              borderRadius: '0.5rem',
-              cursor: 'pointer',
-              fontSize: '0.9rem',
-              fontWeight: 500
-            }}
-          >
-            🔗 Shared With Me
-          </button>
+          {/* Passwords + Documents-only actions (hidden on Financial tab) */}
+          {activeTab !== 'financial' && (
+            <>
+              <button
+                onClick={() => setShowSharedWithMe(true)}
+                style={{
+                  padding: '0.625rem 1rem',
+                  backgroundColor: '#14b8a6',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '0.5rem',
+                  cursor: 'pointer',
+                  fontSize: '0.9rem',
+                  fontWeight: 500
+                }}
+              >
+                🔗 Shared With Me
+              </button>
+              <button
+                onClick={() => setShowImportExport(true)}
+                style={{
+                  padding: '0.625rem 1rem',
+                  backgroundColor: '#10b981',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '0.5rem',
+                  cursor: 'pointer',
+                  fontSize: '0.9rem'
+                }}
+              >
+                📥 Import/Export
+              </button>
+              <button
+                onClick={() => setShowSafeTags(true)}
+                style={{
+                  padding: '0.625rem 1rem',
+                  backgroundColor: '#f59e0b',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '0.5rem',
+                  cursor: 'pointer',
+                  fontSize: '0.9rem'
+                }}
+              >
+                🏷️ Tags
+              </button>
+            </>
+          )}
           <button
             onClick={() => {
-              // console.log('Change password button clicked');
               setShowChangePassword(true);
             }}
             style={{
@@ -1078,34 +1110,6 @@ const SafeView: React.FC = () => {
             }}
           >
             🔐 Change Password
-          </button>
-          <button
-            onClick={() => setShowImportExport(true)}
-            style={{
-              padding: '0.625rem 1rem',
-              backgroundColor: '#10b981',
-              color: 'white',
-              border: 'none',
-              borderRadius: '0.5rem',
-              cursor: 'pointer',
-              fontSize: '0.9rem'
-            }}
-          >
-            📥 Import/Export
-          </button>
-          <button
-            onClick={() => setShowSafeTags(true)}
-            style={{
-              padding: '0.625rem 1rem',
-              backgroundColor: '#f59e0b',
-              color: 'white',
-              border: 'none',
-              borderRadius: '0.5rem',
-              cursor: 'pointer',
-              fontSize: '0.9rem'
-            }}
-          >
-            🏷️ Tags
           </button>
           <button
             onClick={handleLock}

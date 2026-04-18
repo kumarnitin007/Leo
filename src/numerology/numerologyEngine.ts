@@ -141,14 +141,15 @@ export function karmicLessons(fullName: string): number[] {
 export function luckyNumbers(lifePath: number, birthday: number, today: Date): number[] {
   const base = [lifePath, birthday];
   const dayNum = today.getDate();
-  const seed = lifePath * 7 + birthday * 3 + dayNum;
+  const monthNum = today.getMonth() + 1;
   const set = new Set(base);
-  let n = seed;
-  while (set.size < 6) {
-    n = reduceToSingle(n * 13 + 7, false);
-    const candidate = ((n % 45) + 1); // 1–45
+  let n = lifePath * 7 + birthday * 3 + dayNum + monthNum * 11;
+  let iterations = 0;
+  while (set.size < 6 && iterations < 200) {
+    iterations++;
+    n = ((n * 1103515245 + 12345) >>> 0) % 2147483647;
+    const candidate = (n % 45) + 1;
     set.add(candidate);
-    n = n + candidate;
   }
   return Array.from(set);
 }

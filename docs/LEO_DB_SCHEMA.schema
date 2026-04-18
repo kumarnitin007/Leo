@@ -72,6 +72,8 @@
 | 46 | MYFBT | `myday_fitbit_tokens` | Fitbit OAuth tokens (access, refresh, scopes, fitbit_user_id) per user |
 | **API Cache** ||||
 | 47 | MYAC | `myday_astro_cache` | Generic cache for AstroAPI responses (vedic, natal, transits, etc.) with fallback |
+| **Astrology** ||||
+| 48 | MYAR | `myday_astrology_readings` | AI-powered astro reading history (question, simple/detailed answer, timing, confidence, cost) |
 
 ---
 
@@ -125,6 +127,7 @@
 | MYFD | `myday_fitness_data` |
 | MYCON | `myday_contacts` |
 | MYAC | `myday_astro_cache` |
+| MYAR | `myday_astrology_readings` |
 
 ---
 
@@ -269,7 +272,7 @@ SELECT * FROM myday_gift_cards;
 
 ---
 
-**Last Updated**: 2026-04-15  
+**Last Updated**: 2026-04-17  
 **Status**: ✅ VERIFIED
 
 ---
@@ -278,6 +281,7 @@ SELECT * FROM myday_gift_cards;
 
 | Date | Change |
 |------|--------|
+| 2026-04-17 | Added `myday_astrology_readings` (MYAR) for AI reading history (question, answers, timing, confidence, cost). Added `astro_reading` to AIAbilityId for audit tracking. |
 | 2026-04-15 | Added `myday_astro_cache` (MYAC) for AstroAPI response caching (`user_id`, `api_action`, `call_key`, `response_data`, `fetched_at`; unique on `user_id,api_action,call_key`) |
 | 2026-04-01 | Added `myday_fitbit_tokens` (MYFBT) for Fitbit OAuth integration; `myday_fitness_data.source` now supports 'fitbit' and 'garmin' |
 | 2026-03-31 | Added `tracked_metric` JSONB column to `myday_tasks` for Tracked Tasks (auto-complete from fitness data) |

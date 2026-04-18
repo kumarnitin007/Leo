@@ -19,6 +19,7 @@ import {
   calculateFullProfile,
   type NumerologyProfile,
 } from '../numerology/numerologyEngine';
+import { perfStart } from '../utils/perfLogger';
 import {
   NUMBER_MEANINGS,
   SIGNATURE_LABELS,
@@ -486,27 +487,41 @@ export default function NumerologyDashboard() {
   const [fullName, setFullName] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Load birth data
   useEffect(() => {
+    console.log('[Numerology] Loading birth data...');
     getUserSettings().then(s => {
       if (s.birthData?.year && s.birthData?.month && s.birthData?.day) {
+        console.log('[Numerology] Birth data found:', s.birthData.year, s.birthData.month, s.birthData.day);
         setBirth({ year: s.birthData.year, month: s.birthData.month, day: s.birthData.day });
+      } else {
+        console.warn('[Numerology] No birth data in settings');
       }
-      // Try to recover stored name from localStorage
       const storedName = localStorage.getItem('myday_numerology_name');
-      if (storedName) setFullName(storedName);
+      if (storedName) { console.log('[Numerology] Stored name:', storedName); setFullName(storedName); }
       setLoading(false);
-    }).catch(() => setLoading(false));
+    }).catch(e => { console.error('[Numerology] Settings load error:', e); setLoading(false); });
   }, []);
 
   const handleNameSubmit = (name: string) => {
+    console.log('[Numerology] Name submitted:', name);
     setFullName(name);
     localStorage.setItem('myday_numerology_name', name);
   };
 
   const profile = useMemo<NumerologyProfile | null>(() => {
     if (!birth || !fullName) return null;
-    return calculateFullProfile(birth.year, birth.month, birth.day, fullName);
+    const endPerf = perfStart('NumerologyDashboard', 'calculateFullProfile');
+    console.log('[Numerology] Calculating profile for', fullName, 'born', birth.year, birth.month, birth.day);
+    try {
+      const p = calculateFullProfile(birth.year, birth.month, birth.day, fullName);
+      console.log('[Numerology] Profile calculated:', { lifePath: p.lifePath, expression: p.expression, personalYear: p.personalYear });
+      endPerf();
+      return p;
+    } catch (e) {
+      console.error('[Numerology] Profile calculation failed:', e);
+      endPerf();
+      return null;
+    }
   }, [birth, fullName]);
 
   if (loading) {

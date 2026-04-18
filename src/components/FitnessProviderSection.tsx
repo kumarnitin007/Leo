@@ -26,6 +26,7 @@ const FitnessProviderSection: React.FC = () => {
     loading: googleLoading,
     connectService: connectGoogleService,
     disconnectGoogle,
+    tokens: googleTokens,
   } = useGoogleAuth();
   const {
     isConnected: fitbitConnected,
@@ -225,6 +226,20 @@ const FitnessProviderSection: React.FC = () => {
                       <div style={{ fontSize: 11, color: expired ? '#B91C1C' : '#6B7280', marginTop: 2 }}>
                         {expired ? 'Token expired — click Reconnect to restore' : p.description}
                       </div>
+                      {p.id === 'google_fit' && conn && googleTokens?.expiresAt && (
+                        <div style={{ fontSize: 10, color: '#6B7280', marginTop: 3, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                          <span title="Access token expiry (auto-refreshed silently)">
+                            🔑 Access token: {(() => {
+                              const mins = Math.max(0, Math.round((googleTokens.expiresAt.getTime() - Date.now()) / 60000));
+                              if (mins < 60) return `${mins}m left (auto-refreshes)`;
+                              return `${Math.floor(mins / 60)}h ${mins % 60}m left (auto-refreshes)`;
+                            })()}
+                          </span>
+                          <span title="Google refresh tokens don't have a fixed expiry — they remain valid until the user revokes access or the app is unused for 6+ months">
+                            🔄 Refresh token: no fixed expiry (~6mo unused)
+                          </span>
+                        </div>
+                      )}
                     </div>
 
                     <div style={{ flexShrink: 0, display: 'flex', gap: 6, alignItems: 'center' }}>

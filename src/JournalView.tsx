@@ -21,6 +21,7 @@ import {
 } from './storage';
 import { formatDate } from './utils';
 import { useFitness } from './integrations/fitness';
+import { useGoogleAuth } from './integrations/google/hooks/useGoogleAuth';
 import { calculateStreaks, computeStreakDots } from './components/journal/streakUtils';
 import type { JournalReflectionResult } from './services/ai/abilities/journalReflection';
 import JournalDesktop from './components/journal/JournalDesktop';
@@ -62,6 +63,7 @@ const JournalView: React.FC<JournalViewProps> = ({ prefillContent, prefillMood, 
 
   // ── Fitness ─────────────────────────────────────────────────────────
   const { data: fitnessData, loading: fitnessLoading, connected: fitnessConnected, fetchRecent: fetchFitness } = useFitness();
+  const { tokenExpired: googleTokenExpired, connectService: googleConnectService } = useGoogleAuth();
 
   // ── AI reflection (shared between center + right panels) ──────────
   const [aiReflection, setAiReflection] = useState<JournalReflectionResult | null>(null);
@@ -372,8 +374,10 @@ const JournalView: React.FC<JournalViewProps> = ({ prefillContent, prefillMood, 
     onReflectionUpdate: handleReflectionUpdate,
     fitnessData,
     fitnessLoading,
-    fitnessConnected,
+    fitnessConnected: googleTokenExpired ? false : fitnessConnected,
+    googleTokenExpired,
     onFetchFitness: () => fetchFitness(),
+    onReconnectGoogle: () => googleConnectService('fit'),
   };
 
   return (

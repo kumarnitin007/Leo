@@ -44,6 +44,25 @@ export function bankAccountMatchesDeleteKey(a: BankAccount, del: DeleteAccountKe
 
 export type DeleteActionKey = { title: string; bank: string };
 
+// TODO(ACTION/INFO inline rows): Excel screenshot (2026-04-17) shows two new
+// inline blocks in the Deposits/Accounts sheet:
+//   1. ACTION rows — rows with Status="ACTION", Due Date, and free-text Action
+//      (e.g. "MIS - Check Phone number", "Whose number is 9051089439?").
+//      Suggested mapping: extend this parser to recognize the ACTION block
+//      (header "Status | Due Date | Action") and push each row into
+//      `newActions` with title=Action text, date=Due Date, priority optional.
+//      Extra columns worth capturing (for future): category, linkedAccount,
+//      notes, recurrence (e.g. quarterly ROI check).
+//      Best in-app home: existing Financial "Actions" tab (already supports
+//      ActionItem). A My Lists system-controlled list would be secondary.
+//   2. INFO rows — {Source | ID | VALUE} key/value pairs attached to a specific
+//      source (e.g. "Post Office | IFSC Post | IPOS0000DOP").
+//      Suggested mapping: store as `accountInfo` map on BankAccount
+//      (`accountInfo?: Array<{ id: string; value: string }>`) so each account
+//      can carry free-form IFSC/SWIFT/Phone/Ref-Flow notes.
+//      Surface inside the Account card's "Extra info" area or a new expandable
+//      "Info" row in the Excel view. Deferred — discuss exact schema first.
+
 export interface BankRecordsExcelParseResult {
   newDeposits: Deposit[];
   newAccounts: BankAccount[];

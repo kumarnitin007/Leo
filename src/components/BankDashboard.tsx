@@ -32,8 +32,6 @@ import {
   parseBankRecordsWorkbook,
   downloadBankRecordsTemplate,
   readBankRecordsFile,
-  bankAccountMergeKey,
-  bankAccountMatchesDeleteKey,
 } from '../services/bankRecordsExcel';
 import { updateFinancialAlertsCache, FinancialAlertsSummary } from './FinancialAlertsWidget';
 import { CryptoKey, encryptData, decryptData } from '../utils/encryption';
@@ -67,11 +65,15 @@ import {
 import { UrgencyBadge, EmptyState, inputSt, labelSt } from './bank/BankDashboardPrimitives';
 import { BankTimelineTab } from './bank/BankTimelineTab';
 import { BankActionsTab } from './bank/BankActionsTab';
+import BankExcelView from './bank/BankExcelView';
 import { BankDepositsTab } from './bank/BankDepositsTab';
 import { BankBillsTab } from './bank/BankBillsTab';
 import { BankOverviewTab, type Next30DayRow } from './bank/BankOverviewTab';
 import { collectLinkedNextActions } from '../bank/bankLinkedActions';
 import type { PortfolioHistoryChartPoint } from '../bank/bankDashboardTypes';
+import { buildImportDiff, type ImportDiffSummary } from '../bank/importMergeEngine';
+import ImportReviewModal from './bank/ImportReviewModal';
+import { perfStart } from '../utils/perfLogger';
 
 interface BankDashboardProps {
   supabase?: SupabaseClient;
@@ -154,6 +156,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
   const [depositsBankViz, setDepositsBankViz] = useState<'donut' | 'bars'>('donut');
   const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [hasLocalBackup, setHasLocalBackup] = useState(false);
+  const [importReview, setImportReview] = useState<{ diff: ImportDiffSummary; apply: () => void } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const dataLoadedOk = useRef(false);
   const BACKUP_KEY = `myday_bank_backup_${userId}`;
@@ -187,6 +190,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
         case '4': setTab('deposits'); break;
         case '5': setTab('accounts'); break;
         case '6': setTab('bills'); break;
+        case '7': setTab('excel'); break;
         case '/': e.preventDefault(); document.querySelector<HTMLInputElement>('input[placeholder*="Search"]')?.focus(); break;
       }
     };
@@ -718,197 +722,33 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
 
   // ── Excel Import (Smart Merge by ID) ────────────────────────────────────
   async function handleExcel(file: File) {
+    const endPerf = perfStart('BankDashboard', 'handleExcel (parse + diff)');
     try {
       const wb = await readBankRecordsFile(file);
+      const parsed = parseBankRecordsWorkbook(wb, CATEGORIES);
+      const { mergedDeposits, mergedAccounts, mergedBills, mergedActions, diff } =
+        buildImportDiff(parsed, deposits, accounts, bills, actions, fmt, exchangeRates, displayCurrency);
+      endPerf();
 
-      const {
-        newDeposits,
-        newAccounts,
-        newBills,
-        newActions,
-        deleteDeposits,
-        deleteAccounts,
-        deleteBills,
-        deleteActions,
-      } = parseBankRecordsWorkbook(wb, CATEGORIES);
+      if (diff.items.length === 0) {
+        alert('No changes detected in the imported file.');
+        return;
+      }
 
-      const actionMergeKey = (a: ActionItem) =>
-        `${a.title.trim().toLowerCase()}|${a.bank.trim().toLowerCase()}`;
-
-      // ── Smart Merge Logic ──
-      let addedCount = 0;
-      let updatedCount = 0;
-      let deletedCount = 0;
-      
-      // First, handle DELETIONS
-      // Delete Deposits
-      let mergedDeposits = [...deposits];
-      deleteDeposits.forEach(del => {
-        const key = del.depositId 
-          ? `${del.bank}|${del.depositId}`
-          : `${del.bank}|${del.startDate}`;
-        const idx = mergedDeposits.findIndex(d => {
-          const existingKey = d.depositId
-            ? `${d.bank}|${d.depositId}`
-            : `${d.bank}|${d.startDate}`;
-          return existingKey === key;
-        });
-        if (idx >= 0) {
-          mergedDeposits.splice(idx, 1);
-          deletedCount++;
-        }
+      setImportReview({
+        diff,
+        apply: () => {
+          const endApply = perfStart('BankDashboard', 'handleExcel → apply');
+          dataLoadedOk.current = true;
+          save(mergedDeposits, mergedAccounts, mergedBills, mergedActions, undefined, { recordTotalValue: true, totalValueSource: 'Excel import' });
+          setImportReview(null);
+          endApply();
+        },
       });
-      
-      // Delete Accounts
-      let mergedAccounts = [...accounts];
-      deleteAccounts.forEach(del => {
-        const idx = mergedAccounts.findIndex(a => bankAccountMatchesDeleteKey(a, del));
-        if (idx >= 0) {
-          mergedAccounts.splice(idx, 1);
-          deletedCount++;
-        }
-      });
-      
-      // Delete Bills
-      let mergedBills = [...bills];
-      deleteBills.forEach(del => {
-        const idx = mergedBills.findIndex(b => 
-          b.name.toLowerCase() === del.name.toLowerCase()
-        );
-        if (idx >= 0) {
-          mergedBills.splice(idx, 1);
-          deletedCount++;
-        }
-      });
-
-      let mergedActions = [...actions];
-      deleteActions.forEach(del => {
-        const idx = mergedActions.findIndex(
-          a =>
-            a.title.trim().toLowerCase() === del.title.trim().toLowerCase() &&
-            a.bank.trim().toLowerCase() === del.bank.trim().toLowerCase()
-        );
-        if (idx >= 0) {
-          mergedActions.splice(idx, 1);
-          deletedCount++;
-        }
-      });
-      
-      // Then, handle ADD/UPDATE
-      // Merge Deposits (by bank + depositId OR bank + startDate)
-      newDeposits.forEach(newDep => {
-        const key = newDep.depositId 
-          ? `${newDep.bank}|${newDep.depositId}`
-          : `${newDep.bank}|${newDep.startDate}`;
-        
-        const existingIdx = mergedDeposits.findIndex(d => {
-          const existingKey = d.depositId
-            ? `${d.bank}|${d.depositId}`
-            : `${d.bank}|${d.startDate}`;
-          return existingKey === key;
-        });
-        
-        if (existingIdx >= 0) {
-          const prev = mergedDeposits[existingIdx];
-          const prevAmt = Number(prev.deposit) || 0;
-          const newAmt = Number(newDep.deposit) || 0;
-          let next: Deposit = { ...prev, ...newDep };
-          if (prevAmt !== newAmt) {
-            const histDate = newDep.lastBalanceUpdatedAt || new Date().toISOString();
-            const cur = (next.currency || "INR") as Currency;
-            const delta = newAmt - prevAmt;
-            const deltaStr = delta >= 0 ? `+${fmt(delta, cur)}` : fmt(delta, cur);
-            next = {
-              ...next,
-              balanceHistory: [
-                ...(prev.balanceHistory || []),
-                { date: histDate, amount: newAmt, previousAmount: prevAmt, source: `Excel import ${deltaStr}` },
-              ],
-            };
-          }
-          mergedDeposits[existingIdx] = next;
-          updatedCount++;
-        } else {
-          const histDate = newDep.lastBalanceUpdatedAt || new Date().toISOString();
-          mergedDeposits.push({
-            ...newDep,
-            balanceHistory: [{ date: histDate, amount: Number(newDep.deposit) || 0, source: "Excel import" }],
-          });
-          addedCount++;
-        }
-      });
-      
-      // Merge Accounts (by bank + type + holders to allow multiple accounts of same type)
-      newAccounts.forEach(newAcc => {
-        const key = bankAccountMergeKey(newAcc);
-        const existingIdx = mergedAccounts.findIndex(a => bankAccountMergeKey(a) === key);
-        
-        if (existingIdx >= 0) {
-          const prev = mergedAccounts[existingIdx];
-          const prevAmt = Number(prev.amount) || 0;
-          const newAmt = Number(newAcc.amount) || 0;
-          let next: BankAccount = { ...prev, ...newAcc };
-          if (prevAmt !== newAmt) {
-            const histDate = newAcc.lastBalanceUpdatedAt || new Date().toISOString();
-            const cur = (next.currency || "INR") as Currency;
-            const delta = newAmt - prevAmt;
-            const deltaStr = delta >= 0 ? `+${fmt(delta, cur)}` : fmt(delta, cur);
-            next = {
-              ...next,
-              balanceHistory: [
-                ...(prev.balanceHistory || []),
-                { date: histDate, amount: newAmt, previousAmount: prevAmt, source: `Excel import ${deltaStr}` },
-              ],
-            };
-          }
-          mergedAccounts[existingIdx] = next;
-          updatedCount++;
-        } else {
-          const histDate = newAcc.lastBalanceUpdatedAt || new Date().toISOString();
-          mergedAccounts.push({
-            ...newAcc,
-            balanceHistory: [{ date: histDate, amount: Number(newAcc.amount) || 0, source: "Excel import" }],
-          });
-          addedCount++;
-        }
-      });
-      
-      // Merge Bills (by name)
-      newBills.forEach(newBill => {
-        const existingIdx = mergedBills.findIndex(b => 
-          b.name.toLowerCase() === newBill.name.toLowerCase()
-        );
-        
-        if (existingIdx >= 0) {
-          mergedBills[existingIdx] = { ...mergedBills[existingIdx], ...newBill };
-          updatedCount++;
-        } else {
-          mergedBills.push(newBill);
-          addedCount++;
-        }
-      });
-
-      newActions.forEach(newAct => {
-        const key = actionMergeKey(newAct);
-        const existingIdx = mergedActions.findIndex(a => actionMergeKey(a) === key);
-        if (existingIdx >= 0) {
-          mergedActions[existingIdx] = { ...mergedActions[existingIdx], ...newAct };
-          updatedCount++;
-        } else {
-          mergedActions.push(newAct);
-          addedCount++;
-        }
-      });
-      
-      // Excel import is an explicit user action — allow persist
-      dataLoadedOk.current = true;
-      save(mergedDeposits, mergedAccounts, mergedBills, mergedActions, undefined, { recordTotalValue: true, totalValueSource: 'Excel import' });
-      
-      alert(`✅ Excel imported!\n📊 ${addedCount} new records added\n✏️ ${updatedCount} records updated\n🗑️ ${deletedCount} records deleted\n📁 Total: ${mergedDeposits.length} deposits, ${mergedAccounts.length} accounts, ${mergedBills.length} bills, ${mergedActions.length} actions`);
-      
     } catch (e) {
+      endPerf();
       console.error('Excel import failed:', e);
-      alert('❌ Failed to import Excel file');
+      alert('Failed to import Excel file');
     }
   }
 
@@ -1270,11 +1110,18 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
     RD: '#6366F1', EPF: '#0EA5E9', Demat: '#F97316',
   };
   const accountsTypePieData = useMemo(() => {
+    const LIABILITY_TYPES_SET = new Set(['Credit Card', 'Loan']);
     const byType: Record<string, number> = {};
     (showAllAccounts ? accounts : accounts.filter(a => !a.hidden)).forEach(a => {
-      const typ = (a.type || '').trim() || 'Other';
+      const amt = Number(a.amount) || 0;
+      const aType = (a.type || '').trim();
+      const isLiability = amt < 0 || LIABILITY_TYPES_SET.has(aType);
+      if (accountsAssetView === 'assets' && isLiability) return;
+      if (accountsAssetView === 'liabilities' && !isLiability) return;
+
+      const typ = aType || 'Other';
       const accCurrency = (a.currency && CURRENCY_SYMBOLS[a.currency as Currency]) ? a.currency as Currency : 'INR';
-      const converted = convertCurrency(Number(a.amount) || 0, accCurrency, displayCurrency === 'ORIGINAL' ? 'INR' : displayCurrency as Currency, exchangeRates);
+      const converted = convertCurrency(amt, accCurrency, displayCurrency === 'ORIGINAL' ? 'INR' : displayCurrency as Currency, exchangeRates);
       byType[typ] = (byType[typ] || 0) + converted;
     });
     const fallbackColors = ['#6366f1', '#ec4899', '#f97316', '#14b8a6', '#84cc16', '#a855f7', '#64748b'];
@@ -1283,7 +1130,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
       .filter(([, v]) => v !== 0)
       .map(([name, value]) => ({ name, value: Math.abs(value), color: TYPE_COLORS[name] || fallbackColors[ci++ % fallbackColors.length] }))
       .sort((a, b) => b.value - a.value);
-  }, [accounts, showAllAccounts, displayCurrency, exchangeRates]);
+  }, [accounts, showAllAccounts, displayCurrency, exchangeRates, accountsAssetView]);
 
   const accountsTypePieTooltip = useCallback(
     (props: { active?: boolean; payload?: ReadonlyArray<{ payload: { name: string; value: number } }> }) => {
@@ -1495,6 +1342,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
   const moreTabs = [
     {id:"timeline",  icon:"📅", label:"Timeline", key:"5"},
     {id:"actions",   icon:"⚡", label:"Actions", key:"6"},
+    {id:"excel",     icon:"📊", label:"Excel", key:"7"},
   ];
   const allTabs = [...mainTabs, ...moreTabs];
   
@@ -1617,6 +1465,14 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
 
   return (
     <div style={{minHeight:"100vh",background:THEME.bg,color:THEME.text,fontFamily:"'Sora','Segoe UI',sans-serif",paddingBottom:isMobile?110:48,margin:isMobile?"-0.5rem":"0",width:isMobile?"calc(100% + 1rem)":"auto"}}>
+      {importReview && (
+        <ImportReviewModal
+          diff={importReview.diff}
+          onApprove={importReview.apply}
+          onCancel={() => setImportReview(null)}
+          formatAmount={(n, cur) => fmt(n, (cur || 'INR') as Currency)}
+        />
+      )}
       {/* Setup Banner */}
       {showSetupBanner && (
         <div style={{background:"linear-gradient(90deg,#fef2f2,#fee2e2)",border:"1px solid #fecaca",padding:"12px 20px",margin:"16px",borderRadius:12,display:"flex",alignItems:"center",gap:12}}>
@@ -1789,6 +1645,25 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
             onEditLinked={(source, idx) => {
               const t = source === "account" ? "account" : source === "deposit" ? "deposit" : "bill";
               openEdit(t, idx);
+            }}
+          />
+        )}
+
+        {/* ══ EXCEL TRIAL TAB ══════════════════════════════════════════ */}
+        {tab === "excel" && (
+          <BankExcelView
+            deposits={deposits}
+            accounts={accounts}
+            bills={bills}
+            actions={actions}
+            fmt={fmt}
+            theme={{
+              text: THEME.text,
+              textMuted: THEME.textMuted,
+              textLight: THEME.textLight,
+              cardBgAlt: THEME.cardBgAlt,
+              border: THEME.border,
+              cardBg: THEME.cardBg,
             }}
           />
         )}

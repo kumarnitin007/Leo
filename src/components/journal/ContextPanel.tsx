@@ -33,12 +33,15 @@ interface ContextPanelProps {
   fitnessData: DailyFitnessData[];
   fitnessLoading: boolean;
   fitnessConnected?: boolean | null;
+  googleTokenExpired?: boolean;
   onFetchFitness: () => void;
+  onReconnectGoogle?: () => void;
 }
 
 const ContextPanel: React.FC<ContextPanelProps> = ({
   currentStreak, bestStreak, dots, allEntries, selectedDate,
-  editingEntry, justSaved, aiReflection, fitnessData, fitnessLoading, fitnessConnected, onFetchFitness,
+  editingEntry, justSaved, aiReflection, fitnessData, fitnessLoading, fitnessConnected,
+  googleTokenExpired, onFetchFitness, onReconnectGoogle,
 }) => {
   // On this day — 1 year ago
   const onThisDay = useMemo(() => {
@@ -124,7 +127,20 @@ const ContextPanel: React.FC<ContextPanelProps> = ({
               <span className="j-ic-dot" style={{ background: 'var(--j-green)' }} />
               Steps today
             </span>
-            {fitnessConnected !== false && fitnessData.length > 0 && (
+            {googleTokenExpired && onReconnectGoogle ? (
+              <button
+                onClick={onReconnectGoogle}
+                type="button"
+                style={{
+                  padding: '2px 8px', borderRadius: 6, fontSize: 10, fontWeight: 700,
+                  border: '1px solid #ef4444', color: '#fff', background: '#ef4444',
+                  cursor: 'pointer', fontFamily: 'inherit',
+                }}
+                title="Google token expired — click to reconnect"
+              >
+                Reconnect
+              </button>
+            ) : fitnessConnected !== false && fitnessData.length > 0 ? (
               <button
                 onClick={onFetchFitness}
                 disabled={fitnessLoading}
@@ -138,7 +154,7 @@ const ContextPanel: React.FC<ContextPanelProps> = ({
               >
                 {fitnessLoading ? '…' : 'Refresh'}
               </button>
-            )}
+            ) : null}
           </div>
           {fitnessData.length > 0 ? (
             <>
@@ -163,6 +179,22 @@ const ContextPanel: React.FC<ContextPanelProps> = ({
                 ))}
               </div>
             </>
+          ) : googleTokenExpired ? (
+            <div style={{
+              padding: '8px 12px', borderRadius: 8, fontSize: 11, fontWeight: 500,
+              border: '1px solid #fecaca', color: '#991b1b',
+              background: '#fef2f2', marginTop: 4, lineHeight: 1.5,
+            }}>
+              Google token has expired.
+              <br />
+              {onReconnectGoogle && (
+                <button onClick={onReconnectGoogle} type="button" style={{
+                  marginTop: 6, padding: '6px 10px', borderRadius: 6,
+                  background: '#ef4444', color: '#fff', border: 'none', fontWeight: 700,
+                  fontSize: 11, cursor: 'pointer', fontFamily: 'inherit',
+                }}>Reconnect Google</button>
+              )}
+            </div>
           ) : fitnessConnected === false ? (
             <div style={{
               padding: '8px 12px', borderRadius: 8, fontSize: 11, fontWeight: 500,

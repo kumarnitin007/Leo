@@ -27,6 +27,7 @@ export default async function handler(req: any, res: any) {
       case 'yogas': return await handleYogas(req, res, API_KEY);
       case 'dasha': return await handleDasha(req, res, API_KEY);
       case 'numerology': return await handleNumerology(req, res);
+      case 'ask-ai': return await handleAskAI(req, res);
       default: return res.status(400).json(createErrorResponse('VALIDATION_ERROR', `Unknown action: ${action}`));
     }
   } catch (err: any) {
@@ -456,5 +457,87 @@ async function handleNumerology(req: any, res: any) {
     return res.status(200).json(JSON.parse(bodyText));
   } catch {
     return res.status(502).json(createErrorResponse('PARSE_ERROR', 'Invalid response from Numerology API'));
+  }
+}
+
+/* ── Ask AI — OpenAI-powered astro reading ────────────────────── */
+async function handleAskAI(req: any, res: any) {
+  const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+  if (!OPENAI_API_KEY) {
+    return res.status(500).json(createErrorResponse('CONFIG_ERROR', 'OpenAI API key not configured'));
+  }
+
+  const { prompt, question } = req.body || {};
+  if (!prompt || typeof prompt !== 'string' || prompt.length < 20) {
+    return res.status(400).json(createErrorResponse('VALIDATION_ERROR', 'A prompt with astrological context is required'));
+  }
+
+  const MODEL = 'gpt-4o-mini';
+  const COST_PER_1K_IN = 0.00015;
+  const COST_PER_1K_OUT = 0.0006;
+  const startTime = Date.now();
+
+  try {
+    const systemContent = [
+      'You are a wise, warm astrologer who synthesises Western, Vedic, and Chinese BaZi traditions.',
+      'Use ALL of the astrological context provided to give a personalised answer.',
+      'Reference the user\'s actual Dasha period, Day Master, yogas, and current transits when available.',
+      'If any field is marked [UNAVAILABLE], acknowledge briefly but still give the best answer possible.',
+      '',
+      'Respond ONLY in this exact JSON format (no markdown fences):',
+      '{',
+      '  "simple": "3-4 lines. Warm, direct, actionable. No jargon.",',
+      '  "detailed": "3-4 paragraphs. Reference specific planets, yogas, pillars, dasha. Conversational but insightful.",',
+      '  "timing": "1-2 sentences on WHEN to act — specific moon phase, upcoming transit, or dasha window.",',
+      '  "confidence": "high | medium | low — based on completeness of astrological data provided."',
+      '}',
+    ].join('\n');
+
+    const resp = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${OPENAI_API_KEY}` },
+      body: JSON.stringify({
+        model: MODEL,
+        messages: [
+          { role: 'system', content: systemContent },
+          { role: 'user', content: prompt },
+        ],
+        temperature: 0.8,
+        max_tokens: 1500,
+      }),
+    });
+    const data = await resp.json();
+    const durationMs = Date.now() - startTime;
+
+    if (!resp.ok) {
+      console.error('[astro:ask-ai] OpenAI error:', JSON.stringify(data).slice(0, 500));
+      return res.status(resp.status).json(createErrorResponse('EXTERNAL_API_ERROR', `OpenAI: ${resp.status}`));
+    }
+
+    const raw = data.choices?.[0]?.message?.content || '';
+    const promptTokens = data.usage?.prompt_tokens || 0;
+    const completionTokens = data.usage?.completion_tokens || 0;
+    const totalTokens = promptTokens + completionTokens;
+    const costUsd = (promptTokens / 1000) * COST_PER_1K_IN + (completionTokens / 1000) * COST_PER_1K_OUT;
+
+    let parsed: { simple?: string; detailed?: string; timing?: string; confidence?: string } = {};
+    try {
+      parsed = JSON.parse(raw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim());
+    } catch {
+      parsed = { simple: raw.slice(0, 300), detailed: raw };
+    }
+
+    return res.status(200).json({
+      simple: parsed.simple || '',
+      detailed: parsed.detailed || '',
+      timing: parsed.timing || '',
+      confidence: parsed.confidence || 'medium',
+      usage: { prompt_tokens: promptTokens, completion_tokens: completionTokens, total_tokens: totalTokens, model: MODEL, cost_usd: costUsd },
+      durationMs,
+      question: question || '',
+    });
+  } catch (err: any) {
+    console.error('[astro:ask-ai] Error:', err?.message);
+    return res.status(500).json(createErrorResponse('INTERNAL_ERROR', 'Failed to get AI reading'));
   }
 }

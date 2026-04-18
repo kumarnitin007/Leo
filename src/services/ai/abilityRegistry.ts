@@ -38,6 +38,18 @@ export const ABILITY_REGISTRY: Record<AIAbilityId, AIAbilityMeta> = {
     costPer1kInput: GPT4O_MINI_INPUT,
     costPer1kOutput: GPT4O_MINI_OUTPUT,
   },
+  astro_reading: {
+    id: 'astro_reading',
+    label: 'Astro Reading',
+    description: 'AI-powered astrology reading synthesising Western, Vedic, and BaZi traditions',
+    icon: '🌌',
+    endpoint: '/api/astro?action=ask-ai',
+    model: 'gpt-4o-mini',
+    maxTokens: 1500,
+    temperature: 0.8,
+    costPer1kInput: GPT4O_MINI_INPUT,
+    costPer1kOutput: GPT4O_MINI_OUTPUT,
+  },
 };
 
 export function getAbilityMeta(id: AIAbilityId): AIAbilityMeta {
