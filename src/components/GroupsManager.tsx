@@ -24,6 +24,8 @@ import { decryptData, CryptoKey } from '../utils/encryption';
 
 interface GroupsManagerProps {
   onClose: () => void;
+  /** When true, render as in-flow content (no fixed overlay, no ✕). Used by Settings → Groups inline. */
+  inline?: boolean;
   encryptionKey?: CryptoKey | null; // Only passed when opened from Safe
 }
 
@@ -31,7 +33,7 @@ const GROUP_ICONS = ['👥', '👨‍👩‍👧‍👦', '🏠', '💼', '🎯'
 const GROUP_COLORS = ['#6366f1', '#8b5cf6', '#ec4899', '#ef4444', '#f97316', '#f59e0b', '#10b981', '#14b8a6', '#06b6d4', '#3b82f6'];
 const MEMBER_COLORS = ['#6366F1', '#10B981', '#F97316', '#8B5CF6', '#EF4444', '#F59E0B', '#06B6D4', '#EC4899'];
 
-const GroupsManager: React.FC<GroupsManagerProps> = ({ onClose, encryptionKey }) => {
+const GroupsManager: React.FC<GroupsManagerProps> = ({ onClose, encryptionKey, inline = false }) => {
   const { theme } = useTheme();
   const { user } = useAuth();
   const supabase = getSupabaseClient();
@@ -363,18 +365,30 @@ const GroupsManager: React.FC<GroupsManagerProps> = ({ onClose, encryptionKey })
     );
   }
 
-  return (
-    <div style={{
-      position: 'fixed',
-      inset: 0,
-      background: 'rgba(0,0,0,0.5)',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      zIndex: 1100,
-      padding: '1rem'
-    }}>
-      <div style={{
+  const outerStyle: React.CSSProperties = inline
+    ? {}
+    : {
+        position: 'fixed',
+        inset: 0,
+        background: 'rgba(0,0,0,0.5)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 1100,
+        padding: '1rem',
+      };
+
+  const innerStyle: React.CSSProperties = inline
+    ? {
+        background: 'white',
+        borderRadius: '12px',
+        border: '0.5px solid #e5e7eb',
+        width: '100%',
+        overflow: 'hidden',
+        display: 'flex',
+        flexDirection: 'column',
+      }
+    : {
         background: 'white',
         borderRadius: '1.25rem',
         width: '100%',
@@ -383,8 +397,12 @@ const GroupsManager: React.FC<GroupsManagerProps> = ({ onClose, encryptionKey })
         overflow: 'hidden',
         display: 'flex',
         flexDirection: 'column',
-        animation: 'slideUp 0.3s ease-out'
-      }}>
+        animation: 'slideUp 0.3s ease-out',
+      };
+
+  return (
+    <div style={outerStyle}>
+      <div style={innerStyle}>
         {/* Header */}
         <div style={{
           padding: '1.25rem 1.5rem',
@@ -426,19 +444,21 @@ const GroupsManager: React.FC<GroupsManagerProps> = ({ onClose, encryptionKey })
                 ✏️
               </button>
             )}
-            <button
-              onClick={onClose}
-              style={{
-                background: 'none',
-                border: 'none',
-                fontSize: '1.5rem',
-                cursor: 'pointer',
-                color: '#9ca3af',
-                padding: '0.25rem'
-              }}
-            >
-              ✕
-            </button>
+            {!inline && (
+              <button
+                onClick={onClose}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  fontSize: '1.5rem',
+                  cursor: 'pointer',
+                  color: '#9ca3af',
+                  padding: '0.25rem'
+                }}
+              >
+                ✕
+              </button>
+            )}
           </div>
         </div>
 

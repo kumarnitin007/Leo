@@ -32,6 +32,13 @@ interface BankExcelViewProps {
     border: string;
     cardBg: string;
   };
+  /**
+   * Optional click handler for account rows. When provided, account rows
+   * become interactive (cursor + hover) and call back with the original
+   * `accounts` array index so the parent can open the detail screen.
+   * Other row kinds (deposit/bill/action) are not yet wired through.
+   */
+  onAccountClick?: (idx: number) => void;
 }
 
 type UnifiedRow = {
@@ -50,6 +57,9 @@ type UnifiedRow = {
   roi: string;
   limits: string;
   extraInfo: string;
+  /** For kind==='account', the index of the source account in the parent
+   *  `accounts` array. Used to wire row clicks → BankAccountDetail. */
+  accountIdx?: number;
   raw: Deposit | BankAccount | Bill | ActionItem;
 };
 
@@ -68,7 +78,7 @@ function latestUpdateDate(r: Pick<BankAccount | Deposit, 'balanceHistory' | 'las
 }
 
 const BankExcelView: React.FC<BankExcelViewProps> = ({
-  deposits, accounts, bills, actions, fmt, theme,
+  deposits, accounts, bills, actions, fmt, theme, onAccountClick,
 }) => {
   const [kindFilter, setKindFilter] = useState<'all' | 'account' | 'deposit' | 'bill' | 'action'>('all');
   const [search, setSearch] = useState('');
@@ -79,7 +89,7 @@ const BankExcelView: React.FC<BankExcelViewProps> = ({
     const endPerf = perfStart('BankExcelView', 'build rows');
     const all: UnifiedRow[] = [];
 
-    accounts.forEach(a => {
+    accounts.forEach((a, idx) => {
       const d = latestUpdateDate(a);
       all.push({
         kind: 'account',
@@ -97,6 +107,7 @@ const BankExcelView: React.FC<BankExcelViewProps> = ({
         roi: a.roi != null ? String(a.roi) : '',
         limits: a.accountNumber || '',
         extraInfo: a.notes || '',
+        accountIdx: idx,
         raw: a,
       });
     });
@@ -303,11 +314,29 @@ const BankExcelView: React.FC<BankExcelViewProps> = ({
             </tr>
           </thead>
           <tbody>
-            {filtered.map((r, i) => (
-              <tr key={`${r.kind}-${i}`} style={{
-                borderBottom: `1px solid ${theme.border}`,
-                background: i % 2 === 0 ? 'transparent' : theme.cardBgAlt,
-              }}>
+            {filtered.map((r, i) => {
+              const clickable = r.kind === 'account' && onAccountClick && r.accountIdx != null;
+              const handleRowClick = () => {
+                if (clickable && r.accountIdx != null) onAccountClick!(r.accountIdx);
+              };
+              return (
+              <tr
+                key={`${r.kind}-${i}`}
+                onClick={clickable ? handleRowClick : undefined}
+                onKeyDown={clickable ? (e) => {
+                  if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleRowClick(); }
+                } : undefined}
+                role={clickable ? 'button' : undefined}
+                tabIndex={clickable ? 0 : undefined}
+                title={clickable ? 'View account details' : undefined}
+                style={{
+                  borderBottom: `1px solid ${theme.border}`,
+                  background: i % 2 === 0 ? 'transparent' : theme.cardBgAlt,
+                  cursor: clickable ? 'pointer' : 'default',
+                }}
+                onMouseEnter={clickable ? (e) => { e.currentTarget.style.background = '#eff6ff'; } : undefined}
+                onMouseLeave={clickable ? (e) => { e.currentTarget.style.background = i % 2 === 0 ? 'transparent' : theme.cardBgAlt; } : undefined}
+              >
                 <td style={{ padding: '6px 8px' }}>
                   <span style={{
                     display: 'inline-block', background: kindColor(r.kind),
@@ -333,7 +362,7 @@ const BankExcelView: React.FC<BankExcelViewProps> = ({
                 <td style={{ padding: '6px 8px', color: theme.textMuted, fontSize: 10 }}>{r.limits || '—'}</td>
                 <td style={{ padding: '6px 8px', color: theme.textLight, fontSize: 10, maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={r.extraInfo}>{r.extraInfo || '—'}</td>
               </tr>
-            ))}
+            );})}
             {filtered.length === 0 && (
               <tr><td colSpan={14} style={{ padding: 20, textAlign: 'center', color: theme.textMuted, fontSize: 11 }}>No rows match the current filter.</td></tr>
             )}

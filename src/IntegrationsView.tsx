@@ -15,6 +15,86 @@ import { Task } from './types';
 import { getTasks, addTask } from './storage';
 import GoogleServicesSection from './components/GoogleServicesSection';
 import FitnessProviderSection from './components/FitnessProviderSection';
+import { useGoogleAuth } from './integrations/google/hooks/useGoogleAuth';
+
+/**
+ * Per-integration setup metadata.
+ *
+ * Each card here has very different state-of-implementation. To stop showing the
+ * misleading generic "API Key" modal we declare the actual story for each one.
+ *
+ * Possible `auth` values:
+ *  - 'google-oauth' — reuses the same Google sign-in as Google Fit / Contacts
+ *    (single client-id from VITE_GOOGLE_CLIENT_ID, just different scopes)
+ *  - 'oauth'        — provider-specific OAuth not yet wired
+ *  - 'api-key'      — token-pasted-by-user flow (none of the active ones)
+ *  - 'webhook'      — incoming webhook URL pasted by user
+ *  - 'manual'       — copy/paste JSON / file
+ *
+ * `implementation` controls the badge & whether Connect actually does anything:
+ *  - 'available'    — already implemented elsewhere, route there
+ *  - 'planned'      — not built yet, show roadmap note
+ */
+type IntegrationMeta = {
+  auth: 'google-oauth' | 'oauth' | 'api-key' | 'webhook' | 'manual';
+  implementation: 'available' | 'planned';
+  steps?: string[];
+  note?: string;
+  /** When 'available' and routes elsewhere, this label tells the user where to go. */
+  routeHint?: string;
+};
+
+const INTEGRATION_META: Record<string, IntegrationMeta> = {
+  'google-calendar': {
+    auth: 'google-oauth',
+    implementation: 'planned',
+    steps: [
+      'Sign in to Google once (the same sign-in used for Google Fit / Contacts).',
+      'Grant calendar.readonly + calendar.events scope when prompted.',
+      'Two-way sync of events and reminders will become available here.',
+    ],
+    note: "Uses the same Google sign-in as Google Fit. No API key needed — that prompt was misleading and has been removed. Sync code is on the roadmap.",
+  },
+  'google-drive': {
+    auth: 'google-oauth',
+    implementation: 'planned',
+    steps: [
+      'Sign in to Google once (shared with Google Fit / Contacts).',
+      'Grant drive.file scope (only files this app creates).',
+      'Backups + document export to Drive will land here.',
+    ],
+    note: 'Until this ships, use Settings → Export → Google Drive (manual upload) for Drive backups.',
+  },
+  'gmail': {
+    auth: 'google-oauth',
+    implementation: 'planned',
+    steps: [
+      'Sign in to Google once (shared with Google Fit / Contacts).',
+      'Grant gmail.send / gmail.readonly scope.',
+      'Email-to-task and daily summary emails will be configurable here.',
+    ],
+  },
+  'google-tasks': {
+    auth: 'google-oauth',
+    implementation: 'planned',
+    steps: [
+      'Sign in to Google once (shared with Google Fit / Contacts).',
+      'Grant tasks scope to read & write task lists.',
+      'Tasks will sync bidirectionally with Google Tasks lists.',
+    ],
+  },
+  'apple-health':       { auth: 'oauth', implementation: 'planned', note: 'Apple HealthKit only works in a native iOS app — web cannot access it. Tracked for future native wrapper.' },
+  'apple-reminders':    { auth: 'manual', implementation: 'planned', note: 'Apple Reminders has no public web API. Use the iCloud share link export or paste reminders via the Import button.' },
+  'notion':             { auth: 'oauth',   implementation: 'planned', note: 'Will use Notion OAuth + databases API.' },
+  'slack':              { auth: 'webhook', implementation: 'planned', note: 'Will accept an incoming webhook URL from Slack to post the daily digest.' },
+  'dropbox':            { auth: 'oauth',   implementation: 'planned', note: 'Until this ships, use Settings → Export → Dropbox (manual upload).' },
+  'onedrive':           { auth: 'oauth',   implementation: 'planned', note: 'Until this ships, use Settings → Export → OneDrive (manual upload).' },
+  'fitbit':             { auth: 'oauth',   implementation: 'available', routeHint: 'Configure in the Fitness Provider section above.' },
+  'headspace':          { auth: 'oauth',   implementation: 'planned',  note: 'No public Headspace/Calm API. Will use manual log entries until one is offered.' },
+  'todoist':            { auth: 'oauth',   implementation: 'planned',  note: 'Will use Todoist REST API + OAuth.' },
+  'ifttt':              { auth: 'webhook', implementation: 'planned',  note: 'Will accept an IFTTT webhook URL.' },
+  'zapier':             { auth: 'webhook', implementation: 'planned',  note: 'Will accept a Zapier webhook URL.' },
+};
 
 interface Integration {
   id: string;
@@ -32,7 +112,21 @@ interface IntegrationConfig {
   syncDirection?: 'import' | 'export' | 'bidirectional';
 }
 
+/** Map IntegrationMeta.auth → user-facing badge label. */
+const AUTH_LABEL: Record<IntegrationMeta['auth'], string> = {
+  'google-oauth': 'Google sign-in',
+  'oauth':        'OAuth',
+  'api-key':      'API key',
+  'webhook':      'Webhook URL',
+  'manual':       'Manual import',
+};
+
 const IntegrationsView: React.FC = () => {
+  // Reuse the existing Google OAuth session so we can show a live "connected"
+  // indicator on Google-family cards instead of asking the user for an API key.
+  const { isFitConnected, tokenExpired: googleTokenExpired } = useGoogleAuth();
+  const googleSignedIn = isFitConnected && !googleTokenExpired;
+
   const [integrations, setIntegrations] = useState<Integration[]>([
     // Top Priority Integrations
     {
@@ -302,13 +396,67 @@ const IntegrationsView: React.FC = () => {
       <GoogleServicesSection />
 
       <div className="integrations-grid">
-        {integrations.map(integration => (
+        {integrations.map(integration => {
+          const meta = INTEGRATION_META[integration.id];
+          // Live status overrides the persisted localStorage flag for Google-family
+          // integrations (we know the real OAuth state via useGoogleAuth).
+          const isGoogleFamily = meta?.auth === 'google-oauth';
+          const liveConnected = isGoogleFamily ? googleSignedIn : integration.status === 'connected';
+          const isPlanned = meta?.implementation === 'planned';
+          return (
           <div key={integration.id} className="integration-card">
             <div className="integration-icon">{integration.icon}</div>
             <div className="integration-content">
-              <h3>{integration.name}</h3>
+              <h3>
+                {integration.name}
+                {meta && (
+                  <span
+                    title={
+                      isPlanned
+                        ? 'Not yet implemented — see setup notes for details.'
+                        : 'Available — click Connect to configure.'
+                    }
+                    style={{
+                      marginLeft: 8,
+                      fontSize: 9,
+                      fontWeight: 700,
+                      letterSpacing: '0.04em',
+                      padding: '2px 6px',
+                      borderRadius: 4,
+                      background: isPlanned ? '#fef3c7' : '#dcfce7',
+                      color:      isPlanned ? '#854f0b' : '#166534',
+                      border:     isPlanned ? '0.5px solid #f59e0b' : '0.5px solid #16a34a',
+                      verticalAlign: 'middle',
+                    }}
+                  >
+                    {isPlanned ? 'PLANNED' : 'READY'}
+                  </span>
+                )}
+              </h3>
               <p>{integration.description}</p>
-              {integration.status === 'connected' && (
+              {meta && (
+                <div style={{ fontSize: 11, color: '#6b7280', marginTop: 4 }}>
+                  Auth: <strong>{AUTH_LABEL[meta.auth]}</strong>
+                  {isGoogleFamily && (
+                    <span style={{ marginLeft: 8 }}>
+                      ·{' '}
+                      <span
+                        style={{
+                          color: googleSignedIn ? '#166534' : googleTokenExpired ? '#b91c1c' : '#6b7280',
+                          fontWeight: 600,
+                        }}
+                      >
+                        {googleSignedIn
+                          ? 'Google signed in'
+                          : googleTokenExpired
+                            ? 'Google token expired — reconnect in Fitness section'
+                            : 'Google not signed in'}
+                      </span>
+                    </span>
+                  )}
+                </div>
+              )}
+              {liveConnected && integration.lastSync && !isGoogleFamily && (
                 <div className="integration-status">
                   <span className="status-badge connected">✓ Connected</span>
                   <span className="last-sync">Last sync: {formatLastSync(integration.lastSync)}</span>
@@ -316,88 +464,204 @@ const IntegrationsView: React.FC = () => {
               )}
             </div>
             <div className="integration-actions">
-              {integration.status === 'disconnected' ? (
-                <button 
-                  onClick={() => handleConnect(integration)}
-                  className="btn-connect"
-                >
-                  Connect
+              {!liveConnected ? (
+                <button onClick={() => handleConnect(integration)} className="btn-connect">
+                  {isPlanned ? 'Setup info' : 'Connect'}
                 </button>
               ) : (
                 <>
-                  <button 
-                    onClick={() => handleSync(integration.id)}
-                    className="btn-sync"
-                  >
-                    🔄 Sync
-                  </button>
-                  <button 
-                    onClick={() => handleDisconnect(integration.id)}
-                    className="btn-disconnect"
-                  >
+                  {!isPlanned && (
+                    <button onClick={() => handleSync(integration.id)} className="btn-sync">
+                      🔄 Sync
+                    </button>
+                  )}
+                  <button onClick={() => handleDisconnect(integration.id)} className="btn-disconnect">
                     Disconnect
                   </button>
                 </>
               )}
             </div>
           </div>
-        ))}
+        );})}
       </div>
 
-      {/* Configuration Modal */}
-      {showConfigModal && selectedIntegration && (
-        <div className="modal-overlay" onClick={() => setShowConfigModal(false)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h2>Configure {selectedIntegration.name}</h2>
-              <button className="modal-close" onClick={() => setShowConfigModal(false)}>×</button>
+      {/* Configuration / Setup-Info Modal
+          Behaviour now varies by INTEGRATION_META[id]:
+          - google-oauth → explain that the existing Google sign-in is reused;
+            no API key prompt at all.
+          - api-key       → keep the credentials field (no current integration
+            actually uses this, but we leave the path in for future use).
+          - oauth/webhook/manual → show setup steps + a roadmap note. */}
+      {showConfigModal && selectedIntegration && (() => {
+        const meta = INTEGRATION_META[selectedIntegration.id];
+        const isPlanned = meta?.implementation === 'planned';
+        const isGoogleFamily = meta?.auth === 'google-oauth';
+        const requiresKey = meta?.auth === 'api-key';
+        return (
+          <div className="modal-overlay" onClick={() => setShowConfigModal(false)}>
+            <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+              <div className="modal-header">
+                <h2>{isPlanned ? `Setup: ${selectedIntegration.name}` : `Configure ${selectedIntegration.name}`}</h2>
+                <button className="modal-close" onClick={() => setShowConfigModal(false)}>×</button>
+              </div>
+              <div style={{ padding: '1.25rem' }}>
+                {/* Status banner */}
+                <div
+                  style={{
+                    padding: '0.75rem 0.875rem',
+                    borderRadius: 8,
+                    background: isPlanned ? '#fffbeb' : '#ecfdf5',
+                    border: isPlanned ? '1px solid #fcd34d' : '1px solid #6ee7b7',
+                    color:  isPlanned ? '#854f0b' : '#065f46',
+                    fontSize: 13,
+                    lineHeight: 1.55,
+                    marginBottom: 14,
+                  }}
+                >
+                  <div style={{ fontWeight: 600, marginBottom: 4 }}>
+                    {isPlanned
+                      ? '🚧 Not yet implemented'
+                      : '✅ Ready to connect'}
+                  </div>
+                  {isPlanned
+                    ? 'This integration is on the roadmap. The setup steps below describe how it will work once shipped.'
+                    : 'Click Save & Connect to enable this integration.'}
+                </div>
+
+                {/* Google OAuth note */}
+                {isGoogleFamily && (
+                  <div
+                    style={{
+                      padding: '0.75rem 0.875rem',
+                      borderRadius: 8,
+                      background: '#eff6ff',
+                      border: '1px solid #93c5fd',
+                      color: '#1e3a8a',
+                      fontSize: 12,
+                      marginBottom: 14,
+                    }}
+                  >
+                    <div style={{ fontWeight: 600, marginBottom: 2 }}>
+                      🔑 Uses your existing Google sign-in
+                    </div>
+                    No API key required — this reuses the same OAuth client as Google Fit and Contacts.
+                    {!googleSignedIn && (
+                      <div style={{ marginTop: 6 }}>
+                        You're not signed in to Google yet. Sign in once from the{' '}
+                        <strong>Fitness Provider</strong> section above and all Google services unlock together.
+                      </div>
+                    )}
+                    {googleSignedIn && (
+                      <div style={{ marginTop: 6, color: '#166534' }}>
+                        ✓ You're signed in to Google.
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Setup steps */}
+                {meta?.steps && meta.steps.length > 0 && (
+                  <div style={{ marginBottom: 14 }}>
+                    <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 6 }}>Setup steps</div>
+                    <ol style={{ margin: 0, paddingLeft: 20, fontSize: 13, lineHeight: 1.6, color: '#374151' }}>
+                      {meta.steps.map((s, i) => <li key={i}>{s}</li>)}
+                    </ol>
+                  </div>
+                )}
+
+                {/* Free-form note */}
+                {meta?.note && (
+                  <div
+                    style={{
+                      padding: '0.625rem 0.75rem',
+                      borderRadius: 6,
+                      background: '#f9fafb',
+                      border: '1px solid #e5e7eb',
+                      color: '#4b5563',
+                      fontSize: 12,
+                      fontStyle: 'italic',
+                      marginBottom: 14,
+                    }}
+                  >
+                    {meta.note}
+                  </div>
+                )}
+
+                {/* Where to go (if available elsewhere) */}
+                {meta?.routeHint && (
+                  <div
+                    style={{
+                      padding: '0.625rem 0.75rem',
+                      borderRadius: 6,
+                      background: '#ecfdf5',
+                      border: '1px solid #6ee7b7',
+                      color: '#065f46',
+                      fontSize: 12,
+                      marginBottom: 14,
+                    }}
+                  >
+                    👉 {meta.routeHint}
+                  </div>
+                )}
+
+                {/* Credentials field (only for api-key auth, currently none) */}
+                {requiresKey && (
+                  <form
+                    className="integration-form"
+                    onSubmit={(e) => { e.preventDefault(); handleConfigSave(); }}
+                  >
+                    <div className="form-group">
+                      <label>API Key</label>
+                      <input
+                        type="password"
+                        placeholder="Paste API key"
+                        value={config.apiKey || ''}
+                        onChange={(e) => setConfig({ ...config, apiKey: e.target.value })}
+                      />
+                      <small>Stored locally on this device only.</small>
+                    </div>
+                    <div className="form-group">
+                      <label>Sync Frequency</label>
+                      <select
+                        value={config.syncFrequency}
+                        onChange={(e) => setConfig({ ...config, syncFrequency: e.target.value as any })}
+                      >
+                        <option value="manual">Manual only</option>
+                        <option value="hourly">Every hour</option>
+                        <option value="daily">Once daily</option>
+                      </select>
+                    </div>
+                    <div className="form-actions">
+                      <button type="submit" className="btn-primary">Save & Connect</button>
+                      <button type="button" onClick={() => setShowConfigModal(false)} className="btn-secondary">
+                        Cancel
+                      </button>
+                    </div>
+                  </form>
+                )}
+
+                {/* Default footer */}
+                {!requiresKey && (
+                  <div className="form-actions" style={{ marginTop: 8 }}>
+                    {!isPlanned && (
+                      <button type="button" onClick={handleConfigSave} className="btn-primary">
+                        Mark as Connected
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => setShowConfigModal(false)}
+                      className="btn-secondary"
+                    >
+                      {isPlanned ? 'Got it' : 'Cancel'}
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
-            <form className="integration-form" onSubmit={(e) => { e.preventDefault(); handleConfigSave(); }}>
-              <div className="form-group">
-                <label>API Key / Credentials</label>
-                <input
-                  type="password"
-                  placeholder="Enter API key"
-                  value={config.apiKey || ''}
-                  onChange={(e) => setConfig({ ...config, apiKey: e.target.value })}
-                />
-                <small>Your credentials are stored locally and never sent to our servers</small>
-              </div>
-
-              <div className="form-group">
-                <label>Sync Frequency</label>
-                <select
-                  value={config.syncFrequency}
-                  onChange={(e) => setConfig({ ...config, syncFrequency: e.target.value as any })}
-                >
-                  <option value="manual">Manual only</option>
-                  <option value="hourly">Every hour</option>
-                  <option value="daily">Once daily</option>
-                </select>
-              </div>
-
-              <div className="form-group">
-                <label>Sync Direction</label>
-                <select
-                  value={config.syncDirection}
-                  onChange={(e) => setConfig({ ...config, syncDirection: e.target.value as any })}
-                >
-                  <option value="import">Import only (from {selectedIntegration.name})</option>
-                  <option value="export">Export only (to {selectedIntegration.name})</option>
-                  <option value="bidirectional">Two-way sync</option>
-                </select>
-              </div>
-
-              <div className="form-actions">
-                <button type="submit" className="btn-primary">Save & Connect</button>
-                <button type="button" onClick={() => setShowConfigModal(false)} className="btn-secondary">
-                  Cancel
-                </button>
-              </div>
-            </form>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Import Modal */}
       {showImportModal && (

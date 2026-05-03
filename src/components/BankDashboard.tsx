@@ -66,6 +66,7 @@ import { UrgencyBadge, EmptyState, inputSt, labelSt } from './bank/BankDashboard
 import { BankTimelineTab } from './bank/BankTimelineTab';
 import { BankActionsTab } from './bank/BankActionsTab';
 import BankExcelView from './bank/BankExcelView';
+import BankAccountDetail from './bank/BankAccountDetail';
 import { BankDepositsTab } from './bank/BankDepositsTab';
 import { BankBillsTab } from './bank/BankBillsTab';
 import { BankOverviewTab, type Next30DayRow } from './bank/BankOverviewTab';
@@ -115,6 +116,13 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
   const [actions, setActions] = useState<ActionItem[]>([]);
   const [goals, setGoals] = useState<SavingsGoal[]>([]);
   const [tab, setTab] = useState("overview");
+  // Remember the last non-detail tab so the Account Detail back arrow returns
+  // the user to wherever they came from (Excel view, Accounts list, etc.)
+  // instead of always dropping them on the Accounts list.
+  const prevTabRef = useRef<string>("accounts");
+  useEffect(() => {
+    if (tab !== 'account-detail') prevTabRef.current = tab;
+  }, [tab]);
   const [loading, setLoading] = useState(true);
   const [savedMsg, setSavedMsg] = useState(false);
   const [pendingImportsCount, setPendingImportsCount] = useState(0);
@@ -145,11 +153,17 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
   const [totalValueHistory, setTotalValueHistory] = useState<TotalValueHistoryEntry[]>([]);
   const MAX_TOTAL_VALUE_HISTORY = 500;
   const [expandedBanks, setExpandedBanks] = useState<Set<string>>(new Set());
+  /** Accounts tab — when set, opens the redesigned BankAccountDetail panel/screen */
+  const [selectedAccountIdx, setSelectedAccountIdx] = useState<number | null>(null);
   const [showLegend, setShowLegend] = useState<Set<string>>(new Set());
   /** Accounts tab — visualization: donut by bank, bar by bank, or donut by type */
   const [accountsBankViz, setAccountsBankViz] = useState<'donut' | 'bars' | 'type'>('donut');
   /** Accounts tab — filter by account type (Saving, FD, SCSS, etc.) */
   const [accountsTypeFilter, setAccountsTypeFilter] = useState<string>('ALL');
+  // Mobile only: type-filter chips are noisy on narrow screens. Hide by default
+  // and surface a single "Filter" pill that expands them on demand. Auto-opens
+  // when the user already has an active type filter so they can see / clear it.
+  const [showMobileTypeFilters, setShowMobileTypeFilters] = useState(false);
   /** Accounts tab — assets vs liabilities view */
   const [accountsAssetView, setAccountsAssetView] = useState<'all' | 'assets' | 'liabilities'>('all');
   /** Deposits tab — "by bank" visualization */
@@ -1334,10 +1348,11 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
   }, [portfolioHistoryChartData]);
 
   const mainTabs = [
-    {id:"overview",  icon:"📊", label:"Overview", key:"1"},
-    {id:"accounts",  icon:"🏦", label:"Accounts", key:"2"},
-    {id:"deposits",  icon:"💰", label:"Deposits", key:"3"},
-    {id:"bills",     icon:"📋", label:"Bills", key:"4"},
+    {id:"overview",       icon:"📊", label:"Overview", key:"1"},
+    {id:"accounts",       icon:"🏦", label:"Accounts", key:"2"},
+    {id:"account-detail", icon:"🔍", label:"Detail",   key:"8"},
+    {id:"deposits",       icon:"💰", label:"Deposits", key:"3"},
+    {id:"bills",          icon:"📋", label:"Bills",    key:"4"},
   ];
   const moreTabs = [
     {id:"timeline",  icon:"📅", label:"Timeline", key:"5"},
@@ -1649,7 +1664,11 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
           />
         )}
 
-        {/* ══ EXCEL TRIAL TAB ══════════════════════════════════════════ */}
+        {/* ══ EXCEL TRIAL TAB ══════════════════════════════════════════
+            onAccountClick: route to the new Account Detail screen by setting
+            the selected idx and switching to the dedicated detail tab. We
+            use 'account-detail' (rather than the accounts list with idx set)
+            so the user lands on the full-screen detail view directly. */}
         {tab === "excel" && (
           <BankExcelView
             deposits={deposits}
@@ -1664,6 +1683,10 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
               cardBgAlt: THEME.cardBgAlt,
               border: THEME.border,
               cardBg: THEME.cardBg,
+            }}
+            onAccountClick={(idx) => {
+              setSelectedAccountIdx(idx);
+              setTab('account-detail');
             }}
           />
         )}
@@ -1696,8 +1719,76 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
           />
         )}
 
+        {/* ══ ACCOUNTS TAB - Detail panel (when an account is selected) ══ */}
+        {tab === "accounts" && selectedAccountIdx != null && accounts[selectedAccountIdx] && (
+          <BankAccountDetail
+            accounts={accounts}
+            selectedIdx={selectedAccountIdx}
+            onClose={() => setSelectedAccountIdx(null)}
+            onSelectIdx={(i) => setSelectedAccountIdx(i)}
+            onEdit={(i) => openEdit('account', i)}
+            onUpdateBalance={(i) => openEdit('account', i)}
+            fmt={fmt}
+            fmtFull={fmtFull}
+            fmtDate={fmtDate}
+            getBankColor={getBankColor}
+            displayCurrency={displayCurrency}
+            exchangeRates={exchangeRates}
+            isMobile={isMobile}
+          />
+        )}
+
+        {/* ══ ACCOUNT DETAIL TAB — direct entry into detail view ══════════
+            When the user clicks the top-level "Detail" tab we land on the
+            most recently viewed account, falling back to the first visible
+            asset account so the screen never appears empty. */}
+        {tab === "account-detail" && (() => {
+          if (accounts.length === 0) {
+            return (
+              <div style={{padding:24,color:THEME.textMuted,textAlign:'center'}}>
+                No accounts yet. Add one from the <strong>Accounts</strong> tab.
+              </div>
+            );
+          }
+          const LIABILITY_TYPES = new Set(['Credit Card', 'Loan']);
+          const fallbackIdx = (() => {
+            const candidates = accounts
+              .map((a, i) => ({ a, i }))
+              .filter(({ a }) => !a.hidden && !LIABILITY_TYPES.has(a.type || ''))
+              .sort((x, y) => Math.abs(Number(y.a.amount) || 0) - Math.abs(Number(x.a.amount) || 0));
+            return candidates[0]?.i ?? 0;
+          })();
+          const idx = (selectedAccountIdx != null && accounts[selectedAccountIdx])
+            ? selectedAccountIdx
+            : fallbackIdx;
+          if (selectedAccountIdx !== idx) {
+            // sync state lazily so other places that read selectedAccountIdx stay accurate
+            setTimeout(() => setSelectedAccountIdx(idx), 0);
+          }
+          return (
+            <BankAccountDetail
+              accounts={accounts}
+              selectedIdx={idx}
+              // Restore the tab the user came from (Excel view, Accounts list,
+              // Overview, etc.). Falls back to 'accounts' if we never recorded
+              // a previous tab.
+              onClose={() => setTab(prevTabRef.current || 'accounts')}
+              onSelectIdx={(i) => setSelectedAccountIdx(i)}
+              onEdit={(i) => openEdit('account', i)}
+              onUpdateBalance={(i) => openEdit('account', i)}
+              fmt={fmt}
+              fmtFull={fmtFull}
+              fmtDate={fmtDate}
+              getBankColor={getBankColor}
+              displayCurrency={displayCurrency}
+              exchangeRates={exchangeRates}
+              isMobile={isMobile}
+            />
+          );
+        })()}
+
         {/* ══ ACCOUNTS TAB - Grouped by Bank (Collapsible) ═══════════════ */}
-        {tab === "accounts" && (() => {
+        {tab === "accounts" && selectedAccountIdx == null && (() => {
           // Separate visible and hidden accounts, then apply type filter
           const hiddenAccounts = accounts.filter(acc => acc.hidden && !showAllAccounts);
           const LIABILITY_TYPES = new Set(['Credit Card', 'Loan']);
@@ -1833,8 +1924,63 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                     )}
                   </div>
 
-                  {/* Mobile: Type Filter Pills */}
-                  {accountTypesList.length > 1 && (
+                  {/* Mobile: Asset-view toggle (All / Assets / Liabilities) +
+                      a compact "Filter" pill on the right that reveals the
+                      type-filter chips below. The chips are hidden by default
+                      to save vertical space; they're disclosed only when the
+                      user wants to filter or already has an active filter. */}
+                  {(() => {
+                    const hasTypeFilter = accountsTypeFilter !== 'ALL';
+                    const filtersOpen = showMobileTypeFilters || hasTypeFilter;
+                    return (
+                      <div style={{display:"flex",gap:4,paddingTop:4,alignItems:"center"}}>
+                        {(['all','assets','liabilities'] as const).map(v => (
+                          <button key={v} onClick={() => setAccountsAssetView(v)} style={{
+                            background: accountsAssetView === v ? (v === 'liabilities' ? '#EF4444' : v === 'assets' ? '#10B981' : THEME.accent) : 'transparent',
+                            color: accountsAssetView === v ? '#fff' : THEME.textMuted,
+                            border: `1px solid ${accountsAssetView === v ? 'transparent' : THEME.border}`,
+                            borderRadius: 16, padding: '4px 12px', fontSize: 10, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', textTransform: 'capitalize',
+                          }}>{v}</button>
+                        ))}
+                        {accountTypesList.length > 1 && (
+                          <button
+                            onClick={() => setShowMobileTypeFilters(!showMobileTypeFilters)}
+                            title={hasTypeFilter ? `Active filter: ${accountsTypeFilter}` : 'Show type filters'}
+                            style={{
+                              marginLeft: 'auto',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 4,
+                              background: hasTypeFilter ? '#10B981' : (filtersOpen ? THEME.accent : 'transparent'),
+                              color: hasTypeFilter || filtersOpen ? '#fff' : THEME.textMuted,
+                              border: `1px solid ${hasTypeFilter || filtersOpen ? 'transparent' : THEME.border}`,
+                              borderRadius: 16,
+                              padding: '4px 10px',
+                              fontSize: 10,
+                              fontWeight: 600,
+                              cursor: 'pointer',
+                              fontFamily: 'inherit',
+                            }}
+                          >
+                            <span>{hasTypeFilter ? `Filter: ${accountsTypeFilter}` : 'Filter'}</span>
+                            {hasTypeFilter && (
+                              <span
+                                onClick={(e) => { e.stopPropagation(); setAccountsTypeFilter('ALL'); }}
+                                title="Clear filter"
+                                style={{ fontSize: 11, lineHeight: 1, paddingLeft: 4, opacity: 0.85 }}
+                              >×</span>
+                            )}
+                            {!hasTypeFilter && <span style={{ fontSize: 9 }}>{filtersOpen ? '▴' : '▾'}</span>}
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })()}
+
+                  {/* Mobile: Type Filter Pills — disclosed via the Filter pill above.
+                      Always shown when an active type filter is set, so the user
+                      can see/change the current selection. */}
+                  {accountTypesList.length > 1 && (showMobileTypeFilters || accountsTypeFilter !== 'ALL') && (
                     <div style={{display:"flex",gap:6,flexWrap:"wrap",paddingTop:2}}>
                       <button
                         onClick={() => setAccountsTypeFilter('ALL')}
@@ -1849,18 +1995,6 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                       ))}
                     </div>
                   )}
-
-                  {/* Mobile: Assets / Liabilities toggle */}
-                  <div style={{display:"flex",gap:4,paddingTop:4}}>
-                    {(['all','assets','liabilities'] as const).map(v => (
-                      <button key={v} onClick={() => setAccountsAssetView(v)} style={{
-                        background: accountsAssetView === v ? (v === 'liabilities' ? '#EF4444' : v === 'assets' ? '#10B981' : THEME.accent) : 'transparent',
-                        color: accountsAssetView === v ? '#fff' : THEME.textMuted,
-                        border: `1px solid ${accountsAssetView === v ? 'transparent' : THEME.border}`,
-                        borderRadius: 16, padding: '4px 12px', fontSize: 10, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', textTransform: 'capitalize',
-                      }}>{v}</button>
-                    ))}
-                  </div>
 
                   {/* Mobile: Bank List with Inline Accounts - Vertical Layout */}
                   {visibleAccounts.length === 0 && hiddenAccounts.length === 0 ? (
@@ -1922,14 +2056,26 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                                   const isNegative = Number(acc.amount) < 0;
                                   
                                   return (
-                                    <div 
+                                    <div
                                       key={j}
+                                      role="button"
+                                      tabIndex={0}
+                                      onClick={() => setSelectedAccountIdx(origIdx)}
+                                      onKeyDown={(e) => {
+                                        if (e.key === 'Enter' || e.key === ' ') {
+                                          e.preventDefault();
+                                          setSelectedAccountIdx(origIdx);
+                                        }
+                                      }}
+                                      title="View account details"
                                       style={{
                                         background:THEME.cardBgAlt,
                                         borderRadius:10,
                                         padding:"12px",
                                         marginBottom: j < bankAccounts.length - 1 ? 8 : 0,
-                                        opacity: acc.done ? 0.6 : 1
+                                        opacity: acc.done ? 0.6 : 1,
+                                        cursor: "pointer",
+                                        WebkitTapHighlightColor: "transparent",
                                       }}
                                     >
                                       <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
@@ -1939,6 +2085,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                                             {acc.online === "Yes" && <span style={{fontSize:9,color:"#34D399"}}>🌐</span>}
                                             {acc.done && <span style={{fontSize:9,color:"#34D399"}}>✓</span>}
                                             {acc.hidden && <span style={{background:THEME.border,color:THEME.textLight,padding:"2px 6px",borderRadius:4,fontSize:9,fontWeight:600}}>Hidden</span>}
+                                            <span style={{marginLeft:"auto",fontSize:11,color:THEME.textLight,fontWeight:500}}>Tap for details ›</span>
                                           </div>
                                           {acc.holders && <div style={{fontSize:11,color:THEME.textLight}}>👤 {acc.holders}</div>}
                                           {acc.nominee && <div style={{fontSize:10,color:"#6B7280"}}>Nominee: {acc.nominee}</div>}
@@ -2322,8 +2469,12 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                               return (
                                 <React.Fragment key={bankName}>
                                   {/* Bank Header Row - Clickable - Shows details if single row or common fields */}
-                                  <tr 
-                                    onClick={toggleGridBank}
+                                  <tr
+                                    onClick={() => {
+                                      if (isSingleRow) setSelectedAccountIdx(indices[0]);
+                                      else toggleGridBank();
+                                    }}
+                                    title={isSingleRow ? 'View account details' : 'Expand bank'}
                                     style={{background:`${color}15`,cursor:"pointer",borderBottom:`1px solid ${THEME.border}`}}
                                   >
                                     <td style={{padding:"8px 10px"}}>
@@ -2369,7 +2520,12 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                                     const typeColor = acc.type === "FD" ? "#3B82F6" : acc.type === "Saving" ? "#10B981" : acc.type === "Credit Card" ? "#EF4444" : acc.type === "Loan" ? "#F59E0B" : "#8B5CF6";
                                     const accCurrency = (acc.currency || 'INR') as Currency;
                                     return (
-                                      <tr key={`${bankName}-${j}`} style={{borderBottom:`1px solid ${THEME.border}`,background:acc.done ? "rgba(46,160,67,0.05)" : "transparent",opacity:acc.done ? 0.6 : 1}}>
+                                      <tr
+                                        key={`${bankName}-${j}`}
+                                        onClick={() => setSelectedAccountIdx(origIdx)}
+                                        title="View account details"
+                                        style={{borderBottom:`1px solid ${THEME.border}`,background:acc.done ? "rgba(46,160,67,0.05)" : "transparent",opacity:acc.done ? 0.6 : 1, cursor:"pointer"}}
+                                      >
                                         <td style={{padding:"8px 10px",paddingLeft:32,color:"#6B7280",fontSize:10}}>—</td>
                                         <td style={{padding:"8px 10px"}}>
                                           <span style={{background:`${typeColor}20`,color:typeColor,padding:"2px 6px",borderRadius:4,fontSize:9,fontWeight:700}}>{acc.type || "—"}</span>
@@ -2523,7 +2679,15 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                                 const originalIndex = indices[j];
                                 const typeColor = acc.type === "FD" ? "#3B82F6" : acc.type === "Saving" ? "#10B981" : acc.type === "Credit Card" ? "#EF4444" : "#8B5CF6";
                                 return (
-                                  <div key={j} style={{padding:"10px 14px",borderBottom:j < bankAccounts.length - 1 ? `1px solid ${THEME.border}` : "none",opacity:acc.done ? 0.55 : 1}}>
+                                  <div
+                                    key={j}
+                                    role="button"
+                                    tabIndex={0}
+                                    onClick={() => setSelectedAccountIdx(originalIndex)}
+                                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedAccountIdx(originalIndex); } }}
+                                    title="View account details"
+                                    style={{padding:"10px 14px",borderBottom:j < bankAccounts.length - 1 ? `1px solid ${THEME.border}` : "none",opacity:acc.done ? 0.55 : 1, cursor:"pointer"}}
+                                  >
                                     <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
                                       <div style={{flex:1}}>
                                         <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>

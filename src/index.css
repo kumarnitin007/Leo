@@ -4916,6 +4916,121 @@ body {
   animation: fadeIn 0.3s ease;
 }
 
+/* Settings-only: underline tabs (TAGS_REDESIGN_CURSOR_PROMPT §1) — does not affect Tasks/Analytics tabs */
+.settings-view .settings-subtabs {
+  background: transparent;
+  box-shadow: none;
+  border-radius: 0;
+  padding: 0 0 0 0;
+  gap: 0;
+  margin-bottom: 1rem;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.settings-view .settings-subtabs .sub-tab {
+  border-radius: 0;
+  background: transparent;
+  padding: 10px 16px;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.settings-view .settings-subtabs .sub-tab:hover {
+  background: rgba(29, 158, 117, 0.06);
+  color: #374151;
+  transform: none;
+}
+
+.settings-view .settings-subtabs .sub-tab.active {
+  background: transparent;
+  color: #111827;
+  border-bottom: 2px solid #1d9e75;
+  box-shadow: none;
+  transform: none;
+  margin-bottom: -1px;
+  padding-bottom: 8px;
+}
+
+.tags-manager.tags-manager--redesign {
+  padding: 0;
+  max-width: 1160px;
+  margin: 0 auto;
+}
+
+/* ── Settings page polish (Crisp Paper) ─────────────────────────── */
+.settings-tab-content {
+  max-width: 1160px;
+  margin: 0 auto;
+}
+
+.settings-section {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.settings-section-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.settings-section-title {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 500;
+  color: #111;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.settings-section-subtitle {
+  margin: 4px 0 0 0;
+  font-size: 12px;
+  color: #6b7280;
+  line-height: 1.5;
+  max-width: 720px;
+}
+
+.settings-section-body {
+  /* Sections render their inline component (SettingsModal/GroupsManager
+     in inline mode, or the body of NotificationSettings/DataExport).
+     Children supply their own padding; we just make sure the wrapper
+     doesn't introduce extra margin collapse. */
+  position: relative;
+}
+
+.settings-mobile-back {
+  margin: 0 1rem 1rem 1rem;
+  padding: 0.6rem 0.9rem;
+  background: #f3f4f6;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #374151;
+}
+
+/* SettingsModal in inline mode: drop the modal-card chrome */
+.settings-section .settings-modal-content {
+  padding: 0 !important;
+  box-shadow: none !important;
+  width: 100% !important;
+  max-width: none !important;
+  max-height: none !important;
+  overflow: visible !important;
+  border-radius: 12px !important;
+  border: 0.5px solid #e5e7eb !important;
+  z-index: auto !important;
+}
+
 @keyframes fadeIn {
   from {
     opacity: 0;

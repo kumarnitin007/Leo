@@ -510,12 +510,20 @@ const DataExport: React.FC = () => {
           Save To
         </label>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.5rem' }}>
-          {[
-            { value: 'download' as const, label: '💾 Download', desc: 'Save to device' },
-            { value: 'dropbox' as const, label: '📦 Dropbox', desc: 'Cloud backup' },
-            { value: 'google-drive' as const, label: '🔶 Google Drive', desc: 'Cloud backup' },
-            { value: 'onedrive' as const, label: '☁️ OneDrive', desc: 'Cloud backup' },
-          ].map(({ value, label, desc }) => (
+          {/*
+            Status rules (kept in sync with upload helpers above):
+              - download    → fully implemented
+              - dropbox     → "Manual upload" (downloads file + opens dropbox.com)
+              - google-drive→ "Manual upload" (downloads file + opens drive.google.com)
+              - onedrive    → "Manual upload" (downloads file + opens onedrive.live.com)
+            None of the cloud destinations push the file directly via API yet.
+          */}
+          {([
+            { value: 'download' as const,     label: '💾 Download',      desc: 'Save to device',  status: 'ready' as const },
+            { value: 'dropbox' as const,      label: '📦 Dropbox',       desc: 'Cloud backup',    status: 'manual' as const },
+            { value: 'google-drive' as const, label: '🔶 Google Drive',  desc: 'Cloud backup',    status: 'manual' as const },
+            { value: 'onedrive' as const,     label: '☁️ OneDrive',      desc: 'Cloud backup',    status: 'manual' as const },
+          ]).map(({ value, label, desc, status }) => (
             <button
               key={value}
               onClick={() => setDestination(value)}
@@ -527,17 +535,65 @@ const DataExport: React.FC = () => {
                 borderRadius: '0.5rem',
                 cursor: 'pointer',
                 textAlign: 'left',
+                position: 'relative',
               }}
             >
-              <div style={{ fontWeight: 600 }}>{label}</div>
+              <div style={{ fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
+                <span>{label}</span>
+                {status === 'manual' && (
+                  <span
+                    title="Direct cloud upload not yet implemented — file downloads locally and the cloud service opens for manual upload"
+                    style={{
+                      fontSize: 9,
+                      fontWeight: 700,
+                      letterSpacing: '0.04em',
+                      padding: '2px 6px',
+                      borderRadius: 4,
+                      background: destination === value ? 'rgba(255,255,255,0.25)' : '#fef3c7',
+                      color: destination === value ? '#fff' : '#854f0b',
+                      border: destination === value ? '0.5px solid rgba(255,255,255,0.4)' : '0.5px solid #f59e0b',
+                    }}
+                  >
+                    MANUAL
+                  </span>
+                )}
+              </div>
               <div style={{ fontSize: '0.75rem', opacity: 0.8 }}>{desc}</div>
             </button>
           ))}
         </div>
-        {destination !== 'download' && (
-          <p style={{ margin: '0.5rem 0 0', fontSize: '0.8rem', color: '#f59e0b' }}>
-            ⚠️ Cloud services will download the file first, then open the service for manual upload.
-          </p>
+        {destination === 'dropbox' && (
+          <DestinationHint
+            title="Dropbox — manual upload"
+            steps={[
+              'Click Export — your file will download to this device.',
+              'Dropbox.com will open in a new tab.',
+              'Drag the downloaded file into your Dropbox folder.',
+            ]}
+            note="Direct API push not yet implemented. We'd need a Dropbox app key + OAuth flow to upload automatically."
+          />
+        )}
+        {destination === 'google-drive' && (
+          <DestinationHint
+            title="Google Drive — manual upload"
+            steps={[
+              'Click Export — your file will download to this device.',
+              'Google Drive will open in a new tab.',
+              'Drag the file into Drive (or use New → File upload).',
+            ]}
+            note="Direct API push not yet implemented. Once wired, this will reuse your existing Google sign-in (the same one used for Google Fit / Contacts)."
+          />
+        )}
+        {destination === 'onedrive' && (
+          <DestinationHint
+            title="OneDrive — manual upload"
+            steps={[
+              'Click Export — your file will download to this device.',
+              'OneDrive will open in a new tab.',
+              'Drag the file into OneDrive (or use Upload).',
+            ]}
+            note="Direct API push not yet implemented. Requires Microsoft Graph OAuth setup."
+          />
         )}
       </div>
 
@@ -613,5 +669,37 @@ const DataExport: React.FC = () => {
     </div>
   );
 };
+
+/* ── Helper: small instructional hint shown under the destination grid ────── */
+const DestinationHint: React.FC<{ title: string; steps: string[]; note?: string }> = ({
+  title,
+  steps,
+  note,
+}) => (
+  <div
+    style={{
+      marginTop: '0.625rem',
+      padding: '0.75rem 0.875rem',
+      background: '#fffbeb',
+      border: '1px solid #fcd34d',
+      borderRadius: '0.5rem',
+      color: '#7c2d12',
+      fontSize: '0.8rem',
+      lineHeight: 1.5,
+    }}
+  >
+    <div style={{ fontWeight: 600, marginBottom: 4, color: '#854f0b' }}>⚠️ {title}</div>
+    <ol style={{ margin: '4px 0 0', paddingLeft: '1.1rem' }}>
+      {steps.map((step, i) => (
+        <li key={i}>{step}</li>
+      ))}
+    </ol>
+    {note && (
+      <div style={{ marginTop: 6, fontSize: '0.72rem', color: '#92400e', fontStyle: 'italic' }}>
+        {note}
+      </div>
+    )}
+  </div>
+);
 
 export default DataExport;

@@ -40,9 +40,11 @@ import AIPersonalityProfile from './ai/AIPersonalityProfile';
 interface SettingsModalProps {
   show: boolean;
   onClose: () => void;
+  /** When true, render as in-flow content (no Portal, no backdrop, no fixed shell). Used by Settings → Profile inline. */
+  inline?: boolean;
 }
 
-const SettingsModal: React.FC<SettingsModalProps> = ({ show, onClose }) => {
+const SettingsModal: React.FC<SettingsModalProps> = ({ show, onClose, inline = false }) => {
   const { theme, setTheme, availableThemes } = useTheme();
   const { username, avatar, setUsername, setAvatar, email, setEmail } = useUser();
   
@@ -157,11 +159,27 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ show, onClose }) => {
     return matchesCategory && matchesSearch;
   }), [selectedCategory, debouncedAvatarSearch]);
 
+  // Outer wrappers vary depending on inline mode:
+  //   - Modal mode: Portal → backdrop → fixed card
+  //   - Inline mode: just a card in the normal flow (no portal, no backdrop)
+  const Outer: React.FC<{ children: React.ReactNode }> = ({ children }) =>
+    inline ? <>{children}</> : (
+      <Portal>
+        <div className="settings-modal-backdrop" onClick={onClose}>
+          {children}
+        </div>
+      </Portal>
+    );
+
   return (
-    <Portal>
-      <div className="settings-modal-backdrop" onClick={onClose}>
-        <div className="settings-modal-content" onClick={e => e.stopPropagation()}>
-          {/* Header */}
+    <Outer>
+      <div
+        className="settings-modal-content"
+        onClick={inline ? undefined : (e) => e.stopPropagation()}
+        style={inline ? { background: 'white', borderRadius: '12px', border: '0.5px solid #e5e7eb', maxHeight: 'none', overflow: 'visible' } : undefined}
+      >
+          {/* Header (hidden in inline mode — page already shows a header) */}
+          {!inline && (
           <div style={{ padding: '1.5rem', borderBottom: '2px solid #e5e7eb', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, background: 'white', zIndex: 10, borderRadius: '1rem 1rem 0 0' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
               <span style={{ fontSize: '2rem' }}>{avatar.emoji}</span>
@@ -170,6 +188,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ show, onClose }) => {
             </div>
             <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer', color: '#6b7280' }}>✕</button>
           </div>
+          )}
 
           <div style={{ padding: '1.5rem' }}>
             {/* Profile */}
@@ -763,14 +782,15 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ show, onClose }) => {
               <button onClick={handleSave} style={{ flex: 1, padding: '0.75rem', borderRadius: '0.75rem', border: 'none', fontWeight: 600, cursor: 'pointer', color: 'white', background: `linear-gradient(to right, ${theme.colors.primary}, ${theme.colors.secondary})`, fontSize: '1rem' }}>
                 💾 Save
               </button>
-              <button onClick={onClose} style={{ flex: 1, padding: '0.75rem', borderRadius: '0.75rem', border: 'none', fontWeight: 600, cursor: 'pointer', background: '#e5e7eb', fontSize: '1rem' }}>
-                Cancel
-              </button>
+              {!inline && (
+                <button onClick={onClose} style={{ flex: 1, padding: '0.75rem', borderRadius: '0.75rem', border: 'none', fontWeight: 600, cursor: 'pointer', background: '#e5e7eb', fontSize: '1rem' }}>
+                  Cancel
+                </button>
+              )}
             </div>
           </div>
-        </div>
       </div>
-    </Portal>
+    </Outer>
   );
 };
 
