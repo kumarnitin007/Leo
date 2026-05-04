@@ -183,12 +183,25 @@ const BankAccountDetail: React.FC<BankAccountDetailProps> = ({
 
   /* ─────────── Sub-components ─────────── */
 
-  const AccountChips = ({ meta }: { meta: InstitutionMeta }) => {
+  /**
+   * AccountChips
+   *  - When `types` is supplied (i.e. an institution view with multiple
+   *    sub-accounts), one chip is rendered per distinct sub-account type
+   *    (Savings, Checking, …) so the user can see what services live under
+   *    this institution at a glance.
+   *  - When `types` is omitted, the single selected account's `type` chip
+   *    is shown — the legacy behaviour.
+   *  - "Liability", "Online", "Action pending", and "Active" chips remain
+   *    driven by the currently selected account so they stay accurate.
+   */
+  const AccountChips = ({ meta, types }: { meta: InstitutionMeta; types?: string[] }) => {
     const sectorChip = sectorChipColor(meta);
+    const chipTypes = types && types.length > 0 ? types : (account.type ? [account.type] : []);
     return (
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center', marginTop: 6 }}>
-        {account.type && (
+        {chipTypes.map((t) => (
           <span
+            key={t}
             style={{
               fontSize: 10,
               fontWeight: 600,
@@ -198,9 +211,9 @@ const BankAccountDetail: React.FC<BankAccountDetailProps> = ({
               color: sectorChip.text,
             }}
           >
-            {sectorIcon(meta)} {account.type}
+            {sectorIcon(meta)} {t}
           </span>
-        )}
+        ))}
         {isLiability && (
           <span
             style={{
@@ -287,7 +300,29 @@ const BankAccountDetail: React.FC<BankAccountDetailProps> = ({
 
   const HeroCard = () => {
     const ytd = computeYTDChange(account);
-    const balanceLabel = isLiability ? 'Outstanding balance' : 'Current balance';
+    // ── Institution-summary mode ────────────────────────────────────────
+    // When the account has siblings under the same institution we promote
+    // the Hero card to the institution view: aggregate balance, "Combined"
+    // pill, and a chip for every distinct sub-account type. Falls back to
+    // single-account view when there are no siblings or when sub-accounts
+    // span multiple currencies (we can't safely sum mixed currencies).
+    const subCurrencies = new Set(
+      subAccounts.map(({ acc }) =>
+        (acc.currency && CURRENCY_SYMBOLS[acc.currency as Currency]) ? (acc.currency as Currency) : 'INR',
+      ),
+    );
+    const sameCurrency = subCurrencies.size === 1;
+    const isInstitutionView = subAccounts.length > 1 && sameCurrency;
+    const combinedAmount = subAccounts.reduce((s, { acc }) => s + (Number(acc.amount) || 0), 0);
+    const distinctTypes = Array.from(
+      new Set(subAccounts.map(({ acc }) => acc.type).filter((t): t is string => !!t)),
+    );
+
+    const heroAmount = isInstitutionView ? combinedAmount : Number(account.amount) || 0;
+    const balanceLabel = isLiability
+      ? 'Outstanding balance'
+      : isInstitutionView ? null /* shown as a green Combined pill instead */ : 'Current balance';
+
     return (
       <div
         style={{
@@ -308,24 +343,61 @@ const BankAccountDetail: React.FC<BankAccountDetailProps> = ({
                 {(meta.sector ? meta.sector.charAt(0).toUpperCase() + meta.sector.slice(1) : 'Account')}
                 {subAccounts.length > 1 ? ` · ${subAccounts.length} accounts` : ' · 1 account'}
               </div>
-              <AccountChips meta={meta} />
+              <AccountChips
+                meta={meta}
+                types={isInstitutionView ? distinctTypes : undefined}
+              />
             </div>
           </div>
 
           <div
             style={{
-              fontSize: isMobile ? 24 : 28,
-              fontWeight: 500,
-              color: isLiability ? TOKENS.liabilityText : TOKENS.primaryText,
-              fontVariantNumeric: 'tabular-nums',
-              letterSpacing: '-0.01em',
+              display: 'flex',
+              alignItems: 'baseline',
+              gap: 10,
+              flexWrap: 'wrap',
             }}
           >
-            {fmtFull(account.amount, currency)}
+            <div
+              style={{
+                fontSize: isMobile ? 24 : 28,
+                fontWeight: 500,
+                color: isLiability ? TOKENS.liabilityText : TOKENS.primaryText,
+                fontVariantNumeric: 'tabular-nums',
+                letterSpacing: '-0.01em',
+              }}
+            >
+              {fmtFull(heroAmount, currency)}
+            </div>
+            {isInstitutionView && (
+              <span
+                title={`Sum of ${subAccounts.length} accounts at ${account.bank}`}
+                style={{
+                  fontSize: 10,
+                  fontWeight: 700,
+                  letterSpacing: '0.04em',
+                  padding: '3px 9px',
+                  borderRadius: 999,
+                  background: '#DCFCE7',
+                  color: '#166534',
+                  textTransform: 'uppercase',
+                }}
+              >
+                Combined
+              </span>
+            )}
           </div>
+
           <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8, marginTop: 6 }}>
-            <span style={{ fontSize: 11, color: TOKENS.secondaryText }}>{balanceLabel}</span>
-            {ytd != null && (
+            {balanceLabel && (
+              <span style={{ fontSize: 11, color: TOKENS.secondaryText }}>{balanceLabel}</span>
+            )}
+            {isInstitutionView && (
+              <span style={{ fontSize: 11, color: TOKENS.secondaryText }}>
+                Selected: {fmtFull(account.amount, currency)} · {account.type || 'Account'}
+              </span>
+            )}
+            {ytd != null && !isInstitutionView && (
               <span
                 style={{
                   fontSize: 11,
@@ -337,7 +409,7 @@ const BankAccountDetail: React.FC<BankAccountDetailProps> = ({
                 {ytd.toFixed(2)}% YTD
               </span>
             )}
-            {stale != null && (
+            {stale != null && !isInstitutionView && (
               <span style={{ fontSize: 11, color: TOKENS.tertiaryText }}>
                 · Updated {stale === 0 ? 'today' : `${stale}d ago`}
               </span>
@@ -345,7 +417,7 @@ const BankAccountDetail: React.FC<BankAccountDetailProps> = ({
           </div>
         </div>
 
-        {/* 3-cell stat row, type-aware */}
+        {/* 3-cell stat row, type-aware (always shows the selected account's stats). */}
         <StatRow account={account} meta={meta} fmt={fmt} fmtFull={fmtFull} currency={currency} isLiability={isLiability} />
       </div>
     );

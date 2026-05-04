@@ -15,6 +15,7 @@ import { Task } from './types';
 import { getTasks, addTask } from './storage';
 import GoogleServicesSection from './components/GoogleServicesSection';
 import FitnessProviderSection from './components/FitnessProviderSection';
+import GoogleSuiteSection, { GOOGLE_SUITE_IDS } from './components/GoogleSuiteSection';
 import { useGoogleAuth } from './integrations/google/hooks/useGoogleAuth';
 
 /**
@@ -395,8 +396,16 @@ const IntegrationsView: React.FC = () => {
       {/* Google Services — Contacts, Takeout */}
       <GoogleServicesSection />
 
+      {/* Google Suite — Calendar, Drive, Gmail, Tasks under a single Connect button */}
+      <GoogleSuiteSection />
+
       <div className="integrations-grid">
-        {integrations.map(integration => {
+        {integrations
+          // Google-family cards are now rendered inside <GoogleSuiteSection /> above
+          // — show only the non-Google integrations here so we don't ask the user
+          // to "Connect" the same Google sign-in four times.
+          .filter((integration) => !GOOGLE_SUITE_IDS.has(integration.id))
+          .map(integration => {
           const meta = INTEGRATION_META[integration.id];
           // Live status overrides the persisted localStorage flag for Google-family
           // integrations (we know the real OAuth state via useGoogleAuth).

@@ -20,6 +20,7 @@ import {
   type NumerologyProfile,
 } from '../numerology/numerologyEngine';
 import { perfStart } from '../utils/perfLogger';
+import NumerologyPlainCard from './numerology/NumerologyPlainCard';
 import {
   NUMBER_MEANINGS,
   SIGNATURE_LABELS,
@@ -550,16 +551,69 @@ export default function NumerologyDashboard() {
   if (!profile) return null;
 
   return (
+    <NumerologyDashboardBody
+      profile={profile}
+      theme={theme}
+      onChangeName={() => { setFullName(null); localStorage.removeItem('myday_numerology_name'); }}
+    />
+  );
+}
+
+/**
+ * Body of the dashboard: the new layman card on top, with the four original
+ * "show the math" cards tucked behind a toggle. Default = collapsed so a
+ * first-time user is not slapped with raw numbers.
+ */
+function NumerologyDashboardBody({
+  profile,
+  theme,
+  onChangeName,
+}: {
+  profile: NumerologyProfile;
+  theme: any;
+  onChangeName: () => void;
+}) {
+  const [showMath, setShowMath] = useState(false);
+
+  return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-      <SignatureCard profile={profile} theme={theme} />
-      <CyclesCard profile={profile} theme={theme} />
-      <TodayCard profile={profile} theme={theme} />
-      <KarmicCard profile={profile} theme={theme} />
+      {/* New plain-English card (vibe + 10 statements + custom questions) */}
+      <NumerologyPlainCard profile={profile} theme={theme} />
+
+      {/* Toggle to reveal the four legacy/technical cards */}
+      <button
+        onClick={() => setShowMath((v) => !v)}
+        style={{
+          alignSelf: 'center',
+          background: 'transparent',
+          border: `1px dashed ${theme.colors.cardBorder}`,
+          color: theme.colors.textLight,
+          fontSize: 11,
+          fontWeight: 600,
+          padding: '6px 14px',
+          borderRadius: 999,
+          cursor: 'pointer',
+          fontFamily: 'inherit',
+          letterSpacing: 0.3,
+        }}
+        aria-expanded={showMath}
+      >
+        {showMath ? 'Hide the math ↑' : 'Show the math ↓'}
+      </button>
+
+      {showMath && (
+        <>
+          <SignatureCard profile={profile} theme={theme} />
+          <CyclesCard profile={profile} theme={theme} />
+          <TodayCard profile={profile} theme={theme} />
+          <KarmicCard profile={profile} theme={theme} />
+        </>
+      )}
 
       {/* Change name link */}
       <div style={{ textAlign: 'center' }}>
         <button
-          onClick={() => { setFullName(null); localStorage.removeItem('myday_numerology_name'); }}
+          onClick={onChangeName}
           style={{ background: 'none', border: 'none', color: theme.colors.textLight, fontSize: 10, cursor: 'pointer', textDecoration: 'underline' }}
         >
           Change name used for calculations

@@ -50,6 +50,30 @@ export const ABILITY_REGISTRY: Record<AIAbilityId, AIAbilityMeta> = {
     costPer1kInput: GPT4O_MINI_INPUT,
     costPer1kOutput: GPT4O_MINI_OUTPUT,
   },
+  numerology_vibe: {
+    id: 'numerology_vibe',
+    label: 'Numerology Vibe',
+    description: '3-4 sentence plain-English daily vibe paragraph derived from the user\'s numerology profile (cached once/day)',
+    icon: '🔢',
+    endpoint: '/api/astro?action=numerology-vibe',
+    model: 'gpt-4o-mini',
+    maxTokens: 220,
+    temperature: 0.7,
+    costPer1kInput: GPT4O_MINI_INPUT,
+    costPer1kOutput: GPT4O_MINI_OUTPUT,
+  },
+  numerology_question: {
+    id: 'numerology_question',
+    label: 'Numerology Question',
+    description: 'User-submitted custom numerology question, answered through the lens of their profile (cached once/day per question)',
+    icon: '❓',
+    endpoint: '/api/astro?action=numerology-question',
+    model: 'gpt-4o-mini',
+    maxTokens: 280,
+    temperature: 0.7,
+    costPer1kInput: GPT4O_MINI_INPUT,
+    costPer1kOutput: GPT4O_MINI_OUTPUT,
+  },
 };
 
 export function getAbilityMeta(id: AIAbilityId): AIAbilityMeta {

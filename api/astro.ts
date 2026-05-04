@@ -28,6 +28,8 @@ export default async function handler(req: any, res: any) {
       case 'dasha': return await handleDasha(req, res, API_KEY);
       case 'numerology': return await handleNumerology(req, res);
       case 'ask-ai': return await handleAskAI(req, res);
+      case 'numerology-vibe':     return await handleNumerologyVibe(req, res);
+      case 'numerology-question': return await handleNumerologyQuestion(req, res);
       default: return res.status(400).json(createErrorResponse('VALIDATION_ERROR', `Unknown action: ${action}`));
     }
   } catch (err: any) {
@@ -539,5 +541,172 @@ async function handleAskAI(req: any, res: any) {
   } catch (err: any) {
     console.error('[astro:ask-ai] Error:', err?.message);
     return res.status(500).json(createErrorResponse('INTERNAL_ERROR', 'Failed to get AI reading'));
+  }
+}
+
+/* ── Numerology: 3-4 sentence "vibe of the day" paragraph ─────────────
+ *
+ * Takes a compact numerology profile (built client-side via
+ * `compactProfileForPrompt`) and returns a single short paragraph in plain
+ * English. Cached once/day in `myday_astro_cache` by the caller.
+ */
+async function handleNumerologyVibe(req: any, res: any) {
+  const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+  if (!OPENAI_API_KEY) {
+    return res.status(500).json(createErrorResponse('CONFIG_ERROR', 'OpenAI API key not configured'));
+  }
+
+  const { profileSummary, today } = req.body || {};
+  if (!profileSummary || typeof profileSummary !== 'string' || profileSummary.length < 20) {
+    return res.status(400).json(createErrorResponse('VALIDATION_ERROR', 'profileSummary string is required'));
+  }
+
+  const MODEL = 'gpt-4o-mini';
+  const COST_PER_1K_IN = 0.00015;
+  const COST_PER_1K_OUT = 0.0006;
+  const startTime = Date.now();
+
+  try {
+    const systemContent = [
+      'You write a single 3-4 sentence "vibe of the day" paragraph for a regular user, given their numerology numbers.',
+      'Plain English. Write to someone who has never read a numerology book.',
+      'No numbers in the output unless they are a real-world day or hour.',
+      'No mystical jargon ("manifest", "vibrations", "energy frequencies", etc.).',
+      'No fortune-telling absolutes ("definitely", "guaranteed", "must").',
+      'Warm, direct, actionable — like a thoughtful friend.',
+      'Output ONLY the paragraph. No headings, no bullets, no preamble.',
+    ].join('\n');
+
+    const userContent = `Profile: ${profileSummary}\nToday: ${today || new Date().toISOString().slice(0, 10)}`;
+
+    const resp = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${OPENAI_API_KEY}` },
+      body: JSON.stringify({
+        model: MODEL,
+        messages: [
+          { role: 'system', content: systemContent },
+          { role: 'user', content: userContent },
+        ],
+        temperature: 0.7,
+        max_tokens: 220,
+      }),
+    });
+    const data = await resp.json();
+    const durationMs = Date.now() - startTime;
+
+    if (!resp.ok) {
+      console.error('[astro:numerology-vibe] OpenAI error:', JSON.stringify(data).slice(0, 500));
+      return res.status(resp.status).json(createErrorResponse('EXTERNAL_API_ERROR', `OpenAI: ${resp.status}`));
+    }
+
+    const paragraph = (data.choices?.[0]?.message?.content || '').trim();
+    const promptTokens = data.usage?.prompt_tokens || 0;
+    const completionTokens = data.usage?.completion_tokens || 0;
+    const totalTokens = promptTokens + completionTokens;
+    const costUsd = (promptTokens / 1000) * COST_PER_1K_IN + (completionTokens / 1000) * COST_PER_1K_OUT;
+
+    return res.status(200).json({
+      paragraph,
+      systemPrompt: systemContent,
+      userMessage: userContent,
+      usage: {
+        prompt_tokens: promptTokens,
+        completion_tokens: completionTokens,
+        total_tokens: totalTokens,
+        model: MODEL,
+        cost_usd: costUsd,
+      },
+      durationMs,
+    });
+  } catch (err: any) {
+    console.error('[astro:numerology-vibe] Error:', err?.message);
+    return res.status(500).json(createErrorResponse('INTERNAL_ERROR', 'Failed to generate vibe paragraph'));
+  }
+}
+
+/* ── Numerology: answer one user-submitted custom question ────────────
+ *
+ * Takes a compact profile + the user's question and returns a 2-4 sentence
+ * answer interpreted through their numerology profile. Cached once/day per
+ * question in `myday_astro_cache` by the caller.
+ */
+async function handleNumerologyQuestion(req: any, res: any) {
+  const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+  if (!OPENAI_API_KEY) {
+    return res.status(500).json(createErrorResponse('CONFIG_ERROR', 'OpenAI API key not configured'));
+  }
+
+  const { profileSummary, question, today } = req.body || {};
+  if (!profileSummary || typeof profileSummary !== 'string' || profileSummary.length < 20) {
+    return res.status(400).json(createErrorResponse('VALIDATION_ERROR', 'profileSummary string is required'));
+  }
+  if (!question || typeof question !== 'string' || question.trim().length < 3) {
+    return res.status(400).json(createErrorResponse('VALIDATION_ERROR', 'A question (≥ 3 chars) is required'));
+  }
+  if (question.length > 240) {
+    return res.status(400).json(createErrorResponse('VALIDATION_ERROR', 'Question must be ≤ 240 characters'));
+  }
+
+  const MODEL = 'gpt-4o-mini';
+  const COST_PER_1K_IN = 0.00015;
+  const COST_PER_1K_OUT = 0.0006;
+  const startTime = Date.now();
+
+  try {
+    const systemContent = [
+      'You answer the user\'s question using only their numerology numbers and what numerology traditionally says about them.',
+      'Plain English, 2-4 sentences, no jargon, no fortune-telling absolutes ("definitely", "guaranteed").',
+      'Be specific — reference what their actual Life Path / Personal Year / Personal Day suggests, but never write the raw numbers.',
+      'If the question cannot be answered through numerology (e.g. "what time does the post office close"), say so politely in one line.',
+      'Output ONLY the answer. No headings, no preamble, no bullets.',
+    ].join('\n');
+
+    const userContent = `Profile: ${profileSummary}\nToday: ${today || new Date().toISOString().slice(0, 10)}\n\nQuestion: ${question.trim()}`;
+
+    const resp = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${OPENAI_API_KEY}` },
+      body: JSON.stringify({
+        model: MODEL,
+        messages: [
+          { role: 'system', content: systemContent },
+          { role: 'user', content: userContent },
+        ],
+        temperature: 0.7,
+        max_tokens: 280,
+      }),
+    });
+    const data = await resp.json();
+    const durationMs = Date.now() - startTime;
+
+    if (!resp.ok) {
+      console.error('[astro:numerology-question] OpenAI error:', JSON.stringify(data).slice(0, 500));
+      return res.status(resp.status).json(createErrorResponse('EXTERNAL_API_ERROR', `OpenAI: ${resp.status}`));
+    }
+
+    const answer = (data.choices?.[0]?.message?.content || '').trim();
+    const promptTokens = data.usage?.prompt_tokens || 0;
+    const completionTokens = data.usage?.completion_tokens || 0;
+    const totalTokens = promptTokens + completionTokens;
+    const costUsd = (promptTokens / 1000) * COST_PER_1K_IN + (completionTokens / 1000) * COST_PER_1K_OUT;
+
+    return res.status(200).json({
+      answer,
+      question: question.trim(),
+      systemPrompt: systemContent,
+      userMessage: userContent,
+      usage: {
+        prompt_tokens: promptTokens,
+        completion_tokens: completionTokens,
+        total_tokens: totalTokens,
+        model: MODEL,
+        cost_usd: costUsd,
+      },
+      durationMs,
+    });
+  } catch (err: any) {
+    console.error('[astro:numerology-question] Error:', err?.message);
+    return res.status(500).json(createErrorResponse('INTERNAL_ERROR', 'Failed to answer numerology question'));
   }
 }

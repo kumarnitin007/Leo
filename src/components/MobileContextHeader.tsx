@@ -1,12 +1,19 @@
 /**
  * Mobile Context Header Component
- * 
+ *
  * Shows current view context on mobile with back navigation
- * and view-specific information
+ * and view-specific information.
+ *
+ * Sub-pages can override the title / icon / back behaviour at runtime via
+ * `useMobileHeader()` (see `src/contexts/MobileHeaderContext.tsx`). For
+ * example, when the user opens Settings → Profile on mobile, Settings sets
+ * an override so this bar reads "‹ 👤 Profile" with the back arrow returning
+ * to the Settings menu instead of Home.
  */
 
 import React from 'react';
 import { useTheme } from '../contexts/ThemeContext';
+import { useMobileHeader } from '../contexts/MobileHeaderContext';
 
 interface MobileContextHeaderProps {
   currentView: string;
@@ -41,12 +48,24 @@ const MobileContextHeader: React.FC<MobileContextHeaderProps> = ({
   rightAction,
 }) => {
   const { theme } = useTheme();
-  const config = viewConfig[currentView] || { title: 'Leo Planner', icon: '🦁', color: theme.colors.primary };
+  const { override } = useMobileHeader();
+  const baseConfig =
+    viewConfig[currentView] || { title: 'Leo Planner', icon: '🦁', color: theme.colors.primary };
+
+  // Sub-page overrides take precedence over the per-view defaults.
+  const title    = override?.title    ?? baseConfig.title;
+  const icon     = override?.icon     ?? baseConfig.icon;
+  const sub      = override?.subtitle ?? subtitle;
+  const handleBack = override?.onBack ?? onBack;
+  // If an override is set we always show a back arrow — the override exists
+  // precisely to provide an in-page "back to parent" action.
+  const showBackBtn = override?.onBack ? true : showBack;
+
   const gradientText = theme.gradient.textColor || 'white';
   const isLightGradient = !!theme.gradient.textColor;
 
   return (
-    <div 
+    <div
       className={`mobile-context-header${isLightGradient ? ' light-gradient' : ''}`}
       style={{
         background: `linear-gradient(135deg, ${theme.gradient.from} 0%, ${theme.gradient.via} 50%, ${theme.gradient.to} 100%)`,
@@ -57,9 +76,9 @@ const MobileContextHeader: React.FC<MobileContextHeaderProps> = ({
         alignItems: 'center',
         gap: '0.75rem',
       }}>
-        {showBack && onBack && (
+        {showBackBtn && handleBack && (
           <button
-            onClick={onBack}
+            onClick={handleBack}
             style={{
               background: isLightGradient ? 'rgba(0, 0, 0, 0.08)' : 'rgba(255, 255, 255, 0.2)',
               border: 'none',
@@ -83,11 +102,11 @@ const MobileContextHeader: React.FC<MobileContextHeaderProps> = ({
             alignItems: 'center',
             gap: '0.5rem',
           }}>
-            <span>{config.icon}</span>
-            <span>{config.title}</span>
+            <span>{icon}</span>
+            <span>{title}</span>
           </h1>
-          {subtitle && (
-            <p className="mobile-header-subtitle">{subtitle}</p>
+          {sub && (
+            <p className="mobile-header-subtitle">{sub}</p>
           )}
         </div>
         {rightAction}

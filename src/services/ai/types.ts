@@ -7,7 +7,12 @@
 
 // ── Ability registry ──────────────────────────────────────────────────
 
-export type AIAbilityId = 'daily_briefing' | 'journal_reflection' | 'astro_reading';
+export type AIAbilityId =
+  | 'daily_briefing'
+  | 'journal_reflection'
+  | 'astro_reading'
+  | 'numerology_vibe'
+  | 'numerology_question';
 
 export interface AIAbilityMeta {
   id: AIAbilityId;

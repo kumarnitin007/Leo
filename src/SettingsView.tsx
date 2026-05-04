@@ -12,9 +12,20 @@
  *   Customise:   Tags, Calendars
  *   Connect:     Groups, Integrations
  *   Data:        Export
+ *
+ * Mobile header behaviour:
+ *   We deliberately do NOT render our own "⚙️ Settings" header on mobile —
+ *   the global `<MobileContextHeader />` already shows it at the top of the
+ *   viewport. Rendering it again here was producing the duplicated "Settings"
+ *   title visible in earlier screenshots.
+ *
+ *   When the user opens a sub-tab on mobile (e.g. Profile) we publish a
+ *   `MobileHeaderContext` override so the global top bar reads
+ *   "‹ 👤 Profile" with the back arrow returning to the Settings menu —
+ *   matching the Journal mobile pattern.
  */
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import IntegrationsView from './IntegrationsView';
 import TagsManager from './TagsManager';
 import SettingsModal from './components/SettingsModal';
@@ -22,6 +33,7 @@ import DataExport from './components/DataExport';
 import GroupsManager from './components/GroupsManager';
 import NotificationSettings from './components/NotificationSettings';
 import { ReferenceCalendarBrowser } from './components/ReferenceCalendarBrowser';
+import { useMobileHeader } from './contexts/MobileHeaderContext';
 
 type SettingsTab =
   | 'profile'
@@ -45,20 +57,62 @@ const TABS: { id: SettingsTab; icon: string; label: string; desc: string; group:
 const SettingsView: React.FC = () => {
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
   const [activeTab, setActiveTab] = useState<SettingsTab | null>(isMobile ? null : 'profile');
+  const { setOverride } = useMobileHeader();
 
+  /**
+   * Watch for breakpoint *crossings* only.
+   *
+   * Mobile browsers fire `resize` events for many non-breakpoint reasons:
+   * URL-bar collapse on scroll, on-screen keyboard open/close, viewport
+   * jiggle from layout shifts when a tab's content first mounts. The
+   * previous version of this effect treated *every* mobile resize as a
+   * reason to bounce back to the menu, so tapping a settings item would
+   * open it briefly and then snap closed the moment the layout settled.
+   *
+   * We now use a ref to remember the previous breakpoint and only act
+   * when it changes (true ↔ false), leaving in-mobile resizes alone.
+   */
+  const prevMobileRef = React.useRef(isMobile);
   React.useEffect(() => {
     const handleResize = () => {
       const mobile = window.innerWidth <= 768;
+      if (mobile === prevMobileRef.current) return; // ignore non-crossing resizes
+      prevMobileRef.current = mobile;
       setIsMobile(mobile);
-      if (mobile && activeTab) setActiveTab(null);
-      else if (!mobile && !activeTab) setActiveTab('profile');
+      if (mobile) {
+        // Just crossed into mobile: drop to the menu so the user sees the list.
+        setActiveTab(null);
+      } else {
+        // Just crossed into desktop: pick a default tab if none is selected.
+        setActiveTab((prev) => prev ?? 'profile');
+      }
     };
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
-  }, [activeTab]);
+  }, []);
+
+  /**
+   * Push the active sub-tab into the global mobile top bar so it reads
+   * e.g. "‹ 👤 Profile" while in a sub-page. Cleared as soon as we leave
+   * mobile or return to the menu.
+   */
+  useEffect(() => {
+    if (isMobile && activeTab) {
+      const tab = TABS.find((t) => t.id === activeTab);
+      if (tab) {
+        setOverride({
+          title: tab.label,
+          icon: tab.icon,
+          onBack: () => setActiveTab(null),
+        });
+      }
+    } else {
+      setOverride(null);
+    }
+    return () => setOverride(null);
+  }, [isMobile, activeTab, setOverride]);
 
   const showMenu = isMobile && activeTab === null;
-  const hideSettingsTitleOnMobileTags = isMobile && activeTab === 'tags';
 
   // Group tabs for visual hierarchy
   const groupedTabs = TABS.reduce<Record<string, typeof TABS>>((acc, t) => {
@@ -68,7 +122,8 @@ const SettingsView: React.FC = () => {
 
   return (
     <div className="settings-view">
-      {!hideSettingsTitleOnMobileTags && (
+      {/* Desktop only — on mobile the global MobileContextHeader handles this. */}
+      {!isMobile && (
         <div className="view-header">
           <h2>⚙️ Settings</h2>
         </div>
@@ -92,15 +147,6 @@ const SettingsView: React.FC = () => {
                 </button>
               ))}
             </div>
-          )}
-
-          {isMobile && activeTab && activeTab !== 'tags' && (
-            <button
-              onClick={() => setActiveTab(null)}
-              className="settings-mobile-back"
-            >
-              ← Back to Settings Menu
-            </button>
           )}
 
           <div className="sub-tab-content settings-tab-content">

@@ -74,6 +74,8 @@
 | 47 | MYAC | `myday_astro_cache` | Generic cache for AstroAPI responses (vedic, natal, transits, etc.) with fallback |
 | **Astrology** ||||
 | 48 | MYAR | `myday_astrology_readings` | AI-powered astro reading history (question, simple/detailed answer, timing, confidence, cost) |
+| **Numerology** ||||
+| 49 | MYNQ | `myday_numerology_questions` | Per-user custom numerology questions (up to N — default 5; answers cached daily in `myday_astro_cache`) |
 
 ---
 
@@ -128,6 +130,7 @@
 | MYCON | `myday_contacts` |
 | MYAC | `myday_astro_cache` |
 | MYAR | `myday_astrology_readings` |
+| MYNQ | `myday_numerology_questions` |
 
 ---
 
@@ -272,7 +275,7 @@ SELECT * FROM myday_gift_cards;
 
 ---
 
-**Last Updated**: 2026-04-17  
+**Last Updated**: 2026-05-04  
 **Status**: ✅ VERIFIED
 
 ---
@@ -281,6 +284,7 @@ SELECT * FROM myday_gift_cards;
 
 | Date | Change |
 |------|--------|
+| 2026-05-04 | Added `myday_numerology_questions` (MYNQ) for the Plain-English numerology card's per-user custom questions feature. Limit defined in `src/numerology/numerologyInsights.ts` (`NUMEROLOGY_CUSTOM_Q_MAX`, default 5). Answers are NOT stored — they are regenerated daily and cached via `myday_astro_cache` (key `numerology_q_<questionId>_<YYYY-MM-DD>`). New `numerology_question` and `numerology_vibe` ability ids in `AIAbilityId` for `myday_ai_audit_log` tracking. |
 | 2026-04-17 | Added `myday_astrology_readings` (MYAR) for AI reading history (question, answers, timing, confidence, cost). Added `astro_reading` to AIAbilityId for audit tracking. |
 | 2026-04-15 | Added `myday_astro_cache` (MYAC) for AstroAPI response caching (`user_id`, `api_action`, `call_key`, `response_data`, `fetched_at`; unique on `user_id,api_action,call_key`) |
 | 2026-04-01 | Added `myday_fitbit_tokens` (MYFBT) for Fitbit OAuth integration; `myday_fitness_data.source` now supports 'fitbit' and 'garmin' |

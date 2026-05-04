@@ -16,6 +16,7 @@ import React, { useState, useEffect, useCallback, Suspense, lazy } from 'react';
 import { ThemeProvider, useTheme } from './contexts/ThemeContext';
 import { UserProvider, useUser } from './contexts/UserContext';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { MobileHeaderProvider } from './contexts/MobileHeaderContext';
 import { VoiceCommandPrefillProvider, useVoiceCommandPrefill } from './contexts/VoiceCommandPrefillContext';
 import { useUserLevel } from './hooks/useUserLevel';
 
@@ -990,7 +991,9 @@ const App: React.FC = () => {
     <AuthProvider>
       <ThemeProvider>
         <UserProvider>
-          <AppContent />
+          <MobileHeaderProvider>
+            <AppContent />
+          </MobileHeaderProvider>
         </UserProvider>
       </ThemeProvider>
     </AuthProvider>
