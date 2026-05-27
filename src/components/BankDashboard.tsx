@@ -1327,24 +1327,33 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
     return [Math.max(0, dataMin - padding), dataMax + padding];
   }, [portfolioHistoryChartData]);
 
+  // Y-domain: actual lowest → highest of the series being plotted, with a small pad so the
+  // top/bottom values aren't pressed against the chart edges. We deliberately don't clamp
+  // at 0 — if the totalAccountValue ever dips, the chart should reflect it.
   const portfolioHistoryYDomainAccounts = useMemo((): [number, number] | undefined => {
     if (!portfolioHistoryChartData.length) return undefined;
     const vals = portfolioHistoryChartData.map(p => Number(p.totalAccountValue) || 0);
     const lo = Math.min(...vals);
-    const hi = Math.max(...vals, 1);
-    const range = hi - lo || 1;
-    const pad = Math.max(range * 0.10, 1);
-    return [Math.max(0, lo - pad), hi + pad];
+    const hi = Math.max(...vals);
+    if (lo === hi) {
+      const pad = Math.max(Math.abs(lo) * 0.1, 1);
+      return [lo - pad, hi + pad];
+    }
+    const pad = (hi - lo) * 0.08;
+    return [lo - pad, hi + pad];
   }, [portfolioHistoryChartData]);
 
   const portfolioHistoryYDomainDeposits = useMemo((): [number, number] | undefined => {
     if (!portfolioHistoryChartData.length) return undefined;
     const vals = portfolioHistoryChartData.map(p => Number(p.totalDepositValue) || 0);
     const lo = Math.min(...vals);
-    const hi = Math.max(...vals, 1);
-    const range = hi - lo || 1;
-    const pad = Math.max(range * 0.10, 1);
-    return [Math.max(0, lo - pad), hi + pad];
+    const hi = Math.max(...vals);
+    if (lo === hi) {
+      const pad = Math.max(Math.abs(lo) * 0.1, 1);
+      return [lo - pad, hi + pad];
+    }
+    const pad = (hi - lo) * 0.08;
+    return [lo - pad, hi + pad];
   }, [portfolioHistoryChartData]);
 
   const mainTabs = [
