@@ -20,7 +20,11 @@ import type {
 } from "../../types/bankRecords";
 import type { BankDashboardTheme } from "../../bank/bankDashboardTheme";
 import type { PortfolioHistoryChartPoint } from "../../bank/bankDashboardTypes";
-import { convertCurrency, fmt, fmtDate } from "../../bank/bankDashboardFormat";
+import { convertCurrency, fmt as fmtRaw, fmtDate } from "../../bank/bankDashboardFormat";
+
+// Overview screen always renders WITHOUT decimals — details/per-item screens can show them.
+// Wrap the upstream `fmt` so every existing call site picks up the integer form unchanged.
+const fmt: typeof fmtRaw = (n, currency, digits) => fmtRaw(n, currency, digits ?? 0);
 import { CURRENCY_SYMBOLS } from "../../bank/bankDashboardConstants";
 
 export type MaturingSoonDepositOverview = {
@@ -122,6 +126,8 @@ export interface BankOverviewTabProps {
   clearPortfolioHistory: () => void;
   deletePortfolioHistoryEntry: (fullDate: string) => void;
   setShowRatesModal: (v: boolean) => void;
+  /** Optional: open the new Chart Detail screen when the user clicks the portfolio chart. */
+  onPortfolioChartClick?: () => void;
   show30Days: boolean;
   setShow30Days: React.Dispatch<React.SetStateAction<boolean>>;
   expandedBanks: Set<string>;
@@ -173,6 +179,7 @@ export function BankOverviewTab({
   clearPortfolioHistory,
   deletePortfolioHistoryEntry,
   setShowRatesModal,
+  onPortfolioChartClick,
   show30Days,
   setShow30Days,
   expandedBanks,
@@ -375,6 +382,11 @@ export function BankOverviewTab({
                       <button type="button" onClick={() => setPortfolioChartMode('deposits')} style={{border:"none",borderRadius:6,padding:"4px 10px",fontSize:10,fontWeight:700,cursor:"pointer",background:portfolioChartMode==="deposits"?"#2563EB":"transparent",color:portfolioChartMode==="deposits"?"#fff":THEME.textMuted}}>Deposits</button>
                     </div>
                   </div>
+                  <div
+                    onClick={() => onPortfolioChartClick?.()}
+                    style={{cursor: onPortfolioChartClick ? "pointer" : "default"}}
+                    title={onPortfolioChartClick ? "Tap to open detail view" : undefined}
+                  >
                   <ResponsiveContainer width="100%" height={200}>
                     <AreaChart data={portfolioFlatData} margin={{top:4,right:4,left:4,bottom:4}}>
                       <defs>
@@ -411,6 +423,12 @@ export function BankOverviewTab({
                       )}
                     </AreaChart>
                   </ResponsiveContainer>
+                  {onPortfolioChartClick && (
+                    <div style={{fontSize:9,color:THEME.textMuted,marginTop:4,textAlign:"center"}}>
+                      Tap chart to open detail view →
+                    </div>
+                  )}
+                  </div>
                 </>
               )
             )}
@@ -611,6 +629,11 @@ export function BankOverviewTab({
                   </div>
                   <span style={{fontSize:10,color:THEME.textMuted}}>{portfolioChartMode === 'accounts' ? 'Account balances' : 'Deposit (invested) values'}</span>
                 </div>
+                <div
+                  onClick={() => onPortfolioChartClick?.()}
+                  style={{cursor: onPortfolioChartClick ? "pointer" : "default"}}
+                  title={onPortfolioChartClick ? "Click to open detail view with editable snapshot data" : undefined}
+                >
                 <ResponsiveContainer width="100%" height={260}>
                   <AreaChart data={portfolioFlatData} margin={{top:8,right:8,left:8,bottom:8}}>
                     <defs>
@@ -647,6 +670,12 @@ export function BankOverviewTab({
                     )}
                   </AreaChart>
                 </ResponsiveContainer>
+                {onPortfolioChartClick && (
+                  <div style={{fontSize:10,color:THEME.textMuted,marginTop:6,textAlign:"center"}}>
+                    Click chart to open detail view with editable snapshot data →
+                  </div>
+                )}
+                </div>
                 <div style={{marginTop:12}}>
                   <button
                     type="button"

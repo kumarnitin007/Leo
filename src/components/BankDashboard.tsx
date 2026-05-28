@@ -70,6 +70,8 @@ import BankAccountDetail from './bank/BankAccountDetail';
 import { BankDepositsTab } from './bank/BankDepositsTab';
 import { BankBillsTab } from './bank/BankBillsTab';
 import { BankOverviewTab, type Next30DayRow } from './bank/BankOverviewTab';
+import { BankChartDetailTab } from './bank/BankChartDetailTab';
+import { BankOverviewRedesigned } from './bank/BankOverviewRedesigned';
 import { collectLinkedNextActions } from '../bank/bankLinkedActions';
 import type { PortfolioHistoryChartPoint } from '../bank/bankDashboardTypes';
 import { buildImportDiff, type ImportDiffSummary } from '../bank/importMergeEngine';
@@ -139,6 +141,20 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
     ...DEFAULT_RATES,
   }));
   const [showRatesModal, setShowRatesModal] = useState(false);
+  // Overview screen variant — "classic" (original BankOverviewTab) vs "new" (BankOverviewRedesigned).
+  // Lives in localStorage so the user's choice survives reloads while they validate the redesign.
+  const [overviewVariant, setOverviewVariantRaw] = useState<'classic' | 'new'>(() => {
+    try {
+      const saved = window.localStorage.getItem('myday_vault_overview_variant');
+      return saved === 'new' ? 'new' : 'classic';
+    } catch {
+      return 'classic';
+    }
+  });
+  function setOverviewVariant(v: 'classic' | 'new') {
+    setOverviewVariantRaw(v);
+    try { window.localStorage.setItem('myday_vault_overview_variant', v); } catch { /* ignore */ }
+  }
   // Status for the “Fetch live rates” button inside the Exchange Rates modal.
   // Pure client-side fetch (no serverless function) — only runs on explicit user click.
   const [ratesFetchState, setRatesFetchState] = useState<{
@@ -902,6 +918,19 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
     const next = totalValueHistory.filter(e => e.date !== dateIso);
     setTotalValueHistory(next);
     persist(deposits, accounts, bills, actions, goals, undefined, undefined, next);
+  }
+
+  /** Update only the human-readable `source` description of a snapshot.
+   * Used by the new Chart Detail screen's row Edit button. */
+  function editPortfolioHistoryEntrySource(dateIso: string, newSource: string) {
+    const next = totalValueHistory.map(e => e.date === dateIso ? { ...e, source: newSource } : e);
+    setTotalValueHistory(next);
+    persist(deposits, accounts, bills, actions, goals, undefined, undefined, next);
+  }
+
+  /** Manually record a snapshot now (used by Chart Detail "+ Add snapshot"). */
+  function addPortfolioSnapshotNow() {
+    save(deposits, accounts, bills, actions, goals, { recordTotalValue: true, totalValueSource: 'Manual snapshot' });
   }
 
   function handleExportPDF() {
@@ -1676,6 +1705,79 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
       <div style={{padding:isMobile?"8px 6px":"22px 28px",paddingBottom:isMobile?125:28}}>
         {/* Tab Content */}
         {tab==="overview" && (
+          <>
+          {/* ── Overview variant toggle (validate the new design alongside the classic one) ── */}
+          <div style={{display:"flex",justifyContent:"flex-end",marginBottom:isMobile?8:12,gap:6}}>
+            <div style={{display:"inline-flex",background:THEME.cardBgAlt,border:`1px solid ${THEME.border}`,borderRadius:999,padding:3,gap:2}}>
+              <button
+                type="button"
+                onClick={() => setOverviewVariant('classic')}
+                title="Original Overview design"
+                style={{
+                  background: overviewVariant === 'classic' ? THEME.text : 'transparent',
+                  color: overviewVariant === 'classic' ? THEME.cardBg : THEME.textMuted,
+                  border: 'none',
+                  borderRadius: 999,
+                  padding: '4px 12px',
+                  fontSize: 10,
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                }}
+              >Classic</button>
+              <button
+                type="button"
+                onClick={() => setOverviewVariant('new')}
+                title="Redesigned Overview (in validation)"
+                style={{
+                  background: overviewVariant === 'new' ? THEME.accent : 'transparent',
+                  color: overviewVariant === 'new' ? '#fff' : THEME.textMuted,
+                  border: 'none',
+                  borderRadius: 999,
+                  padding: '4px 12px',
+                  fontSize: 10,
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                }}
+              >✨ New design</button>
+            </div>
+          </div>
+          {overviewVariant === 'new' ? (
+          <BankOverviewRedesigned
+            theme={THEME}
+            isMobile={isMobile}
+            deposits={deposits}
+            accounts={accounts}
+            bills={bills}
+            actions={actions}
+            goals={goals}
+            displayCurrency={displayCurrency}
+            setDisplayCurrency={setDisplayCurrency}
+            exchangeRates={exchangeRates}
+            targetCurrency={targetCurrency}
+            netWorthConverted={netWorthConverted}
+            sumConverted={sumConverted}
+            totalInvested={totalInvested}
+            totalMaturity={totalMaturity}
+            depositsPrincipalConverted={depositsTablePrincipalConverted}
+            next30DaysUnified={next30DaysUnified}
+            pastDueUnified={pastDueUnified}
+            overviewActionsCount={overviewActionsCount}
+            portfolioHistoryChartData={portfolioHistoryChartData}
+            portfolioHistoryXDomain={portfolioHistoryXDomain}
+            portfolioHistoryYDomainAccounts={portfolioHistoryYDomainAccounts}
+            portfolioHistoryYDomainDeposits={portfolioHistoryYDomainDeposits}
+            portfolioHistorySnapshotCount={portfolioHistorySnapshotCount}
+            showPortfolioHistory={showPortfolioHistory}
+            setShowPortfolioHistory={setShowPortfolioHistory}
+            setShowRatesModal={setShowRatesModal}
+            onPortfolioChartClick={() => setTab('chart-detail')}
+            setTab={setTab}
+            persist={persist}
+            totalValueHistory={totalValueHistory}
+            toggleDone={toggleDone}
+            getBankColor={getBankColor}
+          />
+          ) : (
           <BankOverviewTab
             theme={THEME}
             isMobile={isMobile}
@@ -1707,6 +1809,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
             clearPortfolioHistory={clearPortfolioHistory}
             deletePortfolioHistoryEntry={deletePortfolioHistoryEntry}
             setShowRatesModal={setShowRatesModal}
+            onPortfolioChartClick={() => setTab('chart-detail')}
             show30Days={show30Days}
             setShow30Days={setShow30Days}
             expandedBanks={expandedBanks}
@@ -1716,6 +1819,30 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
             totalValueHistory={totalValueHistory}
             toggleDone={toggleDone}
             getBankColor={getBankColor}
+          />
+          )}
+          </>
+        )}
+
+        {/* ══ CHART DETAIL TAB ═════════════════════════════════════════
+            New screen, opened by clicking the Overview portfolio chart.
+            Lives alongside the existing Overview chart + History panel so
+            the user can validate the new view without losing the old one. */}
+        {tab === "chart-detail" && (
+          <BankChartDetailTab
+            theme={THEME}
+            isMobile={isMobile}
+            portfolioHistoryChartData={portfolioHistoryChartData}
+            portfolioHistoryYDomainAccounts={portfolioHistoryYDomainAccounts}
+            portfolioHistoryYDomainDeposits={portfolioHistoryYDomainDeposits}
+            portfolioHistorySnapshotCount={portfolioHistorySnapshotCount}
+            targetCurrency={targetCurrency}
+            displayCurrency={displayCurrency}
+            onBack={() => setTab('overview')}
+            onAddSnapshot={addPortfolioSnapshotNow}
+            onExport={handleExportPDF}
+            deletePortfolioHistoryEntry={deletePortfolioHistoryEntry}
+            editPortfolioHistoryEntrySource={editPortfolioHistoryEntrySource}
           />
         )}
 

@@ -71,9 +71,16 @@ export function convertCurrency(
   return inrAmount / (rates[validTo as keyof typeof rates] || 1);
 }
 
+/**
+ * Short-form money formatter (e.g. "$473.20K", "₹4.73 Cr").
+ * Optional `digits` overrides the default decimal places used for the K/L/Cr/M/B scale.
+ * Pass `digits: 0` from overview screens to drop decimals entirely; omit to preserve
+ * existing per-scale defaults (used everywhere else in the app).
+ */
 export function fmt(
   n: number | string | null | undefined,
-  currency: Currency = "INR"
+  currency: Currency = "INR",
+  digits?: number,
 ): string {
   if (n == null || n === "" || isNaN(Number(n))) return "—";
   const v = Number(n);
@@ -84,24 +91,29 @@ export function fmt(
   const sym = CURRENCY_SYMBOLS[validCurrency];
 
   if (validCurrency === "INR") {
-    if (abs >= 10000000) return sign + sym + (abs / 10000000).toFixed(2) + " Cr";
-    if (abs >= 100000) return sign + sym + (abs / 100000).toFixed(2) + " L";
-    if (abs >= 1000) return sign + sym + (abs / 1000).toFixed(2) + " K";
+    if (abs >= 10000000) return sign + sym + (abs / 10000000).toFixed(digits ?? 2) + " Cr";
+    if (abs >= 100000) return sign + sym + (abs / 100000).toFixed(digits ?? 2) + " L";
+    if (abs >= 1000) return sign + sym + (abs / 1000).toFixed(digits ?? 2) + " K";
   } else {
-    if (abs >= 1000000000) return sign + sym + (abs / 1000000000).toFixed(2) + "B";
-    if (abs >= 1000000) return sign + sym + (abs / 1000000).toFixed(2) + "M";
-    if (abs >= 1000) return sign + sym + (abs / 1000).toFixed(1) + "K";
+    if (abs >= 1000000000) return sign + sym + (abs / 1000000000).toFixed(digits ?? 2) + "B";
+    if (abs >= 1000000) return sign + sym + (abs / 1000000).toFixed(digits ?? 2) + "M";
+    if (abs >= 1000) return sign + sym + (abs / 1000).toFixed(digits ?? 1) + "K";
   }
   return (
     sign +
     sym +
-    abs.toLocaleString(CURRENCY_LOCALES[validCurrency], { maximumFractionDigits: 2 })
+    abs.toLocaleString(CURRENCY_LOCALES[validCurrency], { maximumFractionDigits: digits ?? 2 })
   );
 }
 
+/**
+ * Full-precision money formatter (locale-grouped, e.g. "$470,800.50" or "$470,800" with digits=0).
+ * Optional `digits` overrides `maximumFractionDigits`; omit to preserve historical 2-decimal behavior.
+ */
 export function fmtFull(
   n: number | string | null | undefined,
-  currency: Currency = "INR"
+  currency: Currency = "INR",
+  digits?: number,
 ): string {
   if (n == null || n === "" || isNaN(Number(n))) return "—";
   const v = Number(n);
@@ -112,7 +124,7 @@ export function fmtFull(
   return (
     sign +
     CURRENCY_SYMBOLS[validCurrency] +
-    abs.toLocaleString(CURRENCY_LOCALES[validCurrency], { maximumFractionDigits: 2 })
+    abs.toLocaleString(CURRENCY_LOCALES[validCurrency], { maximumFractionDigits: digits ?? 2 })
   );
 }
 
