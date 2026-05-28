@@ -139,6 +139,87 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
     ...DEFAULT_RATES,
   }));
   const [showRatesModal, setShowRatesModal] = useState(false);
+  // Status for the “Fetch live rates” button inside the Exchange Rates modal.
+  // Pure client-side fetch (no serverless function) — only runs on explicit user click.
+  const [ratesFetchState, setRatesFetchState] = useState<{
+    loading: boolean;
+    error: string | null;
+    lastUpdated: string | null; // ISO-ish timestamp returned by the provider
+    source: string | null;      // which API actually responded (primary / fallback)
+  }>({ loading: false, error: null, lastUpdated: null, source: null });
+
+  // Fetch live USD→INR / EUR→INR / GBP→INR rates straight from the browser.
+  // Primary: open.er-api.com (no key, CORS-enabled, daily updates).
+  // Fallback: api.frankfurter.app (ECB rates, no key, CORS-enabled).
+  // The result only PRE-FILLS the modal inputs — the user must still press Save to persist.
+  async function fetchLiveExchangeRates() {
+    setRatesFetchState({ loading: true, error: null, lastUpdated: null, source: null });
+    const round2 = (n: number) => Math.round(n * 100) / 100;
+
+    // Try primary
+    try {
+      const res = await fetch('https://open.er-api.com/v6/latest/USD');
+      if (res.ok) {
+        const data = await res.json();
+        const rates = data?.rates;
+        const usdInr = Number(rates?.INR);
+        const usdEur = Number(rates?.EUR);
+        const usdGbp = Number(rates?.GBP);
+        if (data?.result === 'success' && usdInr > 0 && usdEur > 0 && usdGbp > 0) {
+          const next = {
+            USD: round2(usdInr),
+            EUR: round2(usdInr / usdEur), // EUR→INR = (USD→INR) / (USD→EUR)
+            GBP: round2(usdInr / usdGbp),
+          };
+          setExchangeRates(next);
+          setRatesFetchState({
+            loading: false,
+            error: null,
+            lastUpdated: data?.time_last_update_utc || new Date().toUTCString(),
+            source: 'open.er-api.com',
+          });
+          return;
+        }
+      }
+    } catch {
+      /* fall through to backup */
+    }
+
+    // Fallback: Frankfurter
+    try {
+      const res = await fetch('https://api.frankfurter.app/latest?from=USD&to=INR,EUR,GBP');
+      if (res.ok) {
+        const data = await res.json();
+        const usdInr = Number(data?.rates?.INR);
+        const usdEur = Number(data?.rates?.EUR);
+        const usdGbp = Number(data?.rates?.GBP);
+        if (usdInr > 0 && usdEur > 0 && usdGbp > 0) {
+          const next = {
+            USD: round2(usdInr),
+            EUR: round2(usdInr / usdEur),
+            GBP: round2(usdInr / usdGbp),
+          };
+          setExchangeRates(next);
+          setRatesFetchState({
+            loading: false,
+            error: null,
+            lastUpdated: data?.date ? new Date(data.date).toUTCString() : new Date().toUTCString(),
+            source: 'api.frankfurter.app',
+          });
+          return;
+        }
+      }
+    } catch {
+      /* fall through to error */
+    }
+
+    setRatesFetchState({
+      loading: false,
+      error: 'Could not reach the exchange rate service. Check your internet and try again.',
+      lastUpdated: null,
+      source: null,
+    });
+  }
   const [accountsViewMode, setAccountsViewMode] = useState<'cards' | 'grouped' | 'flat'>('cards');
   const [depositsViewMode, setDepositsViewMode] = useState<'cards' | 'grouped' | 'flat'>('grouped');
   const [billsViewMode, setBillsViewMode] = useState<'cards' | 'grouped'>('cards');
@@ -3179,9 +3260,63 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
               <div style={{fontSize:17,fontWeight:800,color:THEME.text}}>Exchange Rates (to INR)</div>
               <button onClick={()=>setShowRatesModal(false)} style={{background:THEME.border,color:THEME.textLight,border:"none",borderRadius:8,padding:"3px 12px",cursor:"pointer"}}>✕</button>
             </div>
-            <div style={{fontSize:11,color:THEME.textLight,marginBottom:16}}>
+            <div style={{fontSize:11,color:THEME.textLight,marginBottom:12}}>
               Set exchange rates for currency conversion. These rates define how many INR equals 1 unit of foreign currency.
             </div>
+
+            {/* ── Live rates fetch (manual, browser-only) ───────────────── */}
+            <div style={{
+              background: THEME.cardBg,
+              border: `1px solid ${THEME.border}`,
+              borderRadius: 10,
+              padding: "10px 12px",
+              marginBottom: 14,
+              display: "flex",
+              flexDirection: "column",
+              gap: 6,
+            }}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8}}>
+                <div style={{fontSize:11,fontWeight:600,color:THEME.text}}>Live rates</div>
+                <button
+                  type="button"
+                  onClick={() => { if (!ratesFetchState.loading) fetchLiveExchangeRates(); }}
+                  disabled={ratesFetchState.loading}
+                  style={{
+                    background: ratesFetchState.loading
+                      ? THEME.border
+                      : "linear-gradient(135deg,#059669,#10B981)",
+                    color: "#fff",
+                    border: "none",
+                    borderRadius: 8,
+                    padding: "6px 12px",
+                    fontSize: 11,
+                    fontWeight: 700,
+                    cursor: ratesFetchState.loading ? "wait" : "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 6,
+                  }}
+                  title="Fetch latest USD/EUR/GBP → INR rates"
+                >
+                  {ratesFetchState.loading ? "Fetching…" : "🔄 Fetch live rates"}
+                </button>
+              </div>
+              {ratesFetchState.error && (
+                <div style={{fontSize:10,color:"#EF4444"}}>{ratesFetchState.error}</div>
+              )}
+              {!ratesFetchState.error && ratesFetchState.lastUpdated && (
+                <div style={{fontSize:10,color:THEME.textLight}}>
+                  Pre-filled below from <span style={{color:THEME.textMuted,fontWeight:600}}>{ratesFetchState.source}</span>{" "}
+                  · Updated {ratesFetchState.lastUpdated}. Review and press <b>Save Rates</b> to apply.
+                </div>
+              )}
+              {!ratesFetchState.error && !ratesFetchState.lastUpdated && !ratesFetchState.loading && (
+                <div style={{fontSize:10,color:THEME.textLight}}>
+                  Runs only when you click. No data is sent — the request goes directly from your browser to the rates API.
+                </div>
+              )}
+            </div>
+
             <div style={{display:"flex",flexDirection:"column",gap:14}}>
               <div>
                 <label style={{fontSize:11,color:THEME.textLight,display:"block",marginBottom:4}}>1 USD = ₹</label>
