@@ -7,7 +7,6 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import { useTheme } from '../../contexts/ThemeContext';
 import { getAuditLog, getUsageSummary } from '../../services/ai/aiAuditService';
 import { loadAllDigestsForUser } from '../../services/ai/aiDigestService';
 import { ABILITY_REGISTRY } from '../../services/ai/abilityRegistry';
@@ -38,7 +37,6 @@ function projectMonthlySpend(dailySpends: DailySpend[]): number {
 
 const AIHistoryView: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
   const { user } = useAuth();
-  const { theme } = useTheme();
   const [entries, setEntries] = useState<AIAuditEntry[]>([]);
   const [summary, setSummary] = useState<AIUsageSummary | null>(null);
   const [digests, setDigests] = useState<StoredDigest[]>([]);
@@ -91,41 +89,48 @@ const AIHistoryView: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
 
   const pill = (active: boolean): React.CSSProperties => ({
     padding: '5px 12px', fontSize: 11, fontWeight: active ? 700 : 500,
-    color: active ? '#E0E7FF' : '#9CA3AF',
-    background: active ? theme.colors.primary : '#1F2937',
-    border: 'none', borderRadius: 20, cursor: 'pointer',
+    fontFamily: 'var(--ck-font)',
+    color: active ? '#fff' : 'var(--ck-ink2)',
+    background: active ? 'var(--ck-purple)' : 'var(--ck-white)',
+    border: active ? '0.5px solid transparent' : '0.5px solid var(--ck-border2)',
+    borderRadius: 20, cursor: 'pointer',
   });
 
+  const cardStyle: React.CSSProperties = {
+    background: 'var(--ck-white)', borderRadius: 12, padding: 18,
+    border: '0.5px solid var(--ck-border2)', boxShadow: 'var(--ck-shadow)',
+  };
+
   return (
-    <div style={{ maxWidth: 800, margin: '0 auto', padding: '0 16px 32px' }}>
+    <div style={{ maxWidth: 820, margin: '0 auto', padding: '0 16px 32px', fontFamily: 'var(--ck-font)', color: 'var(--ck-ink)' }}>
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
         {onBack && (
-          <button onClick={onBack} style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: '#9CA3AF' }}>←</button>
+          <button onClick={onBack} style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: 'var(--ck-ink2)' }}>←</button>
         )}
         <div>
-          <h2 style={{ margin: 0, fontSize: 20, fontWeight: 800, color: '#F9FAFB' }}>🤖 AI History & Spending</h2>
-          <p style={{ margin: '4px 0 0', fontSize: 12, color: '#6B7280' }}>Track every AI call, token usage, and projected costs</p>
+          <h2 style={{ margin: 0, fontSize: 22, fontWeight: 500, fontFamily: 'var(--ck-serif)', color: 'var(--ck-ink)' }}>AI History &amp; Spending</h2>
+          <p style={{ margin: '3px 0 0', fontSize: 12, color: 'var(--ck-ink3)' }}>Track every AI call, token usage, and projected costs</p>
         </div>
       </div>
 
       {loading ? (
-        <div style={{ textAlign: 'center', padding: 40, color: '#6B7280' }}>Loading AI history...</div>
+        <div style={{ textAlign: 'center', padding: 40, color: 'var(--ck-ink3)' }}>Loading AI history…</div>
       ) : (
         <>
           {/* Summary Cards */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 10, marginBottom: 20 }}>
             {[
-              { label: 'Total Calls', value: summary?.totalCalls ?? 0, fmt: (v: number) => v.toString(), color: '#818CF8' },
-              { label: 'Total Tokens', value: summary?.totalTokens ?? 0, fmt: (v: number) => v > 1000 ? `${(v / 1000).toFixed(1)}k` : v.toString(), color: '#34D399' },
-              { label: `Spent (${timeRange}d)`, value: summary?.totalCostUsd ?? 0, fmt: (v: number) => `$${v.toFixed(4)}`, color: '#F59E0B' },
-              { label: 'Projected /mo', value: projected, fmt: (v: number) => `$${v.toFixed(4)}`, color: '#EF4444' },
-              { label: 'Avg per Call', value: (summary?.totalCalls ?? 0) > 0 ? (summary!.totalCostUsd / summary!.totalCalls) : 0, fmt: (v: number) => `$${v.toFixed(5)}`, color: '#60A5FA' },
-              { label: 'Stored Digests', value: digests.length, fmt: (v: number) => v.toString(), color: '#A78BFA' },
+              { label: 'Total Calls', value: summary?.totalCalls ?? 0, fmt: (v: number) => v.toString(), color: 'var(--ck-purple)' },
+              { label: 'Total Tokens', value: summary?.totalTokens ?? 0, fmt: (v: number) => v > 1000 ? `${(v / 1000).toFixed(1)}k` : v.toString(), color: 'var(--ck-green)' },
+              { label: `Spent (${timeRange}d)`, value: summary?.totalCostUsd ?? 0, fmt: (v: number) => `$${v.toFixed(4)}`, color: 'var(--ck-gold)' },
+              { label: 'Projected /mo', value: projected, fmt: (v: number) => `$${v.toFixed(4)}`, color: 'var(--ck-red)' },
+              { label: 'Avg per Call', value: (summary?.totalCalls ?? 0) > 0 ? (summary!.totalCostUsd / summary!.totalCalls) : 0, fmt: (v: number) => `$${v.toFixed(5)}`, color: 'var(--ck-purple)' },
+              { label: 'Stored Digests', value: digests.length, fmt: (v: number) => v.toString(), color: 'var(--ck-ink2)' },
             ].map(c => (
-              <div key={c.label} style={{ background: '#111827', borderRadius: 12, padding: '14px 16px', border: '1px solid #1F2937' }}>
-                <div style={{ fontSize: 20, fontWeight: 800, color: c.color, fontFamily: 'monospace' }}>{c.fmt(c.value)}</div>
-                <div style={{ fontSize: 10, color: '#6B7280', marginTop: 4, textTransform: 'uppercase', letterSpacing: '0.5px' }}>{c.label}</div>
+              <div key={c.label} style={{ ...cardStyle, padding: '14px 16px' }}>
+                <div style={{ fontSize: 20, fontWeight: 800, color: c.color, fontFamily: 'ui-monospace, monospace' }}>{c.fmt(c.value)}</div>
+                <div style={{ fontSize: 10, color: 'var(--ck-ink3)', marginTop: 4, textTransform: 'uppercase', letterSpacing: '0.5px' }}>{c.label}</div>
               </div>
             ))}
           </div>
@@ -146,8 +151,8 @@ const AIHistoryView: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
 
           {/* Daily Cost Bar Chart */}
           {dailySpends.length > 0 && (
-            <div style={{ background: '#111827', borderRadius: 14, padding: 18, marginBottom: 20, border: '1px solid #1F2937' }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: '#9CA3AF', marginBottom: 12 }}>Daily Spending</div>
+            <div style={{ ...cardStyle, marginBottom: 20 }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--ck-ink2)', marginBottom: 12 }}>Daily Spending</div>
               <div style={{ display: 'flex', alignItems: 'flex-end', gap: 2, height: 80 }}>
                 {dailySpends.slice(-30).map((d, i) => {
                   const h = Math.max(4, (d.cost / maxDailyCost) * 70);
@@ -157,7 +162,7 @@ const AIHistoryView: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
                         title={`${d.date}: $${d.cost.toFixed(5)} (${d.calls} calls, ${d.tokens} tokens)`}
                         style={{
                           width: '100%', maxWidth: 16, height: h, borderRadius: '3px 3px 0 0',
-                          background: `linear-gradient(180deg, #F59E0B, ${theme.colors.primary})`,
+                          background: 'var(--ck-purple)',
                           cursor: 'pointer',
                         }}
                       />
@@ -166,31 +171,31 @@ const AIHistoryView: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
                 })}
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6 }}>
-                <span style={{ fontSize: 9, color: '#4B5563' }}>{dailySpends.slice(-30)[0]?.date}</span>
-                <span style={{ fontSize: 9, color: '#4B5563' }}>{dailySpends[dailySpends.length - 1]?.date}</span>
+                <span style={{ fontSize: 9, color: 'var(--ck-ink3)' }}>{dailySpends.slice(-30)[0]?.date}</span>
+                <span style={{ fontSize: 9, color: 'var(--ck-ink3)' }}>{dailySpends[dailySpends.length - 1]?.date}</span>
               </div>
             </div>
           )}
 
           {/* By Ability Breakdown */}
           {summary && Object.keys(summary.byAbility).length > 0 && (
-            <div style={{ background: '#111827', borderRadius: 14, padding: 18, marginBottom: 20, border: '1px solid #1F2937' }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: '#9CA3AF', marginBottom: 12 }}>By Ability</div>
+            <div style={{ ...cardStyle, marginBottom: 20 }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--ck-ink2)', marginBottom: 12 }}>By Ability</div>
               {Object.entries(summary.byAbility).map(([id, data]) => {
                 const ability = ABILITY_REGISTRY[id as AIAbilityId];
                 const pct = summary.totalCostUsd > 0 ? (data.costUsd / summary.totalCostUsd * 100) : 0;
                 return (
-                  <div key={id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderBottom: '1px solid #1F293750' }}>
+                  <div key={id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderBottom: '0.5px solid var(--ck-border)' }}>
                     <span style={{ fontSize: 18, width: 28 }}>{ability?.icon || '🤖'}</span>
                     <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: 12, fontWeight: 600, color: '#D1D5DB' }}>{ability?.label || id}</div>
-                      <div style={{ height: 4, background: '#1F2937', borderRadius: 2, marginTop: 4 }}>
-                        <div style={{ height: 4, borderRadius: 2, width: `${pct}%`, background: theme.colors.primary }} />
+                      <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--ck-ink)' }}>{ability?.label || id}</div>
+                      <div style={{ height: 4, background: 'var(--ck-cream)', borderRadius: 2, marginTop: 4 }}>
+                        <div style={{ height: 4, borderRadius: 2, width: `${pct}%`, background: 'var(--ck-purple)' }} />
                       </div>
                     </div>
                     <div style={{ textAlign: 'right' }}>
-                      <div style={{ fontSize: 12, color: '#F59E0B', fontFamily: 'monospace', fontWeight: 700 }}>${data.costUsd.toFixed(4)}</div>
-                      <div style={{ fontSize: 9, color: '#6B7280' }}>{data.calls}× · {data.tokens} tok</div>
+                      <div style={{ fontSize: 12, color: 'var(--ck-gold)', fontFamily: 'ui-monospace, monospace', fontWeight: 700 }}>${data.costUsd.toFixed(4)}</div>
+                      <div style={{ fontSize: 9, color: 'var(--ck-ink3)' }}>{data.calls}× · {data.tokens} tok</div>
                     </div>
                   </div>
                 );
@@ -199,9 +204,9 @@ const AIHistoryView: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
           )}
 
           {/* Transaction Log */}
-          <div style={{ background: '#111827', borderRadius: 14, padding: 18, border: '1px solid #1F2937' }}>
+          <div style={cardStyle}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: '#9CA3AF' }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--ck-ink2)' }}>
                 Transaction Log ({inRange.length} calls)
               </div>
               <div style={{ display: 'flex', gap: 4 }}>
@@ -215,18 +220,20 @@ const AIHistoryView: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
                     onClick={() => setStatusFilter(s.key)}
                     style={{
                       padding: '3px 10px', fontSize: 10, fontWeight: statusFilter === s.key ? 700 : 500,
-                      color: statusFilter === s.key ? '#E0E7FF' : '#9CA3AF',
+                      fontFamily: 'var(--ck-font)',
+                      color: statusFilter === s.key ? '#fff' : 'var(--ck-ink2)',
                       background: statusFilter === s.key
-                        ? (s.key === 'failed' ? '#EF4444' : s.key === 'passed' ? '#10B981' : theme.colors.primary)
-                        : '#1F2937',
-                      border: 'none', borderRadius: 12, cursor: 'pointer',
+                        ? (s.key === 'failed' ? 'var(--ck-red)' : s.key === 'passed' ? 'var(--ck-green)' : 'var(--ck-purple)')
+                        : 'var(--ck-white)',
+                      border: statusFilter === s.key ? '0.5px solid transparent' : '0.5px solid var(--ck-border2)',
+                      borderRadius: 12, cursor: 'pointer',
                     }}
                   >{s.label}</button>
                 ))}
               </div>
             </div>
             {inRange.length === 0 && (
-              <div style={{ padding: '20px 0', textAlign: 'center', color: '#4B5563', fontSize: 12 }}>
+              <div style={{ padding: '20px 0', textAlign: 'center', color: 'var(--ck-ink3)', fontSize: 12 }}>
                 {statusFilter === 'failed' ? 'No failed AI calls in this period.' :
                  statusFilter === 'passed' ? 'No successful AI calls in this period.' :
                  'No AI calls in this period. Use the Morning Briefing or Journal Reflection to get started.'}
@@ -244,32 +251,32 @@ const AIHistoryView: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
                 return (
                   <div key={entry.id} style={{
                     display: 'flex', alignItems: 'center', gap: 10,
-                    padding: '10px 12px', background: '#0D1117', borderRadius: 10,
-                    border: entry.success ? '1px solid #1F2937' : '1px solid #EF444440',
+                    padding: '10px 12px', background: 'var(--ck-paper)', borderRadius: 10,
+                    border: entry.success ? '0.5px solid var(--ck-border2)' : '1px solid rgba(201,74,46,0.4)',
                   }}>
                     <span style={{ fontSize: 16 }}>{ability?.icon || '🤖'}</span>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                        <span style={{ fontSize: 12, fontWeight: 600, color: '#D1D5DB' }}>{ability?.label || entry.abilityId}</span>
-                        {!entry.success && <span style={{ fontSize: 9, color: '#EF4444', background: '#EF444420', padding: '1px 6px', borderRadius: 4 }}>FAILED</span>}
+                        <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--ck-ink)' }}>{ability?.label || entry.abilityId}</span>
+                        {!entry.success && <span style={{ fontSize: 9, color: 'var(--ck-red)', background: 'var(--ck-red-light)', padding: '1px 6px', borderRadius: 4 }}>FAILED</span>}
                       </div>
-                      <div style={{ fontSize: 10, color: '#6B7280', marginTop: 2 }}>
+                      <div style={{ fontSize: 10, color: 'var(--ck-ink3)', marginTop: 2 }}>
                         {new Date(entry.createdAt).toLocaleString()} · {entry.durationMs}ms
                       </div>
                       {funQuote && (
-                        <div style={{ fontSize: 10, color: '#A78BFA', fontStyle: 'italic', marginTop: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        <div style={{ fontSize: 10, color: 'var(--ck-purple)', fontStyle: 'italic', marginTop: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                           "{funQuote}"
                         </div>
                       )}
                     </div>
                     <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                      <div style={{ fontSize: 11, color: '#F59E0B', fontFamily: 'monospace', fontWeight: 700 }}>${entry.costUsd.toFixed(5)}</div>
-                      <div style={{ fontSize: 9, color: '#6B7280' }}>{entry.totalTokens} tok</div>
+                      <div style={{ fontSize: 11, color: 'var(--ck-gold)', fontFamily: 'ui-monospace, monospace', fontWeight: 700 }}>${entry.costUsd.toFixed(5)}</div>
+                      <div style={{ fontSize: 9, color: 'var(--ck-ink3)' }}>{entry.totalTokens} tok</div>
                     </div>
                     <button
                       onClick={() => handleViewQuery(entry)}
                       style={{
-                        background: '#1F2937', border: 'none', color: '#818CF8',
+                        background: 'var(--ck-white)', border: '0.5px solid var(--ck-border2)', color: 'var(--ck-purple)',
                         borderRadius: 6, padding: '5px 10px', fontSize: 10,
                         fontWeight: 600, cursor: 'pointer', flexShrink: 0,
                       }}
@@ -283,20 +290,20 @@ const AIHistoryView: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
 
           {/* Stored Digests */}
           {digests.length > 0 && (
-            <div style={{ background: '#111827', borderRadius: 14, padding: 18, marginTop: 20, border: '1px solid #1F2937' }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: '#9CA3AF', marginBottom: 12 }}>
+            <div style={{ ...cardStyle, marginTop: 20 }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--ck-ink2)', marginBottom: 12 }}>
                 🗂 Content Digests ({digests.length})
               </div>
-              <p style={{ fontSize: 11, color: '#4B5563', marginBottom: 10 }}>
+              <p style={{ fontSize: 11, color: 'var(--ck-ink3)', marginBottom: 10 }}>
                 AI-generated summaries that replace raw data in future calls to save tokens.
               </p>
               {digests.map(d => (
-                <div key={d.id} style={{ background: '#0D1117', borderRadius: 8, padding: '10px 12px', marginBottom: 6, border: '1px solid #1F2937' }}>
+                <div key={d.id} style={{ background: 'var(--ck-paper)', borderRadius: 8, padding: '10px 12px', marginBottom: 6, border: '0.5px solid var(--ck-border2)' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                    <span style={{ fontSize: 11, fontWeight: 700, color: '#818CF8', textTransform: 'uppercase' }}>{d.source}</span>
-                    <span style={{ fontSize: 9, color: '#6B7280' }}>covers to {d.coversTo} · {new Date(d.createdAt).toLocaleDateString()}</span>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--ck-purple)', textTransform: 'uppercase' }}>{d.source}</span>
+                    <span style={{ fontSize: 9, color: 'var(--ck-ink3)' }}>covers to {d.coversTo} · {new Date(d.createdAt).toLocaleDateString()}</span>
                   </div>
-                  <div style={{ fontSize: 11, color: '#9CA3AF', lineHeight: 1.5 }}>{d.digest}</div>
+                  <div style={{ fontSize: 11, color: 'var(--ck-ink2)', lineHeight: 1.5 }}>{d.digest}</div>
                 </div>
               ))}
             </div>

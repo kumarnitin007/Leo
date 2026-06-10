@@ -19,6 +19,7 @@ import {
   deleteRoutine,
   initializeDefaultRoutines
 } from './storage';
+import GenericFilterSidebar, { GenericFilter, FilterSection } from './components/GenericFilterSidebar';
 
 interface RoutinesViewProps {
   onApplyRoutine?: (tasks: Task[]) => void;
@@ -29,6 +30,15 @@ const RoutinesView: React.FC<RoutinesViewProps> = ({ onApplyRoutine }) => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [isCreating, setIsCreating] = useState(false);
   const [editingRoutine, setEditingRoutine] = useState<Routine | null>(null);
+  const [activeFilter, setActiveFilter] = useState<GenericFilter>({ type: 'all' });
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  const [showMobileFilters, setShowMobileFilters] = useState(true);
+
+  useEffect(() => {
+    const onResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -186,14 +196,39 @@ const RoutinesView: React.FC<RoutinesViewProps> = ({ onApplyRoutine }) => {
   const activeSampleRoutines = sampleRoutines.filter(r => r.isActive);
   const inactiveSampleRoutines = sampleRoutines.filter(r => !r.isActive);
 
+  const matchTime = (r: Routine) => activeFilter.type !== 'time' || r.timeOfDay === activeFilter.value;
+  const timeCount = (t: string) => routines.filter(r => r.timeOfDay === t).length;
+  const routineFilterSections: FilterSection[] = [
+    {
+      id: 'quick',
+      title: 'Quick Filters',
+      defaultExpanded: true,
+      items: [
+        { filter: { type: 'all' }, icon: '🔄', label: 'All Routines', count: routines.length },
+      ],
+    },
+    {
+      id: 'time',
+      title: 'Time of Day',
+      defaultExpanded: true,
+      items: [
+        { filter: { type: 'time', value: 'morning' }, icon: '🌅', label: 'Morning', count: timeCount('morning') },
+        { filter: { type: 'time', value: 'afternoon' }, icon: '☀️', label: 'Afternoon', count: timeCount('afternoon') },
+        { filter: { type: 'time', value: 'evening' }, icon: '🌙', label: 'Evening', count: timeCount('evening') },
+        { filter: { type: 'time', value: 'anytime' }, icon: '⏰', label: 'Anytime', count: timeCount('anytime') },
+      ],
+    },
+  ];
+  const routineFilterLabel = activeFilter.type === 'time' ? (activeFilter.value || '') : 'All Routines';
+
   return (
     <div className="routines-view">
-      <div className="routines-header">
+      <div className="ck-page-head">
         <div>
-          <h2>🎯 Routines</h2>
-          <p>Create and manage task routines for different times of the day</p>
+          <h2 className="ck-page-title">Routines</h2>
+          <p className="ck-page-sub">Task routines for different times of the day</p>
         </div>
-        <button onClick={handleCreate} className="btn-primary">
+        <button onClick={handleCreate} className="ck-btn ck-btn-primary">
           + Create Routine
         </button>
       </div>
@@ -267,10 +302,10 @@ const RoutinesView: React.FC<RoutinesViewProps> = ({ onApplyRoutine }) => {
             </div>
 
             <div className="form-actions">
-              <button type="submit" className="btn-primary">
+              <button type="submit" className="ck-btn ck-btn-primary">
                 {editingRoutine ? 'Update Routine' : 'Create Routine'}
               </button>
-              <button type="button" onClick={handleCancel} className="btn-secondary">
+              <button type="button" onClick={handleCancel} className="ck-btn">
                 Cancel
               </button>
             </div>
@@ -278,12 +313,43 @@ const RoutinesView: React.FC<RoutinesViewProps> = ({ onApplyRoutine }) => {
         </div>
       )}
 
+      {/* Main content with sidebar */}
+      <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start' }}>
+        {isMobile && showMobileFilters && !isCreating && routines.length > 0 ? (
+          <GenericFilterSidebar
+            title="🔄 Filter Routines"
+            sections={routineFilterSections}
+            activeFilter={activeFilter}
+            onFilterChange={setActiveFilter}
+            isMobile
+            onFilterSelected={() => setShowMobileFilters(false)}
+          />
+        ) : (
+          <>
+            {!isMobile && !isCreating && routines.length > 0 && (
+              <GenericFilterSidebar
+                sections={routineFilterSections}
+                activeFilter={activeFilter}
+                onFilterChange={setActiveFilter}
+              />
+            )}
+            <div style={{ flex: 1, minWidth: 0 }}>
+              {isMobile && !isCreating && routines.length > 0 && (
+                <button
+                  className="ck-btn"
+                  onClick={() => setShowMobileFilters(true)}
+                  style={{ width: '100%', justifyContent: 'center', marginBottom: '1rem' }}
+                >
+                  ‹ Filters · {routineFilterLabel}
+                </button>
+              )}
+
       {/* Active Sample Routines */}
-      {activeSampleRoutines.length > 0 && (
+      {activeSampleRoutines.filter(matchTime).length > 0 && (
         <div className="routines-section">
           <h3>📋 Active Sample Routines</h3>
           <div className="routines-grid">
-            {activeSampleRoutines.map(routine => (
+            {activeSampleRoutines.filter(matchTime).map(routine => (
               <div key={routine.id} className="routine-card routine-active">
                 <div className="routine-header">
                   <span className="routine-icon">{getTimeIcon(routine.timeOfDay)}</span>
@@ -297,17 +363,17 @@ const RoutinesView: React.FC<RoutinesViewProps> = ({ onApplyRoutine }) => {
                   <span className="routine-tasks">{routine.taskIds.length} task(s)</span>
                 </div>
                 <div className="routine-actions">
-                  <button onClick={() => handleEdit(routine)} className="btn-edit">
+                  <button onClick={() => handleEdit(routine)} className="ck-btn ck-btn-sm">
                     ⚙️ Configure
                   </button>
                   <button 
                     onClick={() => handleApply(routine)} 
-                    className="btn-apply"
+                    className="ck-btn ck-btn-sm"
                     disabled={routine.taskIds.length === 0}
                   >
                     ⚡ Apply
                   </button>
-                  <button onClick={() => handleDeactivate(routine)} className="btn-secondary" title="Deactivate this routine">
+                  <button onClick={() => handleDeactivate(routine)} className="ck-btn ck-btn-sm" title="Deactivate this routine">
                     ⏸️ Deactivate
                   </button>
                 </div>
@@ -318,12 +384,12 @@ const RoutinesView: React.FC<RoutinesViewProps> = ({ onApplyRoutine }) => {
       )}
 
       {/* Inactive Sample Routines (Templates) */}
-      {inactiveSampleRoutines.length > 0 && (
+      {inactiveSampleRoutines.filter(matchTime).length > 0 && (
         <div className="routines-section">
           <h3>💡 Available Sample Routines</h3>
           <p className="section-description">Activate these pre-built routines to start using them</p>
           <div className="routines-grid">
-            {inactiveSampleRoutines.map(routine => (
+            {inactiveSampleRoutines.filter(matchTime).map(routine => (
               <div key={routine.id} className="routine-card routine-inactive">
                 <div className="routine-header">
                   <span className="routine-icon">{getTimeIcon(routine.timeOfDay)}</span>
@@ -337,7 +403,7 @@ const RoutinesView: React.FC<RoutinesViewProps> = ({ onApplyRoutine }) => {
                   <span className="routine-badge">Sample Template</span>
                 </div>
                 <div className="routine-actions">
-                  <button onClick={() => handleActivate(routine)} className="btn-primary">
+                  <button onClick={() => handleActivate(routine)} className="ck-btn ck-btn-sm ck-btn-primary">
                     ✅ Activate
                   </button>
                 </div>
@@ -348,11 +414,11 @@ const RoutinesView: React.FC<RoutinesViewProps> = ({ onApplyRoutine }) => {
       )}
 
       {/* User-created Routines */}
-      {userRoutines.length > 0 && (
+      {userRoutines.filter(matchTime).length > 0 && (
         <div className="routines-section">
           <h3>✨ My Custom Routines</h3>
           <div className="routines-grid">
-            {userRoutines.map(routine => (
+            {userRoutines.filter(matchTime).map(routine => (
               <div key={routine.id} className="routine-card">
                 <div className="routine-header">
                   <span className="routine-icon">{getTimeIcon(routine.timeOfDay)}</span>
@@ -366,17 +432,17 @@ const RoutinesView: React.FC<RoutinesViewProps> = ({ onApplyRoutine }) => {
                   <span className="routine-tasks">{routine.taskIds.length} task(s)</span>
                 </div>
                 <div className="routine-actions">
-                  <button onClick={() => handleEdit(routine)} className="btn-edit">
+                  <button onClick={() => handleEdit(routine)} className="ck-btn ck-btn-sm">
                     ✏️ Edit
                   </button>
                   <button 
                     onClick={() => handleApply(routine)} 
-                    className="btn-apply"
+                    className="ck-btn ck-btn-sm"
                     disabled={routine.taskIds.length === 0}
                   >
                     ⚡ Apply
                   </button>
-                  <button onClick={() => handleDelete(routine.id)} className="btn-delete">
+                  <button onClick={() => handleDelete(routine.id)} className="ck-btn ck-btn-sm ck-btn-danger">
                     🗑️
                   </button>
                 </div>
@@ -385,6 +451,10 @@ const RoutinesView: React.FC<RoutinesViewProps> = ({ onApplyRoutine }) => {
           </div>
         </div>
       )}
+            </div>
+          </>
+        )}
+      </div>
     </div>
   );
 };

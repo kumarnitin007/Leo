@@ -12,42 +12,20 @@ const AnalyticsView: React.FC = () => {
   const [activeTab, setActiveTab] = useState<AnalyticsTab>('insights');
 
   return (
-    <div className="analytics-view">
-      <div className="view-header">
-        <h2>📊 Analytics & Reports</h2>
+    <div className="ck-screen analytics-view">
+      <div className="ck-page-head">
+        <div>
+          <h2 className="ck-page-title">Analytics &amp; Reports</h2>
+          <p className="ck-page-sub">Insights, history, calendar, fitness & AI usage</p>
+        </div>
       </div>
 
-      <div className="sub-tabs">
-        <button
-          className={`sub-tab ${activeTab === 'insights' ? 'active' : ''}`}
-          onClick={() => setActiveTab('insights')}
-        >
-          📈 Insights
-        </button>
-        <button
-          className={`sub-tab ${activeTab === 'history' ? 'active' : ''}`}
-          onClick={() => setActiveTab('history')}
-        >
-          📜 History
-        </button>
-        <button
-          className={`sub-tab ${activeTab === 'monthly' ? 'active' : ''}`}
-          onClick={() => setActiveTab('monthly')}
-        >
-          📅 Calendar
-        </button>
-        <button
-          className={`sub-tab ${activeTab === 'fitness' ? 'active' : ''}`}
-          onClick={() => setActiveTab('fitness')}
-        >
-          🏃 Fitness
-        </button>
-        <button
-          className={`sub-tab ${activeTab === 'ai' ? 'active' : ''}`}
-          onClick={() => setActiveTab('ai')}
-        >
-          🤖 AI
-        </button>
+      <div className="ck-subtabs" style={{ marginBottom: '18px' }}>
+        <button className={`ck-subtab ${activeTab === 'insights' ? 'active' : ''}`} onClick={() => setActiveTab('insights')}>📈 Insights</button>
+        <button className={`ck-subtab ${activeTab === 'history' ? 'active' : ''}`} onClick={() => setActiveTab('history')}>📜 History</button>
+        <button className={`ck-subtab ${activeTab === 'monthly' ? 'active' : ''}`} onClick={() => setActiveTab('monthly')}>📅 Calendar</button>
+        <button className={`ck-subtab ${activeTab === 'fitness' ? 'active' : ''}`} onClick={() => setActiveTab('fitness')}>🏃 Fitness</button>
+        <button className={`ck-subtab ${activeTab === 'ai' ? 'active' : ''}`} onClick={() => setActiveTab('ai')}>🤖 AI</button>
       </div>
 
       <div className="sub-tab-content">

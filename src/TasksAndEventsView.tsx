@@ -36,15 +36,14 @@ const TasksAndEventsView: React.FC<TasksAndEventsViewProps> = ({ initialTab }) =
     <div className="tasks-events-view">
       {/* Sub-tabs Navigation */}
       <div className="sub-tabs" style={{
-        background: 'rgba(255, 255, 255, 0.9)',
-        backdropFilter: 'blur(10px)',
+        background: 'var(--ck-white)',
+        border: '0.5px solid var(--ck-border2)',
         borderRadius: '12px',
-        padding: '0.5rem',
-        marginBottom: '1.5rem',
+        padding: '5px',
+        marginBottom: '1.25rem',
         display: 'flex',
-        gap: '0.375rem',
-        boxShadow: '0 2px 8px rgba(0, 0, 0, 0.05)',
-        justifyContent: 'center',
+        gap: '4px',
+        boxShadow: 'var(--ck-shadow)',
       }}>
         {tabs.map(t => {
           const isActive = activeSubTab === t.id;
@@ -55,19 +54,16 @@ const TasksAndEventsView: React.FC<TasksAndEventsViewProps> = ({ initialTab }) =
               className={`sub-tab ${isActive ? 'active' : ''}`}
               style={{
                 flex: 1,
-                padding: '0.625rem 0.5rem',
+                padding: '0.5rem 0.5rem',
                 borderRadius: '8px',
                 border: 'none',
-                background: isActive
-                  ? 'linear-gradient(135deg, #14b8a6 0%, #0d9488 100%)'
-                  : 'transparent',
-                color: isActive ? 'white' : '#6b7280',
+                background: isActive ? 'var(--ck-purple)' : 'transparent',
+                color: isActive ? '#fff' : 'var(--ck-ink2)',
+                fontFamily: 'var(--ck-font)',
                 fontWeight: 600,
                 fontSize: '0.8125rem',
                 cursor: 'pointer',
-                transition: 'all 0.2s',
-                boxShadow: isActive ? '0 4px 12px rgba(20, 184, 166, 0.35)' : 'none',
-                transform: isActive ? 'translateY(-2px)' : 'translateY(0)',
+                transition: 'all 0.15s',
                 display: 'flex',
                 flexDirection: 'column',
                 alignItems: 'center',

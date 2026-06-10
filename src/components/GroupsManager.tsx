@@ -9,7 +9,6 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 import {
   SharingGroup,
@@ -34,7 +33,6 @@ const GROUP_COLORS = ['#6366f1', '#8b5cf6', '#ec4899', '#ef4444', '#f97316', '#f
 const MEMBER_COLORS = ['#6366F1', '#10B981', '#F97316', '#8B5CF6', '#EF4444', '#F59E0B', '#06B6D4', '#EC4899'];
 
 const GroupsManager: React.FC<GroupsManagerProps> = ({ onClose, encryptionKey, inline = false }) => {
-  const { theme } = useTheme();
   const { user } = useAuth();
   const supabase = getSupabaseClient();
   
@@ -360,7 +358,7 @@ const GroupsManager: React.FC<GroupsManagerProps> = ({ onClose, encryptionKey, i
     return (
       <div style={{ padding: '2rem', textAlign: 'center' }}>
         <div style={{ fontSize: '2rem', marginBottom: '1rem' }}>👥</div>
-        <p style={{ color: '#6b7280' }}>Loading groups...</p>
+        <p style={{ color: 'var(--ck-ink3)' }}>Loading groups…</p>
       </div>
     );
   }
@@ -380,16 +378,18 @@ const GroupsManager: React.FC<GroupsManagerProps> = ({ onClose, encryptionKey, i
 
   const innerStyle: React.CSSProperties = inline
     ? {
-        background: 'white',
+        background: 'var(--ck-white)',
         borderRadius: '12px',
-        border: '0.5px solid #e5e7eb',
+        border: '0.5px solid var(--ck-border2)',
         width: '100%',
         overflow: 'hidden',
         display: 'flex',
         flexDirection: 'column',
+        fontFamily: 'var(--ck-font)',
       }
     : {
-        background: 'white',
+        background: 'var(--ck-white)',
+        fontFamily: 'var(--ck-font)',
         borderRadius: '1.25rem',
         width: '100%',
         maxWidth: '800px',
@@ -406,8 +406,8 @@ const GroupsManager: React.FC<GroupsManagerProps> = ({ onClose, encryptionKey, i
         {/* Header */}
         <div style={{
           padding: '1.25rem 1.5rem',
-          borderBottom: '1px solid #e5e7eb',
-          background: `linear-gradient(135deg, ${theme.colors.primary}15 0%, ${theme.colors.secondary}10 100%)`,
+          borderBottom: '0.5px solid var(--ck-border2)',
+          background: 'var(--ck-purple-light)',
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center'
@@ -415,10 +415,10 @@ const GroupsManager: React.FC<GroupsManagerProps> = ({ onClose, encryptionKey, i
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
             <span style={{ fontSize: '1.5rem' }}>👥</span>
             <div>
-              <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 700, color: '#1f2937' }}>
+              <h2 style={{ margin: 0, fontSize: '1.3rem', fontWeight: 500, fontFamily: 'var(--ck-serif)', color: 'var(--ck-ink)' }}>
                 My Groups
               </h2>
-              <p style={{ margin: 0, fontSize: '0.8rem', color: '#6b7280' }}>
+              <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--ck-ink3)' }}>
                 {myDisplayName ? `As: ${myDisplayName}` : 'Share with family'}
               </p>
             </div>
@@ -433,7 +433,7 @@ const GroupsManager: React.FC<GroupsManagerProps> = ({ onClose, encryptionKey, i
                 title="Edit display name"
                 style={{
                   padding: '0.4rem 0.6rem',
-                  background: theme.colors.primary,
+                  background: 'var(--ck-purple)',
                   color: 'white',
                   border: 'none',
                   borderRadius: '0.5rem',
@@ -465,8 +465,8 @@ const GroupsManager: React.FC<GroupsManagerProps> = ({ onClose, encryptionKey, i
         {/* Tabs */}
         <div style={{
           display: 'flex',
-          borderBottom: '1px solid #e5e7eb',
-          background: '#f9fafb'
+          borderBottom: '0.5px solid var(--ck-border2)',
+          background: 'var(--ck-paper)'
         }}>
           <button
             onClick={() => setActiveTab('groups')}
@@ -474,11 +474,12 @@ const GroupsManager: React.FC<GroupsManagerProps> = ({ onClose, encryptionKey, i
               flex: 1,
               padding: '1rem',
               border: 'none',
-              background: activeTab === 'groups' ? 'white' : 'transparent',
-              borderBottom: activeTab === 'groups' ? `3px solid ${theme.colors.primary}` : '3px solid transparent',
+              fontFamily: 'var(--ck-font)',
+              background: activeTab === 'groups' ? 'var(--ck-white)' : 'transparent',
+              borderBottom: activeTab === 'groups' ? `3px solid var(--ck-purple)` : '3px solid transparent',
               cursor: 'pointer',
               fontWeight: activeTab === 'groups' ? 600 : 400,
-              color: activeTab === 'groups' ? theme.colors.primary : '#6b7280',
+              color: activeTab === 'groups' ? 'var(--ck-purple)' : 'var(--ck-ink3)',
               transition: 'all 0.2s'
             }}
           >
@@ -490,11 +491,12 @@ const GroupsManager: React.FC<GroupsManagerProps> = ({ onClose, encryptionKey, i
               flex: 1,
               padding: '1rem',
               border: 'none',
-              background: activeTab === 'invitations' ? 'white' : 'transparent',
-              borderBottom: activeTab === 'invitations' ? `3px solid ${theme.colors.primary}` : '3px solid transparent',
+              fontFamily: 'var(--ck-font)',
+              background: activeTab === 'invitations' ? 'var(--ck-white)' : 'transparent',
+              borderBottom: activeTab === 'invitations' ? `3px solid var(--ck-purple)` : '3px solid transparent',
               cursor: 'pointer',
               fontWeight: activeTab === 'invitations' ? 600 : 400,
-              color: activeTab === 'invitations' ? theme.colors.primary : '#6b7280',
+              color: activeTab === 'invitations' ? 'var(--ck-purple)' : 'var(--ck-ink3)',
               transition: 'all 0.2s',
               position: 'relative'
             }}
@@ -547,14 +549,15 @@ const GroupsManager: React.FC<GroupsManagerProps> = ({ onClose, encryptionKey, i
                 }}
                 style={{
                   width: '100%',
-                  padding: '1rem',
-                  background: `linear-gradient(135deg, ${theme.colors.primary} 0%, ${theme.colors.secondary} 100%)`,
+                  padding: '0.85rem',
+                  background: 'var(--ck-purple)',
                   color: 'white',
                   border: 'none',
-                  borderRadius: '0.75rem',
+                  borderRadius: '10px',
                   cursor: 'pointer',
+                  fontFamily: 'var(--ck-font)',
                   fontWeight: 600,
-                  fontSize: '1rem',
+                  fontSize: '0.95rem',
                   marginBottom: '1.5rem',
                   display: 'flex',
                   alignItems: 'center',
@@ -562,7 +565,7 @@ const GroupsManager: React.FC<GroupsManagerProps> = ({ onClose, encryptionKey, i
                   gap: '0.5rem'
                 }}
               >
-                ➕ Create New Group
+                + Create New Group
               </button>
 
               {/* Groups list */}
@@ -579,9 +582,10 @@ const GroupsManager: React.FC<GroupsManagerProps> = ({ onClose, encryptionKey, i
                       onClick={() => setSelectedGroup(selectedGroup?.id === group.id ? null : group)}
                       style={{
                         padding: '1rem',
-                        border: `2px solid ${selectedGroup?.id === group.id ? group.color : '#e5e7eb'}`,
-                        borderRadius: '0.75rem',
-                        background: selectedGroup?.id === group.id ? `${group.color}08` : 'white',
+                        border: `1px solid ${selectedGroup?.id === group.id ? group.color : 'var(--ck-border2)'}`,
+                        borderRadius: '10px',
+                        background: selectedGroup?.id === group.id ? `${group.color}0d` : 'var(--ck-white)',
+                        boxShadow: 'var(--ck-shadow)',
                         cursor: 'pointer',
                         transition: 'all 0.2s'
                       }}
@@ -827,7 +831,7 @@ const GroupsManager: React.FC<GroupsManagerProps> = ({ onClose, encryptionKey, i
                           style={{
                             flex: 1,
                             padding: '0.625rem',
-                            background: theme.colors.primary,
+                            background: 'var(--ck-purple)',
                             color: 'white',
                             border: 'none',
                             borderRadius: '0.5rem',
@@ -1245,7 +1249,7 @@ const GroupsManager: React.FC<GroupsManagerProps> = ({ onClose, encryptionKey, i
                   style={{
                     flex: 1,
                     padding: '0.75rem',
-                    background: editDisplayName.trim() ? theme.colors.primary : '#e5e7eb',
+                    background: editDisplayName.trim() ? 'var(--ck-purple)' : '#e5e7eb',
                     color: editDisplayName.trim() ? 'white' : '#9ca3af',
                     border: 'none',
                     borderRadius: '0.5rem',

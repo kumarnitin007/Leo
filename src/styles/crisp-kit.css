@@ -1,0 +1,479 @@
+/* ═══════════════════════════════════════════════════════
+   CRISP KIT — always-on shared design system
+   Mirrors the Journal redesign look (journal.css `--j-*`) so
+   any screen can adopt the warm-paper / DM Sans aesthetic
+   regardless of the selected theme.
+
+   Usage: wrap a screen in `.ck-screen` then use `.ck-*` parts.
+   ═══════════════════════════════════════════════════════ */
+
+:root {
+  --ck-ink: #1a1714;
+  --ck-ink2: #5a534d;
+  --ck-ink3: #9a9089;
+  --ck-paper: #faf8f5;
+  --ck-cream: #f2ede6;
+  --ck-white: #ffffff;
+  --ck-border: rgba(90, 83, 77, 0.12);
+  --ck-border2: rgba(90, 83, 77, 0.22);
+  --ck-purple: #6b5de8;
+  --ck-purple-light: #ede9ff;
+  --ck-purple-dark: #534ab7;
+  --ck-green: #1d9e75;
+  --ck-green-light: #e8f5ef;
+  --ck-gold: #c8922a;
+  --ck-gold-light: #fef5e4;
+  --ck-red: #c94a2e;
+  --ck-red-light: #fdf0ee;
+  --ck-radius: 10px;
+  --ck-radius-sm: 7px;
+  --ck-shadow: 0 1px 3px rgba(26, 23, 20, 0.05), 0 1px 2px rgba(26, 23, 20, 0.03);
+  --ck-shadow-hover: 0 6px 18px rgba(26, 23, 20, 0.08);
+  --ck-font: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  --ck-serif: 'Lora', Georgia, serif;
+}
+
+/* ── Screen shell ──────────────────────────────────── */
+.ck-screen {
+  font-family: var(--ck-font);
+  color: var(--ck-ink);
+  background: var(--ck-paper);
+  min-height: 100%;
+  border-radius: 14px;
+  border: 0.5px solid var(--ck-border2);
+  padding: 20px 24px 32px;
+}
+
+@media (max-width: 767px) {
+  .ck-screen {
+    border: none;
+    border-radius: 0;
+    padding: 12px 12px 24px;
+  }
+}
+
+/* ── Page header ───────────────────────────────────── */
+.ck-page-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 18px;
+}
+.ck-page-title {
+  font-family: var(--ck-serif);
+  font-size: 1.6rem;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  color: var(--ck-ink);
+  margin: 0;
+}
+.ck-page-sub {
+  font-size: 0.82rem;
+  color: var(--ck-ink3);
+  margin: 3px 0 0;
+}
+
+/* ── Section label (small uppercase) ───────────────── */
+.ck-section-label {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--ck-ink3);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+/* ── Cards ─────────────────────────────────────────── */
+.ck-card {
+  background: var(--ck-white);
+  border: 1px solid var(--ck-border2);
+  border-radius: var(--ck-radius);
+  box-shadow: var(--ck-shadow);
+  padding: 14px;
+  transition: box-shadow 0.18s ease, transform 0.18s ease, border-color 0.18s ease;
+}
+.ck-card.ck-card-hover:hover {
+  box-shadow: var(--ck-shadow-hover);
+  transform: translateY(-2px);
+}
+
+/* ── Buttons ───────────────────────────────────────── */
+.ck-btn {
+  font-family: var(--ck-font);
+  font-size: 0.82rem;
+  font-weight: 500;
+  padding: 7px 14px;
+  border-radius: 8px;
+  border: 0.5px solid var(--ck-border2);
+  background: var(--ck-white);
+  color: var(--ck-ink);
+  cursor: pointer;
+  transition: all 0.14s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+.ck-btn:hover { background: var(--ck-cream); border-color: var(--ck-border2); }
+.ck-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.ck-btn-primary {
+  background: var(--ck-purple);
+  color: #fff;
+  border-color: transparent;
+}
+.ck-btn-primary:hover { background: var(--ck-purple-dark); }
+
+.ck-btn-ghost {
+  background: transparent;
+  border-color: transparent;
+  color: var(--ck-ink2);
+}
+.ck-btn-ghost:hover { background: var(--ck-cream); }
+
+.ck-btn-danger {
+  background: transparent;
+  border-color: rgba(201, 74, 46, 0.4);
+  color: var(--ck-red);
+}
+.ck-btn-danger:hover { background: var(--ck-red-light); }
+
+.ck-btn-sm { padding: 5px 10px; font-size: 0.75rem; }
+
+/* ── Badges / pills (outlined by default) ──────────── */
+.ck-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 2px 9px;
+  border-radius: 999px;
+  background: transparent;
+  border: 1px solid var(--ck-border2);
+  color: var(--ck-ink2);
+  white-space: nowrap;
+}
+.ck-badge-purple { border-color: rgba(107, 93, 232, 0.4); color: var(--ck-purple); background: var(--ck-purple-light); }
+.ck-badge-green  { border-color: rgba(29, 158, 117, 0.4); color: var(--ck-green);  background: var(--ck-green-light); }
+.ck-badge-gold   { border-color: rgba(200, 146, 42, 0.4); color: var(--ck-gold);   background: var(--ck-gold-light); }
+.ck-badge-red    { border-color: rgba(201, 74, 46, 0.4);  color: var(--ck-red);    background: var(--ck-red-light); }
+
+/* ── Counter pill ──────────────────────────────────── */
+.ck-counter {
+  font-size: 0.7rem;
+  color: var(--ck-ink3);
+  background: var(--ck-cream);
+  padding: 3px 10px;
+  border-radius: 12px;
+}
+
+/* ── Toolbar (search/sort bar) ─────────────────────── */
+.ck-toolbar {
+  background: var(--ck-white);
+  border: 0.5px solid var(--ck-border);
+  border-radius: var(--ck-radius);
+  box-shadow: var(--ck-shadow);
+  padding: 12px 14px;
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: flex-end;
+}
+
+/* ── Form controls ─────────────────────────────────── */
+.ck-label {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--ck-ink3);
+  letter-spacing: 0.02em;
+  margin-bottom: 5px;
+}
+.ck-input,
+.ck-select,
+.ck-textarea {
+  width: 100%;
+  font-family: var(--ck-font);
+  font-size: 0.85rem;
+  color: var(--ck-ink);
+  background: var(--ck-white);
+  border: 1px solid var(--ck-border2);
+  border-radius: var(--ck-radius-sm);
+  padding: 8px 10px;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  box-sizing: border-box;
+}
+.ck-textarea { resize: vertical; min-height: 80px; line-height: 1.6; }
+.ck-input:focus,
+.ck-select:focus,
+.ck-textarea:focus {
+  border-color: var(--ck-purple);
+  box-shadow: 0 0 0 2px rgba(107, 93, 232, 0.15);
+}
+
+/* ── Form container (styles descendant fields) ─────── */
+.ck-form .form-row {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+.ck-form .form-group {
+  flex: 1 1 180px;
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 12px;
+}
+.ck-form .form-row .form-group { margin-bottom: 0; }
+.ck-form label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--ck-ink3);
+  letter-spacing: 0.02em;
+  margin-bottom: 5px;
+}
+.ck-form input[type="text"],
+.ck-form input[type="number"],
+.ck-form input[type="date"],
+.ck-form select,
+.ck-form textarea {
+  width: 100%;
+  font-family: var(--ck-font);
+  font-size: 0.85rem;
+  color: var(--ck-ink);
+  background: var(--ck-white);
+  border: 1px solid var(--ck-border2);
+  border-radius: var(--ck-radius-sm);
+  padding: 8px 10px;
+  outline: none;
+  box-sizing: border-box;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.ck-form textarea { resize: vertical; min-height: 80px; line-height: 1.6; }
+.ck-form input[type="text"]:focus,
+.ck-form input[type="number"]:focus,
+.ck-form input[type="date"]:focus,
+.ck-form select:focus,
+.ck-form textarea:focus {
+  border-color: var(--ck-purple);
+  box-shadow: 0 0 0 2px rgba(107, 93, 232, 0.15);
+}
+.ck-form input[type="color"] {
+  width: 48px;
+  height: 34px;
+  padding: 2px;
+  border: 1px solid var(--ck-border2);
+  border-radius: var(--ck-radius-sm);
+  background: var(--ck-white);
+  cursor: pointer;
+}
+.ck-form small { font-size: 0.7rem; color: var(--ck-ink3); margin-top: 3px; }
+.ck-form-actions { display: flex; gap: 10px; margin-top: 4px; }
+
+/* ── Chips (selectable) ────────────────────────────── */
+.ck-chip {
+  font-size: 0.78rem;
+  padding: 4px 11px;
+  border-radius: 14px;
+  border: 0.5px solid var(--ck-border2);
+  background: var(--ck-white);
+  color: var(--ck-ink2);
+  cursor: pointer;
+  transition: all 0.12s ease;
+  font-family: inherit;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.ck-chip:hover { border-color: var(--ck-purple); color: var(--ck-purple); }
+.ck-chip.selected {
+  background: var(--ck-green-light);
+  border-color: rgba(29, 158, 117, 0.3);
+  color: var(--ck-green);
+}
+
+/* ── Sub-tabs (neutral underline) ──────────────────── */
+.ck-subtabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 0.5px solid var(--ck-border2);
+  overflow-x: auto;
+}
+.ck-subtab {
+  font-family: var(--ck-font);
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: var(--ck-ink3);
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  padding: 8px 12px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color 0.14s ease, border-color 0.14s ease;
+}
+.ck-subtab:hover { color: var(--ck-ink); }
+.ck-subtab.active { color: var(--ck-ink); border-bottom-color: var(--ck-purple); }
+
+/* ── Responsive card grid ──────────────────────────── */
+.ck-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 14px;
+}
+@media (max-width: 767px) {
+  .ck-grid { grid-template-columns: 1fr; gap: 10px; }
+}
+
+/* ── Empty state ───────────────────────────────────── */
+.ck-empty {
+  background: var(--ck-white);
+  border: 1px dashed var(--ck-border2);
+  border-radius: var(--ck-radius);
+  padding: 36px 24px;
+  text-align: center;
+  color: var(--ck-ink3);
+}
+
+/* ── Misc ──────────────────────────────────────────── */
+.ck-divider { height: 0.5px; background: var(--ck-border); border: none; margin: 14px 0; }
+
+/* ═══════════════════════════════════════════════════════
+   Unify legacy cards (Events / Tasks / Routines) to the
+   Items "Crisp Kit" card look. Selectors are scoped under
+   the grid wrappers so they win over the single-class
+   rules in index.css / mobile.css.
+   ═══════════════════════════════════════════════════════ */
+
+/* Grids → identical responsive auto-fill for every screen, so all
+   screens show the same number of cards per row at a given width.
+   Includes media overrides to defeat the fixed-column rules in index.css. */
+.ck-grid,
+.events-grid,
+.routines-grid,
+.resolutions-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 14px;
+}
+@media (min-width: 768px) {
+  .events-grid,
+  .resolutions-grid {
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 14px;
+  }
+}
+
+/* Card box */
+.events-grid .event-card,
+.routines-grid .routine-card {
+  background: var(--ck-white);
+  border: 1px solid var(--ck-border2);
+  border-radius: var(--ck-radius);
+  box-shadow: var(--ck-shadow);
+  padding: 14px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  font-family: var(--ck-font);
+  color: var(--ck-ink);
+  transition: box-shadow 0.18s ease, transform 0.18s ease, border-color 0.18s ease;
+}
+.events-grid .event-card:hover,
+.routines-grid .routine-card:hover {
+  box-shadow: var(--ck-shadow-hover);
+  transform: translateY(-2px);
+}
+
+/* Routine cards have no per-item color → give a default left accent */
+.routines-grid .routine-card { border-left: 3px solid var(--ck-purple); }
+.routines-grid .routine-card.routine-active { border-left-color: var(--ck-green); }
+.routines-grid .routine-card.routine-inactive { border-left-color: var(--ck-gold); }
+
+/* Header row */
+.events-grid .event-card-header,
+.routines-grid .routine-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.events-grid .event-card-header .event-icon,
+.routines-grid .routine-header .routine-icon { font-size: 1.2rem; }
+.events-grid .event-card-header h4,
+.routines-grid .routine-header h4 {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--ck-ink);
+  flex: 1;
+  min-width: 0;
+}
+
+/* Description / date text */
+.events-grid .event-description,
+.routines-grid .routine-description {
+  font-size: 0.82rem;
+  color: var(--ck-ink2);
+  line-height: 1.5;
+  margin: 0 0 8px;
+}
+.events-grid .event-date {
+  font-size: 0.8rem;
+  color: var(--ck-ink2);
+  margin-bottom: 8px;
+}
+
+/* Meta badge rows */
+.events-grid .event-meta,
+.routines-grid .routine-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 4px 0 10px;
+}
+
+/* All legacy pills → outlined ck-badge look */
+.events-grid .event-category-badge,
+.events-grid .event-frequency-badge,
+.events-grid .event-notify-badge,
+.events-grid .event-priority-badge,
+.routines-grid .routine-time,
+.routines-grid .routine-tasks,
+.routines-grid .routine-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 2px 9px;
+  border-radius: 999px;
+  background: transparent;
+  border: 1px solid var(--ck-border2);
+  color: var(--ck-ink2);
+  white-space: nowrap;
+  text-transform: none;
+  letter-spacing: 0;
+  position: static;
+}
+.events-grid .event-category-badge {
+  align-self: flex-start;
+  margin: 0 0 8px;
+  border-color: rgba(107, 93, 232, 0.4);
+  color: var(--ck-purple);
+  background: var(--ck-purple-light);
+}
+
+/* Actions footer (divider + buttons) */
+.events-grid .event-actions,
+.routines-grid .routine-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  border-top: 0.5px solid var(--ck-border);
+  padding-top: 10px;
+  margin-top: auto;
+}

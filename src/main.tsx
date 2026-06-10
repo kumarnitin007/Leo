@@ -4,6 +4,7 @@ import App from './App'
 import './index.css'
 import './mobile.css'
 import './styles/journal.css'
+import './styles/crisp-kit.css'
 import './crisp-paper.css'
 
 // CrispPaper: verify Bricolage Grotesque loaded, warn if fallback active

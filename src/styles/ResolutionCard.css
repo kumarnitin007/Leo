@@ -1,20 +1,22 @@
 /* ResolutionCard Component Styling */
 
 .resolution-card {
-  background: white;
-  border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  padding: 1.5rem;
-  border-left: 5px solid #3b82f6;
-  transition: all 0.3s;
+  background: var(--ck-white, #fff);
+  border: 1px solid var(--ck-border2, rgba(90,83,77,0.22));
+  border-radius: 10px;
+  box-shadow: var(--ck-shadow, 0 1px 3px rgba(26,23,20,0.05));
+  padding: 1.25rem;
+  border-left: 3px solid var(--ck-purple, #6b5de8);
+  transition: all 0.2s;
   display: flex;
   flex-direction: column;
   height: 100%;
+  font-family: var(--ck-font, sans-serif);
 }
 
 .resolution-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15);
+  transform: translateY(-2px);
+  box-shadow: var(--ck-shadow-hover, 0 6px 18px rgba(26,23,20,0.08));
 }
 
 /* Header */
@@ -31,20 +33,21 @@
 }
 
 .resolution-title {
-  font-size: 1.25rem;
-  font-weight: 700;
-  color: #1f2937;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--ck-ink, #1a1714);
   margin: 0 0 0.5rem 0;
   line-height: 1.3;
 }
 
 .resolution-category {
   display: inline-block;
-  background: #f3f4f6;
-  color: #6b7280;
-  padding: 0.25rem 0.75rem;
-  border-radius: 12px;
-  font-size: 0.75rem;
+  background: transparent;
+  color: var(--ck-ink2, #5a534d);
+  border: 1px solid var(--ck-border2, rgba(90,83,77,0.22));
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.7rem;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -93,7 +96,7 @@
 }
 
 .progress-bar-container {
-  background: #e5e7eb;
+  background: var(--ck-cream, #f2ede6);
   border-radius: 8px;
   height: 8px;
   overflow: hidden;
@@ -101,7 +104,7 @@
 }
 
 .progress-bar {
-  background: linear-gradient(90deg, #3b82f6, #10b981);
+  background: var(--ck-purple, #6b5de8);
   height: 100%;
   transition: width 0.3s ease;
   border-radius: 8px;
@@ -125,9 +128,9 @@
 .resolution-milestones {
   margin-bottom: 1rem;
   padding: 1rem;
-  background: #f9fafb;
+  background: var(--ck-cream, #f2ede6);
   border-radius: 8px;
-  border-left: 3px solid #3b82f6;
+  border-left: 3px solid var(--ck-purple, #6b5de8);
 }
 
 .milestones-label {
@@ -156,7 +159,7 @@
   font-size: 1rem;
   min-width: 1.25rem;
   text-align: center;
-  color: #3b82f6;
+  color: var(--ck-green, #1d9e75);
 }
 
 .milestone-item.completed {
@@ -184,14 +187,14 @@
 .resolution-linked {
   margin-bottom: 1rem;
   padding: 0.75rem;
-  background: rgba(34, 197, 94, 0.1);
+  background: var(--ck-green-light, #e8f5ef);
   border-radius: 8px;
-  border-left: 3px solid #22c55e;
+  border-left: 3px solid var(--ck-green, #1d9e75);
 }
 
 .linked-label {
   font-size: 0.9rem;
-  color: #15803d;
+  color: var(--ck-green, #1d9e75);
   font-weight: 600;
 }
 
@@ -206,68 +209,69 @@
 }
 
 .action-btn {
-  padding: 0.5rem 0.75rem;
-  border: none;
-  border-radius: 6px;
-  font-size: 0.85rem;
-  font-weight: 600;
+  padding: 0.45rem 0.7rem;
+  border: 0.5px solid var(--ck-border2, rgba(90,83,77,0.22));
+  background: var(--ck-white, #fff);
+  color: var(--ck-ink2, #5a534d);
+  border-radius: 8px;
+  font-family: var(--ck-font, sans-serif);
+  font-size: 0.8rem;
+  font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.15s;
   flex: 1;
   min-width: 70px;
   white-space: nowrap;
 }
+.action-btn:hover { background: var(--ck-cream, #f2ede6); }
 
 .edit-btn {
-  background: #3b82f6;
+  background: var(--ck-purple, #6b5de8);
   color: white;
+  border-color: transparent;
 }
 
 .edit-btn:hover {
-  background: #2563eb;
-  transform: translateY(-1px);
+  background: var(--ck-purple-dark, #534ab7);
 }
 
 .pause-btn,
 .resume-btn {
-  background: #f59e0b;
-  color: white;
+  color: var(--ck-gold, #c8922a);
+  border-color: rgba(200,146,42,0.4);
 }
 
 .pause-btn:hover,
 .resume-btn:hover {
-  background: #d97706;
-  transform: translateY(-1px);
+  background: var(--ck-gold-light, #fef5e4);
 }
 
 .abandon-btn {
-  background: #ef4444;
-  color: white;
+  color: var(--ck-red, #c94a2e);
+  border-color: rgba(201,74,46,0.4);
 }
 
 .abandon-btn:hover {
-  background: #dc2626;
-  transform: translateY(-1px);
+  background: var(--ck-red-light, #fdf0ee);
 }
 
 .complete-btn {
-  background: #10b981;
+  background: var(--ck-green, #1d9e75);
   color: white;
+  border-color: transparent;
 }
 
 .complete-btn:hover {
-  background: #059669;
-  transform: translateY(-1px);
+  background: #178a66;
 }
 
 .delete-btn {
-  background: #6b7280;
-  color: white;
+  color: var(--ck-red, #c94a2e);
+  border-color: rgba(201,74,46,0.4);
 }
 
 .delete-btn:hover {
-  background: #4b5563;
-  transform: translateY(-1px);
+  background: var(--ck-red-light, #fdf0ee);
 }
 
 /* Responsive */

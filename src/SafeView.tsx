@@ -11,6 +11,7 @@
 
 import React, { useState, useEffect, useRef, Suspense, lazy } from 'react';
 import { useAuth } from './contexts/AuthContext';
+import { useMobileHeader } from './contexts/MobileHeaderContext';
 import { 
   hasMasterPassword, 
   setMasterPassword, 
@@ -82,6 +83,7 @@ function getFilterLabel(filter: SafeFilter, tags: Tag[]): string {
 const SafeView: React.FC = () => {
   const { isAuthenticated } = useAuth();
   const { user } = useAuth();
+  const { setOverride } = useMobileHeader();
   const [isSetup, setIsSetup] = useState<boolean | null>(null);
   const [isLocked, setIsLocked] = useState(true);
   const [isUnlocking, setIsUnlocking] = useState(false);
@@ -131,6 +133,34 @@ const SafeView: React.FC = () => {
     return () => clearInterval(interval);
   }, []);
   
+  // Mobile: show the auto-lock countdown on the right of the global top bar
+  // (next to the "Vault" title) instead of a separate full-width banner.
+  React.useEffect(() => {
+    if (isMobile && !isLocked && remainingMinutes !== null && remainingMinutes >= 0) {
+      setOverride({
+        title: 'Vault',
+        icon: '🔒',
+        rightContent: (
+          <span
+            style={{
+              fontSize: '0.7rem',
+              fontWeight: 600,
+              whiteSpace: 'nowrap',
+              opacity: 0.9,
+              color: remainingMinutes <= 1 ? '#fecaca' : 'inherit',
+            }}
+            title="Auto-lock countdown"
+          >
+            🔒 Lock in {remainingMinutes} min
+          </span>
+        ),
+      });
+    } else {
+      setOverride(null);
+    }
+    return () => setOverride(null);
+  }, [isMobile, isLocked, remainingMinutes, setOverride]);
+
   // Track window resize for mobile detection
   React.useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth < 768);
@@ -978,24 +1008,6 @@ const SafeView: React.FC = () => {
   // Unlocked state - show list or detail/form
   return (
     <div style={{ padding: isMobile ? '0.5rem' : '2rem', maxWidth: '1400px', margin: '0 auto' }}>
-      {/* Mobile: Lock timer bar at top so it's always visible */}
-      {isMobile && remainingMinutes !== null && remainingMinutes >= 0 && (
-        <div style={{
-          marginBottom: '0.75rem',
-          padding: '0.5rem 0.75rem',
-          borderRadius: '0.5rem',
-          background: remainingMinutes <= 1 ? '#fef2f2' : '#f3f4f6',
-          color: remainingMinutes <= 1 ? '#dc2626' : '#6b7280',
-          fontSize: '0.85rem',
-          fontWeight: 600,
-          display: 'flex',
-          alignItems: 'center',
-          gap: '0.5rem',
-        }}>
-          <span>🔒</span>
-          <span>Lock in {remainingMinutes} min</span>
-        </div>
-      )}
       {/* Auto-lock warning */}
       {timeUntilLock !== null && timeUntilLock < 60 && (
         <div style={{
@@ -1014,148 +1026,138 @@ const SafeView: React.FC = () => {
         </div>
       )}
 
-      {/* Header */}
-      <div className="safe-desktop-header" style={{ 
-        display: 'flex', 
-        justifyContent: 'space-between', 
+      {/* Desktop compact toolbar — small tab selector + consolidated actions in one slim row.
+          "Leo's Safe" title dropped; Change Password / Lock merged here. */}
+      <div className="safe-desktop-header" style={{
+        display: 'flex',
+        justifyContent: 'space-between',
         alignItems: 'center',
-        marginBottom: '2rem'
+        gap: '0.75rem',
+        marginBottom: '1rem',
+        flexWrap: 'wrap'
       }}>
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.5rem', flexWrap: 'wrap' }}>
-            <span style={{ fontSize: '2.5rem' }}>🦁</span>
-            <h1 style={{ margin: 0, fontSize: '2rem' }}>Leo's Safe</h1>
-            {remainingMinutes !== null && remainingMinutes >= 0 && (
-              <span
-                style={{
-                  fontSize: '0.9rem',
-                  fontWeight: 600,
-                  color: remainingMinutes <= 1 ? '#dc2626' : '#6b7280',
-                  background: remainingMinutes <= 1 ? '#fef2f2' : '#f3f4f6',
-                  padding: '0.35rem 0.6rem',
-                  borderRadius: '0.375rem',
-                }}
-                title="Auto-lock countdown"
-              >
-                Lock in {remainingMinutes} min
-              </span>
-            )}
-          </div>
-          <p style={{ margin: '0.5rem 0 0 0', opacity: 0.8, fontSize: '0.875rem' }}>
-            {entryCount} {entryCount === 1 ? 'entry' : 'entries'}, {documents.length} {documents.length === 1 ? 'document' : 'documents'}
-          </p>
+        {/* Compact segmented tab selector */}
+        <div style={{
+          display: 'inline-flex',
+          background: 'var(--ck-white)',
+          border: '0.5px solid var(--ck-border2)',
+          borderRadius: '10px',
+          padding: '3px',
+          gap: '2px'
+        }}>
+          {([
+            { id: 'financial', label: 'Financial', icon: '🏦', badge: pendingImportsCount },
+            { id: 'entries', label: 'Passwords', icon: '🔐', badge: 0 },
+            { id: 'documents', label: 'Documents', icon: '📄', badge: 0 },
+          ] as const).map(t => (
+            <button
+              key={t.id}
+              onClick={() => setActiveTab(t.id)}
+              className="safe-tab"
+              style={{
+                position: 'relative',
+                padding: '5px 12px',
+                background: activeTab === t.id ? 'var(--ck-purple)' : 'transparent',
+                color: activeTab === t.id ? '#fff' : 'var(--ck-ink2)',
+                border: 'none',
+                borderRadius: '8px',
+                cursor: 'pointer',
+                fontFamily: 'var(--ck-font)',
+                fontSize: '0.8rem',
+                fontWeight: 600,
+                whiteSpace: 'nowrap',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.3rem'
+              }}
+            >
+              <span>{t.icon}</span>
+              <span>{t.label}</span>
+              {t.badge > 0 && (
+                <span style={{
+                  background: 'var(--ck-gold)',
+                  color: 'white',
+                  fontSize: '0.6rem',
+                  fontWeight: 700,
+                  padding: '1px 5px',
+                  borderRadius: '8px',
+                  marginLeft: '0.15rem'
+                }}>{t.badge}</span>
+              )}
+            </button>
+          ))}
         </div>
-        <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
-          {/* Passwords + Documents-only actions (hidden on Financial tab) */}
+
+        {/* Consolidated actions */}
+        <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center', flexWrap: 'wrap' }}>
+          {remainingMinutes !== null && remainingMinutes >= 0 && (
+            <span
+              style={{
+                fontSize: '0.75rem',
+                fontWeight: 600,
+                color: remainingMinutes <= 1 ? 'var(--ck-red)' : 'var(--ck-ink3)',
+                background: remainingMinutes <= 1 ? 'var(--ck-red-light)' : 'var(--ck-cream)',
+                padding: '0.3rem 0.55rem',
+                borderRadius: '0.375rem',
+                whiteSpace: 'nowrap'
+              }}
+              title="Auto-lock countdown"
+            >
+              🔒 {remainingMinutes} min
+            </span>
+          )}
           {activeTab !== 'financial' && (
             <>
-              <button
-                onClick={() => setShowSharedWithMe(true)}
-                style={{
-                  padding: '0.625rem 1rem',
-                  backgroundColor: '#14b8a6',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '0.5rem',
-                  cursor: 'pointer',
-                  fontSize: '0.9rem',
-                  fontWeight: 500
-                }}
-              >
-                🔗 Shared With Me
+              <button onClick={() => setShowSharedWithMe(true)} title="Shared With Me" className="ck-btn ck-btn-sm">
+                🔗 Shared
               </button>
-              <button
-                onClick={() => setShowImportExport(true)}
-                style={{
-                  padding: '0.625rem 1rem',
-                  backgroundColor: '#10b981',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '0.5rem',
-                  cursor: 'pointer',
-                  fontSize: '0.9rem'
-                }}
-              >
-                📥 Import/Export
+              <button onClick={() => setShowImportExport(true)} title="Import / Export" className="ck-btn ck-btn-sm">
+                📥 Import
               </button>
-              <button
-                onClick={() => setShowSafeTags(true)}
-                style={{
-                  padding: '0.625rem 1rem',
-                  backgroundColor: '#f59e0b',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '0.5rem',
-                  cursor: 'pointer',
-                  fontSize: '0.9rem'
-                }}
-              >
+              <button onClick={() => setShowSafeTags(true)} title="Tags" className="ck-btn ck-btn-sm">
                 🏷️ Tags
               </button>
             </>
           )}
-          <button
-            onClick={() => {
-              setShowChangePassword(true);
-            }}
-            style={{
-              padding: '0.625rem 1rem',
-              backgroundColor: '#8b5cf6',
-              color: 'white',
-              border: 'none',
-              borderRadius: '0.5rem',
-              cursor: 'pointer',
-              fontSize: '0.9rem',
-              fontWeight: 500
-            }}
-          >
-            🔐 Change Password
+          <button onClick={() => setShowChangePassword(true)} title="Change Password" className="ck-btn ck-btn-sm">
+            🔐 Password
           </button>
-          <button
-            onClick={handleLock}
-            style={{
-              padding: '0.625rem 1rem',
-              backgroundColor: '#6b7280',
-              color: 'white',
-              border: 'none',
-              borderRadius: '0.5rem',
-              cursor: 'pointer',
-              fontSize: '0.9rem'
-            }}
-          >
+          <button onClick={handleLock} title="Lock Vault" className="ck-btn ck-btn-sm">
             🔒 Lock
           </button>
         </div>
       </div>
 
-      {/* Tab Navigation — Financial first, then Passwords, then Documents */}
+      {/* Tab Navigation (mobile only) — Financial first, then Passwords, then Documents */}
+      {isMobile && (
       <div className="safe-tabs-wrapper" style={{
         display: 'flex',
-        gap: '0.75rem',
-        marginBottom: '1.5rem'
+        gap: isMobile ? '0.4rem' : '0.75rem',
+        marginBottom: isMobile ? '0.75rem' : '1.5rem'
       }}>
         <button
           onClick={() => setActiveTab('financial')}
           className="safe-tab"
           style={{
             flex: 1,
-            padding: '0.75rem 1rem',
+            padding: isMobile ? '0.45rem 0.5rem' : '0.75rem 1rem',
             backgroundColor: activeTab === 'financial' ? '#3b82f6' : 'rgba(255,255,255,0.5)',
             color: activeTab === 'financial' ? 'white' : '#6b7280',
             border: activeTab === 'financial' ? 'none' : '2px solid rgba(0,0,0,0.1)',
-            borderRadius: '12px',
+            borderRadius: isMobile ? '8px' : '12px',
             cursor: 'pointer',
-            fontSize: '0.875rem',
+            fontSize: isMobile ? '0.8rem' : '0.875rem',
             fontWeight: 600,
             transition: 'all 0.3s ease',
             display: 'flex',
-            flexDirection: 'column',
+            flexDirection: isMobile ? 'row' : 'column',
             alignItems: 'center',
+            justifyContent: 'center',
             gap: '0.25rem',
             position: 'relative'
           }}
         >
-          <span style={{ fontSize: '1.25rem' }}>🏦</span>
+          {!isMobile && <span style={{ fontSize: '1.25rem' }}>🏦</span>}
           <span>Financial</span>
           {pendingImportsCount > 0 && (
             <span style={{
@@ -1182,22 +1184,23 @@ const SafeView: React.FC = () => {
           className="safe-tab"
           style={{
             flex: 1,
-            padding: '0.75rem 1rem',
+            padding: isMobile ? '0.45rem 0.5rem' : '0.75rem 1rem',
             backgroundColor: activeTab === 'entries' ? '#3b82f6' : 'rgba(255,255,255,0.5)',
             color: activeTab === 'entries' ? 'white' : '#6b7280',
             border: activeTab === 'entries' ? 'none' : '2px solid rgba(0,0,0,0.1)',
-            borderRadius: '12px',
+            borderRadius: isMobile ? '8px' : '12px',
             cursor: 'pointer',
-            fontSize: '0.875rem',
+            fontSize: isMobile ? '0.8rem' : '0.875rem',
             fontWeight: 600,
             transition: 'all 0.3s ease',
             display: 'flex',
-            flexDirection: 'column',
+            flexDirection: isMobile ? 'row' : 'column',
             alignItems: 'center',
+            justifyContent: 'center',
             gap: '0.25rem'
           }}
         >
-          <span style={{ fontSize: '1.25rem' }}>🔐</span>
+          {!isMobile && <span style={{ fontSize: '1.25rem' }}>🔐</span>}
           <span>Passwords</span>
         </button>
         <button
@@ -1205,25 +1208,27 @@ const SafeView: React.FC = () => {
           className="safe-tab"
           style={{
             flex: 1,
-            padding: '0.75rem 1rem',
+            padding: isMobile ? '0.45rem 0.5rem' : '0.75rem 1rem',
             backgroundColor: activeTab === 'documents' ? '#3b82f6' : 'rgba(255,255,255,0.5)',
             color: activeTab === 'documents' ? 'white' : '#6b7280',
             border: activeTab === 'documents' ? 'none' : '2px solid rgba(0,0,0,0.1)',
-            borderRadius: '12px',
+            borderRadius: isMobile ? '8px' : '12px',
             cursor: 'pointer',
-            fontSize: '0.875rem',
+            fontSize: isMobile ? '0.8rem' : '0.875rem',
             fontWeight: 600,
             transition: 'all 0.3s ease',
             display: 'flex',
-            flexDirection: 'column',
+            flexDirection: isMobile ? 'row' : 'column',
             alignItems: 'center',
+            justifyContent: 'center',
             gap: '0.25rem'
           }}
         >
-          <span style={{ fontSize: '1.25rem' }}>📄</span>
+          {!isMobile && <span style={{ fontSize: '1.25rem' }}>📄</span>}
           <span>Documents</span>
         </button>
       </div>
+      )}
 
       {/* Add Button - Only show for entries and documents tabs */}
       {activeTab !== 'financial' && (

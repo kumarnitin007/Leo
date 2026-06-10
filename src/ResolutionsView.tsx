@@ -3,6 +3,7 @@ import { Resolution, Task } from './types';
 import { getTasks, getResolutions, addResolution, updateResolution, deleteResolution } from './storage';
 import ResolutionCard from './components/ResolutionCard';
 import ResolutionModal from './components/ResolutionModal';
+import GenericFilterSidebar, { GenericFilter, FilterSection } from './components/GenericFilterSidebar';
 import './styles/ResolutionsView.css';
 
 const FitnessGoalCards = lazy(() => import('./components/FitnessGoalCards'));
@@ -17,9 +18,17 @@ const ResolutionsView: React.FC = () => {
   const [filterTab, setFilterTab] = useState<FilterTab>('all');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  const [showMobileFilters, setShowMobileFilters] = useState(true);
 
   useEffect(() => {
     loadData();
+  }, []);
+
+  useEffect(() => {
+    const onResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
   }, []);
 
   const loadData = async () => {
@@ -127,26 +136,52 @@ const ResolutionsView: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="resolutions-view">
-        <div className="view-header">
-          <h2>🎯 Goals</h2>
+      <div className="ck-screen resolutions-view">
+        <div className="ck-page-head">
+          <h2 className="ck-page-title">Goals</h2>
         </div>
-        <div className="loading">Loading resolutions...</div>
+        <div style={{ color: 'var(--ck-ink3)', padding: '24px 0' }}>Loading resolutions…</div>
       </div>
     );
   }
 
+  const statCards = [
+    { label: 'Total', value: stats.total, badge: '' },
+    { label: 'Active', value: stats.active, badge: 'ck-badge-purple' },
+    { label: 'Completed', value: stats.completed, badge: 'ck-badge-green' },
+    { label: 'Paused', value: stats.paused, badge: 'ck-badge-gold' },
+  ];
+
+  const activeFilter: GenericFilter = { type: 'status', value: filterTab };
+  const filterSections: FilterSection[] = [
+    {
+      id: 'status',
+      title: 'Status',
+      defaultExpanded: true,
+      items: [
+        { filter: { type: 'status', value: 'all' }, icon: '🎯', label: 'All Goals', count: stats.total },
+        { filter: { type: 'status', value: 'active' }, icon: '🔥', label: 'Active', count: stats.active, color: '#6b5de8' },
+        { filter: { type: 'status', value: 'completed' }, icon: '✅', label: 'Completed', count: stats.completed, color: '#16a34a' },
+        { filter: { type: 'status', value: 'paused' }, icon: '⏸️', label: 'Paused', count: stats.paused, color: '#d97706' },
+      ],
+    },
+  ];
+  const handleFilterChange = (f: GenericFilter) => setFilterTab((f.value as FilterTab) || 'all');
+
   return (
-    <div className="resolutions-view">
-      <div className="view-header">
-        <h2>🎯 Goals</h2>
-        <button onClick={handleCreateNew} className="btn-create-resolution">
-          ➕ New Resolution
+    <div className="ck-screen resolutions-view">
+      <div className="ck-page-head">
+        <div>
+          <h2 className="ck-page-title">Goals</h2>
+          <p className="ck-page-sub">Resolutions & long-term goals</p>
+        </div>
+        <button onClick={handleCreateNew} className="ck-btn ck-btn-primary">
+          + New Resolution
         </button>
       </div>
 
       {error && (
-        <div className="error-message">{error}</div>
+        <div className="ck-card" style={{ borderLeft: '3px solid var(--ck-red)', color: 'var(--ck-red)', marginBottom: '16px' }}>{error}</div>
       )}
 
       {/* Tracked Fitness Goals */}
@@ -155,97 +190,90 @@ const ResolutionsView: React.FC = () => {
       </Suspense>
 
       {/* Stats Overview */}
-      <div className="resolutions-stats">
-        <div className="stat-card">
-          <div className="stat-number">{stats.total}</div>
-          <div className="stat-label">Total</div>
-        </div>
-        <div className="stat-card active">
-          <div className="stat-number">{stats.active}</div>
-          <div className="stat-label">Active</div>
-        </div>
-        <div className="stat-card completed">
-          <div className="stat-number">{stats.completed}</div>
-          <div className="stat-label">Completed</div>
-        </div>
-        <div className="stat-card paused">
-          <div className="stat-number">{stats.paused}</div>
-          <div className="stat-label">Paused</div>
-        </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '12px', marginBottom: '18px' }}>
+        {statCards.map(s => (
+          <div key={s.label} className="ck-card" style={{ textAlign: 'center' }}>
+            <div style={{ fontSize: '1.8rem', fontWeight: 700, fontFamily: 'var(--ck-serif)', color: 'var(--ck-ink)' }}>{s.value}</div>
+            <div className="ck-section-label" style={{ marginTop: '4px' }}>{s.label}</div>
+          </div>
+        ))}
       </div>
 
-      {/* Year Selection */}
-      {resolutions.length > 0 && (
-        <div className="year-info">
-          <span className="year-label">
-            📅 {currentYear} ({yearResolutions.length} resolutions)
-          </span>
-        </div>
-      )}
-
-      {/* Filter Tabs */}
-      <div className="filter-tabs">
-        <button
-          className={`filter-tab ${filterTab === 'all' ? 'active' : ''}`}
-          onClick={() => setFilterTab('all')}
-        >
-          All ({resolutions.length})
-        </button>
-        <button
-          className={`filter-tab ${filterTab === 'active' ? 'active' : ''}`}
-          onClick={() => setFilterTab('active')}
-        >
-          Active ({stats.active})
-        </button>
-        <button
-          className={`filter-tab ${filterTab === 'completed' ? 'active' : ''}`}
-          onClick={() => setFilterTab('completed')}
-        >
-          Completed ({stats.completed})
-        </button>
-        <button
-          className={`filter-tab ${filterTab === 'paused' ? 'active' : ''}`}
-          onClick={() => setFilterTab('paused')}
-        >
-          Paused ({stats.paused})
-        </button>
-      </div>
-
-      {/* Resolutions Grid */}
-      {filteredResolutions.length > 0 ? (
-        <div className="resolutions-grid">
-          {filteredResolutions
-            .sort((a, b) => (b.priority || 0) - (a.priority || 0))
-            .map(resolution => (
-              <ResolutionCard
-                key={resolution.id}
-                resolution={resolution}
-                onEdit={handleEdit}
-                onDelete={handleDelete}
-                onStatusChange={handleStatusChange}
+      {/* Main content with sidebar */}
+      <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start' }}>
+        {isMobile && showMobileFilters ? (
+          <GenericFilterSidebar
+            title="🎯 Filter Goals"
+            sections={filterSections}
+            activeFilter={activeFilter}
+            onFilterChange={handleFilterChange}
+            isMobile
+            onFilterSelected={() => setShowMobileFilters(false)}
+          />
+        ) : (
+          <>
+            {!isMobile && (
+              <GenericFilterSidebar
+                sections={filterSections}
+                activeFilter={activeFilter}
+                onFilterChange={handleFilterChange}
               />
-            ))}
-        </div>
-      ) : (
-        <div className="empty-state">
-          <div className="empty-icon">🎯</div>
-          <h3>
-            {filterTab === 'all'
-              ? 'No resolutions yet'
-              : `No ${filterTab} resolutions`}
-          </h3>
-          <p>
-            {filterTab === 'all'
-              ? "Start your journey by creating your first resolution for " + currentYear
-              : "Try filtering to see other resolutions"}
-          </p>
-          {filterTab === 'all' && (
-            <button onClick={handleCreateNew} className="btn-primary">
-              Create First Resolution
-            </button>
-          )}
-        </div>
-      )}
+            )}
+            <div style={{ flex: 1, minWidth: 0 }}>
+              {isMobile && (
+                <button
+                  className="ck-btn"
+                  onClick={() => setShowMobileFilters(true)}
+                  style={{ width: '100%', justifyContent: 'center', marginBottom: '1rem' }}
+                >
+                  ‹ Filters · {filterTab === 'all' ? 'All Goals' : filterTab}
+                </button>
+              )}
+
+              {/* Year Selection */}
+              {resolutions.length > 0 && (
+                <div className="ck-section-label" style={{ marginBottom: '12px' }}>
+                  📅 {currentYear} · {yearResolutions.length} resolutions
+                </div>
+              )}
+
+              {/* Resolutions Grid */}
+              {filteredResolutions.length > 0 ? (
+                <div className="resolutions-grid">
+                  {filteredResolutions
+                    .sort((a, b) => (b.priority || 0) - (a.priority || 0))
+                    .map(resolution => (
+                      <ResolutionCard
+                        key={resolution.id}
+                        resolution={resolution}
+                        onEdit={handleEdit}
+                        onDelete={handleDelete}
+                        onStatusChange={handleStatusChange}
+                      />
+                    ))}
+                </div>
+              ) : (
+                <div className="ck-empty">
+                  <div style={{ fontSize: '2.5rem', marginBottom: '8px' }}>🎯</div>
+                  <h3 style={{ fontFamily: 'var(--ck-serif)', fontWeight: 500, color: 'var(--ck-ink)', margin: '0 0 6px' }}>
+                    {filterTab === 'all' ? 'No resolutions yet' : `No ${filterTab} resolutions`}
+                  </h3>
+                  <p style={{ margin: '0 0 16px' }}>
+                    {filterTab === 'all'
+                      ? 'Start your journey by creating your first resolution for ' + currentYear
+                      : 'Try filtering to see other resolutions'}
+                  </p>
+                  {filterTab === 'all' && (
+                    <button onClick={handleCreateNew} className="ck-btn ck-btn-primary">
+                      Create First Resolution
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          </>
+        )}
+      </div>
 
       {/* Modal */}
       <ResolutionModal

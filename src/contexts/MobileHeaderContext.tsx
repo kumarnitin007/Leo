@@ -37,6 +37,11 @@ export interface MobileHeaderOverride {
    * returns to Home) is used.
    */
   onBack?: () => void;
+  /**
+   * Optional content rendered on the right side of the top bar (e.g. the
+   * Vault auto-lock countdown "🔒 Lock in 5 min").
+   */
+  rightContent?: React.ReactNode;
 }
 
 interface MobileHeaderContextValue {

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Task, FrequencyType, IntervalUnit, Tag, TrackedMetricType, TrackedMetric } from './types';
 import { loadData, addTask, updateTask, deleteTask, importSampleTasks, clearAllData, getTagsForSection } from './storage';
 import { generateId, getColorForTask } from './utils';
+import GenericFilterSidebar, { GenericFilter, FilterSection } from './components/GenericFilterSidebar';
 
 const TRACKED_UNITS: Record<TrackedMetricType, string> = {
   steps: 'steps',
@@ -25,6 +26,15 @@ const ConfigureView: React.FC = () => {
   const [isDateOptionsExpanded, setIsDateOptionsExpanded] = useState(false);
   const [tags, setTags] = useState<Tag[]>([]);
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
+  const [activeFilter, setActiveFilter] = useState<GenericFilter>({ type: 'all' });
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  const [showMobileFilters, setShowMobileFilters] = useState(true);
+
+  useEffect(() => {
+    const onResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
   
   const [formData, setFormData] = useState({
     name: '',
@@ -309,54 +319,121 @@ const ConfigureView: React.FC = () => {
     }
   };
 
+  const taskCategories = Array.from(new Set(tasks.map(t => t.category).filter((c): c is string => !!c)));
+  const filteredTasks = tasks.filter(task => {
+    switch (activeFilter.type) {
+      case 'status':
+        return activeFilter.value === 'onhold' ? !!task.onHold : !task.onHold;
+      case 'category':
+        return task.category === activeFilter.value;
+      default:
+        return true;
+    }
+  });
+  const taskFilterSections: FilterSection[] = [
+    {
+      id: 'quick',
+      title: 'Quick Filters',
+      defaultExpanded: true,
+      items: [
+        { filter: { type: 'all' }, icon: '✅', label: 'All Tasks', count: tasks.length },
+        { filter: { type: 'status', value: 'active' }, icon: '🔥', label: 'Active', count: tasks.filter(t => !t.onHold).length, color: '#6b5de8' },
+        { filter: { type: 'status', value: 'onhold' }, icon: '⏸️', label: 'On Hold', count: tasks.filter(t => !!t.onHold).length, color: '#d97706' },
+      ],
+    },
+    ...(taskCategories.length > 0 ? [{
+      id: 'categories',
+      title: 'Categories',
+      defaultExpanded: true,
+      items: taskCategories.map(cat => ({
+        filter: { type: 'category', value: cat },
+        icon: '🏷️',
+        label: cat,
+        count: tasks.filter(t => t.category === cat).length,
+      })),
+    }] : []),
+  ];
+  const taskFilterLabel = activeFilter.type === 'all'
+    ? 'All Tasks'
+    : activeFilter.type === 'category'
+      ? activeFilter.value || ''
+      : activeFilter.value === 'onhold' ? 'On Hold' : 'Active';
+
   return (
     <div className="configure-view">
-      <div className="view-header">
-        <h2>✅ Tasks</h2>
+      <div className="ck-page-head">
+        <div>
+          <h2 className="ck-page-title">Tasks</h2>
+          <p className="ck-page-sub">Recurring and one-time tasks you want to track</p>
+        </div>
+        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+          <button
+            className="ck-btn ck-btn-primary"
+            onClick={() => {
+              if (isEditing) {
+                resetForm();
+              } else {
+                setIsEditing(true);
+                setEditingId(null);
+              }
+            }}
+          >
+            {isEditing ? '✕ Cancel' : '+ Add New Task'}
+          </button>
+          <button
+            className="ck-btn"
+            onClick={handleImportSampleTasks}
+            disabled={isImporting}
+          >
+            {isImporting ? 'Loading...' : '📥 Load Sample Tasks'}
+          </button>
+        </div>
       </div>
 
-      {/* Action Buttons */}
-      <div style={{ 
-        display: 'flex', 
-        gap: '0.5rem', 
-        marginBottom: '1.5rem', 
-        flexWrap: 'wrap' 
-      }}>
-        <button 
-          className="btn-primary" 
-          onClick={() => {
-            if (isEditing) {
-              resetForm();
-            } else {
-              setIsEditing(true);
-              setEditingId(null);
-            }
-          }}
-        >
-          {isEditing ? '✕ Cancel' : '+ Add New Task'}
-        </button>
-        <button 
-          className="btn-secondary" 
-          onClick={handleImportSampleTasks}
-          disabled={isImporting}
-          style={{ background: '#3b82f6', color: 'white' }}
-        >
-          {isImporting ? 'Loading...' : '📥 Load Sample Tasks'}
-        </button>
-      </div>
-
-      {/* Tasks List */}
-      <div style={{ marginBottom: '2rem' }}>
-        <h3 style={{ marginBottom: '1.5rem', fontSize: '1.5rem', fontWeight: 700, color: '#667eea' }}>
-          📋 All Tasks ({tasks.length})
-        </h3>
+      {/* Main content with sidebar */}
+      <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start', marginBottom: '2rem' }}>
+        {isMobile && showMobileFilters && tasks.length > 0 ? (
+          <GenericFilterSidebar
+            title="✅ Filter Tasks"
+            sections={taskFilterSections}
+            activeFilter={activeFilter}
+            onFilterChange={setActiveFilter}
+            isMobile
+            onFilterSelected={() => setShowMobileFilters(false)}
+          />
+        ) : (
+          <>
+            {!isMobile && tasks.length > 0 && (
+              <GenericFilterSidebar
+                sections={taskFilterSections}
+                activeFilter={activeFilter}
+                onFilterChange={setActiveFilter}
+              />
+            )}
+            <div style={{ flex: 1, minWidth: 0 }}>
+              {isMobile && tasks.length > 0 && (
+                <button
+                  className="ck-btn"
+                  onClick={() => setShowMobileFilters(true)}
+                  style={{ width: '100%', justifyContent: 'center', marginBottom: '1rem' }}
+                >
+                  ‹ Filters · {taskFilterLabel}
+                </button>
+              )}
+              <div className="ck-section-label" style={{ marginBottom: '10px' }}>
+                📋 {taskFilterLabel} · {filteredTasks.length}{filteredTasks.length !== tasks.length ? ` of ${tasks.length}` : ''}
+              </div>
         {tasks.length === 0 ? (
           <div className="no-events">
             <p>No tasks yet. Click "Add New Task" to get started!</p>
           </div>
+        ) : filteredTasks.length === 0 ? (
+          <div className="ck-empty">
+            <p style={{ margin: 0 }}>No tasks match this filter.</p>
+          </div>
         ) : (
           <div className="events-grid">
-            {tasks.map((task) => {
+            {filteredTasks.map((task) => {
               const getCategoryIcon = () => {
                 const icons: { [key: string]: string } = {
                   'Exercise': '🏃',
@@ -376,7 +453,7 @@ const ConfigureView: React.FC = () => {
                 <div 
                   key={task.id} 
                   className="event-card"
-                  style={{ borderLeft: `6px solid ${task.color || '#667eea'}` }}
+                  style={{ borderLeft: `3px solid ${task.color || 'var(--ck-purple)'}` }}
                 >
                   <div className="event-card-header">
                     <span className="event-icon">{getCategoryIcon()}</span>
@@ -437,10 +514,10 @@ const ConfigureView: React.FC = () => {
                   </div>
                   
                   <div className="event-actions">
-                    <button className="btn-edit" onClick={() => handleEdit(task)}>
+                    <button className="ck-btn ck-btn-sm" onClick={() => handleEdit(task)}>
                       ✏️ Edit
                     </button>
-                    <button className="btn-delete" onClick={() => handleDelete(task.id)}>
+                    <button className="ck-btn ck-btn-sm ck-btn-danger" onClick={() => handleDelete(task.id)}>
                       🗑️ Delete
                     </button>
                   </div>
@@ -448,6 +525,9 @@ const ConfigureView: React.FC = () => {
               );
             })}
           </div>
+        )}
+            </div>
+          </>
         )}
       </div>
 
@@ -1270,10 +1350,10 @@ const ConfigureView: React.FC = () => {
         </div>
 
           <div className="form-actions">
-            <button type="button" className="btn-secondary" onClick={resetForm}>
+            <button type="button" className="ck-btn" onClick={resetForm}>
               Cancel
             </button>
-            <button type="submit" className="btn-primary">
+            <button type="submit" className="ck-btn ck-btn-primary">
               {editingId ? 'Update Task' : 'Add Task'}
             </button>
           </div>

@@ -1631,6 +1631,32 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
             {savedMsg && <span style={{color:"#d1fae5",fontSize:11,fontWeight:600}}>✓</span>}
           </div>
           <div style={{display:"flex",gap:isMobile?4:6,alignItems:"center"}}>
+            {isMobile && tab === 'overview' && (
+              <div style={{display:"inline-flex",background:"rgba(255,255,255,0.15)",borderRadius:999,padding:2,gap:2,flexShrink:0}}>
+                <button
+                  type="button"
+                  onClick={() => setOverviewVariant('classic')}
+                  title="Original Overview design"
+                  style={{
+                    background: overviewVariant === 'classic' ? '#fff' : 'transparent',
+                    color: overviewVariant === 'classic' ? THEME.accent : 'rgba(255,255,255,0.9)',
+                    border: 'none', borderRadius: 999, padding: '3px 8px',
+                    fontSize: 10, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
+                  }}
+                >Classic</button>
+                <button
+                  type="button"
+                  onClick={() => setOverviewVariant('new')}
+                  title="Redesigned Overview"
+                  style={{
+                    background: overviewVariant === 'new' ? '#fff' : 'transparent',
+                    color: overviewVariant === 'new' ? THEME.accent : 'rgba(255,255,255,0.9)',
+                    border: 'none', borderRadius: 999, padding: '3px 8px',
+                    fontSize: 10, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
+                  }}
+                >✨ New</button>
+              </div>
+            )}
             {onOpenGroupChat && (
               <button onClick={onOpenGroupChat} style={{background:"rgba(255,255,255,0.2)",color:"#fff",border:"1px solid rgba(255,255,255,0.3)",borderRadius:6,padding:isMobile?"5px 8px":"6px 10px",fontSize:isMobile?10:11,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}} title="Open Group Chat">💬{!isMobile && " Chat"}</button>
             )}
@@ -1706,7 +1732,9 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
         {/* Tab Content */}
         {tab==="overview" && (
           <>
-          {/* ── Overview variant toggle (validate the new design alongside the classic one) ── */}
+          {/* ── Overview variant toggle (validate the new design alongside the classic one) ──
+               On mobile this toggle is relocated to the dark header row to save vertical space. */}
+          {!isMobile && (
           <div style={{display:"flex",justifyContent:"flex-end",marginBottom:isMobile?8:12,gap:6}}>
             <div style={{display:"inline-flex",background:THEME.cardBgAlt,border:`1px solid ${THEME.border}`,borderRadius:999,padding:3,gap:2}}>
               <button
@@ -1741,6 +1769,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
               >✨ New design</button>
             </div>
           </div>
+          )}
           {overviewVariant === 'new' ? (
           <BankOverviewRedesigned
             theme={THEME}

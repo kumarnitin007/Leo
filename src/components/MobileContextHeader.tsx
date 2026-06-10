@@ -57,6 +57,7 @@ const MobileContextHeader: React.FC<MobileContextHeaderProps> = ({
   const icon     = override?.icon     ?? baseConfig.icon;
   const sub      = override?.subtitle ?? subtitle;
   const handleBack = override?.onBack ?? onBack;
+  const rightSide = override?.rightContent ?? rightAction;
   // If an override is set we always show a back arrow — the override exists
   // precisely to provide an in-page "back to parent" action.
   const showBackBtn = override?.onBack ? true : showBack;
@@ -109,7 +110,7 @@ const MobileContextHeader: React.FC<MobileContextHeaderProps> = ({
             <p className="mobile-header-subtitle">{sub}</p>
           )}
         </div>
-        {rightAction}
+        {rightSide}
       </div>
     </div>
   );

@@ -268,7 +268,7 @@ export function BankOverviewRedesigned(props: BankOverviewRedesignedProps) {
           )}
         </div>
         {/* Currency switcher */}
-        <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: isMobile ? 4 : 6, flexWrap: isMobile ? "nowrap" : "wrap" }}>
           {(["ORIGINAL", "INR", "USD", "EUR", "GBP"] as const).map((cur) => (
             <button
               key={cur}
@@ -278,20 +278,20 @@ export function BankOverviewRedesigned(props: BankOverviewRedesignedProps) {
                 color: displayCurrency === cur ? "#fff" : T.textMuted,
                 border: `1px solid ${displayCurrency === cur ? T.accent : T.border}`,
                 borderRadius: 8,
-                padding: "4px 10px",
+                padding: isMobile ? "4px 7px" : "4px 10px",
                 fontSize: 11,
                 fontWeight: 700,
                 cursor: "pointer",
               }}
             >
-              {cur === "ORIGINAL" ? "🌐" : `${CURRENCY_SYMBOLS[cur]} ${cur}`}
+              {cur === "ORIGINAL" ? "🌐" : isMobile ? CURRENCY_SYMBOLS[cur] : `${CURRENCY_SYMBOLS[cur]} ${cur}`}
             </button>
           ))}
           <button
             onClick={() => setShowRatesModal(true)}
             title="Edit exchange rates"
-            style={{ background: "transparent", color: T.textMuted, border: `1px solid ${T.border}`, borderRadius: 8, padding: "4px 8px", fontSize: 11, cursor: "pointer" }}
-          >⚙️ Rates</button>
+            style={{ background: "transparent", color: T.textMuted, border: `1px solid ${T.border}`, borderRadius: 8, padding: isMobile ? "4px 7px" : "4px 8px", fontSize: 11, cursor: "pointer" }}
+          >{isMobile ? "⚙️" : "⚙️ Rates"}</button>
         </div>
       </div>
 

@@ -395,33 +395,42 @@ const ItemsView: React.FC<ItemsViewProps> = () => {
   };
 
   return (
-    <div className="events-view">
-      <div className="events-header">
-        <h2>📦 Items</h2>
-        <p>Manage gift cards, subscriptions, warranties, and important notes</p>
+    <div className="ck-screen items-redesign">
+      {/* Header */}
+      <div className="ck-page-head">
+        <div>
+          <h2 className="ck-page-title">Items</h2>
+          <p className="ck-page-sub">Gift cards, subscriptions, warranties & important notes</p>
+        </div>
+        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+          <button className="ck-btn ck-btn-primary" onClick={() => setIsEditing(!isEditing)}>
+            {isEditing ? '✕ Cancel' : '+ Add Item'}
+          </button>
+          {items.length === 0 && (
+            <button className="ck-btn" onClick={handleImportSample} disabled={isImporting}>
+              {isImporting ? 'Loading…' : '📥 Load Samples'}
+            </button>
+          )}
+        </div>
       </div>
 
-      {/* Expiring Items Section */}
+      {/* Expiring Soon */}
       {expiringItems.length > 0 && (
-        <div className="upcoming-events-section">
-          <h3>⏰ Expiring Soon (Next 30 Days)</h3>
-          <div className="upcoming-events-list">
+        <div style={{ marginBottom: '18px' }}>
+          <div className="ck-section-label" style={{ marginBottom: '8px' }}>⏰ Expiring soon · next 30 days</div>
+          <div style={{ display: 'flex', gap: '10px', overflowX: 'auto', paddingBottom: '4px' }}>
             {expiringItems.map((item) => (
-              <div 
-                key={item.id} 
-                className="upcoming-event-card"
-                style={{ borderLeft: `4px solid ${item.color || '#667eea'}` }}
+              <div
+                key={item.id}
+                className="ck-card"
+                style={{ minWidth: '210px', display: 'flex', gap: '10px', alignItems: 'center', borderLeft: `3px solid ${item.color || 'var(--ck-purple)'}` }}
               >
-                <div className="upcoming-event-icon">{getCategoryIcon(item.category)}</div>
-                <div className="upcoming-event-info">
-                  <div className="upcoming-event-name">{item.name}</div>
-                  <div className="upcoming-event-date">
-                    {formatExpirationDate(item.expirationDate)}
-                  </div>
+                <span style={{ fontSize: '1.4rem' }}>{getCategoryIcon(item.category)}</span>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontWeight: 600, fontSize: '0.85rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.name}</div>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--ck-red)' }}>{formatExpirationDate(item.expirationDate)}</div>
                   {item.value && (
-                    <div className="upcoming-event-meta">
-                      {formatValue(item.value, item.currency)}
-                    </div>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--ck-ink3)' }}>{formatValue(item.value, item.currency)}</div>
                   )}
                 </div>
               </div>
@@ -429,18 +438,6 @@ const ItemsView: React.FC<ItemsViewProps> = () => {
           </div>
         </div>
       )}
-
-      {/* Action Buttons */}
-      <div className="events-actions">
-        <button className="btn-primary" onClick={() => setIsEditing(!isEditing)}>
-          {isEditing ? '✕ Cancel' : '+ Add New Item'}
-        </button>
-        {items.length === 0 && (
-          <button className="btn-secondary" onClick={handleImportSample} disabled={isImporting}>
-            {isImporting ? 'Loading...' : '📥 Load Sample Items'}
-          </button>
-        )}
-      </div>
       
       {/* Main content with sidebar */}
       <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start' }}>
@@ -470,73 +467,34 @@ const ItemsView: React.FC<ItemsViewProps> = () => {
               {/* Mobile: Back to filters button */}
               {isMobile && !isEditing && items.length > 0 && (
                 <button
+                  className="ck-btn"
                   onClick={() => setShowMobileFilters(true)}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.5rem',
-                    padding: '0.75rem 1rem',
-                    background: 'rgba(59, 130, 246, 0.1)',
-                    border: 'none',
-                    borderRadius: '0.5rem',
-                    cursor: 'pointer',
-                    fontSize: '0.9rem',
-                    color: '#3b82f6',
-                    marginBottom: '1rem',
-                    width: '100%',
-                  }}
+                  style={{ width: '100%', justifyContent: 'center', marginBottom: '1rem' }}
                 >
-                  <span>◀</span>
-                  <span>Back to Filters</span>
+                  ◀ Back to Filters
                 </button>
               )}
 
               {/* Search and Sort Bar */}
               {items.length > 0 && (
-                <div className="events-filters" style={{
-                  background: 'rgba(255, 255, 255, 0.9)',
-                  backdropFilter: 'blur(10px)',
-                  borderRadius: '12px',
-                  padding: '1rem',
-                  marginBottom: '1.5rem',
-                  display: 'flex',
-                  gap: '1rem',
-                  flexWrap: 'wrap',
-                  alignItems: 'center'
-                }}>
+                <div className="ck-toolbar" style={{ marginBottom: '1.25rem' }}>
                   <div style={{ flex: '1 1 200px', minWidth: '150px' }}>
-                    <label style={{ fontSize: '0.875rem', color: '#6b7280', display: 'block', marginBottom: '0.25rem' }}>
-                      Search
-                    </label>
+                    <label className="ck-label">Search</label>
                     <input
+                      className="ck-input"
                       type="text"
-                      placeholder="Search items..."
+                      placeholder="Search items…"
                       value={searchText}
                       onChange={(e) => setSearchText(e.target.value)}
-                      style={{
-                        width: '100%',
-                        padding: '0.5rem',
-                        borderRadius: '8px',
-                        border: '1px solid #d1d5db',
-                        fontSize: '0.875rem'
-                      }}
                     />
                   </div>
-                  
-                  <div style={{ flex: '0 1 150px', minWidth: '120px' }}>
-                    <label style={{ fontSize: '0.875rem', color: '#6b7280', display: 'block', marginBottom: '0.25rem' }}>
-                      Sort By
-                    </label>
+
+                  <div style={{ flex: '0 1 170px', minWidth: '130px' }}>
+                    <label className="ck-label">Sort by</label>
                     <select
+                      className="ck-select"
                       value={sortBy}
                       onChange={(e) => setSortBy(e.target.value)}
-                      style={{
-                        width: '100%',
-                        padding: '0.5rem',
-                        borderRadius: '8px',
-                        border: '1px solid #d1d5db',
-                        fontSize: '0.875rem'
-                      }}
                     >
                       <option value="name-asc">Name (A-Z)</option>
                       <option value="name-desc">Name (Z-A)</option>
@@ -548,22 +506,13 @@ const ItemsView: React.FC<ItemsViewProps> = () => {
                       <option value="priority-asc">Priority (Low to High)</option>
                     </select>
                   </div>
-                  
+
                   {(searchText || sortBy !== 'name-asc') && (
                     <button
+                      className="ck-btn ck-btn-ghost"
                       onClick={() => {
                         setSearchText('');
                         setSortBy('name-asc');
-                      }}
-                      style={{
-                        padding: '0.5rem 1rem',
-                        background: 'transparent',
-                        border: '1px solid #d1d5db',
-                        borderRadius: '8px',
-                        cursor: 'pointer',
-                        fontSize: '0.875rem',
-                        color: '#6b7280',
-                        whiteSpace: 'nowrap'
                       }}
                     >
                       Clear
@@ -574,8 +523,8 @@ const ItemsView: React.FC<ItemsViewProps> = () => {
 
       {/* Add/Edit Form */}
       {isEditing && (
-        <div className="event-form-container">
-          <h3>{editingItem ? 'Edit Item' : 'Add New Item'}</h3>
+        <div className="ck-card ck-form" style={{ marginBottom: '1.25rem' }}>
+          <h3 style={{ marginTop: 0, marginBottom: '14px', fontFamily: 'var(--ck-serif)', fontWeight: 500, fontSize: '1.1rem' }}>{editingItem ? 'Edit Item' : 'Add New Item'}</h3>
           <form onSubmit={handleSubmit} className="event-form">
             <div className="form-row">
               <div className="form-group">
@@ -854,11 +803,11 @@ const ItemsView: React.FC<ItemsViewProps> = () => {
               </div>
             </div>
 
-            <div className="form-actions">
-              <button type="submit" className="btn-primary">
+            <div className="ck-form-actions">
+              <button type="submit" className="ck-btn ck-btn-primary">
                 {editingItem ? 'Update Item' : 'Add Item'}
               </button>
-              <button type="button" className="btn-secondary" onClick={resetForm}>
+              <button type="button" className="ck-btn" onClick={resetForm}>
                 Cancel
               </button>
             </div>
@@ -867,89 +816,62 @@ const ItemsView: React.FC<ItemsViewProps> = () => {
       )}
 
       {/* Items List */}
-      <div className="events-list-container">
-        {(() => {
-          return (
-            <>
-              <h3>📦 All Items ({sortedItems.length}{sortedItems.length !== items.length ? ` of ${items.length}` : ''})</h3>
-              {sortedItems.length === 0 ? (
-                <div className="no-events">
-                  <p>{items.length === 0 ? 'No items yet. Add your first item to get started!' : 'No items match your filters.'}</p>
+      <div>
+        <div className="ck-section-label" style={{ marginBottom: '10px' }}>
+          All items · {sortedItems.length}{sortedItems.length !== items.length ? ` of ${items.length}` : ''}
+        </div>
+        {sortedItems.length === 0 ? (
+          <div className="ck-empty">
+            <p style={{ margin: 0 }}>{items.length === 0 ? 'No items yet. Add your first item to get started!' : 'No items match your filters.'}</p>
+          </div>
+        ) : (
+          <div className="ck-grid">
+            {sortedItems.map((item) => (
+              <div key={item.id} className="ck-card ck-card-hover" style={{ borderLeft: `3px solid ${item.color || 'var(--ck-purple)'}`, display: 'flex', flexDirection: 'column' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                  <span style={{ fontSize: '1.2rem' }}>{getCategoryIcon(item.category)}</span>
+                  <h4 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 600, flex: 1, minWidth: 0 }}>{item.name}</h4>
+                  <span className="ck-badge">{item.category}</span>
                 </div>
-              ) : (
-                <div className="events-grid">
-                  {sortedItems.map((item) => (
-                    <div key={item.id} className="event-card" style={{ borderLeft: `6px solid ${item.color || '#667eea'}` }}>
-                      <div className="event-card-header">
-                        <span className="event-icon">{getCategoryIcon(item.category)}</span>
-                        <h4>{item.name}</h4>
-                      </div>
-                      
-                      <div className="event-category-badge">{item.category}</div>
-                      
-                      {item.description && (
-                        <div className="event-description">{item.description}</div>
-                      )}
-                      
-                      {item.expirationDate && (
-                        <div className="event-date">
-                          📅 {formatExpirationDate(item.expirationDate)}
-                        </div>
-                      )}
-                      
-                      {item.value && (
-                        <div className="event-date" style={{ color: '#10b981', fontWeight: 600 }}>
-                          💰 {formatValue(item.value, item.currency)}
-                        </div>
-                      )}
-                      
-                      {item.merchant && (
-                        <div className="event-description" style={{ fontSize: '0.9rem', color: '#6b7280' }}>
-                          🏪 {item.merchant}
-                        </div>
-                      )}
-                      
-                      {item.accountNumber && (
-                        <div className="event-description" style={{ fontSize: '0.85rem', color: '#9ca3af' }}>
-                          🔢 {item.accountNumber}
-                        </div>
-                      )}
-                      
-                      {item.category === 'Subscription' && item.autoRenew && (
-                        <div className="event-meta">
-                          <span className="event-frequency-badge">
-                            🔄 Auto-Renew
-                          </span>
-                        </div>
-                      )}
-                      
-                      <div className="event-meta">
-                        {item.notifyDaysBefore > 0 && (
-                          <span className="event-notify-badge">
-                            🔔 Notify {item.notifyDaysBefore}d before
-                          </span>
-                        )}
-                        <span className="event-priority-badge">
-                          ⭐ Priority: {item.priority || 5}/10
-                        </span>
-                      </div>
-                      
-                      <div className="event-actions">
-                        <button className="btn-edit" onClick={() => handleEdit(item)}>
-                          ✏️ Edit
-                        </button>
-                        <button className="btn-delete" onClick={() => handleDelete(item.id)}>
-                          🗑️ Delete
-                        </button>
-                      </div>
-                    </div>
-                  ))}
+
+                {item.description && (
+                  <div style={{ fontSize: '0.82rem', color: 'var(--ck-ink2)', lineHeight: 1.5, marginBottom: '8px' }}>{item.description}</div>
+                )}
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '0.8rem', color: 'var(--ck-ink2)' }}>
+                  {item.expirationDate && (
+                    <div>📅 {formatExpirationDate(item.expirationDate)}</div>
+                  )}
+                  {item.value && (
+                    <div style={{ color: 'var(--ck-green)', fontWeight: 600 }}>💰 {formatValue(item.value, item.currency)}</div>
+                  )}
+                  {item.merchant && (
+                    <div style={{ color: 'var(--ck-ink3)' }}>🏪 {item.merchant}</div>
+                  )}
+                  {item.accountNumber && (
+                    <div style={{ color: 'var(--ck-ink3)', fontSize: '0.75rem' }}>🔢 {item.accountNumber}</div>
+                  )}
                 </div>
-              )}
-            </>
-          );
-        })()}
+
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', margin: '10px 0' }}>
+                  {item.category === 'Subscription' && item.autoRenew && (
+                    <span className="ck-badge ck-badge-green">🔄 Auto-Renew</span>
+                  )}
+                  {item.notifyDaysBefore > 0 && (
+                    <span className="ck-badge">🔔 {item.notifyDaysBefore}d before</span>
+                  )}
+                  <span className="ck-badge ck-badge-gold">⭐ P{item.priority || 5}/10</span>
+                </div>
+
+                <div style={{ display: 'flex', gap: '8px', borderTop: '0.5px solid var(--ck-border)', paddingTop: '10px', marginTop: 'auto' }}>
+                  <button className="ck-btn ck-btn-sm" onClick={() => handleEdit(item)}>✏️ Edit</button>
+                  <button className="ck-btn ck-btn-sm ck-btn-danger" onClick={() => handleDelete(item.id)}>🗑️ Delete</button>
+                </div>
               </div>
+            ))}
+          </div>
+        )}
+      </div>
             </div>
           </>
         )}

@@ -377,7 +377,7 @@ const VoiceCommandHistory: React.FC<VoiceCommandHistoryProps> = ({
           </div>
           {listMode === 'all' && (
             <div className="voice-filter-pills outcome-pills">
-              <span style={{ fontSize: '0.75rem', color: '#6b7280', marginRight: '0.5rem' }}>Status:</span>
+              <span style={{ fontSize: '0.75rem', color: 'var(--ck-ink3)', marginRight: '0.5rem' }}>Status:</span>
               {(['ALL', 'SUCCESS', 'OTHER'] as const).map(out => (
                 <button
                   key={out}
@@ -634,13 +634,15 @@ const VoiceCommandHistory: React.FC<VoiceCommandHistoryProps> = ({
       <style>{`
         .voice-history-page {
           min-height: 100vh;
-          background: #f9fafb;
+          background: var(--ck-paper);
+          font-family: var(--ck-font);
+          color: var(--ck-ink);
         }
 
         .voice-history-container {
           max-width: 800px;
           margin: 0 auto;
-          background: white;
+          background: var(--ck-white);
           min-height: 100vh;
           display: flex;
           flex-direction: column;
@@ -648,15 +650,16 @@ const VoiceCommandHistory: React.FC<VoiceCommandHistoryProps> = ({
 
         @media (min-width: 640px) {
           .voice-history-container {
-            border-left: 1px solid #e5e7eb;
-            border-right: 1px solid #e5e7eb;
+            border-left: 0.5px solid var(--ck-border2);
+            border-right: 0.5px solid var(--ck-border2);
           }
         }
 
         .voice-history-header {
           padding: 1.25rem 1rem;
-          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-          color: white;
+          background: var(--ck-white);
+          border-bottom: 0.5px solid var(--ck-border2);
+          color: var(--ck-ink);
           display: flex;
           justify-content: space-between;
           align-items: center;
@@ -674,8 +677,10 @@ const VoiceCommandHistory: React.FC<VoiceCommandHistoryProps> = ({
 
         .voice-history-title h2 {
           margin: 0;
-          font-size: 1.25rem;
-          font-weight: 700;
+          font-size: 1.3rem;
+          font-weight: 500;
+          font-family: var(--ck-serif);
+          color: var(--ck-ink);
         }
 
         .voice-history-heading-mobile {
@@ -693,16 +698,16 @@ const VoiceCommandHistory: React.FC<VoiceCommandHistoryProps> = ({
         .voice-history-title p {
           margin: 0;
           font-size: 0.8rem;
-          opacity: 0.85;
+          color: var(--ck-ink3);
         }
 
         .voice-history-analytics-btn {
-          background: rgba(255,255,255,0.2);
-          border: none;
+          background: var(--ck-cream);
+          border: 0.5px solid var(--ck-border2);
           width: 36px;
           height: 36px;
           border-radius: 50%;
-          color: white;
+          color: var(--ck-ink2);
           font-size: 1.25rem;
           cursor: pointer;
           display: flex;
@@ -712,16 +717,16 @@ const VoiceCommandHistory: React.FC<VoiceCommandHistoryProps> = ({
         }
 
         .voice-history-analytics-btn:hover {
-          background: rgba(255,255,255,0.3);
+          background: var(--ck-purple-light);
           transform: scale(1.05);
         }
 
         .voice-history-close {
-          background: rgba(255,255,255,0.2);
-          border: none;
+          background: var(--ck-white);
+          border: 0.5px solid var(--ck-border2);
           padding: 0.5rem 1rem;
           border-radius: 0.5rem;
-          color: white;
+          color: var(--ck-ink2);
           font-size: 0.95rem;
           font-weight: 600;
           cursor: pointer;
@@ -732,12 +737,12 @@ const VoiceCommandHistory: React.FC<VoiceCommandHistoryProps> = ({
         }
 
         .voice-history-close:hover {
-          background: rgba(255,255,255,0.3);
+          background: var(--ck-cream);
         }
 
         .voice-history-filters {
           padding: 1rem;
-          border-bottom: 1px solid #e5e7eb;
+          border-bottom: 0.5px solid var(--ck-border2);
           display: flex;
           flex-direction: column;
           gap: 0.75rem;
@@ -747,9 +752,10 @@ const VoiceCommandHistory: React.FC<VoiceCommandHistoryProps> = ({
           display: flex;
           align-items: center;
           gap: 0.5rem;
-          background: #f3f4f6;
-          border-radius: 0.75rem;
-          padding: 0.625rem 0.875rem;
+          background: var(--ck-paper);
+          border: 0.5px solid var(--ck-border2);
+          border-radius: 8px;
+          padding: 0.6rem 0.85rem;
         }
 
         .voice-search-box input {
@@ -757,6 +763,8 @@ const VoiceCommandHistory: React.FC<VoiceCommandHistoryProps> = ({
           border: none;
           background: none;
           font-size: 0.95rem;
+          font-family: var(--ck-font);
+          color: var(--ck-ink);
           outline: none;
         }
 
@@ -778,10 +786,12 @@ const VoiceCommandHistory: React.FC<VoiceCommandHistoryProps> = ({
         }
 
         .filter-pill {
-          padding: 0.5rem 0.875rem;
-          border: 2px solid #e5e7eb;
+          padding: 0.45rem 0.85rem;
+          border: 0.5px solid var(--ck-border2);
           border-radius: 9999px;
-          background: white;
+          background: var(--ck-white);
+          color: var(--ck-ink2);
+          font-family: var(--ck-font);
           font-size: 0.85rem;
           font-weight: 500;
           cursor: pointer;
@@ -799,9 +809,9 @@ const VoiceCommandHistory: React.FC<VoiceCommandHistoryProps> = ({
           margin-top: 0.5rem;
         }
         .filter-pill.active {
-          border-color: #667eea;
-          background: #667eea15;
-          color: #667eea;
+          border-color: var(--ck-purple);
+          background: var(--ck-purple-light);
+          color: var(--ck-purple);
         }
 
         .voice-history-content {
@@ -854,9 +864,9 @@ const VoiceCommandHistory: React.FC<VoiceCommandHistoryProps> = ({
         }
 
         .voice-command-card {
-          background: white;
-          border: 1px solid #e5e7eb;
-          border-radius: 0.875rem;
+          background: var(--ck-white);
+          border: 0.5px solid var(--ck-border2);
+          border-radius: 10px;
           margin-bottom: 0.5rem;
           overflow: hidden;
           cursor: pointer;
@@ -864,13 +874,13 @@ const VoiceCommandHistory: React.FC<VoiceCommandHistoryProps> = ({
         }
 
         .voice-command-card:hover {
-          border-color: #d1d5db;
-          box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+          border-color: var(--ck-purple);
+          box-shadow: var(--ck-shadow-hover);
         }
 
         .voice-command-card.expanded {
-          border-color: #667eea;
-          box-shadow: 0 4px 12px rgba(102, 126, 234, 0.15);
+          border-color: var(--ck-purple);
+          box-shadow: var(--ck-shadow-hover);
         }
 
         .voice-command-card.pending {
@@ -919,7 +929,7 @@ const VoiceCommandHistory: React.FC<VoiceCommandHistoryProps> = ({
           min-width: 0;
           font-weight: 600;
           font-size: 0.95rem;
-          color: #1f2937;
+          color: var(--ck-ink);
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
@@ -960,8 +970,8 @@ const VoiceCommandHistory: React.FC<VoiceCommandHistoryProps> = ({
 
         .command-details {
           padding: 0.875rem;
-          border-top: 1px solid #f3f4f6;
-          background: #fafafa;
+          border-top: 0.5px solid var(--ck-border);
+          background: var(--ck-paper);
         }
 
         .command-transcript {
@@ -982,12 +992,12 @@ const VoiceCommandHistory: React.FC<VoiceCommandHistoryProps> = ({
         .command-transcript p {
           margin: 0;
           font-size: 0.9rem;
-          color: #374151;
+          color: var(--ck-ink2);
           font-style: italic;
-          background: white;
+          background: var(--ck-white);
           padding: 0.5rem 0.75rem;
           border-radius: 0.5rem;
-          border: 1px solid #e5e7eb;
+          border: 0.5px solid var(--ck-border2);
         }
 
         .command-field {
@@ -1056,19 +1066,20 @@ const VoiceCommandHistory: React.FC<VoiceCommandHistoryProps> = ({
         }
 
         .action-btn.primary {
-          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          background: var(--ck-purple);
           color: white;
         }
 
         .action-btn.secondary {
-          background: #f3f4f6;
-          color: #374151;
+          background: var(--ck-white);
+          color: var(--ck-ink2);
+          border: 0.5px solid var(--ck-border2);
         }
 
         .action-btn.danger {
-          background: #fef2f2;
-          color: #dc2626;
-          border: 1px solid #fecaca;
+          background: var(--ck-red-light);
+          color: var(--ck-red);
+          border: 0.5px solid rgba(201,74,46,0.3);
         }
 
         .action-btn:active {

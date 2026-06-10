@@ -495,9 +495,14 @@ const EventsView: React.FC<EventsViewProps> = () => {
 
   return (
     <div className="events-view">
-      <div className="events-header">
-        <h2>📅 Events</h2>
-        <p>Manage birthdays, anniversaries, holidays, memorials, and other significant dates</p>
+      <div className="ck-page-head">
+        <div>
+          <h2 className="ck-page-title">Events</h2>
+          <p className="ck-page-sub">Birthdays, anniversaries, holidays & other significant dates</p>
+        </div>
+        <button className="ck-btn ck-btn-primary" onClick={() => setIsEditing(!isEditing)}>
+          {isEditing ? '✕ Cancel' : '+ Add New Event'}
+        </button>
       </div>
 
       {/* Main content with sidebar */}
@@ -590,18 +595,15 @@ const EventsView: React.FC<EventsViewProps> = () => {
 
       {/* Action Buttons */}
       <div className="events-actions">
-        <button className="btn-primary" onClick={() => setIsEditing(!isEditing)}>
-          {isEditing ? '✕ Cancel' : '+ Add New Event'}
-        </button>
-        <button 
-          className="btn-secondary" 
+        <button
+          className="ck-btn"
           onClick={handleFileSelect}
           disabled={isImporting}
           title="Import from Google Calendar (.ics file)"
         >
           📤 {isImporting ? importProgress : 'Import Calendar'}
         </button>
-        <button className="btn-secondary" onClick={handleImportSample}>
+        <button className="ck-btn" onClick={handleImportSample}>
           📥 Import Sample Events
         </button>
         <span style={{
@@ -1082,10 +1084,10 @@ const EventsView: React.FC<EventsViewProps> = () => {
             </div>
 
             <div className="form-actions">
-              <button type="submit" className="btn-primary">
+              <button type="submit" className="ck-btn ck-btn-primary">
                 {editingEvent ? 'Update Event' : 'Add Event'}
               </button>
-              <button type="button" className="btn-secondary" onClick={resetForm}>
+              <button type="button" className="ck-btn" onClick={resetForm}>
                 Cancel
               </button>
             </div>
@@ -1160,7 +1162,7 @@ const EventsView: React.FC<EventsViewProps> = () => {
               ) : (
                 <div className="events-grid">
                   {sortedEvents.map((event) => (
-                <div key={event.id} className="event-card" style={{ borderLeft: `6px solid ${event.color}` }}>
+                <div key={event.id} className="event-card" style={{ borderLeft: `3px solid ${event.color}` }}>
                   <div className="event-card-header">
                     <span className="event-icon">{getCategoryIcon(event.category || '')}</span>
                     <h4>{event.name}</h4>
@@ -1205,10 +1207,10 @@ const EventsView: React.FC<EventsViewProps> = () => {
                   </div>
                   
                   <div className="event-actions">
-                    <button className="btn-edit" onClick={() => handleEdit(event)}>
+                    <button className="ck-btn ck-btn-sm" onClick={() => handleEdit(event)}>
                       ✏️ Edit
                     </button>
-                    <button className="btn-delete" onClick={() => handleDelete(event.id)}>
+                    <button className="ck-btn ck-btn-sm ck-btn-danger" onClick={() => handleDelete(event.id)}>
                       🗑️ Delete
                     </button>
                   </div>

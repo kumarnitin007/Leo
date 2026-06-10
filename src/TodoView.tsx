@@ -17,6 +17,7 @@ import ShareModal from './components/ShareModal';
 import * as todoService from './services/todoService';
 import * as sharingService from './services/sharingService';
 import { AssignableUser } from './services/todoService';
+import GenericFilterSidebar, { GenericFilter, FilterSection } from './components/GenericFilterSidebar';
 
 interface TodoViewProps {
   onNavigate?: (view: string) => void;
@@ -63,6 +64,7 @@ const TodoView: React.FC<TodoViewProps> = () => {
   const [selectedGroups, setSelectedGroups] = useState<Set<string>>(new Set()); // empty = all
   const [pastDueOnly, setPastDueOnly] = useState(false);
   const [isMobileViewport, setIsMobileViewport] = useState(false);
+  const [showMobileFilters, setShowMobileFilters] = useState(true);
   const [showCompleted, setShowCompleted] = useState(true);
   const [showVoiceModal, setShowVoiceModal] = useState(false);
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set()); // Start collapsed
@@ -386,60 +388,60 @@ const TodoView: React.FC<TodoViewProps> = () => {
 
   if (loading) {
     return (
-      <div style={{ padding: '2rem', textAlign: 'center' }}>
+      <div className="ck-screen" style={{ textAlign: 'center' }}>
         <div style={{ fontSize: '2rem', marginBottom: '1rem' }}>📝</div>
-        <p style={{ color: '#6b7280' }}>Loading To-Do list...</p>
+        <p style={{ color: 'var(--ck-ink3)' }}>Loading To-Do list…</p>
       </div>
     );
   }
 
+  const ungroupedCount = items.filter(i => !i.groupId).length;
+  const pastDueCount = items.filter(i => !i.isCompleted && isTodoPastDue(i.dueDate)).length;
+  const listActiveFilter: GenericFilter = pastDueOnly
+    ? { type: 'pastdue' }
+    : selectedGroups.size === 1
+      ? { type: 'group', value: Array.from(selectedGroups)[0] }
+      : { type: 'all' };
+  const listFilterSections: FilterSection[] = [
+    {
+      id: 'quick',
+      title: 'Quick Filters',
+      defaultExpanded: true,
+      items: [
+        { filter: { type: 'all' }, icon: '📝', label: 'All Items', count: items.length },
+        { filter: { type: 'group', value: 'ungrouped' }, icon: '📋', label: 'Quick Items', count: ungroupedCount },
+        { filter: { type: 'pastdue' }, icon: '⏰', label: 'Past Due', count: pastDueCount, color: '#c94a2e' },
+      ],
+    },
+    ...(groups.length > 0 ? [{
+      id: 'lists',
+      title: 'Lists',
+      defaultExpanded: true,
+      items: groups.map(g => ({
+        filter: { type: 'group', value: g.id },
+        icon: g.icon || '📁',
+        label: stripLeadingGroupIcon(g.name, g.icon || '📁'),
+        count: items.filter(i => i.groupId === g.id).length,
+        color: g.color || undefined,
+      })),
+    }] : []),
+  ];
+  const handleListFilter = (f: GenericFilter) => {
+    if (f.type === 'all') { setSelectedGroups(new Set()); setPastDueOnly(false); }
+    else if (f.type === 'pastdue') { setPastDueOnly(true); setSelectedGroups(new Set()); }
+    else if (f.type === 'group' && f.value) { setSelectedGroups(new Set([f.value])); setPastDueOnly(false); }
+  };
+
   return (
-    <div style={{ maxWidth: '900px', margin: '0 auto', padding: '1rem' }}>
+    <div className="ck-screen">
       {/* Header */}
-      <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        marginBottom: '1.5rem',
-        flexWrap: 'wrap',
-        gap: '1rem',
-        position: 'relative',
-      }}>
-        <div style={{ textAlign: 'center' }}>
-          {!isMobileViewport && (
-            <h1 style={{ 
-              margin: 0, 
-              fontSize: '2rem', 
-              fontWeight: 800,
-              color: 'white',
-              textShadow: '2px 2px 4px rgba(0, 0, 0, 0.2)',
-            }}>
-              📝 Lists
-            </h1>
-          )}
-          <p style={{ margin: isMobileViewport ? '0 0 0.25rem' : '0.25rem 0 0', color: 'rgba(255, 255, 255, 0.8)', fontSize: '0.9rem' }}>
-            {completedItems} of {totalItems} completed ({progressPercent}%)
-          </p>
+      <div className="ck-page-head">
+        <div>
+          <h2 className="ck-page-title">Lists</h2>
+          <p className="ck-page-sub">{completedItems} of {totalItems} completed ({progressPercent}%)</p>
         </div>
-        
-        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', position: 'absolute', right: 0 }}>
-          <button
-            onClick={() => setShowVoiceModal(true)}
-            style={{
-              padding: '0.625rem 1rem',
-              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-              color: 'white',
-              border: 'none',
-              borderRadius: '0.75rem',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.5rem',
-              fontWeight: 500,
-              fontSize: '0.9rem',
-              boxShadow: '0 2px 8px rgba(102, 126, 234, 0.3)'
-            }}
-          >
+        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+          <button onClick={() => setShowVoiceModal(true)} className="ck-btn">
             🎤 Voice Add
           </button>
           <button
@@ -450,21 +452,9 @@ const TodoView: React.FC<TodoViewProps> = () => {
               setGroupColor('#6366f1');
               setShowGroupModal(true);
             }}
-            style={{
-              padding: '0.625rem 1rem',
-              background: theme.colors.primary,
-              color: 'white',
-              border: 'none',
-              borderRadius: '0.75rem',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.5rem',
-              fontWeight: 500,
-              fontSize: '0.9rem'
-            }}
+            className="ck-btn ck-btn-primary"
           >
-            ➕ New List
+            + New List
           </button>
         </div>
       </div>
@@ -488,33 +478,65 @@ const TodoView: React.FC<TodoViewProps> = () => {
 
       {/* Progress bar */}
       <div style={{
-        background: '#e5e7eb',
+        background: 'var(--ck-cream)',
         borderRadius: '9999px',
         height: '8px',
         marginBottom: '1.5rem',
         overflow: 'hidden'
       }}>
         <div style={{
-          background: `linear-gradient(90deg, ${theme.colors.primary}, ${theme.colors.secondary})`,
+          background: 'var(--ck-purple)',
           height: '100%',
           width: `${progressPercent}%`,
           transition: 'width 0.3s ease'
         }} />
       </div>
 
-      {/* Group filter chips — single scrollable row on mobile */}
+      {/* Main content with sidebar */}
+      <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start' }}>
+        {isMobileViewport && showMobileFilters ? (
+          <GenericFilterSidebar
+            title="📝 Filter Lists"
+            sections={listFilterSections}
+            activeFilter={listActiveFilter}
+            onFilterChange={handleListFilter}
+            isMobile
+            onFilterSelected={() => setShowMobileFilters(false)}
+          />
+        ) : (
+          <>
+            {!isMobileViewport && (
+              <GenericFilterSidebar
+                sections={listFilterSections}
+                activeFilter={listActiveFilter}
+                onFilterChange={handleListFilter}
+              />
+            )}
+            <div style={{ flex: 1, minWidth: 0 }}>
+              {isMobileViewport && (
+                <button
+                  className="ck-btn"
+                  onClick={() => setShowMobileFilters(true)}
+                  style={{ width: '100%', justifyContent: 'center', marginBottom: '1rem' }}
+                >
+                  ‹ Filters
+                </button>
+              )}
+
+      {/* Group filter chips — mobile quick toggles */}
+      {isMobileViewport && (
       <div style={{
         display: 'flex',
         gap: '0.5rem',
-        flexWrap: isMobileViewport ? 'nowrap' : 'wrap',
+        flexWrap: 'nowrap',
         marginBottom: '1rem',
         alignItems: 'center',
-        overflowX: isMobileViewport ? 'auto' : undefined,
+        overflowX: 'auto',
         WebkitOverflowScrolling: 'touch',
-        paddingBottom: isMobileViewport ? '2px' : undefined,
+        paddingBottom: '2px',
         maxWidth: '100%'
       }}>
-        <span style={{ color: '#6b7280', fontSize: isMobileViewport ? '0.8rem' : '0.85rem', fontWeight: 500, flexShrink: 0 }}>Filter:</span>
+        <span style={{ color: 'var(--ck-ink3)', fontSize: isMobileViewport ? '0.8rem' : '0.85rem', fontWeight: 500, flexShrink: 0 }}>Filter:</span>
         <button
           onClick={() => {
             setSelectedGroups(new Set());
@@ -522,8 +544,8 @@ const TodoView: React.FC<TodoViewProps> = () => {
           }}
           style={{
             padding: isMobileViewport ? '0.3rem 0.55rem' : '0.375rem 0.875rem',
-            background: selectedGroups.size === 0 && !pastDueOnly ? theme.colors.primary : '#f3f4f6',
-            color: selectedGroups.size === 0 && !pastDueOnly ? 'white' : '#374151',
+            background: selectedGroups.size === 0 && !pastDueOnly ? 'var(--ck-purple)' : 'var(--ck-cream)',
+            color: selectedGroups.size === 0 && !pastDueOnly ? 'white' : 'var(--ck-ink2)',
             border: 'none',
             borderRadius: '9999px',
             cursor: 'pointer',
@@ -540,9 +562,9 @@ const TodoView: React.FC<TodoViewProps> = () => {
           style={{
             padding: isMobileViewport ? '0.3rem 0.55rem' : '0.375rem 0.875rem',
             background:
-              selectedGroups.size === 1 && selectedGroups.has('ungrouped') ? '#6b7280' : '#f3f4f6',
+              selectedGroups.size === 1 && selectedGroups.has('ungrouped') ? 'var(--ck-ink2)' : 'var(--ck-cream)',
             color:
-              selectedGroups.size === 1 && selectedGroups.has('ungrouped') ? 'white' : '#374151',
+              selectedGroups.size === 1 && selectedGroups.has('ungrouped') ? 'white' : 'var(--ck-ink2)',
             border: 'none',
             borderRadius: '9999px',
             cursor: 'pointer',
@@ -561,8 +583,8 @@ const TodoView: React.FC<TodoViewProps> = () => {
             onClick={() => setPastDueOnly(p => !p)}
             style={{
               padding: '0.3rem 0.5rem',
-              background: pastDueOnly ? '#b91c1c' : '#f3f4f6',
-              color: pastDueOnly ? 'white' : '#374151',
+              background: pastDueOnly ? 'var(--ck-red)' : 'var(--ck-cream)',
+              color: pastDueOnly ? 'white' : 'var(--ck-ink2)',
               border: 'none',
               borderRadius: '9999px',
               cursor: 'pointer',
@@ -576,6 +598,7 @@ const TodoView: React.FC<TodoViewProps> = () => {
           </button>
         )}
       </div>
+      )}
 
       {/* Options row */}
       <div style={{
@@ -585,7 +608,7 @@ const TodoView: React.FC<TodoViewProps> = () => {
         marginBottom: '1rem',
         fontSize: '0.85rem'
       }}>
-        <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', color: '#6b7280' }}>
+        <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', color: 'var(--ck-ink2)' }}>
           <input
             type="checkbox"
             checked={showCompleted}
@@ -599,9 +622,9 @@ const TodoView: React.FC<TodoViewProps> = () => {
             onClick={handleClearCompleted}
             style={{
               padding: '0.375rem 0.75rem',
-              background: '#fee2e2',
-              color: '#dc2626',
-              border: 'none',
+              background: 'var(--ck-red-light)',
+              color: 'var(--ck-red)',
+              border: '0.5px solid rgba(201,74,46,0.3)',
               borderRadius: '0.5rem',
               cursor: 'pointer',
               fontSize: '0.8rem'
@@ -613,13 +636,7 @@ const TodoView: React.FC<TodoViewProps> = () => {
       </div>
 
       {/* Add new item */}
-      <div style={{
-        background: 'white',
-        borderRadius: '1rem',
-        padding: '1rem',
-        marginBottom: '1.5rem',
-        boxShadow: '0 2px 8px rgba(0,0,0,0.08)'
-      }}>
+      <div className="ck-card" style={{ marginBottom: '1.5rem' }}>
         <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '0.75rem' }}>
           <input
             ref={inputRef}
@@ -631,29 +648,22 @@ const TodoView: React.FC<TodoViewProps> = () => {
             style={{
               flex: 1,
               minWidth: '200px',
-              padding: '0.75rem 1rem',
-              border: '2px solid #e5e7eb',
-              borderRadius: '0.75rem',
-              fontSize: '1rem',
+              padding: '0.7rem 0.9rem',
+              border: '0.5px solid var(--ck-border2)',
+              borderRadius: '8px',
+              fontSize: '0.95rem',
+              fontFamily: 'var(--ck-font)',
               outline: 'none',
               transition: 'border-color 0.2s'
             }}
-            onFocus={(e) => e.target.style.borderColor = theme.colors.primary}
-            onBlur={(e) => e.target.style.borderColor = '#e5e7eb'}
+            onFocus={(e) => e.target.style.borderColor = 'var(--ck-purple)'}
+            onBlur={(e) => e.target.style.borderColor = 'var(--ck-border2)'}
           />
           <button
             onClick={handleAddItem}
             disabled={!newItemText.trim()}
-            style={{
-              padding: '0.75rem 1.5rem',
-              background: newItemText.trim() ? theme.colors.primary : '#e5e7eb',
-              color: newItemText.trim() ? 'white' : '#9ca3af',
-              border: 'none',
-              borderRadius: '0.75rem',
-              cursor: newItemText.trim() ? 'pointer' : 'not-allowed',
-              fontWeight: 600,
-              fontSize: '0.95rem'
-            }}
+            className="ck-btn ck-btn-primary"
+            style={{ opacity: newItemText.trim() ? 1 : 0.5, cursor: newItemText.trim() ? 'pointer' : 'not-allowed' }}
           >
             Add
           </button>
@@ -793,6 +803,10 @@ const TodoView: React.FC<TodoViewProps> = () => {
           </p>
         </div>
       )}
+            </div>
+          </>
+        )}
+      </div>
 
       {/* Group Modal */}
       {showGroupModal && (
@@ -1242,7 +1256,7 @@ const TodoView: React.FC<TodoViewProps> = () => {
                   style={{
                     flex: 1,
                     padding: '0.75rem',
-                    background: isReadonly ? '#f59e0b' : (Object.keys(detailEdits).length > 0 ? theme.colors.primary : '#e5e7eb'),
+                    background: isReadonly ? 'var(--ck-gold)' : (Object.keys(detailEdits).length > 0 ? 'var(--ck-purple)' : '#e5e7eb'),
                     color: isReadonly ? 'white' : (Object.keys(detailEdits).length > 0 ? 'white' : '#9ca3af'),
                     border: 'none',
                     borderRadius: '0.5rem',
@@ -1328,19 +1342,20 @@ const GroupSection: React.FC<GroupSectionProps> = ({
   
   return (
     <div style={{
-      background: 'white',
-      borderRadius: '1rem',
+      background: 'var(--ck-white)',
+      border: '0.5px solid var(--ck-border2)',
+      borderRadius: '10px',
       marginBottom: '1rem',
       overflow: 'hidden',
-      boxShadow: '0 2px 8px rgba(0,0,0,0.06)'
+      boxShadow: 'var(--ck-shadow)'
     }}>
       {/* Header */}
       <div
         onClick={onToggleExpand}
         style={{
-          padding: '1rem 1.25rem',
-          background: `linear-gradient(135deg, ${color}10 0%, ${color}05 100%)`,
-          borderLeft: `4px solid ${color}`,
+          padding: '0.85rem 1.1rem',
+          background: `${color}0d`,
+          borderLeft: `3px solid ${color}`,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
@@ -1360,7 +1375,7 @@ const GroupSection: React.FC<GroupSectionProps> = ({
           }}>
             <span style={{
               fontWeight: 600,
-              color: '#1f2937',
+              color: 'var(--ck-ink)',
               overflow: 'hidden',
               textOverflow: 'ellipsis',
               whiteSpace: 'nowrap',
@@ -1395,8 +1410,8 @@ const GroupSection: React.FC<GroupSectionProps> = ({
               </span>
             )}
             <span style={{
-              background: '#e5e7eb',
-              color: '#6b7280',
+              background: 'var(--ck-cream)',
+              color: 'var(--ck-ink2)',
               padding: '0.125rem 0.5rem',
               borderRadius: '9999px',
               fontSize: '0.75rem',

@@ -121,7 +121,7 @@ const ResolutionCard: React.FC<ResolutionCardProps> = ({
 
       <div className="resolution-actions">
         <button
-          className="action-btn edit-btn"
+          className="ck-btn ck-btn-sm"
           onClick={() => onEdit(resolution)}
           title="Edit resolution"
         >
@@ -131,21 +131,21 @@ const ResolutionCard: React.FC<ResolutionCardProps> = ({
         {resolution.status === 'active' ? (
           <>
             <button
-              className="action-btn pause-btn"
+              className="ck-btn ck-btn-sm"
               onClick={() => onStatusChange(resolution.id, 'paused')}
               title="Pause this resolution"
             >
               ⏸️ Pause
             </button>
             <button
-              className="action-btn abandon-btn"
+              className="ck-btn ck-btn-sm ck-btn-danger"
               onClick={() => onStatusChange(resolution.id, 'abandoned')}
               title="Mark as abandoned"
             >
               ❌ Abandon
             </button>
             <button
-              className="action-btn complete-btn"
+              className="ck-btn ck-btn-sm ck-btn-primary"
               onClick={() => onStatusChange(resolution.id, 'completed')}
               title="Mark as completed"
             >
@@ -155,14 +155,14 @@ const ResolutionCard: React.FC<ResolutionCardProps> = ({
         ) : resolution.status === 'paused' ? (
           <>
             <button
-              className="action-btn resume-btn"
+              className="ck-btn ck-btn-sm"
               onClick={() => onStatusChange(resolution.id, 'active')}
               title="Resume this resolution"
             >
               🚀 Resume
             </button>
             <button
-              className="action-btn delete-btn"
+              className="ck-btn ck-btn-sm ck-btn-danger"
               onClick={() => onDelete(resolution.id)}
               title="Delete resolution"
             >
@@ -171,7 +171,7 @@ const ResolutionCard: React.FC<ResolutionCardProps> = ({
           </>
         ) : (
           <button
-            className="action-btn delete-btn"
+            className="ck-btn ck-btn-sm ck-btn-danger"
             onClick={() => onDelete(resolution.id)}
             title="Delete resolution"
           >
