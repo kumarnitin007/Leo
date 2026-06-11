@@ -42,7 +42,9 @@ import SharedWithMeView from './components/SharedWithMeView';
 // Lazy load BankDashboard (PERF-002: heavy Recharts dependency ~200KB)
 const BankDashboard = lazy(() => import('./components/BankDashboard'));
 import SafeFilterSidebar, { SafeFilter } from './components/SafeFilterSidebar';
-import DocumentFilterSidebar, { DocumentFilter } from './components/DocumentFilterSidebar';
+import GenericFilterSidebar, { GenericFilter, FilterSection } from './components/GenericFilterSidebar';
+
+type DocumentFilter = GenericFilter;
 import GroupsManager from './components/GroupsManager';
 import GroupChatHub from './components/groups/GroupChatHub';
 import * as sharingService from './services/sharingService';
@@ -891,6 +893,46 @@ const SafeView: React.FC = () => {
     }
   };
 
+  const docFilterSections: FilterSection[] = [
+    {
+      id: 'quick', title: 'Quick Filters', defaultExpanded: true,
+      items: [
+        { filter: { type: 'all' }, icon: '📋', label: 'All Documents', count: docEntryCounts.all },
+        { filter: { type: 'favorites' }, icon: '⭐', label: 'Favorites', count: docEntryCounts.favorites, color: '#c8922a' },
+        { filter: { type: 'shared' }, icon: '👥', label: 'Shared with Me', count: docEntryCounts.shared, color: '#1d9e75' },
+        { filter: { type: 'sharedByMe' }, icon: '📤', label: 'Shared by Me', count: docEntryCounts.sharedByMe, color: '#6b5de8' },
+        { filter: { type: 'expiring' }, icon: '⏰', label: 'Expiring Soon', count: docEntryCounts.expiring, color: '#c94a2e' },
+        { filter: { type: 'recent' }, icon: '🕐', label: 'Recently Updated', count: docEntryCounts.recent, color: '#8b7fe0' },
+      ],
+    },
+    {
+      id: 'docTypes', title: 'Document Types', defaultExpanded: true,
+      items: ([
+        { id: 'invoice', icon: '📄', label: 'Invoice' },
+        { id: 'contract', icon: '📜', label: 'Contract' },
+        { id: 'identity', icon: '🪪', label: 'Identity' },
+        { id: 'insurance', icon: '🏥', label: 'Insurance' },
+        { id: 'medical', icon: '⚕️', label: 'Medical' },
+        { id: 'tax', icon: '🧾', label: 'Tax' },
+        { id: 'warranty', icon: '🛡️', label: 'Warranty' },
+        { id: 'license', icon: '📀', label: 'License' },
+        { id: 'other', icon: '📁', label: 'Other' },
+      ]).map(dt => ({ filter: { type: 'docType', value: dt.id }, icon: dt.icon, label: dt.label, count: docEntryCounts.byDocType[dt.id] || 0 })),
+    },
+    {
+      id: 'providers', title: 'Storage Provider', defaultExpanded: false,
+      items: ([
+        { id: 'google', icon: '🔵', label: 'Google Drive' },
+        { id: 'onedrive', icon: '☁️', label: 'OneDrive' },
+        { id: 'dropbox', icon: '📦', label: 'Dropbox' },
+      ]).map(p => ({ filter: { type: 'provider', value: p.id }, icon: p.icon, label: p.label, count: docEntryCounts.byProvider[p.id] || 0 })),
+    },
+    ...(tags.length > 0 ? [{
+      id: 'tags', title: 'Tags', defaultExpanded: false,
+      items: tags.map(tag => ({ filter: { type: 'tag', value: tag.id }, icon: '🏷️', label: tag.name, count: docEntryCounts.byTag[tag.id] || 0, color: tag.color })),
+    }] : []),
+  ];
+
   // Handle entry selection
   const handleEntrySelect = (entry: SafeEntry) => {
     setSelectedEntry(entry);
@@ -1313,12 +1355,12 @@ const SafeView: React.FC = () => {
                           alignItems: 'center',
                           gap: '0.5rem',
                           padding: '0.75rem 1rem',
-                          background: 'rgba(59, 130, 246, 0.1)',
+                          background: 'var(--ck-purple-light)',
                           border: 'none',
                           borderRadius: '0.5rem',
                           cursor: 'pointer',
                           fontSize: '0.9rem',
-                          color: '#3b82f6',
+                          color: 'var(--ck-purple)',
                           marginBottom: '1rem',
                           width: '100%',
                         }}
@@ -1336,7 +1378,7 @@ const SafeView: React.FC = () => {
                         alignItems: 'center',
                         gap: '0.5rem',
                         padding: '0.5rem 1rem',
-                        background: 'rgba(59, 130, 246, 0.1)',
+                        background: 'var(--ck-purple-light)',
                         borderRadius: '0.5rem',
                         marginBottom: '1rem',
                         fontSize: '0.85rem',
@@ -1350,7 +1392,7 @@ const SafeView: React.FC = () => {
                             background: 'none',
                             border: 'none',
                             cursor: 'pointer',
-                            color: '#3b82f6',
+                            color: 'var(--ck-purple)',
                             fontSize: '0.85rem',
                           }}
                         >
@@ -1408,11 +1450,11 @@ const SafeView: React.FC = () => {
               ) : (
                 /* Documents Tab with Filter Sidebar */
                 isMobile && showMobileDocFilters && !showDocumentForm && !editingDocument ? (
-                  <DocumentFilterSidebar
-                    tags={tags}
+                  <GenericFilterSidebar
+                    title="📄 Browse Documents"
+                    sections={docFilterSections}
                     activeFilter={activeDocFilter}
                     onFilterChange={setActiveDocFilter}
-                    entryCounts={docEntryCounts}
                     isMobile={true}
                     onFilterSelected={() => setShowMobileDocFilters(false)}
                   />
@@ -1420,11 +1462,10 @@ const SafeView: React.FC = () => {
                   <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start', width: '100%' }}>
                     {/* Desktop: Document Filter Sidebar */}
                     {!isMobile && !showDocumentForm && !editingDocument && (
-                      <DocumentFilterSidebar
-                        tags={tags}
+                      <GenericFilterSidebar
+                        sections={docFilterSections}
                         activeFilter={activeDocFilter}
                         onFilterChange={setActiveDocFilter}
-                        entryCounts={docEntryCounts}
                       />
                     )}
                     
@@ -1438,12 +1479,12 @@ const SafeView: React.FC = () => {
                             alignItems: 'center',
                             gap: '0.5rem',
                             padding: '0.75rem 1rem',
-                            background: 'rgba(59, 130, 246, 0.1)',
+                            background: 'var(--ck-purple-light)',
                             border: 'none',
                             borderRadius: '0.5rem',
                             cursor: 'pointer',
                             fontSize: '0.9rem',
-                            color: '#3b82f6',
+                            color: 'var(--ck-purple)',
                             marginBottom: '1rem',
                             width: '100%',
                           }}
@@ -1479,7 +1520,7 @@ const SafeView: React.FC = () => {
                               alignItems: 'center',
                               gap: '0.5rem',
                               padding: '0.5rem 1rem',
-                              background: 'rgba(59, 130, 246, 0.1)',
+                              background: 'var(--ck-purple-light)',
                               borderRadius: '0.5rem',
                               marginBottom: '1rem',
                               fontSize: '0.85rem',
@@ -1493,7 +1534,7 @@ const SafeView: React.FC = () => {
                                   background: 'none',
                                   border: 'none',
                                   cursor: 'pointer',
-                                  color: '#3b82f6',
+                                  color: 'var(--ck-purple)',
                                   fontSize: '0.85rem',
                                 }}
                               >

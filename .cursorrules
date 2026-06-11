@@ -27,7 +27,7 @@ DATABASE RULES (STRICT - MUST FOLLOW)
 - Failure to follow this process is unacceptable
 
 TODO TRACKING RULES
-- The project TODO list is maintained at: docs/LEO_IMPROVEMENTS_TODO.TODO
+- The project TODO list is maintained at: docs/LEO_TODO.TODO
 - When completing any task from the TODO list:
   1. Update the item's **Status** from ⬜ Pending to ✅ Completed
   2. Add the **Completed Date** (format: YYYY-MM-DD)

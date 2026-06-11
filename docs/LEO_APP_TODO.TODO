@@ -1,0 +1,125 @@
+# Leo Planner — Make it an App (Simple Plan)
+
+**App name:** **Leo Planner**
+**Icon:** the 🦁 lion-face **emoji** (Noto/Android style) on the brand teal square (`public/leo-icon.svg` + generated PNGs) — wired everywhere.
+**Order (cheapest first):** **PWA ($0) → install on Fire tablet → (optional, later) APK / Play Store → (optional, much later) iOS.**
+
+Legend:
+- 🤖 = I (the AI) do it in the code/repo
+- 🧑 = You do it (needs a person, an account, a device, or a payment)
+- 💲 = Costs money
+
+---
+
+## The plan in one line
+We are **NOT** building a native app or paying anyone right now. Leo Planner is already a **PWA** (installable web app). We polish it, you install it on the **Fire tablet** from the browser, and that's a real $0 "app". Stores come later only if you want them.
+
+---
+
+## Your questions answered
+
+**Q: $0 approach = PWA?** ✅ Yes. PWA ("Add to Home Screen" / "Install app") costs nothing, needs no store account, and runs full-screen with the lion icon on Fire tablet, Android, iPhone, and desktop.
+
+**Q: Will it still use Supabase, or local storage on the device?** **Both — and PWA changes nothing here.**
+- **Supabase** stays the cloud backend when you're **signed in** (sync across devices, groups/sharing, account data).
+- **localStorage on the device** is still used for the offline app shell and cached/local data.
+- The **Vault stays client-side encrypted** (AES-256) either way.
+- **Internet:** sign-in and cloud sync need internet. Already-loaded screens and locally cached data still open offline; changes sync when you're back online.
+- So: same architecture as today, just launched from a home-screen icon instead of a browser tab.
+
+**Q: App name?** Set to **Leo Planner** (manifest, title, meta — already done).
+
+**Q: Lion icon?** The lion face (`leo-icon.svg`) is already the PWA/app icon and favicon. One small gap remains (PNG sizes) — see A1.
+
+---
+
+## Good news — most of this is already done ✅
+- `public/manifest.json` named **"Leo Planner"** with the lion icon and app shortcuts. ✅
+- Service worker registered (`public/service-worker.js`) for offline + install. ✅
+- App is hosted on **HTTPS** (`leo-planner.vercel.app`) — required for PWA install. ✅
+- Favicon now points to the lion icon. ✅ (🤖 fixed)
+- **Lion PNG icons generated** (192, 512, maskable 192/512, apple-touch 180, 144 tile) and wired into `manifest.json` + `index.html`. ✅ (🤖 done — regenerate anytime with `node scripts/generate-icons.mjs`)
+
+**Remaining gaps:** none for install. Optional later: a PNG **splash** and store screenshots (only needed for an APK/store listing).
+
+---
+
+## PHASE A — PWA first ($0) ← do this now
+
+### A1. Polish the PWA
+- ✅ 🤖 🦁 emoji icon (Noto lion on teal) — SVG + PNGs (192/512/maskable/apple-touch/tile) generated and wired into `manifest.json` + `index.html`. Regenerate with `node scripts/generate-icons.mjs`.
+- ✅ 🤖 Favicon points to the lion icon; manifest validates ("Leo Planner", 6 icons).
+- 🧑 (After deploy) verify "installable" on the tablet/desktop — browser DevTools → Application → Manifest should show no errors and an Install option.
+- 🤖 (Optional) PNG splash screen in the Leo palette.
+
+### A2. Publish the latest build
+- 🧑 Push to git (you do this manually). Vercel auto-deploys `leo-planner.vercel.app`.
+- 🤖 I prep the build/changes; you push.
+
+### A3. Install on the Fire tablet (see detailed Fire steps below)
+- 🧑 Follow the Fire tablet steps and tell me what happens.
+
+### A4. Test & fix
+- 🧑 Use it on the Fire tablet; report anything broken (layout, offline, login). 🤖 I fix, you re-test.
+
+✅ **Phase A done = a free, installed Leo Planner on your Fire tablet.**
+
+---
+
+## Fire tablet — how to install (Fire OS is Android-based)
+
+Pick the easiest route that works for you. All are **$0**.
+
+### Route 1 — Silk browser, Add to Home Screen (simplest)
+- 🧑 Open the **Silk** browser on the Fire tablet.
+- 🧑 Go to **`leo-planner.vercel.app`** and sign in once.
+- 🧑 Tap the **menu (⋮)** → **"Add to Home Screen"** (wording may vary).
+- 🧑 Confirm. The lion icon appears on the home screen; tapping it opens Leo Planner.
+- ⚠️ Note: Silk's PWA support is basic — it may open more like a browser shortcut than a full standalone app. If that bugs you, use Route 2.
+
+### Route 2 — Chrome on Fire (better full-screen PWA)
+- 🧑 Allow installing apps: **Settings → Security & Privacy → Apps from Unknown Sources** (enable for the file app/browser).
+- 🧑 Download the **Chrome** APK from a reputable source (e.g. APKMirror) and install it. (Chrome isn't in the Amazon Appstore.)
+- 🧑 Open `leo-planner.vercel.app` in Chrome → menu → **"Install app"** → it runs standalone with the lion icon.
+- 🤖 I can give you the exact tap-by-tap if you choose this route.
+
+### Route 3 — Real installable APK (optional, still $0, no store)
+- 🤖 Package the PWA into an **APK** using **PWABuilder** (uses our HTTPS site + manifest — no rewrite).
+- 🧑 Copy the APK to the Fire tablet and install it (Unknown Sources on).
+- Result: a true app icon + standalone window, **without** any store or fee.
+- This is also the bridge to the Play Store later (same package).
+
+> Recommended: start with **Route 1** (30 seconds). If you want it to feel like a "real app," do **Route 2** or **Route 3**.
+
+---
+
+## PHASE B — APK / Google Play (optional, later)
+Only if you want a store listing instead of sideloading.
+- 🤖 Build the APK/AAB from the PWA (PWABuilder/Bubblewrap) — reuses the same lion icon + manifest.
+- 💲 🧑 **Google Play Developer account — $25 one-time.**
+- 🧑 Create the signing key and keep it safe (🤖 gives exact command).
+- 🧑 Upload build + fill listing in Play Console (🤖 drafts the text; you add screenshots).
+- 🧑 Submit for review.
+
+## PHASE C — iOS App Store (optional, much later)
+- 💲 🧑 **Apple Developer Program — $99/year.**
+- 💲 🧑 **A Mac** (own or ~$20–60/mo cloud rental) — required for iOS builds.
+- 🤖 Generate the iOS wrapper (Capacitor) from the same source; draft the listing.
+- 🧑 Build/sign/upload in Xcode + App Store Connect; submit for review.
+
+---
+
+## Money checklist
+- [x] **PWA install (Fire tablet, phone, desktop)** — **$0**
+- [x] **Sideloaded APK (Route 3)** — **$0**
+- [ ] 💲 Google Play — **$25 once** (only for a Play Store listing)
+- [ ] 💲 Apple Developer — **$99/year** (only for the iOS App Store)
+- [ ] 💲 Mac access — only for iOS
+
+> No monthly fees for the PWA, Capacitor, or build tools. The only recurring cost is Apple's $99/year, and only if you choose the iOS App Store.
+
+---
+
+## Split of work
+- 🤖 **I do:** icon PNGs, manifest/HTML polish, installability checks, optional APK packaging, all store text, bug fixes.
+- 🧑 **You do:** push to git (auto-deploys), install on the Fire tablet, test/report, and — only if you go to stores — pay the fees, create the signing key, take screenshots, and click "Submit."

@@ -245,7 +245,7 @@ const HistoryView: React.FC = () => {
     const chartData = tasks.map(task => ({
       name: task.name,
       rate: calculateCompletionRate(task),
-      color: task.color || '#667eea'
+      color: task.color || '#6b5de8'
     })).sort((a, b) => b.rate - a.rate);
 
     const maxRate = 100;
@@ -324,7 +324,7 @@ const HistoryView: React.FC = () => {
     const chartData = tasks.map(task => ({
       name: task.name,
       value: getTaskCompletions(task.id).filter(c => getLast30Days().includes(c.date)).length,
-      color: task.color || '#667eea'
+      color: task.color || '#6b5de8'
     })).filter(item => item.value > 0);
 
     if (chartData.length === 0) {
@@ -445,7 +445,7 @@ const HistoryView: React.FC = () => {
             <path
               d={pathData}
               fill="none"
-              stroke="#667eea"
+              stroke="#6b5de8"
               strokeWidth="3"
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -454,8 +454,8 @@ const HistoryView: React.FC = () => {
             {/* Data points */}
             {points.map((p, idx) => (
               <g key={idx}>
-                <circle cx={p.x} cy={p.y} r="5" fill="#667eea" className="line-point" />
-                <text x={p.x} y={p.y - 15} textAnchor="middle" fontSize="12" fontWeight="bold" fill="#667eea">
+                <circle cx={p.x} cy={p.y} r="5" fill="#6b5de8" className="line-point" />
+                <text x={p.x} y={p.y - 15} textAnchor="middle" fontSize="12" fontWeight="bold" fill="#6b5de8">
                   {p.count}
                 </text>
               </g>
@@ -471,8 +471,8 @@ const HistoryView: React.FC = () => {
             {/* Gradient definition */}
             <defs>
               <linearGradient id="lineGradient" x1="0%" y1="0%" x2="0%" y2="100%">
-                <stop offset="0%" stopColor="#667eea" stopOpacity="0.8" />
-                <stop offset="100%" stopColor="#667eea" stopOpacity="0.1" />
+                <stop offset="0%" stopColor="#6b5de8" stopOpacity="0.8" />
+                <stop offset="100%" stopColor="#6b5de8" stopOpacity="0.1" />
               </linearGradient>
             </defs>
           </svg>
@@ -513,7 +513,7 @@ const HistoryView: React.FC = () => {
                       className="progress-fill" 
                       style={{ 
                         width: `${rate}%`,
-                        background: task.color || 'linear-gradient(90deg, #667eea, #764ba2)'
+                        background: task.color || 'linear-gradient(90deg, #6b5de8, #764ba2)'
                       }}
                     >
                       {rate > 20 && `${rate}%`}

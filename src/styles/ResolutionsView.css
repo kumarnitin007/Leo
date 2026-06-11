@@ -1,9 +1,7 @@
 /* ResolutionsView Styling */
 
 .resolutions-view {
-  padding: 2rem;
-  max-width: 1400px;
-  margin: 0 auto;
+  /* width/padding handled by .ck-screen for cross-screen alignment */
 }
 
 .resolutions-view .view-header {

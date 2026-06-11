@@ -25,9 +25,10 @@ import { importFromICalendar, filterPersonalEvents } from './icalParser';
 import { Tag } from './types';
 import { ReferenceCalendarModal } from './components/ReferenceCalendarModal';
 import { ReferenceCalendarTemplateModal } from './components/ReferenceCalendarTemplateModal';
-import EventFilterSidebar, { EventFilter } from './components/EventFilterSidebar';
 import GenericFilterSidebar, { GenericFilter, FilterSection } from './components/GenericFilterSidebar';
 import packageJson from '../package.json';
+
+type EventFilter = GenericFilter;
 
 interface EventsViewProps {
   onNavigate?: (view: string) => void;
@@ -159,6 +160,49 @@ const EventsView: React.FC<EventsViewProps> = () => {
       default: return 'All Events';
     }
   };
+
+  const eventCategories = [
+    { id: 'Birthday', icon: '🎂' },
+    { id: 'Anniversary', icon: '💝' },
+    { id: 'Wedding', icon: '💍' },
+    { id: 'Graduation', icon: '🎓' },
+    { id: 'Holiday', icon: '🎉' },
+    { id: 'Festival', icon: '🎊' },
+    { id: 'Special Event', icon: '⭐' },
+    { id: 'Death Anniversary', icon: '🕯️' },
+    { id: 'Memorial', icon: '🌹' },
+  ];
+
+  const eventFilterSections: FilterSection[] = [
+    {
+      id: 'quick', title: 'Quick Filters', defaultExpanded: true,
+      items: [
+        { filter: { type: 'all' }, icon: '📋', label: 'All Events', count: filterCounts.all },
+        { filter: { type: 'upcoming' }, icon: '🔔', label: 'Upcoming (30 days)', count: filterCounts.upcoming, color: '#1d9e75' },
+        { filter: { type: 'thisMonth' }, icon: '📆', label: 'This Month', count: filterCounts.thisMonth, color: '#6b5de8' },
+        { filter: { type: 'hidden' }, icon: '🙈', label: 'Hidden from Dashboard', count: filterCounts.hidden, color: '#9a9089' },
+      ],
+    },
+    {
+      id: 'categories', title: 'Categories', defaultExpanded: true,
+      items: eventCategories.map(cat => ({
+        filter: { type: 'category', value: cat.id }, icon: cat.icon, label: cat.id, count: filterCounts.byCategory[cat.id] || 0,
+      })),
+    },
+    {
+      id: 'frequency', title: 'Frequency', defaultExpanded: false,
+      items: [
+        { filter: { type: 'frequency', value: 'yearly' }, icon: '🔄', label: 'Yearly', count: filterCounts.byFrequency['yearly'] || 0 },
+        { filter: { type: 'frequency', value: 'one-time' }, icon: '⚡', label: 'One-Time', count: filterCounts.byFrequency['one-time'] || 0 },
+      ],
+    },
+    ...(tags.length > 0 ? [{
+      id: 'tags', title: 'Tags', defaultExpanded: false,
+      items: tags.map(tag => ({
+        filter: { type: 'tag', value: tag.id }, icon: '🏷️', label: tag.name, count: filterCounts.byTag[tag.id] || 0, color: tag.color,
+      })),
+    }] : []),
+  ];
 
   const loadTags = async () => {
     try {
@@ -494,7 +538,7 @@ const EventsView: React.FC<EventsViewProps> = () => {
   };
 
   return (
-    <div className="events-view">
+    <div className="ck-screen events-view">
       <div className="ck-page-head">
         <div>
           <h2 className="ck-page-title">Events</h2>
@@ -509,11 +553,11 @@ const EventsView: React.FC<EventsViewProps> = () => {
       <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start' }}>
         {/* Mobile: Show filters first */}
         {isMobile && showMobileFilters && !isEditing ? (
-          <EventFilterSidebar
-            tags={tags}
+          <GenericFilterSidebar
+            title="📅 Browse Events"
+            sections={eventFilterSections}
             activeFilter={activeFilter}
             onFilterChange={setActiveFilter}
-            entryCounts={filterCounts}
             isMobile={true}
             onFilterSelected={() => setShowMobileFilters(false)}
           />
@@ -521,11 +565,10 @@ const EventsView: React.FC<EventsViewProps> = () => {
           <>
             {/* Desktop: Filter Sidebar */}
             {!isMobile && !isEditing && (
-              <EventFilterSidebar
-                tags={tags}
+              <GenericFilterSidebar
+                sections={eventFilterSections}
                 activeFilter={activeFilter}
                 onFilterChange={setActiveFilter}
-                entryCounts={filterCounts}
               />
             )}
             
@@ -540,18 +583,18 @@ const EventsView: React.FC<EventsViewProps> = () => {
                     alignItems: 'center',
                     gap: '0.5rem',
                     padding: '0.75rem 1rem',
-                    background: 'rgba(59, 130, 246, 0.1)',
-                    border: 'none',
+                    background: 'var(--ck-purple-light)',
+                    border: '1px solid var(--ck-border2)',
                     borderRadius: '0.5rem',
                     cursor: 'pointer',
                     fontSize: '0.9rem',
-                    color: '#3b82f6',
+                    color: 'var(--ck-purple)',
                     marginBottom: '1rem',
                     width: '100%',
                   }}
                 >
                   <span>‹ Back to Filters</span>
-                  <span style={{ marginLeft: 'auto', color: '#6b7280', fontSize: '0.8rem' }}>
+                  <span style={{ marginLeft: 'auto', color: 'var(--ck-ink3)', fontSize: '0.8rem' }}>
                     {getFilterLabel(activeFilter)} ({sidebarFilteredEvents.length})
                   </span>
                 </button>
@@ -608,10 +651,11 @@ const EventsView: React.FC<EventsViewProps> = () => {
         </button>
         <span style={{
           fontSize: '0.75rem',
-          color: '#9ca3af',
+          color: 'var(--ck-ink3)',
           padding: '0.25rem 0.75rem',
-          backgroundColor: '#f3f4f6',
-          borderRadius: '4px',
+          background: 'transparent',
+          border: '1px solid var(--ck-border2)',
+          borderRadius: '999px',
           fontFamily: 'monospace',
           marginLeft: 'auto'
         }}>
@@ -633,21 +677,21 @@ const EventsView: React.FC<EventsViewProps> = () => {
         marginBottom: '1.5rem',
         alignItems: 'center',
         justifyContent: 'space-between',
-        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+        backgroundColor: 'var(--ck-purple-light)',
         padding: '1rem',
         borderRadius: '12px',
-        border: '1px solid rgba(59, 130, 246, 0.2)'
+        border: '1px solid var(--ck-border2)'
       }}>
         <div>
           <h3 style={{
             fontSize: '1rem',
             fontWeight: '600',
-            color: '#1f2937',
+            color: 'var(--ck-ink)',
             margin: '0 0 0.25rem 0'
           }}>Reference Calendars</h3>
           <p style={{
             fontSize: '0.875rem',
-            color: '#6b7280',
+            color: 'var(--ck-ink2)',
             margin: 0
           }}>Link holidays and special occasions from global calendars</p>
         </div>
@@ -656,7 +700,7 @@ const EventsView: React.FC<EventsViewProps> = () => {
             onClick={() => setIsReferenceCalendarModalOpen(true)}
             style={{
               padding: '0.75rem 1.5rem',
-              backgroundColor: '#3b82f6',
+              backgroundColor: 'var(--ck-purple)',
               color: 'white',
               border: 'none',
               borderRadius: '8px',
@@ -666,8 +710,8 @@ const EventsView: React.FC<EventsViewProps> = () => {
               whiteSpace: 'nowrap',
               transition: 'background-color 0.2s'
             }}
-            onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#2563eb')}
-            onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#3b82f6')}
+            onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--ck-purple-dark)')}
+            onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'var(--ck-purple)')}
           >
             📅 Manage
           </button>
@@ -675,7 +719,7 @@ const EventsView: React.FC<EventsViewProps> = () => {
             onClick={() => setIsTemplateModalOpen(true)}
             style={{
               padding: '0.75rem 1.5rem',
-              backgroundColor: '#10b981',
+              backgroundColor: 'var(--ck-green)',
               color: 'white',
               border: 'none',
               borderRadius: '8px',
@@ -685,8 +729,8 @@ const EventsView: React.FC<EventsViewProps> = () => {
               whiteSpace: 'nowrap',
               transition: 'background-color 0.2s'
             }}
-            onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#059669')}
-            onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#10b981')}
+            onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#17855f')}
+            onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'var(--ck-green)')}
           >
             📋 Templates
           </button>
@@ -1194,10 +1238,11 @@ const EventsView: React.FC<EventsViewProps> = () => {
                     </span>
                     {event.hideFromDashboard && (
                       <span className="event-hidden-badge" style={{ 
-                        background: '#f3f4f6', 
-                        color: '#6b7280',
-                        padding: '0.25rem 0.5rem',
-                        borderRadius: '4px',
+                        background: 'transparent', 
+                        color: 'var(--ck-ink3)',
+                        border: '1px solid var(--ck-border2)',
+                        padding: '0.25rem 0.6rem',
+                        borderRadius: '999px',
                         fontSize: '0.75rem',
                         fontWeight: '600'
                       }}>

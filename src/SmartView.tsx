@@ -7,7 +7,6 @@
  */
 
 import React, { useState, useRef, useEffect } from 'react';
-import { useTheme } from './contexts/ThemeContext';
 import VoiceCommandButton, { VoiceCommandButtonHandle } from './components/VoiceCommand/VoiceCommandButton';
 import ImageScanModal, { ScanContextHints } from './components/ImageScanModal';
 import SmartSuggestionsModal from './components/SmartSuggestionsModal';
@@ -29,8 +28,6 @@ interface SmartViewProps {
 }
 
 const SmartView: React.FC<SmartViewProps> = ({ onNavigate, onVoicePrefillAndNavigate, onCreateFromVoiceHistory, userId }) => {
-  const { theme } = useTheme();
-  const isWP = theme.id === 'warm-paper';
   const voiceButtonRef = useRef<VoiceCommandButtonHandle>(null);
   const [showImageScanModal, setShowImageScanModal] = useState(false);
   const [showSuggestionsModal, setShowSuggestionsModal] = useState(false);
@@ -290,14 +287,16 @@ const SmartView: React.FC<SmartViewProps> = ({ onNavigate, onVoicePrefillAndNavi
     <div className="smart-view" style={{ padding: isMobileViewport ? '1rem' : '2rem', maxWidth: '1200px', margin: '0 auto' }}>
       {/* Header — mobile uses app bar only (MobileContextHeader) */}
       {!isMobileViewport && (
-        <div style={{ marginBottom: '2rem' }}>
-          <h1 style={{ fontSize: '2.5rem', fontWeight: 800, margin: '0 0 0.5rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-            <span>✨</span>
-            <span>Smart Features</span>
-          </h1>
-          <p style={{ fontSize: '1.1rem', color: '#6b7280', margin: 0 }}>
-            AI-powered tools to help you capture and organize information faster
-          </p>
+        <div className="ck-page-head">
+          <div>
+            <h1 className="ck-page-title" style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+              <span>✨</span>
+              <span>Smart Features</span>
+            </h1>
+            <p className="ck-page-sub">
+              AI-powered tools to help you capture and organize information faster
+            </p>
+          </div>
         </div>
       )}
 
@@ -306,16 +305,17 @@ const SmartView: React.FC<SmartViewProps> = ({ onNavigate, onVoicePrefillAndNavi
         {/* Voice — compact title: mic + "Voice" */}
         <div
           style={{
-            background: isWP ? '#fff' : 'linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%)',
-            borderRadius: isWP ? '12px' : '1rem',
+            background: 'var(--ck-white)',
+            borderRadius: 'var(--ck-radius)',
             padding: cardPad,
-            border: isWP ? '1.5px solid #1a1a1a' : '2px solid #3b82f6',
-            boxShadow: isWP ? 'none' : '0 4px 12px rgba(59, 130, 246, 0.2)'
+            border: '1px solid var(--ck-border2)',
+            borderLeft: '3px solid #5b7fb9',
+            boxShadow: 'var(--ck-shadow)'
           }}
         >
-          {titleRow('🎤', 'Voice', isWP ? '#1a1a1a' : '#1e3a8a')}
+          {titleRow('🎤', 'Voice', 'var(--ck-ink)')}
           {!isMobileViewport && (
-            <p style={{ fontSize: '0.95rem', color: '#1e40af', margin: '0 0 1.25rem' }}>
+            <p style={{ fontSize: '0.95rem', color: 'var(--ck-ink2)', margin: '0 0 1.25rem' }}>
               Speak to create tasks, events, journal entries, and more. Press the button and start talking.
             </p>
           )}
@@ -332,7 +332,7 @@ const SmartView: React.FC<SmartViewProps> = ({ onNavigate, onVoicePrefillAndNavi
             style={{
               width: '100%',
               padding: isMobileViewport ? '0.75rem' : '1rem',
-              background: '#3b82f6',
+              background: 'var(--ck-purple)',
               color: 'white',
               border: 'none',
               borderRadius: '0.5rem',
@@ -349,16 +349,17 @@ const SmartView: React.FC<SmartViewProps> = ({ onNavigate, onVoicePrefillAndNavi
         {/* Quick Scan */}
         <div
           style={{
-            background: isWP ? '#fff' : 'linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%)',
-            borderRadius: isWP ? '12px' : '1rem',
+            background: 'var(--ck-white)',
+            borderRadius: 'var(--ck-radius)',
             padding: cardPad,
-            border: isWP ? '1.5px solid #1a1a1a' : '2px solid #10b981',
-            boxShadow: isWP ? 'none' : '0 4px 12px rgba(16, 185, 129, 0.2)'
+            border: '1px solid var(--ck-border2)',
+            borderLeft: '3px solid #1d9e75',
+            boxShadow: 'var(--ck-shadow)'
           }}
         >
-          {titleRow('🆓', 'Quick Scan', isWP ? '#1a1a1a' : '#065f46')}
+          {titleRow('🆓', 'Quick Scan', 'var(--ck-ink)')}
           {!isMobileViewport && (
-            <p style={{ fontSize: '0.95rem', color: '#065f46', margin: '0 0 1.25rem' }}>
+            <p style={{ fontSize: '0.95rem', color: 'var(--ck-ink2)', margin: '0 0 1.25rem' }}>
               Free instant OCR. Scan birthday cards, invitations, handwritten notes, receipts, and more.
             </p>
           )}
@@ -368,7 +369,7 @@ const SmartView: React.FC<SmartViewProps> = ({ onNavigate, onVoicePrefillAndNavi
             style={{
               width: '100%',
               padding: isMobileViewport ? '0.75rem' : '1rem',
-              background: '#10b981',
+              background: 'var(--ck-purple)',
               color: 'white',
               border: 'none',
               borderRadius: '0.5rem',
@@ -384,16 +385,17 @@ const SmartView: React.FC<SmartViewProps> = ({ onNavigate, onVoicePrefillAndNavi
         {/* Smart Scan */}
         <div
           style={{
-            background: isWP ? '#fff' : 'linear-gradient(135deg, #f3e8ff 0%, #e9d5ff 100%)',
-            borderRadius: isWP ? '12px' : '1rem',
+            background: 'var(--ck-white)',
+            borderRadius: 'var(--ck-radius)',
             padding: cardPad,
-            border: isWP ? '1.5px solid #1a1a1a' : '2px solid #8b5cf6',
-            boxShadow: isWP ? 'none' : '0 4px 12px rgba(139, 92, 246, 0.2)'
+            border: '1px solid var(--ck-border2)',
+            borderLeft: '3px solid #6b5de8',
+            boxShadow: 'var(--ck-shadow)'
           }}
         >
-          {titleRow('✨', 'Smart Scan', isWP ? '#1a1a1a' : '#6b21a8')}
+          {titleRow('✨', 'Smart Scan', 'var(--ck-ink)')}
           {!isMobileViewport && (
-            <p style={{ fontSize: '0.95rem', color: '#6b21a8', margin: '0 0 1.25rem' }}>
+            <p style={{ fontSize: '0.95rem', color: 'var(--ck-ink2)', margin: '0 0 1.25rem' }}>
               AI-powered analysis with GPT-4 Vision. Best accuracy for complex images and multiple items.
             </p>
           )}
@@ -403,7 +405,7 @@ const SmartView: React.FC<SmartViewProps> = ({ onNavigate, onVoicePrefillAndNavi
             style={{
               width: '100%',
               padding: isMobileViewport ? '0.75rem' : '1rem',
-              background: '#8b5cf6',
+              background: 'var(--ck-purple)',
               color: 'white',
               border: 'none',
               borderRadius: '0.5rem',
@@ -419,16 +421,17 @@ const SmartView: React.FC<SmartViewProps> = ({ onNavigate, onVoicePrefillAndNavi
         {/* Pending Memo — above History; items awaiting review only live here */}
         <div
           style={{
-            background: isWP ? '#fff' : 'linear-gradient(135deg, #ffedd5 0%, #fed7aa 100%)',
-            borderRadius: isWP ? '12px' : '1rem',
+            background: 'var(--ck-white)',
+            borderRadius: 'var(--ck-radius)',
             padding: cardPad,
-            border: isWP ? '1.5px solid #1a1a1a' : '2px solid #ea580c',
-            boxShadow: isWP ? 'none' : '0 4px 12px rgba(234, 88, 12, 0.18)'
+            border: '1px solid var(--ck-border2)',
+            borderLeft: '3px solid #d97706',
+            boxShadow: 'var(--ck-shadow)'
           }}
         >
-          {titleRow('⏳', 'Pending Memo', isWP ? '#1a1a1a' : '#9a3412')}
+          {titleRow('⏳', 'Pending Memo', 'var(--ck-ink)')}
           {!isMobileViewport && (
-            <p style={{ fontSize: '0.95rem', color: '#9a3412', margin: '0 0 1.25rem' }}>
+            <p style={{ fontSize: '0.95rem', color: 'var(--ck-ink2)', margin: '0 0 1.25rem' }}>
               Voice memos and scans that still need review or create before they are saved to your app.
             </p>
           )}
@@ -437,7 +440,7 @@ const SmartView: React.FC<SmartViewProps> = ({ onNavigate, onVoicePrefillAndNavi
             style={{
               width: '100%',
               padding: isMobileViewport ? '0.75rem' : '1rem',
-              background: '#ea580c',
+              background: 'var(--ck-purple)',
               color: 'white',
               border: 'none',
               borderRadius: '0.5rem',
@@ -453,16 +456,17 @@ const SmartView: React.FC<SmartViewProps> = ({ onNavigate, onVoicePrefillAndNavi
         {/* History — completed / resolved commands and scans (no pending items) */}
         <div
           style={{
-            background: isWP ? '#fff' : 'linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)',
-            borderRadius: isWP ? '12px' : '1rem',
+            background: 'var(--ck-white)',
+            borderRadius: 'var(--ck-radius)',
             padding: cardPad,
-            border: isWP ? '1.5px solid #1a1a1a' : '2px solid #f59e0b',
-            boxShadow: isWP ? 'none' : '0 4px 12px rgba(245, 158, 11, 0.2)'
+            border: '1px solid var(--ck-border2)',
+            borderLeft: '3px solid #c9a227',
+            boxShadow: 'var(--ck-shadow)'
           }}
         >
-          {titleRow('📋', 'History', isWP ? '#1a1a1a' : '#92400e')}
+          {titleRow('📋', 'History', 'var(--ck-ink)')}
           {!isMobileViewport && (
-            <p style={{ fontSize: '0.95rem', color: '#92400e', margin: '0 0 1.25rem' }}>
+            <p style={{ fontSize: '0.95rem', color: 'var(--ck-ink2)', margin: '0 0 1.25rem' }}>
               Full log of voice commands and image scans — filter by type and outcome, plus analytics.
             </p>
           )}
@@ -471,7 +475,7 @@ const SmartView: React.FC<SmartViewProps> = ({ onNavigate, onVoicePrefillAndNavi
             style={{
               width: '100%',
               padding: isMobileViewport ? '0.75rem' : '1rem',
-              background: '#f59e0b',
+              background: 'var(--ck-purple)',
               color: 'white',
               border: 'none',
               borderRadius: '0.5rem',
@@ -491,12 +495,13 @@ const SmartView: React.FC<SmartViewProps> = ({ onNavigate, onVoicePrefillAndNavi
         style={{
           marginTop: '2rem',
           padding: '1.5rem',
-          background: '#f9fafb',
-          borderRadius: '1rem',
-          border: '1px solid #e5e7eb'
+          background: 'var(--ck-white)',
+          borderRadius: 'var(--ck-radius)',
+          border: '1px solid var(--ck-border2)',
+          boxShadow: 'var(--ck-shadow)'
         }}
       >
-        <h3 style={{ fontSize: '1.1rem', fontWeight: 600, margin: '0 0 1rem' }}>What can you scan?</h3>
+        <h3 style={{ fontFamily: 'var(--ck-serif)', fontSize: '1.2rem', fontWeight: 600, color: 'var(--ck-ink)', margin: '0 0 1rem' }}>What can you scan?</h3>
         <div style={{ display: 'grid', gap: '0.75rem', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', fontSize: '0.9rem' }}>
           <div>🎂 Birthday cards</div>
           <div>💌 Invitations</div>
@@ -566,9 +571,9 @@ const SmartView: React.FC<SmartViewProps> = ({ onNavigate, onVoicePrefillAndNavi
                 style={{
                   flex: 1,
                   padding: '0.875rem',
-                  background: '#f3f4f6',
-                  color: '#374151',
-                  border: '2px solid #e5e7eb',
+                  background: 'var(--ck-white)',
+                  color: 'var(--ck-ink2)',
+                  border: '1px solid var(--ck-border2)',
                   borderRadius: '0.5rem',
                   fontWeight: 600,
                   cursor: 'pointer'
@@ -581,7 +586,7 @@ const SmartView: React.FC<SmartViewProps> = ({ onNavigate, onVoicePrefillAndNavi
                 style={{
                   flex: 1,
                   padding: '0.875rem',
-                  background: '#8b5cf6',
+                  background: 'var(--ck-purple)',
                   color: 'white',
                   border: 'none',
                   borderRadius: '0.5rem',

@@ -1,13 +1,13 @@
 ---
-description: Keep docs/LEO_IMPROVEMENTS_TODO.TODO updated when implementing or completing improvements
-globs: ["**/*.ts", "**/*.tsx", "docs/LEO_IMPROVEMENTS_TODO.TODO"]
+description: Keep docs/LEO_TODO.TODO updated when implementing or completing improvements
+globs: ["**/*.ts", "**/*.tsx", "docs/LEO_TODO.TODO"]
 alwaysApply: false
 ---
 
 # Improvements & TODO Doc Maintenance Rule
 
 ## File
-`docs/LEO_IMPROVEMENTS_TODO.TODO` – single source of truth for improvements, bugs, refactors, and feature work.
+`docs/LEO_TODO.TODO` – single source of truth for improvements, bugs, refactors, and feature work.
 
 ## When to Update
 

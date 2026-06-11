@@ -360,7 +360,7 @@ const ConfigureView: React.FC = () => {
       : activeFilter.value === 'onhold' ? 'On Hold' : 'Active';
 
   return (
-    <div className="configure-view">
+    <div className="ck-screen configure-view">
       <div className="ck-page-head">
         <div>
           <h2 className="ck-page-title">Tasks</h2>
@@ -460,8 +460,9 @@ const ConfigureView: React.FC = () => {
                     <h4>{task.name}</h4>
                     {task.trackedMetric && (
                       <span style={{
-                        fontSize: 10, fontWeight: 700, color: '#059669',
-                        background: '#D1FAE5', padding: '2px 8px', borderRadius: 4,
+                        fontSize: 10, fontWeight: 700, color: 'var(--ck-green)',
+                        background: 'var(--ck-green-light)', border: '1px solid rgba(29, 158, 117, 0.4)',
+                        padding: '2px 8px', borderRadius: 999,
                         marginLeft: 8, whiteSpace: 'nowrap',
                       }}>
                         📊 {task.trackedMetric.target.toLocaleString()} {task.trackedMetric.unit}
@@ -501,10 +502,11 @@ const ConfigureView: React.FC = () => {
                     )}
                     {task.onHold && (
                       <span className="event-hidden-badge" style={{ 
-                        background: '#fee2e2', 
-                        color: '#991b1b',
-                        padding: '0.25rem 0.5rem',
-                        borderRadius: '4px',
+                        background: 'var(--ck-red-light)', 
+                        color: 'var(--ck-red)',
+                        border: '1px solid rgba(201, 74, 46, 0.4)',
+                        padding: '0.25rem 0.6rem',
+                        borderRadius: '999px',
                         fontSize: '0.75rem',
                         fontWeight: '600'
                       }}>

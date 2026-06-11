@@ -8,7 +8,7 @@ import './styles/ResolutionsView.css';
 
 const FitnessGoalCards = lazy(() => import('./components/FitnessGoalCards'));
 
-type FilterTab = 'all' | 'active' | 'completed' | 'paused';
+type FilterTab = 'all' | 'active' | 'completed' | 'paused' | 'abandoned';
 
 const ResolutionsView: React.FC = () => {
   const [resolutions, setResolutions] = useState<Resolution[]>([]);
@@ -117,6 +117,8 @@ const ResolutionsView: React.FC = () => {
         return resolutions.filter(r => r.status === 'completed');
       case 'paused':
         return resolutions.filter(r => r.status === 'paused');
+      case 'abandoned':
+        return resolutions.filter(r => r.status === 'abandoned');
       default:
         return resolutions;
     }
@@ -128,7 +130,8 @@ const ResolutionsView: React.FC = () => {
     total: resolutions.length,
     active: resolutions.filter(r => r.status === 'active').length,
     completed: resolutions.filter(r => r.status === 'completed').length,
-    paused: resolutions.filter(r => r.status === 'paused').length
+    paused: resolutions.filter(r => r.status === 'paused').length,
+    abandoned: resolutions.filter(r => r.status === 'abandoned').length
   };
 
   const currentYear = new Date().getFullYear();
@@ -150,6 +153,7 @@ const ResolutionsView: React.FC = () => {
     { label: 'Active', value: stats.active, badge: 'ck-badge-purple' },
     { label: 'Completed', value: stats.completed, badge: 'ck-badge-green' },
     { label: 'Paused', value: stats.paused, badge: 'ck-badge-gold' },
+    { label: 'Abandoned', value: stats.abandoned, badge: '' },
   ];
 
   const activeFilter: GenericFilter = { type: 'status', value: filterTab };
@@ -163,6 +167,7 @@ const ResolutionsView: React.FC = () => {
         { filter: { type: 'status', value: 'active' }, icon: '🔥', label: 'Active', count: stats.active, color: '#6b5de8' },
         { filter: { type: 'status', value: 'completed' }, icon: '✅', label: 'Completed', count: stats.completed, color: '#16a34a' },
         { filter: { type: 'status', value: 'paused' }, icon: '⏸️', label: 'Paused', count: stats.paused, color: '#d97706' },
+        { filter: { type: 'status', value: 'abandoned' }, icon: '🚫', label: 'Abandoned', count: stats.abandoned, color: '#9a9089' },
       ],
     },
   ];

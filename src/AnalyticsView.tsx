@@ -8,8 +8,18 @@ const FitnessAnalyticsPanel = lazy(() => import('./components/FitnessAnalyticsPa
 
 type AnalyticsTab = 'history' | 'monthly' | 'insights' | 'ai' | 'fitness';
 
+const ANALYTICS_TAB_KEY = 'myday_analytics_tab';
+
 const AnalyticsView: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<AnalyticsTab>('insights');
+  const [activeTab, setActiveTab] = useState<AnalyticsTab>(() => {
+    const saved = localStorage.getItem(ANALYTICS_TAB_KEY) as AnalyticsTab | null;
+    return saved && ['history', 'monthly', 'insights', 'ai', 'fitness'].includes(saved) ? saved : 'insights';
+  });
+
+  const selectTab = (tab: AnalyticsTab) => {
+    setActiveTab(tab);
+    localStorage.setItem(ANALYTICS_TAB_KEY, tab);
+  };
 
   return (
     <div className="ck-screen analytics-view">
@@ -21,11 +31,11 @@ const AnalyticsView: React.FC = () => {
       </div>
 
       <div className="ck-subtabs" style={{ marginBottom: '18px' }}>
-        <button className={`ck-subtab ${activeTab === 'insights' ? 'active' : ''}`} onClick={() => setActiveTab('insights')}>📈 Insights</button>
-        <button className={`ck-subtab ${activeTab === 'history' ? 'active' : ''}`} onClick={() => setActiveTab('history')}>📜 History</button>
-        <button className={`ck-subtab ${activeTab === 'monthly' ? 'active' : ''}`} onClick={() => setActiveTab('monthly')}>📅 Calendar</button>
-        <button className={`ck-subtab ${activeTab === 'fitness' ? 'active' : ''}`} onClick={() => setActiveTab('fitness')}>🏃 Fitness</button>
-        <button className={`ck-subtab ${activeTab === 'ai' ? 'active' : ''}`} onClick={() => setActiveTab('ai')}>🤖 AI</button>
+        <button className={`ck-subtab ${activeTab === 'insights' ? 'active' : ''}`} onClick={() => selectTab('insights')}>📈 Insights</button>
+        <button className={`ck-subtab ${activeTab === 'history' ? 'active' : ''}`} onClick={() => selectTab('history')}>📜 History</button>
+        <button className={`ck-subtab ${activeTab === 'monthly' ? 'active' : ''}`} onClick={() => selectTab('monthly')}>📅 Calendar</button>
+        <button className={`ck-subtab ${activeTab === 'fitness' ? 'active' : ''}`} onClick={() => selectTab('fitness')}>🏃 Fitness</button>
+        <button className={`ck-subtab ${activeTab === 'ai' ? 'active' : ''}`} onClick={() => selectTab('ai')}>🤖 AI</button>
       </div>
 
       <div className="sub-tab-content">

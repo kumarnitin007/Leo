@@ -672,16 +672,17 @@ const TodoView: React.FC<TodoViewProps> = () => {
         {/* Item options */}
         <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'center' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <label style={{ fontSize: '0.85rem', color: '#6b7280' }}>Add to List:</label>
+            <label style={{ fontSize: '0.85rem', color: 'var(--ck-ink2)' }}>Add to List:</label>
             <select
               value={newItemGroup || ''}
               onChange={(e) => setNewItemGroup(e.target.value || null)}
               style={{
                 padding: '0.375rem 0.75rem',
-                border: '1px solid #e5e7eb',
+                border: '1px solid var(--ck-border2)',
                 borderRadius: '0.5rem',
                 fontSize: '0.85rem',
-                background: 'white'
+                fontFamily: 'var(--ck-font)',
+                background: 'var(--ck-white)'
               }}
             >
               <option value="">Quick Items</option>
@@ -701,7 +702,7 @@ const TodoView: React.FC<TodoViewProps> = () => {
           </div>
           
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <label style={{ fontSize: '0.85rem', color: '#6b7280' }}>Priority:</label>
+            <label style={{ fontSize: '0.85rem', color: 'var(--ck-ink2)' }}>Priority:</label>
             <div style={{ display: 'flex', gap: '0.25rem' }}>
               {(Object.keys(PRIORITY_CONFIG) as TodoPriority[]).map(p => (
                 <button

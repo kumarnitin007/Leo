@@ -87,12 +87,13 @@ const SafeFilterSidebar: React.FC<SafeFilterSidebarProps> = ({
         alignItems: 'center',
         gap: isMobile ? '0.75rem' : '0.5rem',
         padding: isMobile ? '1rem' : '0.5rem 0.75rem',
-        background: isActive(filter) ? (color ? `${color}20` : '#3b82f620') : 'transparent',
-        border: isMobile ? '1px solid #e5e7eb' : 'none',
+        background: isActive(filter) ? (color ? `${color}20` : 'var(--ck-purple-light)') : 'transparent',
+        border: isMobile ? '0.5px solid var(--ck-border2)' : 'none',
         borderRadius: isMobile ? '0.75rem' : '0.5rem',
         cursor: 'pointer',
+        fontFamily: 'var(--ck-font)',
         fontSize: isMobile ? '1rem' : '0.85rem',
-        color: isActive(filter) ? (color || '#3b82f6') : '#4b5563',
+        color: isActive(filter) ? (color || 'var(--ck-purple)') : 'var(--ck-ink2)',
         fontWeight: isActive(filter) ? 600 : 400,
         textAlign: 'left',
         transition: 'all 0.15s',
@@ -104,8 +105,8 @@ const SafeFilterSidebar: React.FC<SafeFilterSidebarProps> = ({
       {count !== undefined && (
         <span style={{
           fontSize: isMobile ? '0.8rem' : '0.7rem',
-          background: isActive(filter) ? (color || '#3b82f6') : '#e5e7eb',
-          color: isActive(filter) ? 'white' : '#6b7280',
+          background: isActive(filter) ? (color || 'var(--ck-purple)') : 'var(--ck-cream)',
+          color: isActive(filter) ? 'white' : 'var(--ck-ink3)',
           padding: isMobile ? '4px 10px' : '2px 6px',
           borderRadius: '9999px',
           fontWeight: 600,
@@ -113,7 +114,7 @@ const SafeFilterSidebar: React.FC<SafeFilterSidebarProps> = ({
           {count}
         </span>
       )}
-      {isMobile && <span style={{ color: '#9ca3af', fontSize: '1rem' }}>›</span>}
+      {isMobile && <span style={{ color: 'var(--ck-ink3)', fontSize: '1rem' }}>›</span>}
     </button>
   );
 
@@ -133,9 +134,10 @@ const SafeFilterSidebar: React.FC<SafeFilterSidebarProps> = ({
         background: 'none',
         border: 'none',
         cursor: 'pointer',
+        fontFamily: 'var(--ck-font)',
         fontSize: '0.7rem',
         fontWeight: 700,
-        color: '#9ca3af',
+        color: 'var(--ck-ink3)',
         textTransform: 'uppercase',
         letterSpacing: '0.5px',
       }}
@@ -149,8 +151,9 @@ const SafeFilterSidebar: React.FC<SafeFilterSidebarProps> = ({
     return (
       <div style={{
         width: '48px',
-        background: 'rgba(255,255,255,0.9)',
-        borderRadius: '0.75rem',
+        background: 'var(--ck-white)',
+        border: '0.5px solid var(--ck-border2)',
+        borderRadius: '10px',
         padding: '0.5rem',
         display: 'flex',
         flexDirection: 'column',
@@ -173,7 +176,7 @@ const SafeFilterSidebar: React.FC<SafeFilterSidebarProps> = ({
         <button
           onClick={() => onFilterChange({ type: 'all' })}
           style={{
-            background: activeFilter.type === 'all' ? '#3b82f620' : 'none',
+            background: activeFilter.type === 'all' ? 'var(--ck-purple-light)' : 'none',
             border: 'none',
             cursor: 'pointer',
             fontSize: '1.25rem',
@@ -221,18 +224,21 @@ const SafeFilterSidebar: React.FC<SafeFilterSidebarProps> = ({
     return (
       <div style={{
         width: '100%',
-        background: 'rgba(255,255,255,0.98)',
-        borderRadius: '1rem',
-        padding: '1.5rem',
+        background: 'var(--ck-white)',
+        border: '0.5px solid var(--ck-border2)',
+        borderRadius: '12px',
+        padding: '1.25rem',
+        fontFamily: 'var(--ck-font)',
         display: 'flex',
         flexDirection: 'column',
         gap: '0.5rem',
         minHeight: '400px',
       }}>
         <h3 style={{
-          fontSize: '1.25rem',
-          fontWeight: 700,
-          color: '#1f2937',
+          fontFamily: 'var(--ck-serif)',
+          fontSize: '1.2rem',
+          fontWeight: 500,
+          color: 'var(--ck-ink)',
           marginBottom: '1rem',
           display: 'flex',
           alignItems: 'center',
@@ -314,9 +320,11 @@ const SafeFilterSidebar: React.FC<SafeFilterSidebarProps> = ({
   return (
     <div style={{
       width: '220px',
-      background: 'rgba(255,255,255,0.95)',
-      borderRadius: '0.75rem',
+      background: 'var(--ck-white)',
+      border: '0.5px solid var(--ck-border2)',
+      borderRadius: '10px',
       padding: '1rem',
+      fontFamily: 'var(--ck-font)',
       display: 'flex',
       flexDirection: 'column',
       gap: '0.25rem',
@@ -334,7 +342,7 @@ const SafeFilterSidebar: React.FC<SafeFilterSidebarProps> = ({
             border: 'none',
             cursor: 'pointer',
             fontSize: '0.85rem',
-            color: '#9ca3af',
+            color: 'var(--ck-ink3)',
             padding: '0.25rem',
             marginBottom: '0.5rem',
           }}

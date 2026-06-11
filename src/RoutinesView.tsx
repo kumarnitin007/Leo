@@ -222,7 +222,7 @@ const RoutinesView: React.FC<RoutinesViewProps> = ({ onApplyRoutine }) => {
   const routineFilterLabel = activeFilter.type === 'time' ? (activeFilter.value || '') : 'All Routines';
 
   return (
-    <div className="routines-view">
+    <div className="ck-screen routines-view">
       <div className="ck-page-head">
         <div>
           <h2 className="ck-page-title">Routines</h2>

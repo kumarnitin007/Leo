@@ -124,8 +124,11 @@ const SettingsView: React.FC = () => {
     <div className="settings-view">
       {/* Desktop only — on mobile the global MobileContextHeader handles this. */}
       {!isMobile && (
-        <div className="view-header">
-          <h2>⚙️ Settings</h2>
+        <div className="ck-page-head">
+          <div>
+            <h2 className="ck-page-title">Settings</h2>
+            <p className="ck-page-sub">Profile, notifications, tags, integrations & data</p>
+          </div>
         </div>
       )}
 
@@ -223,8 +226,8 @@ const CalendarsPane: React.FC = () => (
   >
     <div
       style={{
-        background: '#fff',
-        border: '0.5px solid #e5e7eb',
+        background: 'var(--ck-white)',
+        border: '0.5px solid var(--ck-border2)',
         borderRadius: 12,
         padding: 16,
       }}
@@ -254,7 +257,7 @@ const MobileMenu: React.FC<{
           style={{
             fontSize: 10,
             fontWeight: 700,
-            color: '#9ca3af',
+            color: 'var(--ck-ink3)',
             letterSpacing: '0.08em',
             textTransform: 'uppercase',
             margin: '4px 0 8px',
@@ -269,8 +272,8 @@ const MobileMenu: React.FC<{
               onClick={() => onPick(item.id)}
               style={{
                 padding: '14px 16px',
-                background: '#fff',
-                border: '0.5px solid #e5e7eb',
+                background: 'var(--ck-white)',
+                border: '0.5px solid var(--ck-border2)',
                 borderRadius: 12,
                 cursor: 'pointer',
                 textAlign: 'left',
@@ -280,18 +283,18 @@ const MobileMenu: React.FC<{
                 gap: 12,
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.borderColor = '#1d9e75';
+                e.currentTarget.style.borderColor = 'var(--ck-purple)';
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.borderColor = '#e5e7eb';
+                e.currentTarget.style.borderColor = 'var(--ck-border2)';
               }}
             >
               <div style={{ fontSize: 22 }}>{item.icon}</div>
               <div style={{ flex: 1 }}>
-                <div style={{ fontWeight: 600, fontSize: 14, color: '#111827' }}>{item.label}</div>
-                <div style={{ fontSize: 12, color: '#6b7280', marginTop: 2 }}>{item.desc}</div>
+                <div style={{ fontWeight: 600, fontSize: 14, color: 'var(--ck-ink)' }}>{item.label}</div>
+                <div style={{ fontSize: 12, color: 'var(--ck-ink2)', marginTop: 2 }}>{item.desc}</div>
               </div>
-              <div style={{ fontSize: 16, color: '#9ca3af' }}>›</div>
+              <div style={{ fontSize: 16, color: 'var(--ck-ink3)' }}>›</div>
             </button>
           ))}
         </div>

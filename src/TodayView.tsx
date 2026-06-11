@@ -1515,7 +1515,7 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
                 {wpCompletedCount} / {wpTotalCount} done
               </span>
               {wpOverdueCount > 0 && (
-                <span style={{ fontSize: 11, fontWeight: 500, background: '#FCEBEB', color: '#A32D2D', borderRadius: 4, padding: '2px 8px', whiteSpace: 'nowrap' as const, border: 'none' }}>
+                <span style={{ fontSize: 11, fontWeight: 500, background: 'transparent', color: '#A32D2D', borderRadius: 4, padding: '2px 8px', whiteSpace: 'nowrap' as const, border: '1px solid rgba(163,45,45,0.35)' }}>
                   {wpOverdueCount} overdue
                 </span>
               )}
@@ -1546,8 +1546,8 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
       <DailyBriefingCard />
 
       {isReorderMode && (
-        <div className="reorder-instructions" style={{ background: '#eff6ff', border: '2px solid #3b82f6', borderRadius: '12px', padding: '1rem', marginBottom: '1.5rem', textAlign: 'center' }}>
-          <p style={{ margin: 0, color: '#1e40af', fontWeight: 600 }}>
+        <div className="reorder-instructions" style={{ background: 'var(--ck-purple-light)', border: '1px solid var(--ck-border2)', borderRadius: '12px', padding: '1rem', marginBottom: '1.5rem', textAlign: 'center' }}>
+          <p style={{ margin: 0, color: 'var(--ck-purple)', fontWeight: 600 }}>
             💡 Drag cards to reorder, or use ↑↓ arrows. Click "Done Reordering" when finished.
           </p>
         </div>
@@ -1759,13 +1759,13 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
                       )}
                       {/* Missed pill */}
                       {item.type === 'task' && missedCount > 0 && (
-                        <span style={{ fontSize: 11, fontWeight: 500, background: '#FCEBEB', color: '#A32D2D', borderRadius: 4, padding: '2px 7px' }}>
+                        <span style={{ fontSize: 11, fontWeight: 500, background: 'transparent', color: '#A32D2D', borderRadius: 4, padding: '2px 7px', border: '1px solid rgba(163,45,45,0.35)' }}>
                           {missedCount} missed
                         </span>
                       )}
                       {/* Streak pill */}
                       {item.type === 'task' && taskStreak > 0 && (
-                        <span style={{ fontSize: 11, fontWeight: 500, background: '#EAF3DE', color: '#3B6D11', borderRadius: 4, padding: '2px 7px' }}>
+                        <span style={{ fontSize: 11, fontWeight: 500, background: 'transparent', color: '#3B6D11', borderRadius: 4, padding: '2px 7px', border: '1px solid rgba(59,109,17,0.35)' }}>
                           {taskStreak} streak
                         </span>
                       )}
@@ -1774,7 +1774,7 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
                         const cp = getCountBasedProgress(item.id);
                         if (cp && cp.current < cp.target) {
                           return (
-                            <span style={{ fontSize: 11, fontWeight: 500, background: '#E6F1FB', color: '#185FA5', borderRadius: 4, padding: '2px 7px' }}>
+                            <span style={{ fontSize: 11, fontWeight: 500, background: 'transparent', color: '#185FA5', borderRadius: 4, padding: '2px 7px', border: '1px solid rgba(24,95,165,0.35)' }}>
                               {cp.current} / {cp.target} {cp.period}
                             </span>
                           );
@@ -1783,7 +1783,7 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
                       })()}
                       {/* Event "Today" or "in N days" pill */}
                       {item.type === 'event' && item.daysUntil !== undefined && (
-                        <span style={{ fontSize: 11, fontWeight: 500, background: '#E6F1FB', color: '#185FA5', borderRadius: 4, padding: '2px 7px' }}>
+                        <span style={{ fontSize: 11, fontWeight: 500, background: 'transparent', color: '#185FA5', borderRadius: 4, padding: '2px 7px', border: '1px solid rgba(24,95,165,0.35)' }}>
                           {item.daysUntil === 0 ? 'Today' : `in ${item.daysUntil}d`}
                         </span>
                       )}

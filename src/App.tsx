@@ -890,7 +890,7 @@ const AppContent: React.FC = () => {
           },
           !features.isDemo && {
             icon: '🎯',
-            label: 'Resolution',
+            label: 'Goal',
             description: 'Goal or resolution',
             onClick: () => {
               setTasksEventsInitialTab('resolutions');
@@ -913,10 +913,43 @@ const AppContent: React.FC = () => {
             onClick: () => handleNavigate('todo'),
           },
           {
+            icon: '📋',
+            label: 'Tasks & Events',
+            description: 'Browse tasks, events & routines',
+            onClick: () => {
+              setTasksEventsInitialTab('tasks');
+              handleNavigate('tasks-events');
+            },
+          },
+          {
+            icon: '📦',
+            label: 'Items',
+            description: 'Browse tracked items & resources',
+            onClick: () => handleNavigate('items'),
+          },
+          {
+            icon: '🎯',
+            label: 'Goals',
+            description: 'Browse goals & resolutions',
+            onClick: () => handleNavigate('resolutions'),
+          },
+          {
             icon: '🤖',
             label: 'AI History',
             description: 'View AI spending & transactions',
             onClick: () => handleNavigate('ai-history'),
+          },
+          {
+            icon: '🎙️',
+            label: 'Voice History',
+            description: 'Past voice commands & memos',
+            onClick: () => handleNavigate('history'),
+          },
+          {
+            icon: '👨‍👩‍👧‍👦',
+            label: 'Groups',
+            description: 'Shared groups & invitations',
+            onClick: () => handleNavigate('groups'),
           },
           {
             icon: '⏱️',

@@ -132,9 +132,10 @@ const TagAnalytics: React.FC = () => {
         <div style={{
           textAlign: 'center',
           padding: '2rem',
-          background: 'rgba(255, 255, 255, 0.05)',
+          background: 'var(--ck-cream)',
+          border: '1px solid var(--ck-border2)',
           borderRadius: '12px',
-          color: '#9ca3af'
+          color: 'var(--ck-ink3)'
         }}>
           <p>No trackable tags yet.</p>
           <p style={{ fontSize: '0.9rem', marginTop: '0.5rem' }}>
@@ -158,8 +159,8 @@ const TagAnalytics: React.FC = () => {
         gap: '1rem'
       }}>
         <div>
-          <h3 style={{ margin: 0, color: 'white', fontSize: '1.5rem' }}>📊 Tag Analytics</h3>
-          <p style={{ margin: '0.25rem 0 0 0', color: 'rgba(255, 255, 255, 0.7)', fontSize: '0.9rem' }}>
+          <h3 style={{ margin: 0, fontFamily: 'var(--ck-serif)', color: 'var(--ck-ink)', fontSize: '1.4rem', fontWeight: 600 }}>📊 Tag Analytics</h3>
+          <p style={{ margin: '0.25rem 0 0 0', color: 'var(--ck-ink3)', fontSize: '0.9rem' }}>
             Track your habits and patterns over time
           </p>
         </div>
@@ -203,10 +204,11 @@ const TagAnalytics: React.FC = () => {
             <div
               key={tag.id}
               style={{
-                background: 'white',
-                borderRadius: '16px',
+                background: 'var(--ck-white)',
+                border: '1px solid var(--ck-border2)',
+                borderRadius: '14px',
                 padding: '1.5rem',
-                boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+                boxShadow: 'var(--ck-shadow)',
                 borderLeft: `4px solid ${tag.color}`
               }}
             >
@@ -315,12 +317,13 @@ const TagAnalytics: React.FC = () => {
 
       {/* Monthly Timeline */}
       <div style={{
-        background: 'white',
-        borderRadius: '16px',
+        background: 'var(--ck-white)',
+        border: '1px solid var(--ck-border2)',
+        borderRadius: '14px',
         padding: '1.5rem',
-        boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)'
+        boxShadow: 'var(--ck-shadow)'
       }}>
-        <h4 style={{ margin: '0 0 1.5rem 0', color: '#1f2937' }}>Monthly Timeline</h4>
+        <h4 style={{ margin: '0 0 1.5rem 0', fontFamily: 'var(--ck-serif)', color: 'var(--ck-ink)', fontWeight: 600 }}>Monthly Timeline</h4>
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>

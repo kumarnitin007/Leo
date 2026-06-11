@@ -1,6 +1,6 @@
 {
   "name": "myday",
-  "version": "1.4.96",
+  "version": "1.4.110",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -38,6 +38,7 @@
     "@vitejs/plugin-react": "^4.2.1",
     "dotenv": "^17.3.1",
     "jsdom": "^24.0.0",
+    "sharp": "^0.35.1",
     "typescript": "^5.3.3",
     "vite": "^5.0.8",
     "vitest": "^1.2.0"

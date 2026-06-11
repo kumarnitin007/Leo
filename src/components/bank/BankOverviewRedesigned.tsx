@@ -34,39 +34,42 @@ import type { Next30DayRow, DisplayCurrencyMode } from "./BankOverviewTab";
 // auto-adapts when the user is on the dark theme.
 // ──────────────────────────────────────────────────────────────────
 
+// Crisp Kit-aligned palette: calmer tones, finance semantics kept
+// (green = positive, red = negative, purple = primary accent).
 const ACCENT = {
-  savings: "#10B981",
-  other: "#8B5CF6",
-  loan: "#EF4444",
-  credit: "#F59E0B",
-  deposit: "#3B82F6",
-  invest: "#A78BFA",
+  savings: "#1D9E75", // kit green
+  other: "#6B5DE8",   // kit purple
+  loan: "#C94A2E",    // kit red
+  credit: "#D97706",  // kit amber
+  deposit: "#5B7FB9", // muted blue
+  invest: "#8B7FE0",  // muted purple
   teal: "#1D9E75",
-  blue: "#378ADD",
-  posBg: "#E1F5EE",
-  posText: "#085041",
-  negBg: "#FCEBEB",
-  negText: "#791F1F",
+  blue: "#5B7FB9",
+  posBg: "#E7F3EC",
+  posText: "#0F6B4F",
+  negBg: "#F7E7E2",
+  negText: "#8A2B17",
 };
 
+// Muted, kit-aligned donut palette — desaturated tones so the chart stays calm.
 const TYPE_COLORS: Record<string, string> = {
-  Saving: ACCENT.savings,
-  FD: ACCENT.deposit,
-  SCSS: "#8B5CF6",
-  PPF: "#F59E0B",
-  NPS: "#06B6D4",
-  "Credit Card": "#EF4444",
-  Loan: ACCENT.loan,
-  Current: "#14B8A6",
-  "Mutual Fund": ACCENT.invest,
-  RD: "#6366F1",
-  EPF: "#0EA5E9",
-  Demat: "#F97316",
-  "401K": "#F59E0B",
-  Stock: "#8B5CF6",
-  Other: "#6B7280",
+  Saving: ACCENT.savings,      // green
+  FD: ACCENT.deposit,          // muted blue
+  SCSS: "#6B6FD0",             // soft indigo
+  PPF: ACCENT.credit,          // amber
+  NPS: "#3FA39B",              // muted teal
+  "Credit Card": ACCENT.loan,  // red
+  Loan: "#B05A42",             // muted brick
+  Current: "#4F9D91",          // muted teal-green
+  "Mutual Fund": ACCENT.invest,// muted purple
+  RD: "#7C93C9",               // soft blue
+  EPF: "#5E8FB0",              // steel blue
+  Demat: "#C77A3C",            // muted orange
+  "401K": "#B8862E",           // muted gold
+  Stock: ACCENT.other,         // purple
+  Other: "#8A8F98",            // muted slate
 };
-const fallbackColors = ["#ec4899", "#f97316", "#84cc16", "#a855f7", "#64748b", "#0d9488", "#e11d48"];
+const fallbackColors = ["#B5708C", "#C77A3C", "#7FA34A", "#9B7FC0", "#6B7B8C", "#3FA39B", "#BC5A6A"];
 
 export interface BankOverviewRedesignedProps {
   theme: BankDashboardTheme;
@@ -274,9 +277,9 @@ export function BankOverviewRedesigned(props: BankOverviewRedesignedProps) {
               key={cur}
               onClick={() => { setDisplayCurrency(cur); persist(deposits, accounts, bills, actions, goals, exchangeRates, cur, totalValueHistory); }}
               style={{
-                background: displayCurrency === cur ? T.accent : "transparent",
+                background: displayCurrency === cur ? "var(--ck-purple)" : "transparent",
                 color: displayCurrency === cur ? "#fff" : T.textMuted,
-                border: `1px solid ${displayCurrency === cur ? T.accent : T.border}`,
+                border: `1px solid ${displayCurrency === cur ? "var(--ck-purple)" : T.border}`,
                 borderRadius: 8,
                 padding: isMobile ? "4px 7px" : "4px 10px",
                 fontSize: 11,

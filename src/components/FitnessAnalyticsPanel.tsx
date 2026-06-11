@@ -33,7 +33,7 @@ const FitnessAnalyticsPanel: React.FC = () => {
 
   const metricMax = selectedMetric === 'steps' ? maxSteps : selectedMetric === 'calories' ? maxCals : maxActive;
   const metricLabel = selectedMetric === 'steps' ? 'steps' : selectedMetric === 'calories' ? 'cal' : 'min';
-  const barColor = selectedMetric === 'steps' ? '#059669' : selectedMetric === 'calories' ? '#F59E0B' : '#3B82F6';
+  const barColor = selectedMetric === 'steps' ? '#1D9E75' : selectedMetric === 'calories' ? '#D97706' : '#5B7FB9';
 
   const totalSteps = sorted.reduce((s, d) => s + (d.steps ?? 0), 0);
   const totalCals = sorted.reduce((s, d) => s + (d.caloriesBurned ?? 0), 0);
@@ -122,8 +122,8 @@ export default FitnessAnalyticsPanel;
 
 const SummaryCard: React.FC<{ emoji: string; label: string; value: string }> = ({ emoji, label, value }) => (
   <div style={{
-    background: '#F9FAFB', borderRadius: 10, padding: '12px 14px',
-    border: '1px solid #E5E7EB', textAlign: 'center',
+    background: 'var(--ck-cream)', borderRadius: 10, padding: '12px 14px',
+    border: '1px solid var(--ck-border2)', textAlign: 'center',
   }}>
     <div style={{ fontSize: 22 }}>{emoji}</div>
     <div style={{ fontSize: 11, color: '#9CA3AF', marginTop: 2 }}>{label}</div>
