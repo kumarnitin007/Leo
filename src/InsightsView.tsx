@@ -318,11 +318,7 @@ const InsightsView: React.FC = () => {
 
   return (
     <div className="insights-view">
-      <div className="insights-header">
-        <div>
-          <h2>📊 Insights & Analytics</h2>
-          <p>Deep dive into your productivity patterns and predictions</p>
-        </div>
+      <div className="insights-header" style={{ justifyContent: 'flex-end' }}>
         <div className="period-selector">
           <button
             className={`period-btn ${selectedPeriod === 'week' ? 'active' : ''}`}

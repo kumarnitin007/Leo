@@ -589,10 +589,6 @@ const HistoryView: React.FC = () => {
 
   return (
     <div className="history-view">
-      <div className="view-header">
-        <h2>Progress & History</h2>
-      </div>
-
       {/* Stats Grid */}
       <div className="stats-grid">
         <div className="stat-card">

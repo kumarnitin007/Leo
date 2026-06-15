@@ -384,15 +384,10 @@ const DataExport: React.FC = () => {
   const selectedCount = Object.values(options).filter(Boolean).length;
 
   return (
-    <div style={{ padding: '1.5rem' }}>
-      <div style={{ marginBottom: '2rem' }}>
-        <h3 style={{ margin: '0 0 0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          📤 Export Your Data
-        </h3>
-        <p style={{ margin: 0, color: '#6b7280', fontSize: '0.9rem' }}>
-          Download a backup of all your Leo app data. Note: Safe entries and documents can only be exported from within the Safe section for security.
-        </p>
-      </div>
+    <div>
+      <p style={{ margin: '0 0 1.5rem', color: 'var(--ck-ink2)', fontSize: '0.9rem' }}>
+        Note: Safe entries and documents can only be exported from within the Safe section for security.
+      </p>
 
       {/* Data Selection */}
       <div style={{ marginBottom: '1.5rem' }}>
@@ -404,7 +399,7 @@ const DataExport: React.FC = () => {
               style={{
                 padding: '0.375rem 0.75rem',
                 fontSize: '0.8rem',
-                background: '#f3f4f6',
+                background: 'var(--ck-cream)',
                 border: 'none',
                 borderRadius: '0.375rem',
                 cursor: 'pointer',
@@ -417,7 +412,7 @@ const DataExport: React.FC = () => {
               style={{
                 padding: '0.375rem 0.75rem',
                 fontSize: '0.8rem',
-                background: '#f3f4f6',
+                background: 'var(--ck-cream)',
                 border: 'none',
                 borderRadius: '0.375rem',
                 cursor: 'pointer',
@@ -449,8 +444,8 @@ const DataExport: React.FC = () => {
                 alignItems: 'center',
                 gap: '0.5rem',
                 padding: '0.625rem',
-                background: options[key] ? '#eff6ff' : '#f9fafb',
-                border: `2px solid ${options[key] ? '#3b82f6' : '#e5e7eb'}`,
+                background: options[key] ? 'var(--ck-purple-light)' : 'var(--ck-cream)',
+                border: `2px solid ${options[key] ? 'var(--ck-purple)' : 'var(--ck-border2)'}`,
                 borderRadius: '0.5rem',
                 cursor: 'pointer',
                 fontSize: '0.85rem',
@@ -461,13 +456,13 @@ const DataExport: React.FC = () => {
                 type="checkbox"
                 checked={options[key]}
                 onChange={() => toggleOption(key)}
-                style={{ accentColor: '#3b82f6' }}
+                style={{ accentColor: 'var(--ck-purple)' }}
               />
               {label}
             </label>
           ))}
         </div>
-        <p style={{ margin: '0.5rem 0 0', fontSize: '0.8rem', color: '#9ca3af' }}>
+        <p style={{ margin: '0.5rem 0 0', fontSize: '0.8rem', color: 'var(--ck-ink3)' }}>
           {selectedCount} of 9 selected
         </p>
       </div>
@@ -488,9 +483,9 @@ const DataExport: React.FC = () => {
               onClick={() => setFormat(value)}
               style={{
                 padding: '0.75rem 1rem',
-                background: format === value ? '#3b82f6' : 'white',
-                color: format === value ? 'white' : '#374151',
-                border: `2px solid ${format === value ? '#3b82f6' : '#e5e7eb'}`,
+                background: format === value ? 'var(--ck-purple)' : 'white',
+                color: format === value ? 'white' : 'var(--ck-ink2)',
+                border: `2px solid ${format === value ? 'var(--ck-purple)' : 'var(--ck-border2)'}`,
                 borderRadius: '0.5rem',
                 cursor: 'pointer',
                 flex: '1',
@@ -529,9 +524,9 @@ const DataExport: React.FC = () => {
               onClick={() => setDestination(value)}
               style={{
                 padding: '0.875rem',
-                background: destination === value ? '#10b981' : 'white',
-                color: destination === value ? 'white' : '#374151',
-                border: `2px solid ${destination === value ? '#10b981' : '#e5e7eb'}`,
+                background: destination === value ? 'var(--ck-purple)' : 'white',
+                color: destination === value ? 'white' : 'var(--ck-ink2)',
+                border: `2px solid ${destination === value ? 'var(--ck-purple)' : 'var(--ck-border2)'}`,
                 borderRadius: '0.5rem',
                 cursor: 'pointer',
                 textAlign: 'left',
@@ -549,9 +544,9 @@ const DataExport: React.FC = () => {
                       letterSpacing: '0.04em',
                       padding: '2px 6px',
                       borderRadius: 4,
-                      background: destination === value ? 'rgba(255,255,255,0.25)' : '#fef3c7',
-                      color: destination === value ? '#fff' : '#854f0b',
-                      border: destination === value ? '0.5px solid rgba(255,255,255,0.4)' : '0.5px solid #f59e0b',
+                      background: destination === value ? 'rgba(255,255,255,0.25)' : 'var(--ck-gold-light)',
+                      color: destination === value ? '#fff' : 'var(--ck-gold)',
+                      border: destination === value ? '0.5px solid rgba(255,255,255,0.4)' : '0.5px solid var(--ck-gold)',
                     }}
                   >
                     MANUAL
@@ -605,8 +600,8 @@ const DataExport: React.FC = () => {
           width: '100%',
           padding: '1rem',
           background: isExporting || selectedCount === 0 
-            ? '#d1d5db' 
-            : 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
+            ? 'var(--ck-border2)' 
+            : 'var(--ck-purple)',
           color: 'white',
           border: 'none',
           borderRadius: '0.75rem',
@@ -636,10 +631,10 @@ const DataExport: React.FC = () => {
         <div style={{
           marginTop: '1rem',
           padding: '0.875rem',
-          background: '#fef2f2',
-          border: '1px solid #fecaca',
+          background: 'var(--ck-red-light)',
+          border: '1px solid rgba(201,74,46,0.3)',
           borderRadius: '0.5rem',
-          color: '#dc2626',
+          color: 'var(--ck-red)',
           fontSize: '0.9rem',
         }}>
           ❌ {error}
@@ -650,10 +645,10 @@ const DataExport: React.FC = () => {
         <div style={{
           marginTop: '1rem',
           padding: '0.875rem',
-          background: '#ecfdf5',
-          border: '1px solid #a7f3d0',
+          background: 'var(--ck-green-light)',
+          border: '1px solid rgba(29,158,117,0.3)',
           borderRadius: '0.5rem',
-          color: '#059669',
+          color: 'var(--ck-green)',
           fontSize: '0.9rem',
         }}>
           ✅ {success}
@@ -680,22 +675,22 @@ const DestinationHint: React.FC<{ title: string; steps: string[]; note?: string 
     style={{
       marginTop: '0.625rem',
       padding: '0.75rem 0.875rem',
-      background: '#fffbeb',
-      border: '1px solid #fcd34d',
+      background: 'var(--ck-gold-light)',
+      border: '1px solid rgba(200,146,42,0.4)',
       borderRadius: '0.5rem',
-      color: '#7c2d12',
+      color: 'var(--ck-ink2)',
       fontSize: '0.8rem',
       lineHeight: 1.5,
     }}
   >
-    <div style={{ fontWeight: 600, marginBottom: 4, color: '#854f0b' }}>⚠️ {title}</div>
+    <div style={{ fontWeight: 600, marginBottom: 4, color: 'var(--ck-gold)' }}>⚠️ {title}</div>
     <ol style={{ margin: '4px 0 0', paddingLeft: '1.1rem' }}>
       {steps.map((step, i) => (
         <li key={i}>{step}</li>
       ))}
     </ol>
     {note && (
-      <div style={{ marginTop: 6, fontSize: '0.72rem', color: '#92400e', fontStyle: 'italic' }}>
+      <div style={{ marginTop: 6, fontSize: '0.72rem', color: 'var(--ck-ink3)', fontStyle: 'italic' }}>
         {note}
       </div>
     )}

@@ -92,15 +92,16 @@ const GroupsManager: React.FC<GroupsManagerProps> = ({ onClose, encryptionKey, i
       ]);
       setGroups(groupsData);
       setInvitations(invitationsData);
-      
-      // Get current user's display name from first group
-      if (groupsData.length > 0) {
+
+      // Canonical source: per-user settings (persists with zero groups).
+      // Fall back to the first group's owner-member name for legacy data.
+      let resolvedName = await sharingService.getMyDisplayName();
+      if (!resolvedName && groupsData.length > 0) {
         const membersData = await sharingService.getGroupMembers(groupsData[0].id);
         const ownerMember = membersData.find(m => m.role === 'owner');
-        if (ownerMember?.displayName) {
-          setMyDisplayName(ownerMember.displayName);
-        }
+        if (ownerMember?.displayName) resolvedName = ownerMember.displayName;
       }
+      if (resolvedName) setMyDisplayName(resolvedName);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load data');
     } finally {
@@ -368,7 +369,7 @@ const GroupsManager: React.FC<GroupsManagerProps> = ({ onClose, encryptionKey, i
     : {
         position: 'fixed',
         inset: 0,
-        background: 'rgba(0,0,0,0.5)',
+        background: 'rgba(26,23,20,0.45)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -416,7 +417,7 @@ const GroupsManager: React.FC<GroupsManagerProps> = ({ onClose, encryptionKey, i
             <span style={{ fontSize: '1.5rem' }}>👥</span>
             <div>
               <h2 style={{ margin: 0, fontSize: '1.3rem', fontWeight: 500, fontFamily: 'var(--ck-serif)', color: 'var(--ck-ink)' }}>
-                My Groups
+                Groups &amp; Sharing
               </h2>
               <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--ck-ink3)' }}>
                 {myDisplayName ? `As: ${myDisplayName}` : 'Share with family'}
@@ -424,26 +425,26 @@ const GroupsManager: React.FC<GroupsManagerProps> = ({ onClose, encryptionKey, i
             </div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            {myDisplayName && (
-              <button
-                onClick={() => {
-                  setEditDisplayName(myDisplayName);
-                  setShowProfileModal(true);
-                }}
-                title="Edit display name"
-                style={{
-                  padding: '0.4rem 0.6rem',
-                  background: 'var(--ck-purple)',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '0.5rem',
-                  cursor: 'pointer',
-                  fontSize: '1rem'
-                }}
-              >
-                ✏️
-              </button>
-            )}
+            <button
+              onClick={() => {
+                setEditDisplayName(myDisplayName || '');
+                setShowProfileModal(true);
+              }}
+              title={myDisplayName ? 'Edit display name' : 'Set display name'}
+              style={{
+                padding: '0.4rem 0.7rem',
+                background: 'var(--ck-purple)',
+                color: 'white',
+                border: 'none',
+                borderRadius: '0.5rem',
+                cursor: 'pointer',
+                fontSize: myDisplayName ? '1rem' : '0.8rem',
+                fontWeight: 600,
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {myDisplayName ? '✏️' : '✏️ Set name'}
+            </button>
             {!inline && (
               <button
                 onClick={onClose}
@@ -452,7 +453,7 @@ const GroupsManager: React.FC<GroupsManagerProps> = ({ onClose, encryptionKey, i
                   border: 'none',
                   fontSize: '1.5rem',
                   cursor: 'pointer',
-                  color: '#9ca3af',
+                  color: 'var(--ck-ink3)',
                   padding: '0.25rem'
                 }}
               >
@@ -524,8 +525,8 @@ const GroupsManager: React.FC<GroupsManagerProps> = ({ onClose, encryptionKey, i
         {error && (
           <div style={{
             padding: '0.75rem 1rem',
-            background: '#fee2e2',
-            color: '#dc2626',
+            background: 'var(--ck-red-light)',
+            color: 'var(--ck-red)',
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center'
@@ -570,7 +571,7 @@ const GroupsManager: React.FC<GroupsManagerProps> = ({ onClose, encryptionKey, i
 
               {/* Groups list */}
               {groups.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '3rem', color: '#9ca3af' }}>
+                <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--ck-ink3)' }}>
                   <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>👥</div>
                   <p>No groups yet. Create one to start sharing!</p>
                 </div>
@@ -605,28 +606,28 @@ const GroupsManager: React.FC<GroupsManagerProps> = ({ onClose, encryptionKey, i
                             {group.icon}
                           </span>
                           <div>
-                            <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 600, color: '#1f2937' }}>
+                            <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 600, color: 'var(--ck-ink)' }}>
                               {group.name}
                             </h3>
                             {group.description && (
-                              <p style={{ margin: '0.25rem 0 0', fontSize: '0.8rem', color: '#6b7280' }}>
+                              <p style={{ margin: '0.25rem 0 0', fontSize: '0.8rem', color: 'var(--ck-ink2)' }}>
                                 {group.description}
                               </p>
                             )}
                           </div>
                         </div>
-                        <span style={{ color: '#9ca3af', fontSize: '0.8rem' }}>
+                        <span style={{ color: 'var(--ck-ink3)', fontSize: '0.8rem' }}>
                           {selectedGroup?.id === group.id ? '▲' : '▼'}
                         </span>
                       </div>
 
                       {/* Expanded details */}
                       {selectedGroup?.id === group.id && (
-                        <div style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid #e5e7eb' }}>
+                        <div style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid var(--ck-border2)' }}>
                           {/* Members */}
                           <div style={{ marginBottom: '1rem' }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-                              <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#6b7280' }}>
+                              <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--ck-ink2)' }}>
                                 Members ({members.length}/{group.maxMembers})
                               </span>
                               <button
@@ -657,7 +658,7 @@ const GroupsManager: React.FC<GroupsManagerProps> = ({ onClose, encryptionKey, i
                                     alignItems: 'center',
                                     justifyContent: 'space-between',
                                     padding: '0.5rem 0.75rem',
-                                    background: '#f9fafb',
+                                    background: 'var(--ck-cream)',
                                     borderRadius: '0.5rem'
                                   }}
                                 >
@@ -665,14 +666,14 @@ const GroupsManager: React.FC<GroupsManagerProps> = ({ onClose, encryptionKey, i
                                     <span style={{ fontSize: '1.25rem' }}>
                                       {member.role === 'owner' ? '👑' : member.role === 'admin' ? '⭐' : '👤'}
                                     </span>
-                                    <span style={{ fontSize: '0.9rem', color: '#374151' }}>
+                                    <span style={{ fontSize: '0.9rem', color: 'var(--ck-ink2)' }}>
                                       {member.displayName || 'Member'}
                                     </span>
                                     <span style={{
                                       fontSize: '0.7rem',
                                       padding: '2px 6px',
-                                      background: member.role === 'owner' ? '#fef3c7' : '#e5e7eb',
-                                      color: member.role === 'owner' ? '#92400e' : '#6b7280',
+                                      background: member.role === 'owner' ? 'var(--ck-gold-light)' : 'var(--ck-border2)',
+                                      color: member.role === 'owner' ? 'var(--ck-gold)' : 'var(--ck-ink2)',
                                       borderRadius: '4px'
                                     }}>
                                       {member.role}
@@ -688,7 +689,7 @@ const GroupsManager: React.FC<GroupsManagerProps> = ({ onClose, encryptionKey, i
                                         background: 'none',
                                         border: 'none',
                                         cursor: 'pointer',
-                                        color: '#9ca3af',
+                                        color: 'var(--ck-ink3)',
                                         fontSize: '0.8rem'
                                       }}
                                     >
@@ -710,7 +711,7 @@ const GroupsManager: React.FC<GroupsManagerProps> = ({ onClose, encryptionKey, i
                                 }}
                                 style={{
                                   padding: '0.5rem 1rem',
-                                  background: 'linear-gradient(135deg, #0D9488, #0F766E)',
+                                  background: 'var(--ck-purple)',
                                   color: '#fff',
                                   border: 'none',
                                   borderRadius: '0.5rem',
@@ -730,8 +731,8 @@ const GroupsManager: React.FC<GroupsManagerProps> = ({ onClose, encryptionKey, i
                               }}
                               style={{
                                 padding: '0.5rem 1rem',
-                                background: '#f3f4f6',
-                                color: '#374151',
+                                background: 'var(--ck-cream)',
+                                color: 'var(--ck-ink2)',
                                 border: 'none',
                                 borderRadius: '0.5rem',
                                 cursor: 'pointer',
@@ -748,8 +749,8 @@ const GroupsManager: React.FC<GroupsManagerProps> = ({ onClose, encryptionKey, i
                                 }}
                                 style={{
                                   padding: '0.5rem 1rem',
-                                  background: '#fee2e2',
-                                  color: '#dc2626',
+                                  background: 'var(--ck-red-light)',
+                                  color: 'var(--ck-red)',
                                   border: 'none',
                                   borderRadius: '0.5rem',
                                   cursor: 'pointer',
@@ -766,8 +767,8 @@ const GroupsManager: React.FC<GroupsManagerProps> = ({ onClose, encryptionKey, i
                                 }}
                                 style={{
                                   padding: '0.5rem 1rem',
-                                  background: '#fef3c7',
-                                  color: '#92400e',
+                                  background: 'var(--ck-gold-light)',
+                                  color: 'var(--ck-gold)',
                                   border: 'none',
                                   borderRadius: '0.5rem',
                                   cursor: 'pointer',
@@ -791,7 +792,7 @@ const GroupsManager: React.FC<GroupsManagerProps> = ({ onClose, encryptionKey, i
           {activeTab === 'invitations' && (
             <div>
               {invitations.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '3rem', color: '#9ca3af' }}>
+                <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--ck-ink3)' }}>
                   <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>📬</div>
                   <p>No pending invitations</p>
                 </div>
@@ -802,25 +803,25 @@ const GroupsManager: React.FC<GroupsManagerProps> = ({ onClose, encryptionKey, i
                       key={inv.id}
                       style={{
                         padding: '1rem',
-                        border: '2px solid #e5e7eb',
+                        border: '2px solid var(--ck-border2)',
                         borderRadius: '0.75rem',
                         background: 'white'
                       }}
                     >
                       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
                         <div>
-                          <h3 style={{ margin: '0 0 0.25rem', fontSize: '1rem', fontWeight: 600, color: '#1f2937' }}>
+                          <h3 style={{ margin: '0 0 0.25rem', fontSize: '1rem', fontWeight: 600, color: 'var(--ck-ink)' }}>
                             {inv.groupName || 'Group Invitation'}
                           </h3>
-                          <p style={{ margin: '0.25rem 0', fontSize: '0.85rem', color: '#4b5563' }}>
+                          <p style={{ margin: '0.25rem 0', fontSize: '0.85rem', color: 'var(--ck-ink2)' }}>
                             Invited by <strong>{inv.inviterName || 'a group member'}</strong>
                           </p>
                           {inv.message && (
-                            <p style={{ margin: '0.25rem 0', fontSize: '0.9rem', color: '#6b7280', fontStyle: 'italic' }}>
+                            <p style={{ margin: '0.25rem 0', fontSize: '0.9rem', color: 'var(--ck-ink2)', fontStyle: 'italic' }}>
                               "{inv.message}"
                             </p>
                           )}
-                          <p style={{ margin: '0.5rem 0 0', fontSize: '0.75rem', color: '#9ca3af' }}>
+                          <p style={{ margin: '0.5rem 0 0', fontSize: '0.75rem', color: 'var(--ck-ink3)' }}>
                             Received {new Date(inv.createdAt).toLocaleDateString()}
                           </p>
                         </div>
@@ -846,8 +847,8 @@ const GroupsManager: React.FC<GroupsManagerProps> = ({ onClose, encryptionKey, i
                           style={{
                             flex: 1,
                             padding: '0.625rem',
-                            background: '#f3f4f6',
-                            color: '#374151',
+                            background: 'var(--ck-cream)',
+                            color: 'var(--ck-ink2)',
                             border: 'none',
                             borderRadius: '0.5rem',
                             cursor: 'pointer',
@@ -871,7 +872,7 @@ const GroupsManager: React.FC<GroupsManagerProps> = ({ onClose, encryptionKey, i
         <div style={{
           position: 'fixed',
           inset: 0,
-          background: 'rgba(0,0,0,0.5)',
+          background: 'rgba(26,23,20,0.45)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
@@ -887,7 +888,7 @@ const GroupsManager: React.FC<GroupsManagerProps> = ({ onClose, encryptionKey, i
           }}>
             <div style={{
               padding: '1rem 1.5rem',
-              borderBottom: '1px solid #e5e7eb',
+              borderBottom: '1px solid var(--ck-border2)',
               display: 'flex',
               justifyContent: 'space-between',
               alignItems: 'center'
@@ -901,7 +902,7 @@ const GroupsManager: React.FC<GroupsManagerProps> = ({ onClose, encryptionKey, i
                   setEditingGroup(null);
                   resetForm();
                 }}
-                style={{ background: 'none', border: 'none', fontSize: '1.25rem', cursor: 'pointer', color: '#9ca3af' }}
+                style={{ background: 'none', border: 'none', fontSize: '1.25rem', cursor: 'pointer', color: 'var(--ck-ink3)' }}
               >
                 ✕
               </button>
@@ -920,7 +921,7 @@ const GroupsManager: React.FC<GroupsManagerProps> = ({ onClose, encryptionKey, i
                   style={{
                     width: '100%',
                     padding: '0.75rem',
-                    border: '2px solid #e5e7eb',
+                    border: '2px solid var(--ck-border2)',
                     borderRadius: '0.5rem',
                     fontSize: '1rem'
                   }}
@@ -939,7 +940,7 @@ const GroupsManager: React.FC<GroupsManagerProps> = ({ onClose, encryptionKey, i
                   style={{
                     width: '100%',
                     padding: '0.75rem',
-                    border: '2px solid #e5e7eb',
+                    border: '2px solid var(--ck-border2)',
                     borderRadius: '0.5rem',
                     fontSize: '1rem'
                   }}
@@ -958,7 +959,7 @@ const GroupsManager: React.FC<GroupsManagerProps> = ({ onClose, encryptionKey, i
                       style={{
                         width: '40px',
                         height: '40px',
-                        border: `2px solid ${groupIcon === icon ? groupColor : '#e5e7eb'}`,
+                        border: `2px solid ${groupIcon === icon ? groupColor : 'var(--ck-border2)'}`,
                         borderRadius: '0.5rem',
                         background: groupIcon === icon ? `${groupColor}20` : 'white',
                         cursor: 'pointer',
@@ -984,7 +985,7 @@ const GroupsManager: React.FC<GroupsManagerProps> = ({ onClose, encryptionKey, i
                         width: '32px',
                         height: '32px',
                         borderRadius: '50%',
-                        border: `3px solid ${groupColor === color ? '#1f2937' : 'transparent'}`,
+                        border: `3px solid ${groupColor === color ? 'var(--ck-ink)' : 'transparent'}`,
                         background: color,
                         cursor: 'pointer'
                       }}
@@ -1003,8 +1004,8 @@ const GroupsManager: React.FC<GroupsManagerProps> = ({ onClose, encryptionKey, i
                   style={{
                     flex: 1,
                     padding: '0.75rem',
-                    background: '#f3f4f6',
-                    color: '#374151',
+                    background: 'var(--ck-cream)',
+                    color: 'var(--ck-ink2)',
                     border: 'none',
                     borderRadius: '0.5rem',
                     cursor: 'pointer',
@@ -1019,8 +1020,8 @@ const GroupsManager: React.FC<GroupsManagerProps> = ({ onClose, encryptionKey, i
                   style={{
                     flex: 1,
                     padding: '0.75rem',
-                    background: groupName.trim() ? groupColor : '#e5e7eb',
-                    color: groupName.trim() ? 'white' : '#9ca3af',
+                    background: groupName.trim() ? groupColor : 'var(--ck-border2)',
+                    color: groupName.trim() ? 'white' : 'var(--ck-ink3)',
                     border: 'none',
                     borderRadius: '0.5rem',
                     cursor: groupName.trim() ? 'pointer' : 'not-allowed',
@@ -1040,7 +1041,7 @@ const GroupsManager: React.FC<GroupsManagerProps> = ({ onClose, encryptionKey, i
         <div style={{
           position: 'fixed',
           inset: 0,
-          background: 'rgba(0,0,0,0.5)',
+          background: 'rgba(26,23,20,0.45)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
@@ -1056,7 +1057,7 @@ const GroupsManager: React.FC<GroupsManagerProps> = ({ onClose, encryptionKey, i
           }}>
             <div style={{
               padding: '1rem 1.5rem',
-              borderBottom: '1px solid #e5e7eb',
+              borderBottom: '1px solid var(--ck-border2)',
               display: 'flex',
               justifyContent: 'space-between',
               alignItems: 'center'
@@ -1070,7 +1071,7 @@ const GroupsManager: React.FC<GroupsManagerProps> = ({ onClose, encryptionKey, i
                   setInviteEmail('');
                   setInviteMessage('');
                 }}
-                style={{ background: 'none', border: 'none', fontSize: '1.25rem', cursor: 'pointer', color: '#9ca3af' }}
+                style={{ background: 'none', border: 'none', fontSize: '1.25rem', cursor: 'pointer', color: 'var(--ck-ink3)' }}
               >
                 ✕
               </button>
@@ -1089,12 +1090,12 @@ const GroupsManager: React.FC<GroupsManagerProps> = ({ onClose, encryptionKey, i
                   style={{
                     width: '100%',
                     padding: '0.75rem',
-                    border: '2px solid #e5e7eb',
+                    border: '2px solid var(--ck-border2)',
                     borderRadius: '0.5rem',
                     fontSize: '1rem'
                   }}
                 />
-                <p style={{ margin: '0.5rem 0 0', fontSize: '0.75rem', color: '#6b7280' }}>
+                <p style={{ margin: '0.5rem 0 0', fontSize: '0.75rem', color: 'var(--ck-ink2)' }}>
                   If they're not on Leo yet, they'll see the invitation when they sign up.
                 </p>
               </div>
@@ -1111,7 +1112,7 @@ const GroupsManager: React.FC<GroupsManagerProps> = ({ onClose, encryptionKey, i
                   style={{
                     width: '100%',
                     padding: '0.75rem',
-                    border: '2px solid #e5e7eb',
+                    border: '2px solid var(--ck-border2)',
                     borderRadius: '0.5rem',
                     fontSize: '1rem',
                     resize: 'vertical'
@@ -1129,8 +1130,8 @@ const GroupsManager: React.FC<GroupsManagerProps> = ({ onClose, encryptionKey, i
                   style={{
                     flex: 1,
                     padding: '0.75rem',
-                    background: '#f3f4f6',
-                    color: '#374151',
+                    background: 'var(--ck-cream)',
+                    color: 'var(--ck-ink2)',
                     border: 'none',
                     borderRadius: '0.5rem',
                     cursor: 'pointer',
@@ -1145,8 +1146,8 @@ const GroupsManager: React.FC<GroupsManagerProps> = ({ onClose, encryptionKey, i
                   style={{
                     flex: 1,
                     padding: '0.75rem',
-                    background: inviteEmail.trim() ? selectedGroup.color : '#e5e7eb',
-                    color: inviteEmail.trim() ? 'white' : '#9ca3af',
+                    background: inviteEmail.trim() ? selectedGroup.color : 'var(--ck-border2)',
+                    color: inviteEmail.trim() ? 'white' : 'var(--ck-ink3)',
                     border: 'none',
                     borderRadius: '0.5rem',
                     cursor: inviteEmail.trim() ? 'pointer' : 'not-allowed',
@@ -1166,7 +1167,7 @@ const GroupsManager: React.FC<GroupsManagerProps> = ({ onClose, encryptionKey, i
         <div style={{
           position: 'fixed',
           inset: 0,
-          background: 'rgba(0,0,0,0.5)',
+          background: 'rgba(26,23,20,0.45)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
@@ -1182,7 +1183,7 @@ const GroupsManager: React.FC<GroupsManagerProps> = ({ onClose, encryptionKey, i
           }}>
             <div style={{
               padding: '1rem 1.5rem',
-              borderBottom: '1px solid #e5e7eb',
+              borderBottom: '1px solid var(--ck-border2)',
               display: 'flex',
               justifyContent: 'space-between',
               alignItems: 'center'
@@ -1195,7 +1196,7 @@ const GroupsManager: React.FC<GroupsManagerProps> = ({ onClose, encryptionKey, i
                   setShowProfileModal(false);
                   setEditDisplayName('');
                 }}
-                style={{ background: 'none', border: 'none', fontSize: '1.25rem', cursor: 'pointer', color: '#9ca3af' }}
+                style={{ background: 'none', border: 'none', fontSize: '1.25rem', cursor: 'pointer', color: 'var(--ck-ink3)' }}
               >
                 ✕
               </button>
@@ -1214,12 +1215,12 @@ const GroupsManager: React.FC<GroupsManagerProps> = ({ onClose, encryptionKey, i
                   style={{
                     width: '100%',
                     padding: '0.75rem',
-                    border: '2px solid #e5e7eb',
+                    border: '2px solid var(--ck-border2)',
                     borderRadius: '0.5rem',
                     fontSize: '1rem'
                   }}
                 />
-                <p style={{ margin: '0.5rem 0 0', fontSize: '0.75rem', color: '#6b7280' }}>
+                <p style={{ margin: '0.5rem 0 0', fontSize: '0.75rem', color: 'var(--ck-ink2)' }}>
                   This name will be shown to other group members.
                 </p>
               </div>
@@ -1233,8 +1234,8 @@ const GroupsManager: React.FC<GroupsManagerProps> = ({ onClose, encryptionKey, i
                   style={{
                     flex: 1,
                     padding: '0.75rem',
-                    background: '#f3f4f6',
-                    color: '#374151',
+                    background: 'var(--ck-cream)',
+                    color: 'var(--ck-ink2)',
                     border: 'none',
                     borderRadius: '0.5rem',
                     cursor: 'pointer',
@@ -1249,8 +1250,8 @@ const GroupsManager: React.FC<GroupsManagerProps> = ({ onClose, encryptionKey, i
                   style={{
                     flex: 1,
                     padding: '0.75rem',
-                    background: editDisplayName.trim() ? 'var(--ck-purple)' : '#e5e7eb',
-                    color: editDisplayName.trim() ? 'white' : '#9ca3af',
+                    background: editDisplayName.trim() ? 'var(--ck-purple)' : 'var(--ck-border2)',
+                    color: editDisplayName.trim() ? 'white' : 'var(--ck-ink3)',
                     border: 'none',
                     borderRadius: '0.5rem',
                     cursor: editDisplayName.trim() ? 'pointer' : 'not-allowed',

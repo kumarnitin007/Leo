@@ -69,7 +69,7 @@ import BankExcelView from './bank/BankExcelView';
 import BankAccountDetail from './bank/BankAccountDetail';
 import { BankDepositsTab } from './bank/BankDepositsTab';
 import { BankBillsTab } from './bank/BankBillsTab';
-import { BankOverviewTab, type Next30DayRow } from './bank/BankOverviewTab';
+import type { Next30DayRow } from '../bank/bankDashboardTypes';
 import { BankChartDetailTab } from './bank/BankChartDetailTab';
 import { BankOverviewRedesigned } from './bank/BankOverviewRedesigned';
 import { collectLinkedNextActions } from '../bank/bankLinkedActions';
@@ -141,10 +141,8 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
     ...DEFAULT_RATES,
   }));
   const [showRatesModal, setShowRatesModal] = useState(false);
-  // Overview screen variant — the redesigned overview (BankOverviewRedesigned) is now the
-  // only Financial landing. The legacy "classic" BankOverviewTab is retired (kept in code as a
-  // fallback branch only); the user-facing Classic/New toggle was removed.
-  const overviewVariant: 'classic' | 'new' = 'new';
+  // The redesigned overview (BankOverviewRedesigned) is the only Financial landing.
+  // The legacy "classic" BankOverviewTab has been removed.
   // Status for the “Fetch live rates” button inside the Exchange Rates modal.
   // Pure client-side fetch (no serverless function) — only runs on explicit user click.
   const [ratesFetchState, setRatesFetchState] = useState<{
@@ -234,7 +232,6 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
   const [search, setSearch] = useState("");
   const [showDone, setShowDone] = useState(false);
   const [showSetupBanner, setShowSetupBanner] = useState(false);
-  const [show30Days, setShow30Days] = useState(false);
   const [showPortfolioHistory, setShowPortfolioHistory] = useState(true);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [totalValueHistory, setTotalValueHistory] = useState<TotalValueHistoryEntry[]>([]);
@@ -898,12 +895,6 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
     }
   }
 
-  function clearPortfolioHistory() {
-    if (!confirm('Clear all portfolio value history? The chart will start fresh from your next balance change.')) return;
-    setTotalValueHistory([]);
-    persist(deposits, accounts, bills, actions, goals, undefined, undefined, []);
-  }
-
   function deletePortfolioHistoryEntry(dateIso: string) {
     const next = totalValueHistory.filter(e => e.date !== dateIso);
     setTotalValueHistory(next);
@@ -1414,19 +1405,6 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
     return [minTs - pad, maxTs + pad];
   }, [portfolioHistoryChartData]);
 
-  // Y-axis domains per series — 10% padding above max and below min
-  const portfolioHistoryYDomain = useMemo((): [number, number] | undefined => {
-    if (!portfolioHistoryChartData.length) return undefined;
-    const totals = portfolioHistoryChartData.map(
-      p => (Number(p.totalAccountValue) || 0) + (Number(p.totalDepositValue) || 0)
-    );
-    const dataMin = Math.min(0, ...totals);
-    const dataMax = Math.max(...totals, 1);
-    const range = dataMax - dataMin || 1;
-    const padding = Math.max(range * 0.10, 1);
-    return [Math.max(0, dataMin - padding), dataMax + padding];
-  }, [portfolioHistoryChartData]);
-
   // Y-domain: actual lowest → highest of the series being plotted, with a small pad so the
   // top/bottom values aren't pressed against the chart edges. We deliberately don't clamp
   // at 0 — if the totalAccountValue ever dips, the chart should reflect it.
@@ -1581,7 +1559,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
   // ── Render ───────────────────────────────────────────────────────────────
   if (loading) {
     return (
-      <div style={{display:"flex",alignItems:"center",justifyContent:"center",minHeight:"60vh",color:"#6B7280"}}>
+      <div style={{display:"flex",alignItems:"center",justifyContent:"center",minHeight:"60vh",color:"var(--ck-ink3)"}}>
         <div>Loading financial data...</div>
       </div>
     );
@@ -1695,8 +1673,6 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
       <div style={{padding:isMobile?"8px 6px":"22px 28px",paddingBottom:isMobile?125:28}}>
         {/* Tab Content */}
         {tab==="overview" && (
-          <>
-          {overviewVariant === 'new' ? (
           <BankOverviewRedesigned
             theme={THEME}
             isMobile={isMobile}
@@ -1732,51 +1708,6 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
             toggleDone={toggleDone}
             getBankColor={getBankColor}
           />
-          ) : (
-          <BankOverviewTab
-            theme={THEME}
-            isMobile={isMobile}
-            deposits={deposits}
-            accounts={accounts}
-            bills={bills}
-            actions={actions}
-            goals={goals}
-            displayCurrency={displayCurrency}
-            setDisplayCurrency={setDisplayCurrency}
-            exchangeRates={exchangeRates}
-            targetCurrency={targetCurrency}
-            netWorthConverted={netWorthConverted}
-            sumConverted={sumConverted}
-            totalInvested={totalInvested}
-            totalMaturity={totalMaturity}
-            depositsPrincipalConverted={depositsTablePrincipalConverted}
-            next30DaysUnified={next30DaysUnified}
-            pastDueUnified={pastDueUnified}
-            overviewActionsCount={overviewActionsCount}
-            portfolioHistoryChartData={portfolioHistoryChartData}
-            portfolioHistoryXDomain={portfolioHistoryXDomain}
-            portfolioHistoryYDomain={portfolioHistoryYDomain}
-            portfolioHistoryYDomainAccounts={portfolioHistoryYDomainAccounts}
-            portfolioHistoryYDomainDeposits={portfolioHistoryYDomainDeposits}
-            portfolioHistorySnapshotCount={portfolioHistorySnapshotCount}
-            showPortfolioHistory={showPortfolioHistory}
-            setShowPortfolioHistory={setShowPortfolioHistory}
-            clearPortfolioHistory={clearPortfolioHistory}
-            deletePortfolioHistoryEntry={deletePortfolioHistoryEntry}
-            setShowRatesModal={setShowRatesModal}
-            onPortfolioChartClick={() => setTab('chart-detail')}
-            show30Days={show30Days}
-            setShow30Days={setShow30Days}
-            expandedBanks={expandedBanks}
-            setExpandedBanks={setExpandedBanks}
-            setTab={setTab}
-            persist={persist}
-            totalValueHistory={totalValueHistory}
-            toggleDone={toggleDone}
-            getBankColor={getBankColor}
-          />
-          )}
-          </>
         )}
 
         {/* ══ CHART DETAIL TAB ═════════════════════════════════════════
@@ -2045,7 +1976,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
               {isMobile ? (
                 <div style={{display:"flex",flexDirection:"column",gap:12}}>
                   {/* Mobile: Summary Header */}
-                  <div style={{background:THEME.headerBg,borderRadius:14,padding:"16px"}}>
+                  <div style={{background:"var(--ck-ink)",borderRadius:14,padding:"16px"}}>
                     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
                       <div>
                         <div style={{fontSize:10,color:"rgba(255,255,255,0.7)",fontWeight:500}}>NET BALANCE {!showAllAccounts && hiddenCount > 0 && `(${visibleAccounts.length} active)`}</div>
@@ -2057,7 +1988,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                             key={cur}
                             onClick={() => { setDisplayCurrency(cur); persist(deposits, accounts, bills, actions, goals, exchangeRates, cur, totalValueHistory); }}
                             style={{
-                              background: displayCurrency === cur ? '#10B981' : 'rgba(255,255,255,0.1)',
+                              background: displayCurrency === cur ? 'var(--ck-purple)' : 'rgba(255,255,255,0.1)',
                               color: displayCurrency === cur ? '#FFF' : '#94A3B8',
                               border: 'none',
                               padding: '6px 12px',
@@ -2077,7 +2008,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                         <button
                           onClick={() => setShowAllAccounts(!showAllAccounts)}
                           style={{
-                            background: showAllAccounts ? '#0D9488' : 'rgba(255,255,255,0.1)',
+                            background: showAllAccounts ? 'var(--ck-purple)' : 'rgba(255,255,255,0.1)',
                             color: showAllAccounts ? '#FFF' : '#94A3B8',
                             border: 'none',
                             padding: '6px 14px',
@@ -2090,7 +2021,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                           {showAllAccounts ? `👁 All (${accounts.length})` : `👁 Show All (+${hiddenCount} hidden)`}
                         </button>
                         {!showAllAccounts && hiddenTotal > 0 && (
-                          <span style={{fontSize:11,color:"#6B7280"}}>Hidden: {fmt(hiddenTotal, targetCurrency)}</span>
+                          <span style={{fontSize:11,color:"var(--ck-ink3)"}}>Hidden: {fmt(hiddenTotal, targetCurrency)}</span>
                         )}
                       </div>
                     )}
@@ -2108,7 +2039,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                       <div style={{display:"flex",gap:4,paddingTop:4,alignItems:"center"}}>
                         {(['all','assets','liabilities'] as const).map(v => (
                           <button key={v} onClick={() => setAccountsAssetView(v)} style={{
-                            background: accountsAssetView === v ? (v === 'liabilities' ? '#EF4444' : v === 'assets' ? '#10B981' : THEME.accent) : 'transparent',
+                            background: accountsAssetView === v ? (v === 'liabilities' ? 'var(--ck-red)' : v === 'assets' ? 'var(--ck-green)' : THEME.accent) : 'transparent',
                             color: accountsAssetView === v ? '#fff' : THEME.textMuted,
                             border: `1px solid ${accountsAssetView === v ? 'transparent' : THEME.border}`,
                             borderRadius: 16, padding: '4px 12px', fontSize: 10, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', textTransform: 'capitalize',
@@ -2123,7 +2054,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                               display: 'flex',
                               alignItems: 'center',
                               gap: 4,
-                              background: hasTypeFilter ? '#10B981' : (filtersOpen ? THEME.accent : 'transparent'),
+                              background: hasTypeFilter ? 'var(--ck-green)' : (filtersOpen ? THEME.accent : 'transparent'),
                               color: hasTypeFilter || filtersOpen ? '#fff' : THEME.textMuted,
                               border: `1px solid ${hasTypeFilter || filtersOpen ? 'transparent' : THEME.border}`,
                               borderRadius: 16,
@@ -2170,11 +2101,11 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
 
                   {/* Mobile: Bank List with Inline Accounts - Vertical Layout */}
                   {visibleAccounts.length === 0 && hiddenAccounts.length === 0 ? (
-                    <div style={{padding:40,textAlign:"center",color:"#6B7280"}}>No accounts found</div>
+                    <div style={{padding:40,textAlign:"center",color:"var(--ck-ink3)"}}>No accounts found</div>
                   ) : visibleAccounts.length === 0 && !showAllAccounts ? (
-                    <div style={{padding:40,textAlign:"center",color:"#6B7280"}}>
+                    <div style={{padding:40,textAlign:"center",color:"var(--ck-ink3)"}}>
                       <div style={{fontSize:14,marginBottom:8}}>All accounts are hidden</div>
-                      <button onClick={() => setShowAllAccounts(true)} style={{background:"#0D9488",color:"#FFF",border:"none",padding:"8px 16px",borderRadius:8,fontSize:12,fontWeight:600,cursor:"pointer"}}>Show All Accounts</button>
+                      <button onClick={() => setShowAllAccounts(true)} style={{background:"var(--ck-purple)",color:"#FFF",border:"none",padding:"8px 16px",borderRadius:8,fontSize:12,fontWeight:600,cursor:"pointer"}}>Show All Accounts</button>
                     </div>
                   ) : (
                     <div style={{display:"flex",flexDirection:"column",gap:8}}>
@@ -2208,11 +2139,11 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                               }}
                             >
                               <div style={{display:"flex",alignItems:"center",gap:10}}>
-                                <span style={{fontSize:11,color:"#6B7280",transition:"transform 0.2s",transform:isExpanded?"rotate(90deg)":"rotate(0deg)"}}>▶</span>
+                                <span style={{fontSize:11,color:"var(--ck-ink3)",transition:"transform 0.2s",transform:isExpanded?"rotate(90deg)":"rotate(0deg)"}}>▶</span>
                                 <div style={{width:10,height:10,borderRadius:"50%",background:color}} />
                                 <div>
                                   <div>{bankName}</div>
-                                  <div style={{fontSize:11,color:"#6B7280",fontWeight:500}}>{bankAccounts.length} account{bankAccounts.length > 1 ? "s" : ""}</div>
+                                  <div style={{fontSize:11,color:"var(--ck-ink3)",fontWeight:500}}>{bankAccounts.length} account{bankAccounts.length > 1 ? "s" : ""}</div>
                                 </div>
                               </div>
                               <div style={{fontSize:16,fontFamily:"monospace",fontWeight:700,color:THEME.text}}>{fmt(total, headerCurrency)}</div>
@@ -2254,20 +2185,20 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                                         <div style={{flex:1}}>
                                           <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:4}}>
                                             <span style={{background:`${typeColor}20`,color:typeColor,padding:"2px 6px",borderRadius:4,fontSize:10,fontWeight:700}}>{acc.type}</span>
-                                            {acc.online === "Yes" && <span style={{fontSize:9,color:"#34D399"}}>🌐</span>}
-                                            {acc.done && <span style={{fontSize:9,color:"#34D399"}}>✓</span>}
+                                            {acc.online === "Yes" && <span style={{fontSize:9,color:"var(--ck-green)"}}>🌐</span>}
+                                            {acc.done && <span style={{fontSize:9,color:"var(--ck-green)"}}>✓</span>}
                                             {acc.hidden && <span style={{background:THEME.border,color:THEME.textLight,padding:"2px 6px",borderRadius:4,fontSize:9,fontWeight:600}}>Hidden</span>}
                                             <span style={{marginLeft:"auto",fontSize:11,color:THEME.textLight,fontWeight:500}}>Tap for details ›</span>
                                           </div>
                                           {acc.holders && <div style={{fontSize:11,color:THEME.textLight}}>👤 {acc.holders}</div>}
-                                          {acc.nominee && <div style={{fontSize:10,color:"#6B7280"}}>Nominee: {acc.nominee}</div>}
+                                          {acc.nominee && <div style={{fontSize:10,color:"var(--ck-ink3)"}}>Nominee: {acc.nominee}</div>}
                                           {accountNotesDetail(acc) ? (
                                             <div style={{fontSize:10,color:THEME.textMuted,marginTop:4,whiteSpace:"pre-wrap",maxHeight:56,overflow:"hidden"}}>{accountNotesDetail(acc)}</div>
                                           ) : null}
                                           {(() => {
                                             const stale = daysSinceUpdated(acc.lastBalanceUpdatedAt);
                                             return stale != null && stale >= 0 ? (
-                                              <div style={{fontSize:9,color: stale > 90 ? "#F59E0B" : "#6B7280",marginTop:4}}>
+                                              <div style={{fontSize:9,color: stale > 90 ? "var(--ck-gold)" : "var(--ck-ink3)",marginTop:4}}>
                                                 Sheet updated {stale === 0 ? "today" : `${stale}d ago`}
                                               </div>
                                             ) : null;
@@ -2280,7 +2211,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                                       </div>
                                       
                                       {acc.nextAction && !acc.done && (
-                                        <div style={{marginTop:8,padding:"6px 8px",background:"#F59E0B15",borderRadius:6,color:"#F59E0B",fontSize:11,fontWeight:600}}>
+                                        <div style={{marginTop:8,padding:"6px 8px",background:"var(--ck-gold-light)",borderRadius:6,color:"var(--ck-gold)",fontSize:11,fontWeight:600}}>
                                           ⚡ {acc.nextAction}
                                         </div>
                                       )}
@@ -2289,17 +2220,17 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                                       <div style={{display:"flex",gap:6,marginTop:10,paddingTop:10,borderTop:`1px solid ${THEME.border}`}}>
                                         <button 
                                           onClick={(e) => { e.stopPropagation(); toggleDone("account", origIdx); }} 
-                                          style={{flex:1,background:acc.done ? "#dcfce7" : THEME.cardBgAlt,color:acc.done ? "#34D399" : THEME.textLight,border:"none",borderRadius:6,padding:"8px",fontSize:11,fontWeight:600}}
+                                          style={{flex:1,background:acc.done ? "var(--ck-green-light)" : THEME.cardBgAlt,color:acc.done ? "var(--ck-green)" : THEME.textLight,border:"none",borderRadius:6,padding:"8px",fontSize:11,fontWeight:600}}
                                         >
                                           {acc.done ? "↩ Undo" : "✓ Done"}
                                         </button>
                                         <button 
                                           onClick={(e) => { e.stopPropagation(); openEdit("account", origIdx); }} 
-                                          style={{background:"#1D4ED820",color:"#60A5FA",border:"none",borderRadius:6,padding:"8px 12px",fontSize:11}}
+                                          style={{background:"var(--ck-purple-light)",color:"var(--ck-purple)",border:"none",borderRadius:6,padding:"8px 12px",fontSize:11}}
                                         >✏️</button>
                                         <button 
                                           onClick={(e) => { e.stopPropagation(); deleteRow("account", origIdx); }} 
-                                          style={{background:"#7F1D1D20",color:"#FCA5A5",border:"none",borderRadius:6,padding:"8px 12px",fontSize:11}}
+                                          style={{background:"var(--ck-red-light)",color:"var(--ck-red)",border:"none",borderRadius:6,padding:"8px 12px",fontSize:11}}
                                         >🗑</button>
                                       </div>
                                     </div>
@@ -2354,9 +2285,9 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                         <div style={{fontSize:10,color:THEME.textMuted,marginTop:2}}>{accountsBankViz === 'type' ? `${accountsTypePieData.length} types` : `${accountsPieData.length} banks`} · converted</div>
                       </div>
                       <div style={{display:"flex",gap:2,background:THEME.cardBgAlt,borderRadius:8,padding:2,border:`1px solid ${THEME.border}`}}>
-                        <button type="button" onClick={() => setAccountsBankViz("donut")} style={{border:"none",borderRadius:6,padding:"5px 10px",fontSize:10,fontWeight:700,cursor:"pointer",background:accountsBankViz==="donut"?"#238636":"transparent",color:accountsBankViz==="donut"?"#fff":THEME.textMuted}}>Bank</button>
-                        <button type="button" onClick={() => setAccountsBankViz("type")} style={{border:"none",borderRadius:6,padding:"5px 10px",fontSize:10,fontWeight:700,cursor:"pointer",background:accountsBankViz==="type"?"#238636":"transparent",color:accountsBankViz==="type"?"#fff":THEME.textMuted}}>Type</button>
-                        <button type="button" onClick={() => setAccountsBankViz("bars")} style={{border:"none",borderRadius:6,padding:"5px 10px",fontSize:10,fontWeight:700,cursor:"pointer",background:accountsBankViz==="bars"?"#238636":"transparent",color:accountsBankViz==="bars"?"#fff":THEME.textMuted}}>Bars</button>
+                        <button type="button" onClick={() => setAccountsBankViz("donut")} style={{border:"none",borderRadius:6,padding:"5px 10px",fontSize:10,fontWeight:700,cursor:"pointer",background:accountsBankViz==="donut"?"var(--ck-purple)":"transparent",color:accountsBankViz==="donut"?"#fff":THEME.textMuted}}>Bank</button>
+                        <button type="button" onClick={() => setAccountsBankViz("type")} style={{border:"none",borderRadius:6,padding:"5px 10px",fontSize:10,fontWeight:700,cursor:"pointer",background:accountsBankViz==="type"?"var(--ck-purple)":"transparent",color:accountsBankViz==="type"?"#fff":THEME.textMuted}}>Type</button>
+                        <button type="button" onClick={() => setAccountsBankViz("bars")} style={{border:"none",borderRadius:6,padding:"5px 10px",fontSize:10,fontWeight:700,cursor:"pointer",background:accountsBankViz==="bars"?"var(--ck-purple)":"transparent",color:accountsBankViz==="bars"?"#fff":THEME.textMuted}}>Bars</button>
                       </div>
                     </div>
                     {accountsBankViz === "donut" ? (
@@ -2463,21 +2394,21 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                   <div style={{display:"flex",gap:1,background:THEME.cardBg,borderRadius:6,padding:2,border:`1px solid ${THEME.border}`}}>
                     <button
                       onClick={() => setAccountsViewMode('cards')}
-                      style={{background:accountsViewMode === 'cards' ? '#238636' : 'transparent',color:accountsViewMode === 'cards' ? '#FFF' : '#6B7280',border:'none',padding:'4px 10px',borderRadius:4,fontSize:10,fontWeight:600,cursor:'pointer'}}
+                      style={{background:accountsViewMode === 'cards' ? 'var(--ck-purple)' : 'transparent',color:accountsViewMode === 'cards' ? '#FFF' : 'var(--ck-ink3)',border:'none',padding:'4px 10px',borderRadius:4,fontSize:10,fontWeight:600,cursor:'pointer'}}
                       title="Card view grouped by bank"
                     >
                       ▦ Cards
                     </button>
                     <button
                       onClick={() => setAccountsViewMode('grouped')}
-                      style={{background:accountsViewMode === 'grouped' ? '#238636' : 'transparent',color:accountsViewMode === 'grouped' ? '#FFF' : '#6B7280',border:'none',padding:'4px 10px',borderRadius:4,fontSize:10,fontWeight:600,cursor:'pointer'}}
+                      style={{background:accountsViewMode === 'grouped' ? 'var(--ck-purple)' : 'transparent',color:accountsViewMode === 'grouped' ? '#FFF' : 'var(--ck-ink3)',border:'none',padding:'4px 10px',borderRadius:4,fontSize:10,fontWeight:600,cursor:'pointer'}}
                       title="Grid view grouped by bank"
                     >
                       ▤ By Bank
                     </button>
                     <button
                       onClick={() => setAccountsViewMode('flat')}
-                      style={{background:accountsViewMode === 'flat' ? '#238636' : 'transparent',color:accountsViewMode === 'flat' ? '#FFF' : '#6B7280',border:'none',padding:'4px 10px',borderRadius:4,fontSize:10,fontWeight:600,cursor:'pointer'}}
+                      style={{background:accountsViewMode === 'flat' ? 'var(--ck-purple)' : 'transparent',color:accountsViewMode === 'flat' ? '#FFF' : 'var(--ck-ink3)',border:'none',padding:'4px 10px',borderRadius:4,fontSize:10,fontWeight:600,cursor:'pointer'}}
                       title="Flat grid view - all rows"
                     >
                       ≡ All
@@ -2496,7 +2427,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                       onClick={() => { setDisplayCurrency('ORIGINAL'); persist(deposits, accounts, bills, actions, goals, exchangeRates, 'ORIGINAL', totalValueHistory); }}
                       style={{
                         background: displayCurrency === 'ORIGINAL' ? THEME.accent : THEME.cardBgAlt,
-                        color: displayCurrency === 'ORIGINAL' ? '#FFFFFF' : '#6B7280',
+                        color: displayCurrency === 'ORIGINAL' ? '#FFFFFF' : 'var(--ck-ink3)',
                         border: 'none',
                         padding: '4px 8px',
                         borderRadius: 4,
@@ -2513,7 +2444,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                         onClick={() => { setDisplayCurrency(cur); persist(deposits, accounts, bills, actions, goals, exchangeRates, cur, totalValueHistory); }}
                         style={{
                           background: displayCurrency === cur ? THEME.accent : THEME.cardBgAlt,
-                          color: displayCurrency === cur ? '#FFFFFF' : '#6B7280',
+                          color: displayCurrency === cur ? '#FFFFFF' : 'var(--ck-ink3)',
                           border: 'none',
                           padding: '4px 8px',
                           borderRadius: 4,
@@ -2528,7 +2459,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                   </div>
                   <button
                     onClick={() => setShowRatesModal(true)}
-                    style={{background:THEME.cardBgAlt,color:"#6B7280",border:`1px solid ${THEME.border}`,borderRadius:4,padding:"3px 8px",fontSize:9,cursor:"pointer",display:"flex",alignItems:"center",gap:4}}
+                    style={{background:THEME.cardBgAlt,color:"var(--ck-ink3)",border:`1px solid ${THEME.border}`,borderRadius:4,padding:"3px 8px",fontSize:9,cursor:"pointer",display:"flex",alignItems:"center",gap:4}}
                     title="Edit exchange rates"
                   >
                     <span>$1=₹{exchangeRates.USD}</span>
@@ -2573,7 +2504,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                     <button
                       onClick={() => setShowAllAccounts(!showAllAccounts)}
                       style={{
-                        background: showAllAccounts ? '#0D9488' : THEME.cardBgAlt,
+                        background: showAllAccounts ? 'var(--ck-purple)' : THEME.cardBgAlt,
                         color: showAllAccounts ? '#FFF' : THEME.textMuted,
                         border: `1px solid ${THEME.border}`,
                         padding: '4px 12px',
@@ -2587,18 +2518,18 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                       }}
                     >
                       {showAllAccounts ? `👁 All (${accounts.length})` : `👁 Active (${visibleAccounts.length})`}
-                      {!showAllAccounts && <span style={{color:"#6B7280"}}>+{hiddenCount}</span>}
+                      {!showAllAccounts && <span style={{color:"var(--ck-ink3)"}}>+{hiddenCount}</span>}
                     </button>
                   )}
                 </div>
-                <button onClick={() => openAdd("account")} style={{background:"linear-gradient(135deg,#065F46,#059669)",color:"#fff",border:"none",borderRadius:9,padding:"7px 16px",fontSize:12,fontWeight:700,cursor:"pointer"}}>+ Add Account</button>
+                <button onClick={() => openAdd("account")} style={{background:"var(--ck-purple)",color:"#fff",border:"none",borderRadius:9,padding:"7px 16px",fontSize:12,fontWeight:700,cursor:"pointer"}}>+ Add Account</button>
               </div>
               {visibleAccounts.length === 0 && hiddenCount === 0 ? (
                 <EmptyState icon="🏦" title="No Bank Accounts" description="Add your bank accounts to track balances and pending actions" action="+ Add Account" onAction={() => openAdd("account")} />
               ) : visibleAccounts.length === 0 && !showAllAccounts ? (
                 <div style={{textAlign:"center",padding:40,background:THEME.cardBgAlt,borderRadius:12,border:`1px solid ${THEME.border}`}}>
                   <div style={{fontSize:14,color:THEME.textLight,marginBottom:12}}>All {hiddenCount} account{hiddenCount > 1 ? "s are" : " is"} hidden</div>
-                  <button onClick={() => setShowAllAccounts(true)} style={{background:"#0D9488",color:"#FFF",border:"none",padding:"8px 20px",borderRadius:8,fontSize:12,fontWeight:600,cursor:"pointer"}}>Show All Accounts</button>
+                  <button onClick={() => setShowAllAccounts(true)} style={{background:"var(--ck-purple)",color:"#FFF",border:"none",padding:"8px 20px",borderRadius:8,fontSize:12,fontWeight:600,cursor:"pointer"}}>Show All Accounts</button>
                 </div>
               ) : (
                 <>
@@ -2651,11 +2582,11 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                                   >
                                     <td style={{padding:"8px 10px"}}>
                                       <div style={{display:"flex",alignItems:"center",gap:8}}>
-                                        <span style={{fontSize:10,color:"#6B7280",transition:"transform 0.2s",transform:isExpanded?"rotate(90deg)":"rotate(0deg)"}}>▶</span>
+                                        <span style={{fontSize:10,color:"var(--ck-ink3)",transition:"transform 0.2s",transform:isExpanded?"rotate(90deg)":"rotate(0deg)"}}>▶</span>
                                         <div style={{width:10,height:10,borderRadius:"50%",background:color}} />
                                         <span style={{fontWeight:700,color:THEME.text,fontSize:12}}>{bankName || 'Unnamed'}</span>
-                                        <span style={{color:"#6B7280",fontSize:10}}>({bankAccounts.length} acc{bankAccounts.length > 1 ? "s" : ""})</span>
-                                        {isMixedCurrency && displayCurrency === 'ORIGINAL' && <span style={{fontSize:9,color:"#6B7280"}}>🌐 ({Array.from(currencies).join('+')})</span>}
+                                        <span style={{color:"var(--ck-ink3)",fontSize:10}}>({bankAccounts.length} acc{bankAccounts.length > 1 ? "s" : ""})</span>
+                                        {isMixedCurrency && displayCurrency === 'ORIGINAL' && <span style={{fontSize:9,color:"var(--ck-ink3)"}}>🌐 ({Array.from(currencies).join('+')})</span>}
                                       </div>
                                     </td>
                                     <td style={{padding:"8px 10px"}}>
@@ -2671,16 +2602,16 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                                     <td style={{padding:"8px 10px",color:THEME.textLight,fontSize:9,fontFamily:"monospace"}}>{isSingleRow ? (singleAcc?.accountNumber || "—") : "—"}</td>
                                     <td style={{padding:"8px 10px",color:THEME.textLight,fontSize:9,fontFamily:"monospace"}}>{isSingleRow ? (singleAcc?.ifscCode || "—") : "—"}</td>
                                     <td style={{padding:"8px 10px",color:THEME.textLight,fontSize:9,maxWidth:80,overflow:"hidden",textOverflow:"ellipsis"}}>{isSingleRow ? (singleAcc?.branch || "—") : "—"}</td>
-                                    <td style={{padding:"8px 10px"}}>{isSingleRow && singleAcc?.online && <span style={{fontSize:9,color:singleAcc.online === "Yes" ? "#34D399" : "#6B7280",background:singleAcc.online === "Yes" ? "#064E3B30" : "${THEME.border}40",padding:"2px 4px",borderRadius:3}}>{singleAcc.online === "Yes" ? "🌐" : "—"}</span>}</td>
-                                    <td style={{padding:"8px 10px",color:"#6B7280",fontSize:9,maxWidth:80,overflow:"hidden",textOverflow:"ellipsis"}}>{isSingleRow ? (singleAcc?.address || "—") : "—"}</td>
+                                    <td style={{padding:"8px 10px"}}>{isSingleRow && singleAcc?.online && <span style={{fontSize:9,color:singleAcc.online === "Yes" ? "var(--ck-green)" : "var(--ck-ink3)",background:singleAcc.online === "Yes" ? "var(--ck-green-light)" : "${THEME.border}40",padding:"2px 4px",borderRadius:3}}>{singleAcc.online === "Yes" ? "🌐" : "—"}</span>}</td>
+                                    <td style={{padding:"8px 10px",color:"var(--ck-ink3)",fontSize:9,maxWidth:80,overflow:"hidden",textOverflow:"ellipsis"}}>{isSingleRow ? (singleAcc?.address || "—") : "—"}</td>
                                     <td style={{padding:"8px 10px",color:THEME.textLight,fontSize:9,maxWidth:100,overflow:"hidden",textOverflow:"ellipsis"}} title={isSingleRow && singleAcc ? accountNotesDetail(singleAcc) : ""}>{isSingleRow && singleAcc ? (accountNotesDetail(singleAcc) || "—") : "—"}</td>
-                                    <td style={{padding:"8px 10px",color:isSingleRow && singleAcc?.nextAction && !singleAcc.done ? "#F59E0B" : "#6B7280",fontSize:9,maxWidth:80,overflow:"hidden",textOverflow:"ellipsis",fontWeight:isSingleRow && singleAcc?.nextAction && !singleAcc.done ? 600 : 400}}>{isSingleRow ? (singleAcc?.nextAction ? (singleAcc.done ? "✓ " : "⚡ ") + singleAcc.nextAction : "—") : "—"}</td>
+                                    <td style={{padding:"8px 10px",color:isSingleRow && singleAcc?.nextAction && !singleAcc.done ? "var(--ck-gold)" : "var(--ck-ink3)",fontSize:9,maxWidth:80,overflow:"hidden",textOverflow:"ellipsis",fontWeight:isSingleRow && singleAcc?.nextAction && !singleAcc.done ? 600 : 400}}>{isSingleRow ? (singleAcc?.nextAction ? (singleAcc.done ? "✓ " : "⚡ ") + singleAcc.nextAction : "—") : "—"}</td>
                                     <td style={{padding:"8px 10px",whiteSpace:"nowrap"}}>
                                       {isSingleRow && (
                                         <>
-                                          <button onClick={(e) => { e.stopPropagation(); toggleDone("account", indices[0]); }} style={{background:singleAcc?.done ? "#238636" : THEME.cardBgAlt,color:singleAcc?.done ? "#fff" : THEME.textMuted,border:"none",borderRadius:4,padding:"2px 6px",fontSize:9,cursor:"pointer",marginRight:3,fontWeight:600}}>{singleAcc?.done ? "↩" : "✓"}</button>
-                                          <button onClick={(e) => { e.stopPropagation(); openEdit("account", indices[0]); }} style={{background:THEME.cardBgAlt,color:"#2563eb",border:"none",borderRadius:4,padding:"2px 6px",fontSize:9,cursor:"pointer",marginRight:3}}>✏️</button>
-                                          <button onClick={(e) => { e.stopPropagation(); deleteRow("account", indices[0]); }} style={{background:THEME.cardBgAlt,color:"#F85149",border:"none",borderRadius:4,padding:"2px 6px",fontSize:9,cursor:"pointer"}}>🗑</button>
+                                          <button onClick={(e) => { e.stopPropagation(); toggleDone("account", indices[0]); }} style={{background:singleAcc?.done ? "var(--ck-green)" : THEME.cardBgAlt,color:singleAcc?.done ? "#fff" : THEME.textMuted,border:"none",borderRadius:4,padding:"2px 6px",fontSize:9,cursor:"pointer",marginRight:3,fontWeight:600}}>{singleAcc?.done ? "↩" : "✓"}</button>
+                                          <button onClick={(e) => { e.stopPropagation(); openEdit("account", indices[0]); }} style={{background:THEME.cardBgAlt,color:"var(--ck-purple)",border:"none",borderRadius:4,padding:"2px 6px",fontSize:9,cursor:"pointer",marginRight:3}}>✏️</button>
+                                          <button onClick={(e) => { e.stopPropagation(); deleteRow("account", indices[0]); }} style={{background:THEME.cardBgAlt,color:"var(--ck-red)",border:"none",borderRadius:4,padding:"2px 6px",fontSize:9,cursor:"pointer"}}>🗑</button>
                                         </>
                                       )}
                                     </td>
@@ -2698,28 +2629,28 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                                         title="View account details"
                                         style={{borderBottom:`1px solid ${THEME.border}`,background:acc.done ? "rgba(46,160,67,0.05)" : "transparent",opacity:acc.done ? 0.6 : 1, cursor:"pointer"}}
                                       >
-                                        <td style={{padding:"8px 10px",paddingLeft:32,color:"#6B7280",fontSize:10}}>—</td>
+                                        <td style={{padding:"8px 10px",paddingLeft:32,color:"var(--ck-ink3)",fontSize:10}}>—</td>
                                         <td style={{padding:"8px 10px"}}>
                                           <span style={{background:`${typeColor}20`,color:typeColor,padding:"2px 6px",borderRadius:4,fontSize:9,fontWeight:700}}>{acc.type || "—"}</span>
                                         </td>
                                         <td style={{padding:"8px 10px",color:THEME.text,fontSize:10,maxWidth:100,overflow:"hidden",textOverflow:"ellipsis"}} title={acc.holders}>{acc.holders || "—"}</td>
                                         <td style={{padding:"8px 10px",color:THEME.text,fontSize:10,maxWidth:88,overflow:"hidden",textOverflow:"ellipsis"}} title={acc.nominee || ""}>{acc.nominee || "—"}</td>
-                                        <td style={{padding:"8px 10px",fontFamily:"monospace",fontWeight:600,color:acc.done ? "#6B7280" : THEME.text,fontSize:11}}>{fmt(acc.amount, accCurrency)}</td>
+                                        <td style={{padding:"8px 10px",fontFamily:"monospace",fontWeight:600,color:acc.done ? "var(--ck-ink3)" : THEME.text,fontSize:11}}>{fmt(acc.amount, accCurrency)}</td>
                                         <td style={{padding:"8px 10px",color:THEME.textLight,fontSize:9}}>{accCurrency}</td>
                                         <td style={{padding:"8px 10px",fontFamily:"monospace",color:THEME.accent,fontWeight:600,fontSize:10}}>{acc.roi ? (Number(acc.roi) * 100).toFixed(2) + "%" : "—"}</td>
                                         <td style={{padding:"8px 10px",color:THEME.textLight,fontSize:9,fontFamily:"monospace"}}>{acc.accountNumber || "—"}</td>
                                         <td style={{padding:"8px 10px",color:THEME.textLight,fontSize:9,fontFamily:"monospace"}}>{acc.ifscCode || "—"}</td>
                                         <td style={{padding:"8px 10px",color:THEME.textLight,fontSize:9,maxWidth:80,overflow:"hidden",textOverflow:"ellipsis"}} title={acc.branch}>{acc.branch || "—"}</td>
                                         <td style={{padding:"8px 10px"}}>
-                                          {acc.online && <span style={{fontSize:9,color:acc.online === "Yes" ? "#34D399" : "#6B7280",background:acc.online === "Yes" ? "#064E3B30" : "${THEME.border}40",padding:"2px 4px",borderRadius:3}}>{acc.online === "Yes" ? "🌐" : "—"}</span>}
+                                          {acc.online && <span style={{fontSize:9,color:acc.online === "Yes" ? "var(--ck-green)" : "var(--ck-ink3)",background:acc.online === "Yes" ? "var(--ck-green-light)" : "${THEME.border}40",padding:"2px 4px",borderRadius:3}}>{acc.online === "Yes" ? "🌐" : "—"}</span>}
                                         </td>
-                                        <td style={{padding:"8px 10px",color:"#6B7280",fontSize:9,maxWidth:80,overflow:"hidden",textOverflow:"ellipsis"}} title={acc.address}>{acc.address || "—"}</td>
+                                        <td style={{padding:"8px 10px",color:"var(--ck-ink3)",fontSize:9,maxWidth:80,overflow:"hidden",textOverflow:"ellipsis"}} title={acc.address}>{acc.address || "—"}</td>
                                         <td style={{padding:"8px 10px",color:THEME.textLight,fontSize:9,maxWidth:100,overflow:"hidden",textOverflow:"ellipsis"}} title={accountNotesDetail(acc)}>{accountNotesDetail(acc) || "—"}</td>
-                                        <td style={{padding:"8px 10px",color:acc.nextAction && !acc.done ? "#F59E0B" : "#6B7280",fontSize:9,maxWidth:80,overflow:"hidden",textOverflow:"ellipsis",fontWeight:acc.nextAction && !acc.done ? 600 : 400}} title={acc.nextAction}>{acc.nextAction ? (acc.done ? "✓ " : "⚡ ") + acc.nextAction : "—"}</td>
+                                        <td style={{padding:"8px 10px",color:acc.nextAction && !acc.done ? "var(--ck-gold)" : "var(--ck-ink3)",fontSize:9,maxWidth:80,overflow:"hidden",textOverflow:"ellipsis",fontWeight:acc.nextAction && !acc.done ? 600 : 400}} title={acc.nextAction}>{acc.nextAction ? (acc.done ? "✓ " : "⚡ ") + acc.nextAction : "—"}</td>
                                         <td style={{padding:"8px 10px",whiteSpace:"nowrap"}}>
-                                          <button onClick={(e) => { e.stopPropagation(); toggleDone("account", origIdx); }} style={{background:acc.done ? "#238636" : THEME.cardBgAlt,color:acc.done ? "#fff" : THEME.textMuted,border:"none",borderRadius:4,padding:"2px 6px",fontSize:9,cursor:"pointer",marginRight:3,fontWeight:600}}>{acc.done ? "↩" : "✓"}</button>
-                                          <button onClick={(e) => { e.stopPropagation(); openEdit("account", origIdx); }} style={{background:THEME.cardBgAlt,color:"#2563eb",border:"none",borderRadius:4,padding:"2px 6px",fontSize:9,cursor:"pointer",marginRight:3}}>✏️</button>
-                                          <button onClick={(e) => { e.stopPropagation(); deleteRow("account", origIdx); }} style={{background:THEME.cardBgAlt,color:"#F85149",border:"none",borderRadius:4,padding:"2px 6px",fontSize:9,cursor:"pointer"}}>🗑</button>
+                                          <button onClick={(e) => { e.stopPropagation(); toggleDone("account", origIdx); }} style={{background:acc.done ? "var(--ck-green)" : THEME.cardBgAlt,color:acc.done ? "#fff" : THEME.textMuted,border:"none",borderRadius:4,padding:"2px 6px",fontSize:9,cursor:"pointer",marginRight:3,fontWeight:600}}>{acc.done ? "↩" : "✓"}</button>
+                                          <button onClick={(e) => { e.stopPropagation(); openEdit("account", origIdx); }} style={{background:THEME.cardBgAlt,color:"var(--ck-purple)",border:"none",borderRadius:4,padding:"2px 6px",fontSize:9,cursor:"pointer",marginRight:3}}>✏️</button>
+                                          <button onClick={(e) => { e.stopPropagation(); deleteRow("account", origIdx); }} style={{background:THEME.cardBgAlt,color:"var(--ck-red)",border:"none",borderRadius:4,padding:"2px 6px",fontSize:9,cursor:"pointer"}}>🗑</button>
                                         </td>
                                       </tr>
                                     );
@@ -2767,22 +2698,22 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                                       </td>
                                       <td style={{padding:"8px 10px",color:THEME.text,fontSize:10,maxWidth:100,overflow:"hidden",textOverflow:"ellipsis"}} title={acc.holders}>{acc.holders || "—"}</td>
                                       <td style={{padding:"8px 10px",color:THEME.text,fontSize:10,maxWidth:88,overflow:"hidden",textOverflow:"ellipsis"}} title={acc.nominee || ""}>{acc.nominee || "—"}</td>
-                                      <td style={{padding:"8px 10px",fontFamily:"monospace",fontWeight:600,color:acc.done ? "#6B7280" : THEME.text,fontSize:11}}>{fmt(acc.amount, accCurrency)}</td>
+                                      <td style={{padding:"8px 10px",fontFamily:"monospace",fontWeight:600,color:acc.done ? "var(--ck-ink3)" : THEME.text,fontSize:11}}>{fmt(acc.amount, accCurrency)}</td>
                                       <td style={{padding:"8px 10px",color:THEME.textLight,fontSize:9}}>{accCurrency}</td>
                                       <td style={{padding:"8px 10px",fontFamily:"monospace",color:THEME.accent,fontWeight:600,fontSize:10}}>{acc.roi ? (Number(acc.roi) * 100).toFixed(2) + "%" : "—"}</td>
                                       <td style={{padding:"8px 10px",color:THEME.textLight,fontSize:9,fontFamily:"monospace"}}>{acc.accountNumber || "—"}</td>
                                       <td style={{padding:"8px 10px",color:THEME.textLight,fontSize:9,fontFamily:"monospace"}}>{acc.ifscCode || "—"}</td>
                                       <td style={{padding:"8px 10px",color:THEME.textLight,fontSize:9,maxWidth:80,overflow:"hidden",textOverflow:"ellipsis"}} title={acc.branch}>{acc.branch || "—"}</td>
                                       <td style={{padding:"8px 10px"}}>
-                                        {acc.online && <span style={{fontSize:9,color:acc.online === "Yes" ? "#34D399" : "#6B7280",background:acc.online === "Yes" ? "#064E3B30" : "${THEME.border}40",padding:"2px 4px",borderRadius:3}}>{acc.online === "Yes" ? "🌐" : "—"}</span>}
+                                        {acc.online && <span style={{fontSize:9,color:acc.online === "Yes" ? "var(--ck-green)" : "var(--ck-ink3)",background:acc.online === "Yes" ? "var(--ck-green-light)" : "${THEME.border}40",padding:"2px 4px",borderRadius:3}}>{acc.online === "Yes" ? "🌐" : "—"}</span>}
                                       </td>
-                                      <td style={{padding:"8px 10px",color:"#6B7280",fontSize:9,maxWidth:80,overflow:"hidden",textOverflow:"ellipsis"}} title={acc.address}>{acc.address || "—"}</td>
+                                      <td style={{padding:"8px 10px",color:"var(--ck-ink3)",fontSize:9,maxWidth:80,overflow:"hidden",textOverflow:"ellipsis"}} title={acc.address}>{acc.address || "—"}</td>
                                       <td style={{padding:"8px 10px",color:THEME.textLight,fontSize:9,maxWidth:100,overflow:"hidden",textOverflow:"ellipsis"}} title={accountNotesDetail(acc)}>{accountNotesDetail(acc) || "—"}</td>
-                                      <td style={{padding:"8px 10px",color:acc.nextAction && !acc.done ? "#F59E0B" : "#6B7280",fontSize:9,maxWidth:80,overflow:"hidden",textOverflow:"ellipsis",fontWeight:acc.nextAction && !acc.done ? 600 : 400}} title={acc.nextAction}>{acc.nextAction ? (acc.done ? "✓ " : "⚡ ") + acc.nextAction : "—"}</td>
+                                      <td style={{padding:"8px 10px",color:acc.nextAction && !acc.done ? "var(--ck-gold)" : "var(--ck-ink3)",fontSize:9,maxWidth:80,overflow:"hidden",textOverflow:"ellipsis",fontWeight:acc.nextAction && !acc.done ? 600 : 400}} title={acc.nextAction}>{acc.nextAction ? (acc.done ? "✓ " : "⚡ ") + acc.nextAction : "—"}</td>
                                       <td style={{padding:"8px 10px",whiteSpace:"nowrap"}}>
-                                        <button onClick={() => toggleDone("account", idx)} style={{background:acc.done ? "#238636" : THEME.cardBgAlt,color:acc.done ? "#fff" : THEME.textMuted,border:"none",borderRadius:4,padding:"2px 6px",fontSize:9,cursor:"pointer",marginRight:3,fontWeight:600}}>{acc.done ? "↩" : "✓"}</button>
-                                        <button onClick={() => openEdit("account", idx)} style={{background:THEME.cardBgAlt,color:"#2563eb",border:"none",borderRadius:4,padding:"2px 6px",fontSize:9,cursor:"pointer",marginRight:3}}>✏️</button>
-                                        <button onClick={() => deleteRow("account", idx)} style={{background:THEME.cardBgAlt,color:"#F85149",border:"none",borderRadius:4,padding:"2px 6px",fontSize:9,cursor:"pointer"}}>🗑</button>
+                                        <button onClick={() => toggleDone("account", idx)} style={{background:acc.done ? "var(--ck-green)" : THEME.cardBgAlt,color:acc.done ? "#fff" : THEME.textMuted,border:"none",borderRadius:4,padding:"2px 6px",fontSize:9,cursor:"pointer",marginRight:3,fontWeight:600}}>{acc.done ? "↩" : "✓"}</button>
+                                        <button onClick={() => openEdit("account", idx)} style={{background:THEME.cardBgAlt,color:"var(--ck-purple)",border:"none",borderRadius:4,padding:"2px 6px",fontSize:9,cursor:"pointer",marginRight:3}}>✏️</button>
+                                        <button onClick={() => deleteRow("account", idx)} style={{background:THEME.cardBgAlt,color:"var(--ck-red)",border:"none",borderRadius:4,padding:"2px 6px",fontSize:9,cursor:"pointer"}}>🗑</button>
                                       </td>
                                     </tr>
                                   );
@@ -2832,7 +2763,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                             style={{padding:"12px 14px",background:`${color}10`,cursor:"pointer",display:"flex",justifyContent:"space-between",alignItems:"center"}}
                           >
                             <div style={{display:"flex",alignItems:"center",gap:10}}>
-                              <span style={{fontSize:10,color:"#6B7280",transition:"transform 0.2s",transform:isExpanded?"rotate(90deg)":"rotate(0deg)"}}>▶</span>
+                              <span style={{fontSize:10,color:"var(--ck-ink3)",transition:"transform 0.2s",transform:isExpanded?"rotate(90deg)":"rotate(0deg)"}}>▶</span>
                               <div>
                                 <div style={{fontSize:14,fontWeight:700,color:THEME.text}}>{bankName || 'Unnamed'}</div>
                                 <div style={{fontSize:10,color:THEME.textLight}}>{bankAccounts.length} account{bankAccounts.length > 1 ? "s" : ""}{hasActions ? " · ⚡ Actions" : ""}{isMixedCurrency && displayCurrency === 'ORIGINAL' ? " · 🌐 Mixed" : ""}</div>
@@ -2840,7 +2771,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                             </div>
                             <div style={{textAlign:"right"}}>
                               <div style={{fontSize:15,fontWeight:800,fontFamily:"monospace",color:THEME.text}}>{fmt(totalBalance, headerCurrency)}</div>
-                              {isMixedCurrency && displayCurrency === 'ORIGINAL' && <div style={{fontSize:9,color:"#6B7280"}}>({Array.from(currencies).join('+')})</div>}
+                              {isMixedCurrency && displayCurrency === 'ORIGINAL' && <div style={{fontSize:9,color:"var(--ck-ink3)"}}>({Array.from(currencies).join('+')})</div>}
                             </div>
                           </div>
                           
@@ -2864,19 +2795,19 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                                       <div style={{flex:1}}>
                                         <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
                                           <span style={{background:`${typeColor}20`,color:typeColor,padding:"2px 8px",borderRadius:4,fontSize:10,fontWeight:700}}>{acc.type}</span>
-                                          {acc.online && <span style={{fontSize:9,color:acc.online === "Yes" ? "#34D399" : "#6B7280",background:acc.online === "Yes" ? "#064E3B30" : "${THEME.border}40",padding:"2px 6px",borderRadius:4}}>🌐 {acc.online}</span>}
-                                          {acc.done && <span style={{fontSize:9,color:"#6B7280"}}>✓ Done</span>}
+                                          {acc.online && <span style={{fontSize:9,color:acc.online === "Yes" ? "var(--ck-green)" : "var(--ck-ink3)",background:acc.online === "Yes" ? "var(--ck-green-light)" : "${THEME.border}40",padding:"2px 6px",borderRadius:4}}>🌐 {acc.online}</span>}
+                                          {acc.done && <span style={{fontSize:9,color:"var(--ck-ink3)"}}>✓ Done</span>}
                                         </div>
                                         {acc.holders && <div style={{fontSize:11,color:THEME.text,marginTop:4}}>👤 {acc.holders}</div>}
-                                        {acc.nominee && <div style={{fontSize:10,color:"#6B7280",marginTop:2}}>Nominee: {acc.nominee}</div>}
+                                        {acc.nominee && <div style={{fontSize:10,color:"var(--ck-ink3)",marginTop:2}}>Nominee: {acc.nominee}</div>}
                                         <div style={{display:"flex",alignItems:"baseline",gap:8,marginTop:4,flexWrap:"wrap"}}>
-                                          {acc.amount && <span style={{fontSize:14,fontWeight:700,fontFamily:"monospace",color:acc.done ? "#6B7280" : "#F9FAFB"}}>{fmt(acc.amount, (acc.currency || 'INR') as Currency)}</span>}
-                                          {acc.roi && <span style={{fontSize:11,color:"#34D399",fontFamily:"monospace"}}>{(Number(acc.roi) * 100).toFixed(2)}% pa</span>}
+                                          {acc.amount && <span style={{fontSize:14,fontWeight:700,fontFamily:"monospace",color:acc.done ? "var(--ck-ink3)" : THEME.text}}>{fmt(acc.amount, (acc.currency || 'INR') as Currency)}</span>}
+                                          {acc.roi && <span style={{fontSize:11,color:"var(--ck-green)",fontFamily:"monospace"}}>{(Number(acc.roi) * 100).toFixed(2)}% pa</span>}
                                         </div>
                                         {(() => {
                                           const stale = daysSinceUpdated(acc.lastBalanceUpdatedAt);
                                           return stale != null && stale >= 0 ? (
-                                            <div style={{fontSize:9,color: stale > 90 ? "#F59E0B" : "#6B7280",marginTop:3}}>
+                                            <div style={{fontSize:9,color: stale > 90 ? "var(--ck-gold)" : "var(--ck-ink3)",marginTop:3}}>
                                               Balance row · {stale === 0 ? "updated today" : `${stale}d since update`}
                                             </div>
                                           ) : null;
@@ -2885,12 +2816,12 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                                           const latest = acc.balanceHistory[acc.balanceHistory.length - 1];
                                           const prev = latest.previousAmount != null ? `${fmt(latest.previousAmount, (acc.currency || 'INR') as Currency)} → ` : '';
                                           return (
-                                            <div style={{fontSize:10,color:"#6B7280",marginTop:3}} title={acc.balanceHistory.map(h => `${new Date(h.date).toLocaleString()}: ${h.previousAmount != null ? fmt(h.previousAmount, (acc.currency || 'INR') as Currency) + ' → ' : ''}${fmt(h.amount, (acc.currency || 'INR') as Currency)} ${h.source || ''}`).join('\n')}>
+                                            <div style={{fontSize:10,color:"var(--ck-ink3)",marginTop:3}} title={acc.balanceHistory.map(h => `${new Date(h.date).toLocaleString()}: ${h.previousAmount != null ? fmt(h.previousAmount, (acc.currency || 'INR') as Currency) + ' → ' : ''}${fmt(h.amount, (acc.currency || 'INR') as Currency)} ${h.source || ''}`).join('\n')}>
                                               📅 Updated {new Date(latest.date).toLocaleDateString(undefined, { dateStyle: 'short' })} · {prev}{fmt(latest.amount, (acc.currency || 'INR') as Currency)} {latest.source && <span style={{color:"#9CA3AF"}}>({latest.source})</span>}
                                             </div>
                                           );
                                         })()}
-                                        {acc.address && <div style={{fontSize:10,color:"#6B7280",marginTop:3}}>📍 {acc.address}</div>}
+                                        {acc.address && <div style={{fontSize:10,color:"var(--ck-ink3)",marginTop:3}}>📍 {acc.address}</div>}
                                         {accountNotesDetail(acc) ? (
                                           <div style={{fontSize:10,color:THEME.textLight,marginTop:2,whiteSpace:"pre-wrap",maxHeight:72,overflow:"hidden"}}>📝 {accountNotesDetail(acc)}</div>
                                         ) : null}
@@ -2900,9 +2831,9 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                                         {acc.nextAction && !acc.done && <div style={{fontSize:11,color:"#F59E0B",marginTop:4,fontWeight:600}}>⚡ {acc.nextAction}</div>}
                                       </div>
                                       <div style={{display:"flex",gap:4,flexShrink:0}}>
-                                        <button onClick={(e) => { e.stopPropagation(); toggleDone("account", originalIndex); }} style={{background:acc.done ? "#dcfce7" : THEME.cardBgAlt,color:acc.done ? "#34D399" : "#6B7280",border:`1px solid ${acc.done ? "#16a34a" : THEME.border}`,borderRadius:5,padding:"2px 6px",fontSize:10,cursor:"pointer",fontWeight:700}}>{acc.done ? "↩" : "✓"}</button>
-                                        <button onClick={(e) => { e.stopPropagation(); openEdit("account", originalIndex); }} style={{background:"#1D4ED820",color:"#60A5FA",border:"1px solid #1D4ED840",borderRadius:5,padding:"2px 5px",fontSize:10,cursor:"pointer"}}>✏️</button>
-                                        <button onClick={(e) => { e.stopPropagation(); deleteRow("account", originalIndex); }} style={{background:"#7F1D1D20",color:"#FCA5A5",border:"1px solid #7F1D1D40",borderRadius:5,padding:"2px 5px",fontSize:10,cursor:"pointer"}}>🗑</button>
+                                        <button onClick={(e) => { e.stopPropagation(); toggleDone("account", originalIndex); }} style={{background:acc.done ? "var(--ck-green-light)" : THEME.cardBgAlt,color:acc.done ? "var(--ck-green)" : "var(--ck-ink3)",border:`1px solid ${acc.done ? "#16a34a" : THEME.border}`,borderRadius:5,padding:"2px 6px",fontSize:10,cursor:"pointer",fontWeight:700}}>{acc.done ? "↩" : "✓"}</button>
+                                        <button onClick={(e) => { e.stopPropagation(); openEdit("account", originalIndex); }} style={{background:"var(--ck-purple-light)",color:"var(--ck-purple)",border:"1px solid #1D4ED840",borderRadius:5,padding:"2px 5px",fontSize:10,cursor:"pointer"}}>✏️</button>
+                                        <button onClick={(e) => { e.stopPropagation(); deleteRow("account", originalIndex); }} style={{background:"var(--ck-red-light)",color:"var(--ck-red)",border:"1px solid #7F1D1D40",borderRadius:5,padding:"2px 5px",fontSize:10,cursor:"pointer"}}>🗑</button>
                                       </div>
                                     </div>
                                   </div>
@@ -2923,7 +2854,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                       style={{width:"100%",padding:"10px 14px",background:"transparent",border:"none",cursor:"pointer",display:"flex",justifyContent:"space-between",alignItems:"center"}}
                     >
                       <div style={{display:"flex",alignItems:"center",gap:8}}>
-                        <span style={{fontSize:10,color:"#6B7280",transition:"transform 0.2s",transform:expandedBanks.has('_summary')?"rotate(90deg)":"rotate(0deg)"}}>▶</span>
+                        <span style={{fontSize:10,color:"var(--ck-ink3)",transition:"transform 0.2s",transform:expandedBanks.has('_summary')?"rotate(90deg)":"rotate(0deg)"}}>▶</span>
                         <span style={{fontSize:11,fontWeight:700,color:THEME.textLight,textTransform:"uppercase"}}>📊 Bank-wise Summary</span>
                       </div>
                       <div style={{fontSize:12,color:THEME.text,fontFamily:"monospace",fontWeight:700}}>{fmt(sumConverted(accounts), displayCurrency === 'ORIGINAL' ? 'INR' : displayCurrency)}</div>
@@ -2941,12 +2872,12 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                                 <div style={{width:10,height:10,borderRadius:"50%",background:getBankColor(bankName),flexShrink:0}} />
                                 <span style={{flex:1,fontSize:12,color:THEME.text}}>{bankName}</span>
                                 <span style={{fontSize:12,fontFamily:"monospace",fontWeight:700,color:THEME.text}}>{fmt(total, summaryCurrency)}</span>
-                                <span style={{fontSize:10,color:"#6B7280",minWidth:40,textAlign:"right"}}>{pct.toFixed(0)}%</span>
+                                <span style={{fontSize:10,color:"var(--ck-ink3)",minWidth:40,textAlign:"right"}}>{pct.toFixed(0)}%</span>
                               </div>
                             );
                           })}
                         </div>
-                        <div style={{marginTop:10,fontSize:10,color:"#6B7280",fontStyle:"italic",textAlign:"center"}}>
+                        <div style={{marginTop:10,fontSize:10,color:"var(--ck-ink3)",fontStyle:"italic",textAlign:"center"}}>
                           {accounts.length} accounts across {bankNames.length} banks
                         </div>
                       </div>
@@ -2971,9 +2902,9 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                             </div>
                           </div>
                           <div style={{display:"flex",gap:2,background:THEME.cardBgAlt,borderRadius:8,padding:3,border:`1px solid ${THEME.border}`}}>
-                            <button type="button" onClick={() => setAccountsBankViz("donut")} style={{border:"none",borderRadius:6,padding:"6px 14px",fontSize:11,fontWeight:700,cursor:"pointer",background:accountsBankViz==="donut"?"#238636":"transparent",color:accountsBankViz==="donut"?"#fff":THEME.textMuted}}>By Bank</button>
-                            <button type="button" onClick={() => setAccountsBankViz("type")} style={{border:"none",borderRadius:6,padding:"6px 14px",fontSize:11,fontWeight:700,cursor:"pointer",background:accountsBankViz==="type"?"#238636":"transparent",color:accountsBankViz==="type"?"#fff":THEME.textMuted}}>By Type</button>
-                            <button type="button" onClick={() => setAccountsBankViz("bars")} style={{border:"none",borderRadius:6,padding:"6px 14px",fontSize:11,fontWeight:700,cursor:"pointer",background:accountsBankViz==="bars"?"#238636":"transparent",color:accountsBankViz==="bars"?"#fff":THEME.textMuted}}>Bars</button>
+                            <button type="button" onClick={() => setAccountsBankViz("donut")} style={{border:"none",borderRadius:6,padding:"6px 14px",fontSize:11,fontWeight:700,cursor:"pointer",background:accountsBankViz==="donut"?"var(--ck-purple)":"transparent",color:accountsBankViz==="donut"?"#fff":THEME.textMuted}}>By Bank</button>
+                            <button type="button" onClick={() => setAccountsBankViz("type")} style={{border:"none",borderRadius:6,padding:"6px 14px",fontSize:11,fontWeight:700,cursor:"pointer",background:accountsBankViz==="type"?"var(--ck-purple)":"transparent",color:accountsBankViz==="type"?"#fff":THEME.textMuted}}>By Type</button>
+                            <button type="button" onClick={() => setAccountsBankViz("bars")} style={{border:"none",borderRadius:6,padding:"6px 14px",fontSize:11,fontWeight:700,cursor:"pointer",background:accountsBankViz==="bars"?"var(--ck-purple)":"transparent",color:accountsBankViz==="bars"?"#fff":THEME.textMuted}}>Bars</button>
                           </div>
                         </div>
                         {accountsBankViz === "donut" ? (
@@ -3236,11 +3167,11 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                       type="checkbox" 
                       checked={form.hidden || false} 
                       onChange={e => setForm({...form, hidden: e.target.checked})}
-                      style={{width:16,height:16,accentColor:"#0D9488"}}
+                      style={{width:16,height:16,accentColor:"var(--ck-purple)"}}
                     />
                     <span>Hide from default view</span>
                   </label>
-                  <span style={{fontSize:10,color:"#6B7280"}}>(shown as "Other Accounts" aggregate)</span>
+                  <span style={{fontSize:10,color:"var(--ck-ink3)"}}>(shown as "Other Accounts" aggregate)</span>
                 </div>
                 {(form as BankAccount).balanceHistory?.length > 0 && (() => {
                   const hist = (form as BankAccount).balanceHistory!;
@@ -3551,7 +3482,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                     background:"transparent",
                     border:"none",
                     padding:"2px 6px",
-                    color: isActive ? "#3B82F6" : "#6B7280",
+                    color: isActive ? "#3B82F6" : "var(--ck-ink3)",
                     minWidth:50,
                     cursor:"pointer"
                   }}
@@ -3572,7 +3503,7 @@ export default function BankDashboard({ supabase, userId, encryptionKey, onOpenG
                 background:"transparent",
                 border:"none",
                 padding:"2px 6px",
-                color: moreTabs.some(t => t.id === tab) ? "#3B82F6" : "#6B7280",
+                color: moreTabs.some(t => t.id === tab) ? "#3B82F6" : "var(--ck-ink3)",
                 minWidth:50,
                 cursor:"pointer"
               }}

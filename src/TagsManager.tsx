@@ -24,9 +24,11 @@ interface TagsManagerProps {
   /** When true, use mobile header + stacked form; list rows open edit on tap */
   isMobile?: boolean;
   onMobileBack?: () => void;
+  /** When true, hide the internal desktop title (a parent Section supplies it). */
+  hideHeading?: boolean;
 }
 
-const TagsManager: React.FC<TagsManagerProps> = ({ onClose, isMobile, onMobileBack }) => {
+const TagsManager: React.FC<TagsManagerProps> = ({ onClose, isMobile, onMobileBack, hideHeading }) => {
   const [tags, setTags] = useState<Tag[]>([]);
   const [isCreating, setIsCreating] = useState(false);
   const [editingTag, setEditingTag] = useState<Tag | null>(null);
@@ -815,6 +817,7 @@ const TagsManager: React.FC<TagsManagerProps> = ({ onClose, isMobile, onMobileBa
             flexWrap: 'wrap',
           }}
         >
+          {hideHeading ? <div /> : (
           <div>
             <h2 style={{ margin: 0, fontSize: 17, fontWeight: 500, color: '#111', display: 'flex', alignItems: 'center', gap: 8 }}>
               🏷️ Manage tags
@@ -823,6 +826,7 @@ const TagsManager: React.FC<TagsManagerProps> = ({ onClose, isMobile, onMobileBa
               Organize your tasks, events, and journal entries
             </p>
           </div>
+          )}
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
             <button
               type="button"

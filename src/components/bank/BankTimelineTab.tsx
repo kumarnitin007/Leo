@@ -29,7 +29,7 @@ export function BankTimelineTab({
         <div style={{ fontSize: 14, fontWeight: 700, color: THEME.text }}>📅 Maturity Timeline</div>
         <div style={{ marginLeft: "auto", display: "flex", gap: 10, alignItems: "center" }}>
           <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", fontSize: 12, color: THEME.textMuted }}>
-            <input type="checkbox" checked={showDone} onChange={(e) => setShowDone(e.target.checked)} style={{ accentColor: "#3B82F6" }} />
+            <input type="checkbox" checked={showDone} onChange={(e) => setShowDone(e.target.checked)} style={{ accentColor: "var(--ck-purple)" }} />
             Show completed
           </label>
         </div>
@@ -48,21 +48,21 @@ export function BankTimelineTab({
             const isPast = days !== null && days < 0;
             const isDone = d.done;
             const color = getBankColor(d.bank);
-            const dotColor = isDone ? "#22c55e" : isPast ? "#DC2626" : color;
+            const dotColor = isDone ? "var(--ck-green)" : isPast ? "var(--ck-red)" : color;
             const depCur = (d.currency || "INR") as Currency;
             const rowBg = isDone
-              ? "rgba(34,197,94,0.08)"
+              ? "rgba(29,158,117,0.08)"
               : isPast
-                ? "rgba(239,68,68,0.06)"
+                ? "rgba(201,74,46,0.06)"
                 : days != null && days <= 90
-                  ? "rgba(239,68,68,0.07)"
+                  ? "rgba(201,74,46,0.07)"
                   : THEME.cardBg;
             const cardBorder = isDone
-              ? "rgba(34,197,94,0.45)"
+              ? "rgba(29,158,117,0.45)"
               : isPast
-                ? "rgba(220,38,38,0.4)"
+                ? "rgba(201,74,46,0.4)"
                 : days != null && days <= 90
-                  ? "rgba(239,68,68,0.35)"
+                  ? "rgba(201,74,46,0.35)"
                   : THEME.border;
 
             return (
@@ -79,10 +79,10 @@ export function BankTimelineTab({
                 }}
               >
                 <div style={{ width: 116, textAlign: "right", flexShrink: 0, paddingTop: 10 }}>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: isDone ? "#15803d" : isPast ? THEME.textMuted : THEME.textMuted }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: isDone ? "var(--ck-green)" : isPast ? THEME.textMuted : THEME.textMuted }}>
                     {d.maturityDate ? new Date(d.maturityDate).toLocaleDateString("en-IN", { month: "short", year: "numeric" }) : "—"}
                   </div>
-                  <div style={{ fontSize: 13, fontWeight: 800, color: isDone ? "#15803d" : isPast ? THEME.textMuted : THEME.text }}>
+                  <div style={{ fontSize: 13, fontWeight: 800, color: isDone ? "var(--ck-green)" : isPast ? THEME.textMuted : THEME.text }}>
                     {d.maturityDate ? new Date(d.maturityDate).getDate() : ""}
                   </div>
                 </div>
@@ -94,7 +94,7 @@ export function BankTimelineTab({
                       borderRadius: "50%",
                       background: dotColor,
                       border: `2px solid ${dotColor}`,
-                      boxShadow: isDone ? "0 0 10px rgba(34,197,94,0.35)" : isPast ? "none" : `0 0 8px ${color}40`,
+                      boxShadow: isDone ? "0 0 10px rgba(29,158,117,0.35)" : isPast ? "none" : `0 0 8px ${color}40`,
                       transition: "all 0.3s",
                     }}
                   />
@@ -139,13 +139,13 @@ export function BankTimelineTab({
                         {d.type}
                       </span>
                       {depCur !== "INR" && <span style={{ fontSize: 10, color: THEME.textMuted, fontWeight: 600 }}>{depCur}</span>}
-                      {isDone && <span style={{ fontSize: 11, color: "#15803d", fontWeight: 700 }}>✓ Done</span>}
+                      {isDone && <span style={{ fontSize: 11, color: "var(--ck-green)", fontWeight: 700 }}>✓ Done</span>}
                       {isPast && !isDone && (
                         <span style={{
                           fontSize: 10,
                           fontWeight: 700,
                           color: "#fff",
-                          background: "#DC2626",
+                          background: "var(--ck-red)",
                           padding: "2px 8px",
                           borderRadius: 4,
                           whiteSpace: "nowrap",
@@ -180,9 +180,9 @@ export function BankTimelineTab({
                       <button
                         onClick={() => onToggleDepositDone(origIdx)}
                         style={{
-                          background: isDone ? "#dcfce7" : THEME.cardBgAlt,
-                          color: isDone ? "#15803d" : THEME.text,
-                          border: `1px solid ${isDone ? "#16a34a" : THEME.border}`,
+                          background: isDone ? "var(--ck-green-light)" : THEME.cardBgAlt,
+                          color: isDone ? "var(--ck-green)" : THEME.text,
+                          border: `1px solid ${isDone ? "var(--ck-green)" : THEME.border}`,
                           borderRadius: 7,
                           padding: "3px 10px",
                           fontSize: 11,
@@ -196,9 +196,9 @@ export function BankTimelineTab({
                       <button
                         onClick={() => onEditDeposit(origIdx)}
                         style={{
-                          background: "#1D4ED820",
-                          color: "#60A5FA",
-                          border: "1px solid #1D4ED840",
+                          background: "var(--ck-purple-light)",
+                          color: "var(--ck-purple)",
+                          border: "1px solid rgba(107,93,232,0.4)",
                           borderRadius: 7,
                           padding: "3px 8px",
                           fontSize: 11,

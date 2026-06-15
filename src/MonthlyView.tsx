@@ -7,9 +7,11 @@ import DayDetailsModal from './components/DayDetailsModal';
 interface MonthlyViewProps {
   onNavigate?: (view: string) => void;
   onBackToDashboard?: () => void;
+  /** Hide the internal "Monthly" header (a parent pane supplies the title). */
+  hideHeader?: boolean;
 }
 
-const MonthlyView: React.FC<MonthlyViewProps> = ({ onNavigate, onBackToDashboard }) => {
+const MonthlyView: React.FC<MonthlyViewProps> = ({ onNavigate, onBackToDashboard, hideHeader }) => {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [tasks, setTasks] = useState<Task[]>([]);
   const [completions, setCompletions] = useState<TaskCompletion[]>([]);
@@ -189,9 +191,11 @@ const MonthlyView: React.FC<MonthlyViewProps> = ({ onNavigate, onBackToDashboard
 
   return (
     <div className="monthly-view">
-      <div className="view-header">
-        <h2>Monthly</h2>
-      </div>
+      {!hideHeader && (
+        <div className="view-header">
+          <h2>Monthly</h2>
+        </div>
+      )}
 
       <div className="calendar-container">
         <div className="calendar-header">

@@ -318,6 +318,58 @@
 .ck-subtab:hover { color: var(--ck-ink); }
 .ck-subtab.active { color: var(--ck-ink); border-bottom-color: var(--ck-purple); }
 
+/* ── Pane: bordered card + purple-light header strip ────────────────
+   Shared "tab content" chrome. Mirrors the Settings `.settings-section*`
+   standard so Analytics tabs match the Settings tabs exactly. */
+.ck-pane {
+  background: var(--ck-white);
+  border: 0.5px solid var(--ck-border2);
+  border-radius: 12px;
+  overflow: hidden;
+}
+.ck-pane-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 1.1rem 1.5rem;
+  background: var(--ck-purple-light);
+  border-bottom: 0.5px solid var(--ck-border2);
+}
+.ck-pane-title {
+  margin: 0;
+  font-family: var(--ck-serif);
+  font-size: 1.3rem;
+  font-weight: 500;
+  color: var(--ck-ink);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.ck-pane-sub {
+  margin: 4px 0 0;
+  font-size: 0.8rem;
+  color: var(--ck-ink3);
+  line-height: 1.5;
+}
+.ck-pane-body {
+  padding: 1.25rem 1.5rem;
+}
+@media (max-width: 768px) {
+  .ck-pane {
+    border-left: none;
+    border-right: none;
+    border-radius: 0;
+  }
+  .ck-pane-head {
+    padding: 0.85rem 1rem;
+  }
+  .ck-pane-body {
+    padding: 1rem;
+  }
+}
+
 /* ── Responsive card grid ──────────────────────────── */
 .ck-grid {
   display: grid;

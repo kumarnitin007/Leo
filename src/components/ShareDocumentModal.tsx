@@ -182,7 +182,7 @@ const ShareDocumentModal: React.FC<ShareDocumentModalProps> = ({
         left: 0,
         right: 0,
         bottom: 0,
-        background: 'rgba(0,0,0,0.5)',
+        background: 'rgba(26,23,20,0.45)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -209,7 +209,7 @@ const ShareDocumentModal: React.FC<ShareDocumentModalProps> = ({
         <div style={{ marginBottom: '1rem' }}>
           <div
             style={{
-              background: '#f3f4f6',
+              background: 'var(--ck-cream)',
               padding: '0.75rem',
               borderRadius: '4px',
               marginBottom: '1rem',
@@ -218,7 +218,7 @@ const ShareDocumentModal: React.FC<ShareDocumentModalProps> = ({
             <div style={{ fontWeight: 600, marginBottom: '0.25rem' }}>
               {document.title}
             </div>
-            <div style={{ fontSize: '0.85rem', color: '#6b7280' }}>
+            <div style={{ fontSize: '0.85rem', color: 'var(--ck-ink2)' }}>
               {document.documentType} • {document.provider}
             </div>
           </div>
@@ -226,8 +226,8 @@ const ShareDocumentModal: React.FC<ShareDocumentModalProps> = ({
           {error && (
             <div
               style={{
-                background: '#fee2e2',
-                color: '#991b1b',
+                background: 'var(--ck-red-light)',
+                color: 'var(--ck-red)',
                 padding: '0.75rem',
                 borderRadius: '4px',
                 marginBottom: '1rem',
@@ -239,7 +239,7 @@ const ShareDocumentModal: React.FC<ShareDocumentModalProps> = ({
           )}
 
           {loading ? (
-            <div style={{ textAlign: 'center', padding: '2rem', color: '#6b7280' }}>
+            <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--ck-ink2)' }}>
               Loading groups...
             </div>
           ) : groups.length === 0 ? (
@@ -247,8 +247,8 @@ const ShareDocumentModal: React.FC<ShareDocumentModalProps> = ({
               style={{
                 textAlign: 'center',
                 padding: '2rem',
-                color: '#6b7280',
-                background: '#f9fafb',
+                color: 'var(--ck-ink2)',
+                background: 'var(--ck-cream)',
                 borderRadius: '4px',
               }}
             >
@@ -276,7 +276,7 @@ const ShareDocumentModal: React.FC<ShareDocumentModalProps> = ({
                   style={{
                     width: '100%',
                     padding: '0.5rem',
-                    border: '1px solid #d1d5db',
+                    border: '1px solid var(--ck-border2)',
                     borderRadius: '4px',
                     fontSize: '0.875rem',
                   }}
@@ -294,7 +294,7 @@ const ShareDocumentModal: React.FC<ShareDocumentModalProps> = ({
               {selectedGroup && selectedGroup.members.length > 0 && (
                 <div
                   style={{
-                    background: '#f9fafb',
+                    background: 'var(--ck-cream)',
                     padding: '0.75rem',
                     borderRadius: '4px',
                     marginBottom: '1rem',
@@ -304,7 +304,7 @@ const ShareDocumentModal: React.FC<ShareDocumentModalProps> = ({
                     style={{
                       fontSize: '0.75rem',
                       fontWeight: 600,
-                      color: '#6b7280',
+                      color: 'var(--ck-ink2)',
                       marginBottom: '0.5rem',
                     }}
                   >
@@ -315,7 +315,7 @@ const ShareDocumentModal: React.FC<ShareDocumentModalProps> = ({
                       key={member.userId}
                       style={{
                         fontSize: '0.875rem',
-                        color: '#374151',
+                        color: 'var(--ck-ink2)',
                         marginBottom: '0.25rem',
                       }}
                     >
@@ -342,12 +342,12 @@ const ShareDocumentModal: React.FC<ShareDocumentModalProps> = ({
                       flex: 1,
                       padding: '0.75rem',
                       border: `2px solid ${
-                        shareMode === 'readonly' ? '#3b82f6' : '#d1d5db'
+                        shareMode === 'readonly' ? 'var(--ck-purple)' : 'var(--ck-border2)'
                       }`,
                       borderRadius: '4px',
                       cursor: 'pointer',
                       background:
-                        shareMode === 'readonly' ? '#eff6ff' : 'white',
+                        shareMode === 'readonly' ? 'var(--ck-purple-light)' : 'white',
                     }}
                   >
                     <input
@@ -365,7 +365,7 @@ const ShareDocumentModal: React.FC<ShareDocumentModalProps> = ({
                     <div
                       style={{
                         fontSize: '0.75rem',
-                        color: '#6b7280',
+                        color: 'var(--ck-ink2)',
                         marginTop: '0.25rem',
                       }}
                     >
@@ -378,12 +378,12 @@ const ShareDocumentModal: React.FC<ShareDocumentModalProps> = ({
                       flex: 1,
                       padding: '0.75rem',
                       border: `2px solid ${
-                        shareMode === 'readwrite' ? '#3b82f6' : '#d1d5db'
+                        shareMode === 'readwrite' ? 'var(--ck-purple)' : 'var(--ck-border2)'
                       }`,
                       borderRadius: '4px',
                       cursor: 'pointer',
                       background:
-                        shareMode === 'readwrite' ? '#eff6ff' : 'white',
+                        shareMode === 'readwrite' ? 'var(--ck-purple-light)' : 'white',
                     }}
                   >
                     <input
@@ -401,7 +401,7 @@ const ShareDocumentModal: React.FC<ShareDocumentModalProps> = ({
                     <div
                       style={{
                         fontSize: '0.75rem',
-                        color: '#6b7280',
+                        color: 'var(--ck-ink2)',
                         marginTop: '0.25rem',
                       }}
                     >
@@ -420,7 +420,7 @@ const ShareDocumentModal: React.FC<ShareDocumentModalProps> = ({
             disabled={sharing}
             style={{
               padding: '0.5rem 1rem',
-              border: '1px solid #d1d5db',
+              border: '1px solid var(--ck-border2)',
               borderRadius: '4px',
               background: 'white',
               cursor: sharing ? 'not-allowed' : 'pointer',
@@ -438,8 +438,8 @@ const ShareDocumentModal: React.FC<ShareDocumentModalProps> = ({
               borderRadius: '4px',
               background:
                 !selectedGroupId || sharing || groups.length === 0
-                  ? '#d1d5db'
-                  : '#3b82f6',
+                  ? 'var(--ck-border2)'
+                  : 'var(--ck-purple)',
               color: 'white',
               cursor:
                 !selectedGroupId || sharing || groups.length === 0

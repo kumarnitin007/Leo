@@ -732,7 +732,7 @@ const TodoView: React.FC<TodoViewProps> = () => {
         <GroupSection
           title="Quick Items"
           icon="📋"
-          color="#6b7280"
+          color="var(--ck-ink2)"
           items={groupedItems['ungrouped'] || []}
           isExpanded={expandedGroups.has('ungrouped')}
           onToggleExpand={() => toggleGroupExpanded('ungrouped')}
@@ -791,7 +791,7 @@ const TodoView: React.FC<TodoViewProps> = () => {
         <div style={{
           textAlign: 'center',
           padding: '3rem',
-          color: '#9ca3af'
+          color: 'var(--ck-ink3)'
         }}>
           <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>{pastDueOnly ? '✅' : '📝'}</div>
           <p style={{ fontSize: '1.1rem', fontWeight: 500 }}>
@@ -814,7 +814,7 @@ const TodoView: React.FC<TodoViewProps> = () => {
         <div style={{
           position: 'fixed',
           inset: 0,
-          background: 'rgba(0,0,0,0.5)',
+          background: 'rgba(26,23,20,0.45)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
@@ -831,7 +831,7 @@ const TodoView: React.FC<TodoViewProps> = () => {
           }}>
             <div style={{
               padding: '1rem 1.5rem',
-              borderBottom: '1px solid #e5e7eb',
+              borderBottom: '1px solid var(--ck-border2)',
               display: 'flex',
               justifyContent: 'space-between',
               alignItems: 'center'
@@ -841,7 +841,7 @@ const TodoView: React.FC<TodoViewProps> = () => {
               </h3>
               <button
                 onClick={() => setShowGroupModal(false)}
-                style={{ background: 'none', border: 'none', fontSize: '1.25rem', cursor: 'pointer', color: '#9ca3af' }}
+                style={{ background: 'none', border: 'none', fontSize: '1.25rem', cursor: 'pointer', color: 'var(--ck-ink3)' }}
               >
                 ✕
               </button>
@@ -860,7 +860,7 @@ const TodoView: React.FC<TodoViewProps> = () => {
                   style={{
                     width: '100%',
                     padding: '0.75rem',
-                    border: '2px solid #e5e7eb',
+                    border: '2px solid var(--ck-border2)',
                     borderRadius: '0.5rem',
                     fontSize: '1rem'
                   }}
@@ -879,7 +879,7 @@ const TodoView: React.FC<TodoViewProps> = () => {
                       style={{
                         width: '40px',
                         height: '40px',
-                        border: `2px solid ${groupIcon === icon ? groupColor : '#e5e7eb'}`,
+                        border: `2px solid ${groupIcon === icon ? groupColor : 'var(--ck-border2)'}`,
                         borderRadius: '0.5rem',
                         background: groupIcon === icon ? `${groupColor}20` : 'white',
                         cursor: 'pointer',
@@ -905,7 +905,7 @@ const TodoView: React.FC<TodoViewProps> = () => {
                         width: '32px',
                         height: '32px',
                         borderRadius: '50%',
-                        border: `3px solid ${groupColor === color ? '#1f2937' : 'transparent'}`,
+                        border: `3px solid ${groupColor === color ? 'var(--ck-ink)' : 'transparent'}`,
                         background: color,
                         cursor: 'pointer'
                       }}
@@ -920,8 +920,8 @@ const TodoView: React.FC<TodoViewProps> = () => {
                   style={{
                     flex: 1,
                     padding: '0.75rem',
-                    background: '#f3f4f6',
-                    color: '#374151',
+                    background: 'var(--ck-cream)',
+                    color: 'var(--ck-ink2)',
                     border: 'none',
                     borderRadius: '0.5rem',
                     cursor: 'pointer',
@@ -936,8 +936,8 @@ const TodoView: React.FC<TodoViewProps> = () => {
                   style={{
                     flex: 1,
                     padding: '0.75rem',
-                    background: groupName.trim() ? groupColor : '#e5e7eb',
-                    color: groupName.trim() ? 'white' : '#9ca3af',
+                    background: groupName.trim() ? groupColor : 'var(--ck-border2)',
+                    color: groupName.trim() ? 'white' : 'var(--ck-ink3)',
                     border: 'none',
                     borderRadius: '0.5rem',
                     cursor: groupName.trim() ? 'pointer' : 'not-allowed',
@@ -967,7 +967,7 @@ const TodoView: React.FC<TodoViewProps> = () => {
           <div style={{
             position: 'fixed',
             inset: 0,
-            background: 'rgba(0,0,0,0.5)',
+            background: 'rgba(26,23,20,0.45)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -985,7 +985,7 @@ const TodoView: React.FC<TodoViewProps> = () => {
             }}>
               <div style={{
                 padding: '1rem 1.5rem',
-                borderBottom: '1px solid #e5e7eb',
+                borderBottom: '1px solid var(--ck-border2)',
                 display: 'flex',
                 justifyContent: 'space-between',
                 alignItems: 'center',
@@ -1012,7 +1012,7 @@ const TodoView: React.FC<TodoViewProps> = () => {
                 </h3>
               <button
                 onClick={() => { setShowDetailModal(false); setSelectedItem(null); }}
-                style={{ background: 'none', border: 'none', fontSize: '1.25rem', cursor: 'pointer', color: '#9ca3af' }}
+                style={{ background: 'none', border: 'none', fontSize: '1.25rem', cursor: 'pointer', color: 'var(--ck-ink3)' }}
               >
                 ✕
               </button>
@@ -1021,7 +1021,7 @@ const TodoView: React.FC<TodoViewProps> = () => {
             <div style={{ padding: '1.5rem' }}>
               {/* Text */}
               <div style={{ marginBottom: '1.25rem' }}>
-                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600, fontSize: '0.85rem', color: '#374151' }}>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600, fontSize: '0.85rem', color: 'var(--ck-ink2)' }}>
                   Task
                 </label>
                 <input
@@ -1032,7 +1032,7 @@ const TodoView: React.FC<TodoViewProps> = () => {
                   style={{
                     width: '100%',
                     padding: '0.75rem',
-                    border: '2px solid #e5e7eb',
+                    border: '2px solid var(--ck-border2)',
                     borderRadius: '0.5rem',
                     fontSize: '1rem',
                     opacity: isReadonly ? 0.6 : 1,
@@ -1043,7 +1043,7 @@ const TodoView: React.FC<TodoViewProps> = () => {
 
               {/* Priority */}
               <div style={{ marginBottom: '1.25rem' }}>
-                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600, fontSize: '0.85rem', color: '#374151' }}>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600, fontSize: '0.85rem', color: 'var(--ck-ink2)' }}>
                   Priority
                 </label>
                 <div style={{ display: 'flex', gap: '0.5rem' }}>
@@ -1055,8 +1055,8 @@ const TodoView: React.FC<TodoViewProps> = () => {
                       style={{
                         flex: 1,
                         padding: '0.5rem',
-                        background: (detailEdits.priority ?? selectedItem.priority) === p ? PRIORITY_CONFIG[p].bg : '#f9fafb',
-                        border: `2px solid ${(detailEdits.priority ?? selectedItem.priority) === p ? PRIORITY_CONFIG[p].color : '#e5e7eb'}`,
+                        background: (detailEdits.priority ?? selectedItem.priority) === p ? PRIORITY_CONFIG[p].bg : 'var(--ck-cream)',
+                        border: `2px solid ${(detailEdits.priority ?? selectedItem.priority) === p ? PRIORITY_CONFIG[p].color : 'var(--ck-border2)'}`,
                         borderRadius: '0.5rem',
                         cursor: isReadonly ? 'not-allowed' : 'pointer',
                         fontSize: '0.85rem',
@@ -1073,8 +1073,8 @@ const TodoView: React.FC<TodoViewProps> = () => {
 
               {/* Due Date */}
               <div style={{ marginBottom: '1.25rem' }}>
-                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600, fontSize: '0.85rem', color: '#374151' }}>
-                  📅 Due Date <span style={{ fontWeight: 400, color: '#9ca3af' }}>(optional)</span>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600, fontSize: '0.85rem', color: 'var(--ck-ink2)' }}>
+                  📅 Due Date <span style={{ fontWeight: 400, color: 'var(--ck-ink3)' }}>(optional)</span>
                 </label>
                 <input
                   type="date"
@@ -1084,7 +1084,7 @@ const TodoView: React.FC<TodoViewProps> = () => {
                   style={{
                     width: '100%',
                     padding: '0.75rem',
-                    border: '2px solid #e5e7eb',
+                    border: '2px solid var(--ck-border2)',
                     borderRadius: '0.5rem',
                     fontSize: '1rem',
                     opacity: isReadonly ? 0.6 : 1,
@@ -1116,8 +1116,8 @@ const TodoView: React.FC<TodoViewProps> = () => {
 
               {/* Assigned To */}
               <div style={{ marginBottom: '1.25rem' }}>
-                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600, fontSize: '0.85rem', color: '#374151' }}>
-                  👤 Assign To <span style={{ fontWeight: 400, color: '#9ca3af' }}>(optional)</span>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600, fontSize: '0.85rem', color: 'var(--ck-ink2)' }}>
+                  👤 Assign To <span style={{ fontWeight: 400, color: 'var(--ck-ink3)' }}>(optional)</span>
                 </label>
                 {assignableUsers.length > 0 ? (
                   <select
@@ -1127,7 +1127,7 @@ const TodoView: React.FC<TodoViewProps> = () => {
                     style={{
                       width: '100%',
                       padding: '0.75rem',
-                      border: '2px solid #e5e7eb',
+                      border: '2px solid var(--ck-border2)',
                       borderRadius: '0.5rem',
                       fontSize: '1rem',
                       background: 'white',
@@ -1145,9 +1145,9 @@ const TodoView: React.FC<TodoViewProps> = () => {
                 ) : (
                   <div style={{
                     padding: '0.75rem',
-                    background: '#f9fafb',
+                    background: 'var(--ck-cream)',
                     borderRadius: '0.5rem',
-                    color: '#6b7280',
+                    color: 'var(--ck-ink2)',
                     fontSize: '0.9rem'
                   }}>
                     <span style={{ marginRight: '0.5rem' }}>👥</span>
@@ -1155,7 +1155,7 @@ const TodoView: React.FC<TodoViewProps> = () => {
                   </div>
                 )}
                 {selectedItem.assignedToName && !detailEdits.assignedTo && (
-                  <div style={{ marginTop: '0.5rem', fontSize: '0.85rem', color: '#6b7280' }}>
+                  <div style={{ marginTop: '0.5rem', fontSize: '0.85rem', color: 'var(--ck-ink2)' }}>
                     Currently assigned to: <strong>{selectedItem.assignedToName}</strong>
                   </div>
                 )}
@@ -1163,8 +1163,8 @@ const TodoView: React.FC<TodoViewProps> = () => {
 
               {/* Notes */}
               <div style={{ marginBottom: '1.25rem' }}>
-                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600, fontSize: '0.85rem', color: '#374151' }}>
-                  📝 Notes <span style={{ fontWeight: 400, color: '#9ca3af' }}>(optional)</span>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600, fontSize: '0.85rem', color: 'var(--ck-ink2)' }}>
+                  📝 Notes <span style={{ fontWeight: 400, color: 'var(--ck-ink3)' }}>(optional)</span>
                 </label>
                 <textarea
                   value={detailEdits.notes ?? selectedItem.notes ?? ''}
@@ -1174,7 +1174,7 @@ const TodoView: React.FC<TodoViewProps> = () => {
                   style={{
                     width: '100%',
                     padding: '0.75rem',
-                    border: '2px solid #e5e7eb',
+                    border: '2px solid var(--ck-border2)',
                     borderRadius: '0.5rem',
                     fontSize: '1rem',
                     resize: 'vertical'
@@ -1184,7 +1184,7 @@ const TodoView: React.FC<TodoViewProps> = () => {
 
               {/* Move to group */}
               <div style={{ marginBottom: '1.5rem' }}>
-                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600, fontSize: '0.85rem', color: '#374151' }}>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600, fontSize: '0.85rem', color: 'var(--ck-ink2)' }}>
                   📁 List
                 </label>
                 <select
@@ -1194,7 +1194,7 @@ const TodoView: React.FC<TodoViewProps> = () => {
                   style={{
                     width: '100%',
                     padding: '0.75rem',
-                    border: '2px solid #e5e7eb',
+                    border: '2px solid var(--ck-border2)',
                     borderRadius: '0.5rem',
                     fontSize: '1rem',
                     background: 'white',
@@ -1219,10 +1219,10 @@ const TodoView: React.FC<TodoViewProps> = () => {
               {/* Meta info */}
               <div style={{ 
                 padding: '0.75rem', 
-                background: '#f9fafb', 
+                background: 'var(--ck-cream)', 
                 borderRadius: '0.5rem', 
                 fontSize: '0.8rem', 
-                color: '#6b7280',
+                color: 'var(--ck-ink2)',
                 marginBottom: '1.5rem'
               }}>
                 <div>Created: {new Date(selectedItem.createdAt).toLocaleDateString()}</div>
@@ -1241,8 +1241,8 @@ const TodoView: React.FC<TodoViewProps> = () => {
                   style={{
                     flex: 1,
                     padding: '0.75rem',
-                    background: '#f3f4f6',
-                    color: '#374151',
+                    background: 'var(--ck-cream)',
+                    color: 'var(--ck-ink2)',
                     border: 'none',
                     borderRadius: '0.5rem',
                     cursor: 'pointer',
@@ -1257,8 +1257,8 @@ const TodoView: React.FC<TodoViewProps> = () => {
                   style={{
                     flex: 1,
                     padding: '0.75rem',
-                    background: isReadonly ? 'var(--ck-gold)' : (Object.keys(detailEdits).length > 0 ? 'var(--ck-purple)' : '#e5e7eb'),
-                    color: isReadonly ? 'white' : (Object.keys(detailEdits).length > 0 ? 'white' : '#9ca3af'),
+                    background: isReadonly ? 'var(--ck-gold)' : (Object.keys(detailEdits).length > 0 ? 'var(--ck-purple)' : 'var(--ck-border2)'),
+                    color: isReadonly ? 'white' : (Object.keys(detailEdits).length > 0 ? 'white' : 'var(--ck-ink3)'),
                     border: 'none',
                     borderRadius: '0.5rem',
                     cursor: isReadonly || Object.keys(detailEdits).length === 0 ? 'not-allowed' : 'pointer',
@@ -1433,7 +1433,7 @@ const GroupSection: React.FC<GroupSectionProps> = ({
                 border: 'none',
                 cursor: 'pointer',
                 padding: '0.25rem',
-                color: '#9ca3af'
+                color: 'var(--ck-ink3)'
               }}
               title="Share list"
             >
@@ -1448,7 +1448,7 @@ const GroupSection: React.FC<GroupSectionProps> = ({
                 border: 'none',
                 cursor: 'pointer',
                 padding: '0.25rem',
-                color: '#9ca3af'
+                color: 'var(--ck-ink3)'
               }}
               title="Edit group"
             >
@@ -1463,7 +1463,7 @@ const GroupSection: React.FC<GroupSectionProps> = ({
                 border: 'none',
                 cursor: 'pointer',
                 padding: '0.25rem',
-                color: '#9ca3af'
+                color: 'var(--ck-ink3)'
               }}
               title="Delete group"
             >
@@ -1473,7 +1473,7 @@ const GroupSection: React.FC<GroupSectionProps> = ({
           <span style={{
             transform: isExpanded ? 'rotate(180deg)' : 'rotate(0)',
             transition: 'transform 0.2s',
-            color: '#9ca3af'
+            color: 'var(--ck-ink3)'
           }}>
             ▼
           </span>
@@ -1492,13 +1492,13 @@ const GroupSection: React.FC<GroupSectionProps> = ({
                 gap: '0.75rem',
                 padding: '0.75rem 1rem',
                 borderRadius: '0.5rem',
-                background: item.isCompleted ? '#f9fafb' : 'transparent',
+                background: item.isCompleted ? 'var(--ck-cream)' : 'transparent',
                 margin: '0.25rem 0',
                 cursor: 'pointer',
                 transition: 'background 0.15s'
               }}
               onClick={() => onItemClick(item)}
-              onMouseEnter={(e) => { if (!item.isCompleted) e.currentTarget.style.background = '#f9fafb'; }}
+              onMouseEnter={(e) => { if (!item.isCompleted) e.currentTarget.style.background = 'var(--ck-cream)'; }}
               onMouseLeave={(e) => { if (!item.isCompleted) e.currentTarget.style.background = 'transparent'; }}
             >
               {/* Checkbox */}
@@ -1534,7 +1534,7 @@ const GroupSection: React.FC<GroupSectionProps> = ({
                 style={{
                   flex: 1,
                   textDecoration: item.isCompleted ? 'line-through' : 'none',
-                  color: item.isCompleted ? '#9ca3af' : '#1f2937',
+                  color: item.isCompleted ? 'var(--ck-ink3)' : 'var(--ck-ink)',
                   fontSize: '0.95rem'
                 }}
               >
@@ -1545,13 +1545,13 @@ const GroupSection: React.FC<GroupSectionProps> = ({
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', flexShrink: 0 }}>
                 {/* Due date indicator */}
                 {item.dueDate && !item.isCompleted && (
-                  <span title={`Due: ${item.dueDate}`} style={{ fontSize: '0.7rem', color: '#6b7280' }}>
+                  <span title={`Due: ${item.dueDate}`} style={{ fontSize: '0.7rem', color: 'var(--ck-ink2)' }}>
                     📅
                   </span>
                 )}
                 {/* Assigned indicator */}
                 {item.assignedTo && (
-                  <span title="Assigned" style={{ fontSize: '0.7rem', color: '#6b7280' }}>
+                  <span title="Assigned" style={{ fontSize: '0.7rem', color: 'var(--ck-ink2)' }}>
                     👤
                   </span>
                 )}
@@ -1571,7 +1571,7 @@ const GroupSection: React.FC<GroupSectionProps> = ({
                     background: 'none',
                     border: 'none',
                     cursor: 'pointer',
-                    color: '#d1d5db',
+                    color: 'var(--ck-border2)',
                     padding: '0.25rem',
                     opacity: 0.6,
                     transition: 'opacity 0.2s'
@@ -1589,7 +1589,7 @@ const GroupSection: React.FC<GroupSectionProps> = ({
             <div style={{
               padding: '1.5rem',
               textAlign: 'center',
-              color: '#9ca3af',
+              color: 'var(--ck-ink3)',
               fontSize: '0.9rem'
             }}>
               No items in this group

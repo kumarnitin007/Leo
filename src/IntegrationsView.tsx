@@ -383,13 +383,6 @@ const IntegrationsView: React.FC = () => {
 
   return (
     <div className="integrations-view">
-      <div className="integrations-header">
-        <div>
-          <h2>🔌 Integration Hub</h2>
-          <p>Connect Leo Planner with your favorite productivity tools - plan with strength!</p>
-        </div>
-      </div>
-
       {/* Fitness Provider — Google Fit / Fitbit / Garmin */}
       <FitnessProviderSection />
 

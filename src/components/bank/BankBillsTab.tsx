@@ -84,8 +84,8 @@ export function BankBillsTab({
         type="button"
         onClick={() => setBillsViewMode("cards")}
         style={{
-          background: billsViewMode === "cards" ? "#238636" : "transparent",
-          color: billsViewMode === "cards" ? "#FFF" : "#6B7280",
+          background: billsViewMode === "cards" ? "var(--ck-purple)" : "transparent",
+          color: billsViewMode === "cards" ? "#FFF" : "var(--ck-ink3)",
           border: "none",
           padding: "4px 10px",
           borderRadius: 4,
@@ -101,8 +101,8 @@ export function BankBillsTab({
         type="button"
         onClick={() => setBillsViewMode("grouped")}
         style={{
-          background: billsViewMode === "grouped" ? "#238636" : "transparent",
-          color: billsViewMode === "grouped" ? "#FFF" : "#6B7280",
+          background: billsViewMode === "grouped" ? "var(--ck-purple)" : "transparent",
+          color: billsViewMode === "grouped" ? "#FFF" : "var(--ck-ink3)",
           border: "none",
           padding: "4px 10px",
           borderRadius: 4,
@@ -123,7 +123,7 @@ export function BankBillsTab({
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           <div
             style={{
-              background: THEME.headerBg,
+              background: "var(--ck-ink)",
               borderRadius: 14,
               padding: "16px",
               display: "flex",
@@ -150,7 +150,7 @@ export function BankBillsTab({
               onClick={() => setShowDone(false)}
               style={{
                 flex: 1,
-                background: !showDone ? "#F59E0B" : THEME.cardBgAlt,
+                background: !showDone ? "var(--ck-gold)" : THEME.cardBgAlt,
                 color: !showDone ? "#000" : THEME.textLight,
                 border: "none",
                 borderRadius: 10,
@@ -165,7 +165,7 @@ export function BankBillsTab({
               onClick={() => setShowDone(true)}
               style={{
                 flex: 1,
-                background: showDone ? "#10B981" : THEME.cardBgAlt,
+                background: showDone ? "var(--ck-green)" : THEME.cardBgAlt,
                 color: showDone ? "#FFF" : THEME.textLight,
                 border: "none",
                 borderRadius: 10,
@@ -179,7 +179,7 @@ export function BankBillsTab({
           </div>
 
           {bills.length === 0 ? (
-            <div style={{ padding: 40, textAlign: "center", color: "#6B7280" }}>No bills tracked yet</div>
+            <div style={{ padding: 40, textAlign: "center", color: "var(--ck-ink3)" }}>No bills tracked yet</div>
           ) : billsViewMode === "grouped" ? (
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
               {categoryNames.map((cat) => {
@@ -208,7 +208,7 @@ export function BankBillsTab({
                       }}
                     >
                       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                        <span style={{ fontSize: 10, color: "#6B7280", transform: isExpanded ? "rotate(90deg)" : "rotate(0deg)", transition: "transform 0.2s" }}>▶</span>
+                        <span style={{ fontSize: 10, color: "var(--ck-ink3)", transform: isExpanded ? "rotate(90deg)" : "rotate(0deg)", transition: "transform 0.2s" }}>▶</span>
                         <div style={{ width: 10, height: 10, borderRadius: "50%", background: color, flexShrink: 0 }} />
                         <span style={{ fontWeight: 700, color: THEME.text, fontSize: 14 }}>{cat}</span>
                         <span style={{ fontSize: 11, color: THEME.textMuted }}>({list.length})</span>
@@ -234,31 +234,31 @@ export function BankBillsTab({
                                   style={{
                                     fontSize: 15,
                                     fontWeight: 700,
-                                    color: bill.done ? "#6B7280" : THEME.text,
+                                    color: bill.done ? "var(--ck-ink3)" : THEME.text,
                                     textDecoration: bill.done ? "line-through" : "none",
                                   }}
                                 >
                                   {bill.name}
                                 </div>
-                                <div style={{ fontSize: 12, color: "#6B7280", marginTop: 4 }}>{bill.freq}</div>
+                                <div style={{ fontSize: 12, color: "var(--ck-ink3)", marginTop: 4 }}>{bill.freq}</div>
                               </div>
                               {bill.amount ? (
-                                <div style={{ fontSize: 18, fontWeight: 800, fontFamily: "monospace", color: bill.done ? "#6B7280" : "#F59E0B" }}>
+                                <div style={{ fontSize: 18, fontWeight: 800, fontFamily: "monospace", color: bill.done ? "var(--ck-ink3)" : "var(--ck-gold)" }}>
                                   {fmt(bill.amount, (bill.currency || "INR") as Currency)}
                                 </div>
                               ) : null}
                             </div>
                             {bill.due ? <div style={{ fontSize: 12, color: THEME.textLight, marginBottom: 10 }}>Due: {bill.due}</div> : null}
                             {bill.nextAction && !bill.done ? (
-                              <div style={{ fontSize: 11, color: "#2563EB", marginBottom: 10, fontWeight: 600 }}>📌 Next: {bill.nextAction}</div>
+                              <div style={{ fontSize: 11, color: "var(--ck-purple)", marginBottom: 10, fontWeight: 600 }}>📌 Next: {bill.nextAction}</div>
                             ) : null}
                             <div style={{ display: "flex", gap: 8, paddingTop: 10, borderTop: `1px solid ${THEME.border}` }}>
                               <button
                                 onClick={() => toggleDone("bill", origIdx)}
                                 style={{
                                   flex: 1,
-                                  background: bill.done ? "#dcfce7" : "#F59E0B20",
-                                  color: bill.done ? "#34D399" : "#F59E0B",
+                                  background: bill.done ? "var(--ck-green-light)" : "var(--ck-gold-light)",
+                                  color: bill.done ? "var(--ck-green)" : "var(--ck-gold)",
                                   border: "none",
                                   borderRadius: 8,
                                   padding: "10px",
@@ -268,10 +268,10 @@ export function BankBillsTab({
                               >
                                 {bill.done ? "↩ Unpaid" : "✓ Mark Paid"}
                               </button>
-                              <button onClick={() => openEdit("bill", origIdx)} style={{ background: "#1D4ED820", color: "#60A5FA", border: "none", borderRadius: 8, padding: "10px 14px", fontSize: 12 }}>
+                              <button onClick={() => openEdit("bill", origIdx)} style={{ background: "var(--ck-purple-light)", color: "var(--ck-purple)", border: "none", borderRadius: 8, padding: "10px 14px", fontSize: 12 }}>
                                 ✏️
                               </button>
-                              <button onClick={() => deleteRow("bill", origIdx)} style={{ background: "#7F1D1D20", color: "#FCA5A5", border: "none", borderRadius: 8, padding: "10px 14px", fontSize: 12 }}>
+                              <button onClick={() => deleteRow("bill", origIdx)} style={{ background: "var(--ck-red-light)", color: "var(--ck-red)", border: "none", borderRadius: 8, padding: "10px 14px", fontSize: 12 }}>
                                 🗑
                               </button>
                             </div>
@@ -282,7 +282,7 @@ export function BankBillsTab({
                 );
               })}
               {visibleBills.length === 0 ? (
-                <div style={{ padding: 30, textAlign: "center", color: "#6B7280", fontSize: 13 }}>{showDone ? "No paid bills in this filter" : "All bills are paid! 🎉"}</div>
+                <div style={{ padding: 30, textAlign: "center", color: "var(--ck-ink3)", fontSize: 13 }}>{showDone ? "No paid bills in this filter" : "All bills are paid! 🎉"}</div>
               ) : null}
             </div>
           ) : (
@@ -296,7 +296,7 @@ export function BankBillsTab({
                       background: THEME.cardBgAlt,
                       borderRadius: 14,
                       padding: "14px",
-                      borderLeft: `4px solid ${bill.done ? "#10B981" : "#F59E0B"}`,
+                      borderLeft: `4px solid ${bill.done ? "var(--ck-green)" : "var(--ck-gold)"}`,
                       opacity: bill.done ? 0.7 : 1,
                     }}
                   >
@@ -306,22 +306,22 @@ export function BankBillsTab({
                           style={{
                             fontSize: 15,
                             fontWeight: 700,
-                            color: bill.done ? "#6B7280" : THEME.text,
+                            color: bill.done ? "var(--ck-ink3)" : THEME.text,
                             textDecoration: bill.done ? "line-through" : "none",
                           }}
                         >
                           {bill.name}
                         </div>
-                        <div style={{ fontSize: 12, color: "#6B7280", marginTop: 4 }}>{bill.freq}</div>
+                        <div style={{ fontSize: 12, color: "var(--ck-ink3)", marginTop: 4 }}>{bill.freq}</div>
                       </div>
                       {bill.amount ? (
-                        <div style={{ fontSize: 18, fontWeight: 800, fontFamily: "monospace", color: bill.done ? "#6B7280" : "#F59E0B" }}>{fmt(bill.amount, (bill.currency || "INR") as Currency)}</div>
+                        <div style={{ fontSize: 18, fontWeight: 800, fontFamily: "monospace", color: bill.done ? "var(--ck-ink3)" : "var(--ck-gold)" }}>{fmt(bill.amount, (bill.currency || "INR") as Currency)}</div>
                       ) : null}
                     </div>
 
                     {bill.due ? <div style={{ fontSize: 12, color: THEME.textLight, marginBottom: 10 }}>Due: {bill.due}</div> : null}
                     {bill.nextAction && !bill.done ? (
-                      <div style={{ fontSize: 11, color: "#2563EB", marginBottom: 10, fontWeight: 600 }}>📌 Next: {bill.nextAction}</div>
+                      <div style={{ fontSize: 11, color: "var(--ck-purple)", marginBottom: 10, fontWeight: 600 }}>📌 Next: {bill.nextAction}</div>
                     ) : null}
 
                     <div style={{ display: "flex", gap: 8, paddingTop: 10, borderTop: `1px solid ${THEME.border}` }}>
@@ -329,8 +329,8 @@ export function BankBillsTab({
                         onClick={() => toggleDone("bill", origIdx)}
                         style={{
                           flex: 1,
-                          background: bill.done ? "#dcfce7" : "#F59E0B20",
-                          color: bill.done ? "#34D399" : "#F59E0B",
+                          background: bill.done ? "var(--ck-green-light)" : "var(--ck-gold-light)",
+                          color: bill.done ? "var(--ck-green)" : "var(--ck-gold)",
                           border: "none",
                           borderRadius: 8,
                           padding: "10px",
@@ -340,10 +340,10 @@ export function BankBillsTab({
                       >
                         {bill.done ? "↩ Unpaid" : "✓ Mark Paid"}
                       </button>
-                      <button onClick={() => openEdit("bill", origIdx)} style={{ background: "#1D4ED820", color: "#60A5FA", border: "none", borderRadius: 8, padding: "10px 14px", fontSize: 12 }}>
+                      <button onClick={() => openEdit("bill", origIdx)} style={{ background: "var(--ck-purple-light)", color: "var(--ck-purple)", border: "none", borderRadius: 8, padding: "10px 14px", fontSize: 12 }}>
                         ✏️
                       </button>
-                      <button onClick={() => deleteRow("bill", origIdx)} style={{ background: "#7F1D1D20", color: "#FCA5A5", border: "none", borderRadius: 8, padding: "10px 14px", fontSize: 12 }}>
+                      <button onClick={() => deleteRow("bill", origIdx)} style={{ background: "var(--ck-red-light)", color: "var(--ck-red)", border: "none", borderRadius: 8, padding: "10px 14px", fontSize: 12 }}>
                         🗑
                       </button>
                     </div>
@@ -351,7 +351,7 @@ export function BankBillsTab({
                 );
               })}
               {visibleBills.length === 0 ? (
-                <div style={{ padding: 30, textAlign: "center", color: "#6B7280", fontSize: 13 }}>{showDone ? "No paid bills yet" : "All bills are paid! 🎉"}</div>
+                <div style={{ padding: 30, textAlign: "center", color: "var(--ck-ink3)", fontSize: 13 }}>{showDone ? "No paid bills yet" : "All bills are paid! 🎉"}</div>
               ) : null}
             </div>
           )}
@@ -366,7 +366,7 @@ export function BankBillsTab({
             <button
               onClick={() => openAdd("bill")}
               style={{
-                background: "linear-gradient(135deg,#065F46,#059669)",
+                background: "var(--ck-purple)",
                 color: "#fff",
                 border: "none",
                 borderRadius: 9,
@@ -381,7 +381,7 @@ export function BankBillsTab({
           </div>
           <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 12, gap: 8, alignItems: "center", flexWrap: "wrap" }}>
             <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", fontSize: 12, color: THEME.textMuted }}>
-              <input type="checkbox" checked={showDone} onChange={(e) => setShowDone(e.target.checked)} style={{ accentColor: "#F59E0B" }} />
+              <input type="checkbox" checked={showDone} onChange={(e) => setShowDone(e.target.checked)} style={{ accentColor: "var(--ck-gold)" }} />
               Show paid
             </label>
           </div>
@@ -428,10 +428,10 @@ export function BankBillsTab({
                               <td colSpan={9} style={{ padding: "10px 12px" }}>
                                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
                                   <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                                    <span style={{ fontSize: 10, color: "#6B7280", transform: isExpanded ? "rotate(90deg)" : "rotate(0deg)", transition: "transform 0.2s" }}>▶</span>
+                                    <span style={{ fontSize: 10, color: "var(--ck-ink3)", transform: isExpanded ? "rotate(90deg)" : "rotate(0deg)", transition: "transform 0.2s" }}>▶</span>
                                     <div style={{ width: 10, height: 10, borderRadius: "50%", background: color }} />
                                     <span style={{ fontWeight: 700, color: THEME.text, fontSize: 12 }}>{cat}</span>
-                                    <span style={{ color: "#6B7280", fontSize: 10 }}>({list.length})</span>
+                                    <span style={{ color: "var(--ck-ink3)", fontSize: 10 }}>({list.length})</span>
                                   </div>
                                   <span style={{ fontWeight: 700, fontFamily: "monospace", fontSize: 12, color: THEME.text }}>{fmt(catTotal, targetCurrency)}</span>
                                 </div>
@@ -448,7 +448,7 @@ export function BankBillsTab({
                                     <td style={{ padding: "8px 10px", fontFamily: "monospace", fontWeight: 600 }}>{bill.amount ? fmt(bill.amount, (bill.currency || "INR") as Currency) : "—"}</td>
                                     <td style={{ padding: "8px 10px", color: THEME.textLight }}>{bill.due || "—"}</td>
                                     <td style={{ padding: "8px 10px" }}>{bill.priority || "—"}</td>
-                                    <td style={{ padding: "8px 10px", color: bill.nextAction ? "#F59E0B" : THEME.textLight, fontSize: 10, maxWidth: 140, overflow: "hidden", textOverflow: "ellipsis" }} title={bill.nextAction}>
+                                    <td style={{ padding: "8px 10px", color: bill.nextAction ? "var(--ck-gold)" : THEME.textLight, fontSize: 10, maxWidth: 140, overflow: "hidden", textOverflow: "ellipsis" }} title={bill.nextAction}>
                                       {bill.nextAction || "—"}
                                     </td>
                                     <td style={{ padding: "8px 10px" }}>
@@ -459,9 +459,9 @@ export function BankBillsTab({
                                           toggleDone("bill", origIdx);
                                         }}
                                         style={{
-                                          background: bill.done ? "#dcfce7" : THEME.cardBgAlt,
-                                          color: bill.done ? "#15803d" : THEME.textMuted,
-                                          border: `1px solid ${bill.done ? "#16a34a" : THEME.border}`,
+                                          background: bill.done ? "var(--ck-green-light)" : THEME.cardBgAlt,
+                                          color: bill.done ? "var(--ck-green)" : THEME.textMuted,
+                                          border: `1px solid ${bill.done ? "var(--ck-green)" : THEME.border}`,
                                           borderRadius: 6,
                                           padding: "2px 8px",
                                           fontSize: 10,
@@ -473,10 +473,10 @@ export function BankBillsTab({
                                       </button>
                                     </td>
                                     <td style={{ padding: "8px 10px", whiteSpace: "nowrap" }}>
-                                      <button type="button" onClick={(e) => { e.stopPropagation(); openEdit("bill", origIdx); }} style={{ background: THEME.cardBgAlt, color: "#2563eb", border: "none", borderRadius: 4, padding: "2px 6px", fontSize: 9, cursor: "pointer", marginRight: 4 }}>
+                                      <button type="button" onClick={(e) => { e.stopPropagation(); openEdit("bill", origIdx); }} style={{ background: THEME.cardBgAlt, color: "var(--ck-purple)", border: "none", borderRadius: 4, padding: "2px 6px", fontSize: 9, cursor: "pointer", marginRight: 4 }}>
                                         ✏️
                                       </button>
-                                      <button type="button" onClick={(e) => { e.stopPropagation(); deleteRow("bill", origIdx); }} style={{ background: THEME.cardBgAlt, color: "#F85149", border: "none", borderRadius: 4, padding: "2px 6px", fontSize: 9, cursor: "pointer" }}>
+                                      <button type="button" onClick={(e) => { e.stopPropagation(); deleteRow("bill", origIdx); }} style={{ background: THEME.cardBgAlt, color: "var(--ck-red)", border: "none", borderRadius: 4, padding: "2px 6px", fontSize: 9, cursor: "pointer" }}>
                                         🗑
                                       </button>
                                     </td>
@@ -521,9 +521,9 @@ export function BankBillsTab({
                       <button
                         onClick={() => toggleDone("bill", origIdx)}
                         style={{
-                          background: bill.done ? "#dcfce7" : THEME.cardBgAlt,
-                          color: bill.done ? "#34D399" : "#6B7280",
-                          border: `1px solid ${bill.done ? "#16a34a" : THEME.border}`,
+                          background: bill.done ? "var(--ck-green-light)" : THEME.cardBgAlt,
+                          color: bill.done ? "var(--ck-green)" : "var(--ck-ink3)",
+                          border: `1px solid ${bill.done ? "var(--ck-green)" : THEME.border}`,
                           borderRadius: 6,
                           padding: "2px 8px",
                           fontSize: 10,
@@ -538,7 +538,7 @@ export function BankBillsTab({
                       <div style={{ fontSize: 15, fontWeight: 800, fontFamily: "monospace", color: THEME.text, marginBottom: 4 }}>{fmt(bill.amount, (bill.currency || "INR") as Currency)}</div>
                     ) : null}
                     {bill.nextAction && !bill.done ? (
-                      <div style={{ fontSize: 11, color: "#2563EB", fontWeight: 600, marginBottom: 4 }}>📌 {bill.nextAction}</div>
+                      <div style={{ fontSize: 11, color: "var(--ck-purple)", fontWeight: 600, marginBottom: 4 }}>📌 {bill.nextAction}</div>
                     ) : null}
                     <div style={{ fontSize: 11, color: THEME.textMuted, marginBottom: 6 }}>
                       {bill.freq} · Due: {bill.due || "—"}
@@ -550,9 +550,9 @@ export function BankBillsTab({
                       <button
                         onClick={() => openEdit("bill", origIdx)}
                         style={{
-                          background: "#1D4ED820",
-                          color: "#60A5FA",
-                          border: "1px solid #1D4ED840",
+                          background: "var(--ck-purple-light)",
+                          color: "var(--ck-purple)",
+                          border: "1px solid rgba(107,93,232,0.4)",
                           borderRadius: 7,
                           padding: "3px 8px",
                           fontSize: 11,
@@ -564,9 +564,9 @@ export function BankBillsTab({
                       <button
                         onClick={() => deleteRow("bill", origIdx)}
                         style={{
-                          background: "#7F1D1D20",
-                          color: "#FCA5A5",
-                          border: "1px solid #7F1D1D40",
+                          background: "var(--ck-red-light)",
+                          color: "var(--ck-red)",
+                          border: "1px solid rgba(201,74,46,0.4)",
                           borderRadius: 7,
                           padding: "3px 8px",
                           fontSize: 11,

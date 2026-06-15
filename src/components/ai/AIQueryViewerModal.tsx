@@ -44,8 +44,8 @@ const AIQueryViewerModal: React.FC<Props> = ({
     padding: '6px 14px',
     fontSize: 11,
     fontWeight: active ? 700 : 500,
-    color: active ? '#E0E7FF' : '#6B7280',
-    background: active ? '#4338CA' : 'transparent',
+    color: active ? '#fff' : 'var(--ck-ink2)',
+    background: active ? 'var(--ck-purple)' : 'transparent',
     border: 'none',
     borderRadius: 6,
     cursor: 'pointer',
@@ -57,7 +57,7 @@ const AIQueryViewerModal: React.FC<Props> = ({
       <div
         onClick={onClose}
         style={{
-          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)',
+          position: 'fixed', inset: 0, background: 'rgba(26,23,20,0.45)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           zIndex: 10000, padding: 16,
         }}
@@ -65,30 +65,31 @@ const AIQueryViewerModal: React.FC<Props> = ({
         <div
           onClick={e => e.stopPropagation()}
           style={{
-            background: '#111827', borderRadius: 16,
-            border: '1px solid #374151', width: '100%', maxWidth: 640,
+            background: 'var(--ck-white)', borderRadius: 16,
+            border: '1px solid var(--ck-border2)', width: '100%', maxWidth: 640,
             maxHeight: '85vh', display: 'flex', flexDirection: 'column',
-            overflow: 'hidden',
+            overflow: 'hidden', fontFamily: 'var(--ck-font)',
+            boxShadow: 'var(--ck-shadow-hover)',
           }}
         >
           {/* Header */}
           <div style={{
-            padding: '16px 20px', borderBottom: '1px solid #1F2937',
+            padding: '16px 20px', borderBottom: '1px solid var(--ck-border)',
             display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <span style={{ fontSize: 20 }}>{abilityIcon}</span>
               <div>
-                <div style={{ fontSize: 14, fontWeight: 700, color: '#F9FAFB' }}>
+                <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--ck-ink)', fontFamily: 'var(--ck-serif)' }}>
                   {abilityLabel} — Query
                 </div>
-                <div style={{ fontSize: 11, color: '#6B7280', marginTop: 2 }}>
+                <div style={{ fontSize: 11, color: 'var(--ck-ink3)', marginTop: 2 }}>
                   Copy this to try in ChatGPT or the OpenAI Playground
                 </div>
               </div>
             </div>
             <button onClick={onClose} style={{
-              background: 'none', border: 'none', color: '#6B7280',
+              background: 'none', border: 'none', color: 'var(--ck-ink2)',
               fontSize: 20, cursor: 'pointer',
             }}>✕</button>
           </div>
@@ -96,18 +97,18 @@ const AIQueryViewerModal: React.FC<Props> = ({
           {/* Tabs + Usage */}
           <div style={{
             padding: '10px 20px', display: 'flex', alignItems: 'center',
-            justifyContent: 'space-between', borderBottom: '1px solid #1F2937',
+            justifyContent: 'space-between', borderBottom: '1px solid var(--ck-border)',
           }}>
-            <div style={{ display: 'flex', gap: 4, background: '#1F2937', borderRadius: 8, padding: 2 }}>
+            <div style={{ display: 'flex', gap: 4, background: 'var(--ck-cream)', borderRadius: 8, padding: 2 }}>
               <button style={tabStyle(activeTab === 'combined')} onClick={() => setActiveTab('combined')}>Combined</button>
               <button style={tabStyle(activeTab === 'system')} onClick={() => setActiveTab('system')}>System</button>
               <button style={tabStyle(activeTab === 'user')} onClick={() => setActiveTab('user')}>User</button>
             </div>
             {usage && (
-              <div style={{ display: 'flex', gap: 12, fontSize: 10, color: '#6B7280' }}>
+              <div style={{ display: 'flex', gap: 12, fontSize: 10, color: 'var(--ck-ink3)' }}>
                 <span>{usage.promptTokens} in</span>
                 <span>{usage.completionTokens} out</span>
-                <span style={{ color: '#F59E0B' }}>${usage.costUsd.toFixed(4)}</span>
+                <span style={{ color: 'var(--ck-gold)' }}>${usage.costUsd.toFixed(4)}</span>
               </div>
             )}
           </div>
@@ -115,9 +116,10 @@ const AIQueryViewerModal: React.FC<Props> = ({
           {/* Content */}
           <div style={{ flex: 1, overflowY: 'auto', padding: 20 }}>
             <pre style={{
-              fontFamily: 'monospace', fontSize: 12, lineHeight: 1.6,
-              color: '#D1D5DB', whiteSpace: 'pre-wrap', wordBreak: 'break-word',
-              margin: 0,
+              fontFamily: 'ui-monospace, monospace', fontSize: 12, lineHeight: 1.6,
+              color: 'var(--ck-ink2)', whiteSpace: 'pre-wrap', wordBreak: 'break-word',
+              margin: 0, background: 'var(--ck-cream)', borderRadius: 8,
+              border: '0.5px solid var(--ck-border2)', padding: 14,
             }}>
               {activeTab === 'system' ? systemPrompt
                 : activeTab === 'user' ? userMessage
@@ -127,7 +129,7 @@ const AIQueryViewerModal: React.FC<Props> = ({
 
           {/* Footer */}
           <div style={{
-            padding: '12px 20px', borderTop: '1px solid #1F2937',
+            padding: '12px 20px', borderTop: '1px solid var(--ck-border)',
             display: 'flex', justifyContent: 'flex-end', gap: 10,
           }}>
             <button
@@ -135,7 +137,7 @@ const AIQueryViewerModal: React.FC<Props> = ({
               style={{
                 padding: '8px 20px', borderRadius: 8,
                 border: 'none', cursor: 'pointer',
-                background: copied ? '#059669' : '#4338CA',
+                background: copied ? 'var(--ck-green)' : 'var(--ck-purple)',
                 color: 'white', fontSize: 12, fontWeight: 600,
                 transition: 'background 0.2s',
               }}

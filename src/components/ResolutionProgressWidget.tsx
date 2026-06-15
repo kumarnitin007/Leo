@@ -232,21 +232,21 @@ const ResolutionProgressWidget: React.FC = () => {
               <span style={{ fontSize: 14 }}>🎯</span>
               <span style={{ fontWeight: 700, fontSize: 14, color: '#1a1a1a' }}>Resolutions</span>
               {totalCount > 0 && (
-                <span style={{ fontSize: 11, color: '#3B6D11', fontWeight: 500, marginLeft: 'auto' }}>
+                <span style={{ fontSize: 11, color: 'var(--ck-green)', fontWeight: 500, marginLeft: 'auto' }}>
                   {onTrackCount}/{totalCount} on track
                 </span>
               )}
             </div>
-            <span style={{ fontSize: 10, color: '#ccc', transition: 'transform 0.2s', transform: isExpanded ? 'rotate(180deg)' : 'rotate(0)' }}>▼</span>
+            <span style={{ fontSize: 10, color: 'var(--ck-ink3)', transition: 'transform 0.2s', transform: isExpanded ? 'rotate(180deg)' : 'rotate(0)' }}>▼</span>
           </>
         ) : (
           <>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
               <span style={{ fontSize: '1.5rem' }}>🎯</span>
               <div style={{ textAlign: 'left' }}>
-                <div style={{ fontWeight: 600, color: '#6b21a8', fontSize: '1rem' }}>Resolutions Progress</div>
+                <div style={{ fontWeight: 600, color: 'var(--ck-purple-dark)', fontSize: '1rem' }}>Resolutions Progress</div>
                 {totalCount > 0 && (
-                  <div style={{ fontSize: '0.8rem', color: '#9333ea' }}>{onTrackCount}/{totalCount} on track</div>
+                  <div style={{ fontSize: '0.8rem', color: 'var(--ck-purple)' }}>{onTrackCount}/{totalCount} on track</div>
                 )}
               </div>
             </div>
@@ -262,7 +262,7 @@ const ResolutionProgressWidget: React.FC = () => {
                   })}
                 </div>
               )}
-              <span style={{ transform: isExpanded ? 'rotate(180deg)' : 'rotate(0)', transition: 'transform 0.2s', color: '#9333ea', fontSize: '1.25rem' }}>▼</span>
+              <span style={{ transform: isExpanded ? 'rotate(180deg)' : 'rotate(0)', transition: 'transform 0.2s', color: 'var(--ck-purple)', fontSize: '1.25rem' }}>▼</span>
             </div>
           </>
         )}
@@ -276,7 +276,7 @@ const ResolutionProgressWidget: React.FC = () => {
           background: isWP ? '#ffffff' : 'rgba(255,255,255,0.5)'
         }}>
           {isLoading && (
-            <div style={{ padding: '2rem', textAlign: 'center', color: '#9333ea' }}>
+            <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--ck-purple)' }}>
               Loading resolutions...
             </div>
           )}
@@ -295,10 +295,10 @@ const ResolutionProgressWidget: React.FC = () => {
           )}
 
           {!isLoading && !error && resolutions.length === 0 && (
-            <div style={{ padding: '2rem', textAlign: 'center', color: '#6b7280' }}>
+            <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--ck-ink2)' }}>
               <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>🎯</div>
               <p style={{ margin: 0, fontSize: '0.9rem' }}>No active resolutions found</p>
-              <p style={{ margin: '0.25rem 0 0', fontSize: '0.8rem', color: '#9ca3af' }}>
+              <p style={{ margin: '0.25rem 0 0', fontSize: '0.8rem', color: 'var(--ck-ink3)' }}>
                 Create resolutions in Items → Resolutions
               </p>
             </div>
@@ -363,8 +363,8 @@ const ResolutionCard: React.FC<ResolutionCardProps> = ({ data, getCategoryIcon, 
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flex: 1 }}>
           <span style={{ fontSize: '1.25rem' }}>{getCategoryIcon(resolution.category)}</span>
           <div>
-            <div style={{ fontWeight: 600, color: '#1f2937', fontSize: '0.95rem' }}>{resolution.title}</div>
-            <div style={{ fontSize: '0.75rem', color: '#6b7280' }}>
+            <div style={{ fontWeight: 600, color: 'var(--ck-ink)', fontSize: '0.95rem' }}>{resolution.title}</div>
+            <div style={{ fontSize: '0.75rem', color: 'var(--ck-ink2)' }}>
               {targetValue} times in {resolution.targetYear}
             </div>
           </div>
@@ -388,8 +388,8 @@ const ResolutionCard: React.FC<ResolutionCardProps> = ({ data, getCategoryIcon, 
       <div style={{ marginBottom: '0.75rem' }}>
         {/* Actual Progress */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.375rem' }}>
-          <span style={{ fontSize: '0.7rem', color: '#6b7280', width: '55px' }}>Actual</span>
-          <div style={{ flex: 1, height: '8px', background: '#e5e7eb', borderRadius: '9999px', overflow: 'hidden', position: 'relative' }}>
+          <span style={{ fontSize: '0.7rem', color: 'var(--ck-ink2)', width: '55px' }}>Actual</span>
+          <div style={{ flex: 1, height: '8px', background: 'var(--ck-border2)', borderRadius: '9999px', overflow: 'hidden', position: 'relative' }}>
             <div style={{
               position: 'absolute',
               left: 0,
@@ -408,20 +408,20 @@ const ResolutionCard: React.FC<ResolutionCardProps> = ({ data, getCategoryIcon, 
         
         {/* Expected Progress */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <span style={{ fontSize: '0.7rem', color: '#6b7280', width: '55px' }}>Expected</span>
-          <div style={{ flex: 1, height: '8px', background: '#e5e7eb', borderRadius: '9999px', overflow: 'hidden', position: 'relative' }}>
+          <span style={{ fontSize: '0.7rem', color: 'var(--ck-ink2)', width: '55px' }}>Expected</span>
+          <div style={{ flex: 1, height: '8px', background: 'var(--ck-border2)', borderRadius: '9999px', overflow: 'hidden', position: 'relative' }}>
             <div style={{
               position: 'absolute',
               left: 0,
               top: 0,
               height: '100%',
               width: `${percentExpected}%`,
-              background: '#9ca3af',
+              background: 'var(--ck-ink3)',
               borderRadius: '9999px',
               opacity: 0.5
             }} />
           </div>
-          <span style={{ fontSize: '0.75rem', color: '#6b7280', minWidth: '50px', textAlign: 'right' }}>
+          <span style={{ fontSize: '0.75rem', color: 'var(--ck-ink2)', minWidth: '50px', textAlign: 'right' }}>
             {expectedProgress}/{targetValue}
           </span>
         </div>
@@ -429,7 +429,7 @@ const ResolutionCard: React.FC<ResolutionCardProps> = ({ data, getCategoryIcon, 
 
       {/* Mini Chart */}
       <div style={{ 
-        background: '#f9fafb', 
+        background: 'var(--ck-cream)', 
         borderRadius: '0.5rem', 
         padding: '0.5rem',
         display: 'flex',
@@ -438,10 +438,10 @@ const ResolutionCard: React.FC<ResolutionCardProps> = ({ data, getCategoryIcon, 
       }}>
         <svg width={chart.width} height={chart.height} style={{ overflow: 'visible' }}>
           {/* Grid lines */}
-          <line x1={5} y1={chart.height / 2} x2={chart.width - 5} y2={chart.height / 2} stroke="#e5e7eb" strokeDasharray="2,2" />
+          <line x1={5} y1={chart.height / 2} x2={chart.width - 5} y2={chart.height / 2} stroke="var(--ck-border2)" strokeDasharray="2,2" />
           
           {/* Expected trajectory (dashed line) */}
-          <path d={chart.expectedLine} stroke="#9ca3af" strokeWidth="2" fill="none" strokeDasharray="4,4" />
+          <path d={chart.expectedLine} stroke="var(--ck-ink3)" strokeWidth="2" fill="none" strokeDasharray="4,4" />
           
           {/* Actual trajectory line */}
           <line 
@@ -454,14 +454,14 @@ const ResolutionCard: React.FC<ResolutionCardProps> = ({ data, getCategoryIcon, 
           />
           
           {/* Expected point marker (hollow) */}
-          <circle cx={chart.expectedX} cy={chart.expectedY} r="4" fill="white" stroke="#9ca3af" strokeWidth="2" />
+          <circle cx={chart.expectedX} cy={chart.expectedY} r="4" fill="white" stroke="var(--ck-ink3)" strokeWidth="2" />
           
           {/* Actual point marker (solid) */}
           <circle cx={chart.progressX} cy={chart.progressY} r="5" fill={config.color} stroke="white" strokeWidth="2" />
           
           {/* Labels */}
-          <text x={5} y={chart.height + 12} fontSize="8" fill="#9ca3af">Start</text>
-          <text x={chart.width - 25} y={chart.height + 12} fontSize="8" fill="#9ca3af">Target</text>
+          <text x={5} y={chart.height + 12} fontSize="8" fill="var(--ck-ink3)">Start</text>
+          <text x={chart.width - 25} y={chart.height + 12} fontSize="8" fill="var(--ck-ink3)">Target</text>
         </svg>
       </div>
 
@@ -470,12 +470,12 @@ const ResolutionCard: React.FC<ResolutionCardProps> = ({ data, getCategoryIcon, 
         display: 'flex', 
         justifyContent: 'space-between',
         fontSize: '0.75rem',
-        color: '#6b7280',
+        color: 'var(--ck-ink2)',
         flexWrap: 'wrap',
         gap: '0.5rem'
       }}>
         <div>
-          <span style={{ color: '#9ca3af' }}>Gap:</span>{' '}
+          <span style={{ color: 'var(--ck-ink3)' }}>Gap:</span>{' '}
           <span style={{ 
             fontWeight: 600, 
             color: actualProgress >= expectedProgress ? '#10b981' : '#ef4444'
@@ -484,11 +484,11 @@ const ResolutionCard: React.FC<ResolutionCardProps> = ({ data, getCategoryIcon, 
           </span>
         </div>
         <div>
-          <span style={{ color: '#9ca3af' }}>Day:</span>{' '}
+          <span style={{ color: 'var(--ck-ink3)' }}>Day:</span>{' '}
           <span style={{ fontWeight: 500 }}>{daysElapsed}/{totalDays}</span>
         </div>
         <div>
-          <span style={{ color: '#9ca3af' }}>Need:</span>{' '}
+          <span style={{ color: 'var(--ck-ink3)' }}>Need:</span>{' '}
           <span style={{ fontWeight: 500 }}>{requiredRate.toFixed(2)}/day</span>
         </div>
       </div>

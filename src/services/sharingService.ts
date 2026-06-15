@@ -280,18 +280,51 @@ export async function leaveGroup(groupId: string): Promise<void> {
   await removeMember(groupId, user.id);
 }
 
+/**
+ * Read the user's display name from their per-user settings row.
+ *
+ * This is the canonical store for the display name — it persists even when the
+ * user belongs to no groups (unlike `myday_group_members`, which only has rows
+ * once you're in a group). Returns null when unset.
+ */
+export async function getMyDisplayName(): Promise<string | null> {
+  const supabase = getClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('Not authenticated');
+
+  const { data, error } = await supabase
+    .from('myday_user_settings')
+    .select('display_name')
+    .eq('user_id', user.id)
+    .single();
+
+  // PGRST116 = no row yet; treat as "not set" rather than an error.
+  if (error && error.code !== 'PGRST116') throw error;
+  return data?.display_name ?? null;
+}
+
 export async function updateMyDisplayName(displayName: string): Promise<void> {
   const supabase = getClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('Not authenticated');
 
-  // Update display name in all groups the user is a member of
-  const { error } = await supabase
+  // Canonical store: per-user settings row. Upsert so it persists even when
+  // the user is in zero groups (the previous bug: a 0-row group_members
+  // update silently saved nothing).
+  const { error: settingsError } = await supabase
+    .from('myday_user_settings')
+    .upsert([{ user_id: user.id, display_name: displayName }], { onConflict: 'user_id' });
+
+  if (settingsError) throw settingsError;
+
+  // Also propagate to any existing group memberships so it shows correctly
+  // to other members. No-op (and not an error) when the user has no groups.
+  const { error: membersError } = await supabase
     .from('myday_group_members')
     .update({ display_name: displayName })
     .eq('user_id', user.id);
 
-  if (error) throw error;
+  if (membersError) throw membersError;
 }
 
 // ===== INVITATIONS =====

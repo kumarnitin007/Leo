@@ -93,14 +93,14 @@ const NotificationSettings: React.FC = () => {
     return (
       <div style={{
         padding: '2rem',
-        background: '#fef3c7',
+        background: 'var(--ck-gold-light)',
         borderRadius: '1rem',
-        border: '2px solid #fbbf24',
+        border: '2px solid rgba(200,146,42,0.4)',
         textAlign: 'center'
       }}>
         <div style={{ fontSize: '2rem', marginBottom: '1rem' }}>⚠️</div>
-        <h3 style={{ margin: '0 0 0.5rem', color: '#92400e' }}>Notifications Not Supported</h3>
-        <p style={{ margin: 0, color: '#78350f', fontSize: '0.9rem' }}>
+        <h3 style={{ margin: '0 0 0.5rem', color: 'var(--ck-gold)' }}>Notifications Not Supported</h3>
+        <p style={{ margin: 0, color: 'var(--ck-ink2)', fontSize: '0.9rem' }}>
           Your browser doesn't support web push notifications. Try Chrome, Firefox, or Edge.
         </p>
       </div>
@@ -109,7 +109,7 @@ const NotificationSettings: React.FC = () => {
 
   if (loading) {
     return (
-      <div style={{ padding: '2rem', textAlign: 'center', color: '#6b7280' }}>
+      <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--ck-ink2)' }}>
         Loading notification settings...
       </div>
     );
@@ -121,16 +121,16 @@ const NotificationSettings: React.FC = () => {
       {permission !== 'granted' && (
         <div style={{
           padding: '1.5rem',
-          background: 'linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%)',
+          background: 'var(--ck-purple-light)',
           borderRadius: '1rem',
-          border: '2px solid #3b82f6',
+          border: '1px solid var(--ck-purple)',
           marginBottom: '1.5rem'
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1rem' }}>
             <span style={{ fontSize: '2rem' }}>🔔</span>
             <div>
-              <h3 style={{ margin: 0, color: '#1e40af', fontSize: '1.1rem' }}>Enable Notifications</h3>
-              <p style={{ margin: '0.25rem 0 0', color: '#1e3a8a', fontSize: '0.9rem' }}>
+              <h3 style={{ margin: 0, color: 'var(--ck-purple)', fontSize: '1.1rem' }}>Enable Notifications</h3>
+              <p style={{ margin: '0.25rem 0 0', color: 'var(--ck-ink2)', fontSize: '0.9rem' }}>
                 Get reminders for tasks, events, and track your progress
               </p>
             </div>
@@ -140,7 +140,7 @@ const NotificationSettings: React.FC = () => {
             style={{
               width: '100%',
               padding: '0.875rem',
-              background: '#3b82f6',
+              background: 'var(--ck-purple)',
               color: 'white',
               border: 'none',
               borderRadius: '0.5rem',
@@ -158,8 +158,8 @@ const NotificationSettings: React.FC = () => {
       {success && (
         <div style={{
           padding: '0.875rem 1rem',
-          background: '#d1fae5',
-          color: '#065f46',
+          background: 'var(--ck-green-light)',
+          color: 'var(--ck-green)',
           borderRadius: '0.5rem',
           marginBottom: '1rem',
           fontSize: '0.9rem'
@@ -171,8 +171,8 @@ const NotificationSettings: React.FC = () => {
       {error && (
         <div style={{
           padding: '0.875rem 1rem',
-          background: '#fee2e2',
-          color: '#dc2626',
+          background: 'var(--ck-red-light)',
+          color: 'var(--ck-red)',
           borderRadius: '0.5rem',
           marginBottom: '1rem',
           fontSize: '0.9rem',
@@ -192,7 +192,7 @@ const NotificationSettings: React.FC = () => {
         padding: '1.5rem',
         marginBottom: '1.5rem',
         boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
-        border: '2px solid #e5e7eb'
+        border: '2px solid var(--ck-border2)'
       }}>
         <label style={{
           display: 'flex',
@@ -201,10 +201,10 @@ const NotificationSettings: React.FC = () => {
           cursor: 'pointer'
         }}>
           <div>
-            <div style={{ fontWeight: 600, fontSize: '1rem', color: '#1f2937', marginBottom: '0.25rem' }}>
+            <div style={{ fontWeight: 600, fontSize: '1rem', color: 'var(--ck-ink)', marginBottom: '0.25rem' }}>
               🔔 Enable All Notifications
             </div>
-            <div style={{ fontSize: '0.85rem', color: '#6b7280' }}>
+            <div style={{ fontSize: '0.85rem', color: 'var(--ck-ink2)' }}>
               Master switch for all notification types
             </div>
           </div>
@@ -233,7 +233,7 @@ const NotificationSettings: React.FC = () => {
             marginBottom: '1.5rem',
             boxShadow: '0 2px 8px rgba(0,0,0,0.06)'
           }}>
-            <h4 style={{ margin: '0 0 1rem', fontSize: '1rem', color: '#1f2937', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <h4 style={{ margin: '0 0 1rem', fontSize: '1rem', color: 'var(--ck-ink)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               🌅 Daily Morning Reminder
             </h4>
             
@@ -250,14 +250,14 @@ const NotificationSettings: React.FC = () => {
                 onChange={(e) => setSettings({ ...settings, dailyReminderEnabled: e.target.checked })}
                 style={{ width: '18px', height: '18px', cursor: 'pointer' }}
               />
-              <span style={{ fontSize: '0.9rem', color: '#374151' }}>
+              <span style={{ fontSize: '0.9rem', color: 'var(--ck-ink2)' }}>
                 Send daily reminder
               </span>
             </label>
 
             {settings.dailyReminderEnabled && (
               <div style={{ marginLeft: '2rem' }}>
-                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.85rem', color: '#6b7280' }}>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.85rem', color: 'var(--ck-ink2)' }}>
                   Preferred time:
                 </label>
                 <input
@@ -266,12 +266,12 @@ const NotificationSettings: React.FC = () => {
                   onChange={(e) => setSettings({ ...settings, dailyReminderTime: e.target.value })}
                   style={{
                     padding: '0.5rem',
-                    border: '2px solid #e5e7eb',
+                    border: '2px solid var(--ck-border2)',
                     borderRadius: '0.5rem',
                     fontSize: '1rem'
                   }}
                 />
-                <p style={{ margin: '0.5rem 0 0', fontSize: '0.8rem', color: '#9ca3af' }}>
+                <p style={{ margin: '0.5rem 0 0', fontSize: '0.8rem', color: 'var(--ck-ink3)' }}>
                   You'll receive a notification around this time each day
                 </p>
               </div>
@@ -286,7 +286,7 @@ const NotificationSettings: React.FC = () => {
             marginBottom: '1.5rem',
             boxShadow: '0 2px 8px rgba(0,0,0,0.06)'
           }}>
-            <h4 style={{ margin: '0 0 1rem', fontSize: '1rem', color: '#1f2937', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <h4 style={{ margin: '0 0 1rem', fontSize: '1rem', color: 'var(--ck-ink)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               📅 Event Reminders
             </h4>
             
@@ -303,14 +303,14 @@ const NotificationSettings: React.FC = () => {
                 onChange={(e) => setSettings({ ...settings, eventRemindersEnabled: e.target.checked })}
                 style={{ width: '18px', height: '18px', cursor: 'pointer' }}
               />
-              <span style={{ fontSize: '0.9rem', color: '#374151' }}>
+              <span style={{ fontSize: '0.9rem', color: 'var(--ck-ink2)' }}>
                 Remind me before events
               </span>
             </label>
 
             {settings.eventRemindersEnabled && (
               <div style={{ marginLeft: '2rem' }}>
-                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.85rem', color: '#6b7280' }}>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.85rem', color: 'var(--ck-ink2)' }}>
                   Remind me:
                 </label>
                 <select
@@ -318,7 +318,7 @@ const NotificationSettings: React.FC = () => {
                   onChange={(e) => setSettings({ ...settings, eventReminderMinutes: Number(e.target.value) })}
                   style={{
                     padding: '0.5rem',
-                    border: '2px solid #e5e7eb',
+                    border: '2px solid var(--ck-border2)',
                     borderRadius: '0.5rem',
                     fontSize: '1rem',
                     background: 'white'
@@ -342,7 +342,7 @@ const NotificationSettings: React.FC = () => {
             marginBottom: '1.5rem',
             boxShadow: '0 2px 8px rgba(0,0,0,0.06)'
           }}>
-            <h4 style={{ margin: '0 0 1rem', fontSize: '1rem', color: '#1f2937', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <h4 style={{ margin: '0 0 1rem', fontSize: '1rem', color: 'var(--ck-ink)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               🔥 Streak Milestones
             </h4>
             
@@ -358,7 +358,7 @@ const NotificationSettings: React.FC = () => {
                 onChange={(e) => setSettings({ ...settings, streakMilestonesEnabled: e.target.checked })}
                 style={{ width: '18px', height: '18px', cursor: 'pointer' }}
               />
-              <span style={{ fontSize: '0.9rem', color: '#374151' }}>
+              <span style={{ fontSize: '0.9rem', color: 'var(--ck-ink2)' }}>
                 Celebrate streak milestones (5, 10, 30, 100 days, etc.)
               </span>
             </label>
@@ -372,7 +372,7 @@ const NotificationSettings: React.FC = () => {
             marginBottom: '1.5rem',
             boxShadow: '0 2px 8px rgba(0,0,0,0.06)'
           }}>
-            <h4 style={{ margin: '0 0 1rem', fontSize: '1rem', color: '#1f2937', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <h4 style={{ margin: '0 0 1rem', fontSize: '1rem', color: 'var(--ck-ink)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               🎯 Resolution Progress Alerts
             </h4>
             
@@ -389,14 +389,14 @@ const NotificationSettings: React.FC = () => {
                 onChange={(e) => setSettings({ ...settings, resolutionAlertsEnabled: e.target.checked })}
                 style={{ width: '18px', height: '18px', cursor: 'pointer' }}
               />
-              <span style={{ fontSize: '0.9rem', color: '#374151' }}>
+              <span style={{ fontSize: '0.9rem', color: 'var(--ck-ink2)' }}>
                 Alert me about resolution progress
               </span>
             </label>
 
             {settings.resolutionAlertsEnabled && (
               <div style={{ marginLeft: '2rem' }}>
-                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.85rem', color: '#6b7280' }}>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.85rem', color: 'var(--ck-ink2)' }}>
                   Frequency:
                 </label>
                 <select
@@ -404,7 +404,7 @@ const NotificationSettings: React.FC = () => {
                   onChange={(e) => setSettings({ ...settings, resolutionAlertFrequency: e.target.value as any })}
                   style={{
                     padding: '0.5rem',
-                    border: '2px solid #e5e7eb',
+                    border: '2px solid var(--ck-border2)',
                     borderRadius: '0.5rem',
                     fontSize: '1rem',
                     background: 'white'
@@ -429,8 +429,8 @@ const NotificationSettings: React.FC = () => {
             flex: 1,
             minWidth: '150px',
             padding: '0.875rem 1.5rem',
-            background: saving || permission !== 'granted' ? '#e5e7eb' : '#3b82f6',
-            color: saving || permission !== 'granted' ? '#9ca3af' : 'white',
+            background: saving || permission !== 'granted' ? 'var(--ck-border2)' : 'var(--ck-purple)',
+            color: saving || permission !== 'granted' ? 'var(--ck-ink3)' : 'white',
             border: 'none',
             borderRadius: '0.5rem',
             cursor: saving || permission !== 'granted' ? 'not-allowed' : 'pointer',
@@ -446,9 +446,9 @@ const NotificationSettings: React.FC = () => {
             onClick={handleTestNotification}
             style={{
               padding: '0.875rem 1.5rem',
-              background: '#f3f4f6',
-              color: '#374151',
-              border: '2px solid #e5e7eb',
+              background: 'var(--ck-white)',
+              color: 'var(--ck-ink2)',
+              border: '2px solid var(--ck-border2)',
               borderRadius: '0.5rem',
               cursor: 'pointer',
               fontWeight: 500,
@@ -464,14 +464,14 @@ const NotificationSettings: React.FC = () => {
       <div style={{
         marginTop: '1.5rem',
         padding: '1rem',
-        background: '#f9fafb',
+        background: 'var(--ck-cream)',
         borderRadius: '0.75rem',
-        border: '1px solid #e5e7eb'
+        border: '1px solid var(--ck-border2)'
       }}>
-        <h4 style={{ margin: '0 0 0.5rem', fontSize: '0.9rem', color: '#374151' }}>
+        <h4 style={{ margin: '0 0 0.5rem', fontSize: '0.9rem', color: 'var(--ck-ink2)' }}>
           📱 How Notifications Work
         </h4>
-        <ul style={{ margin: 0, paddingLeft: '1.25rem', fontSize: '0.85rem', color: '#6b7280', lineHeight: '1.6' }}>
+        <ul style={{ margin: 0, paddingLeft: '1.25rem', fontSize: '0.85rem', color: 'var(--ck-ink2)', lineHeight: '1.6' }}>
           <li>Works on desktop and Android (Chrome, Firefox, Edge)</li>
           <li>Daily reminders show around your preferred time</li>
           <li>Event reminders appear before scheduled events</li>

@@ -300,7 +300,7 @@ const ShareEntryModal: React.FC<ShareEntryModalProps> = ({
       <div style={{
         position: 'fixed',
         inset: 0,
-        background: 'rgba(0,0,0,0.5)',
+        background: 'rgba(26,23,20,0.45)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -313,7 +313,7 @@ const ShareEntryModal: React.FC<ShareEntryModalProps> = ({
           padding: '2rem',
           textAlign: 'center'
         }}>
-          <p style={{ color: '#6b7280' }}>Loading...</p>
+          <p style={{ color: 'var(--ck-ink2)' }}>Loading...</p>
         </div>
       </div>
     );
@@ -323,7 +323,7 @@ const ShareEntryModal: React.FC<ShareEntryModalProps> = ({
     <div style={{
       position: 'fixed',
       inset: 0,
-      background: 'rgba(0,0,0,0.5)',
+      background: 'rgba(26,23,20,0.45)',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
@@ -343,17 +343,17 @@ const ShareEntryModal: React.FC<ShareEntryModalProps> = ({
         {/* Header */}
         <div style={{
           padding: '1.25rem 1.5rem',
-          borderBottom: '1px solid #e5e7eb',
-          background: 'linear-gradient(135deg, #14b8a615 0%, #06b6d410 100%)',
+          borderBottom: '1px solid var(--ck-border2)',
+          background: 'var(--ck-purple-light)',
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center'
         }}>
           <div>
-            <h2 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700, color: '#1f2937' }}>
+            <h2 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700, color: 'var(--ck-ink)' }}>
               🔗 Share Entry
             </h2>
-            <p style={{ margin: '0.25rem 0 0', fontSize: '0.8rem', color: '#6b7280' }}>
+            <p style={{ margin: '0.25rem 0 0', fontSize: '0.8rem', color: 'var(--ck-ink2)' }}>
               {entryTitle}
             </p>
           </div>
@@ -364,7 +364,7 @@ const ShareEntryModal: React.FC<ShareEntryModalProps> = ({
               border: 'none',
               fontSize: '1.5rem',
               cursor: 'pointer',
-              color: '#9ca3af'
+              color: 'var(--ck-ink3)'
             }}
           >
             ✕
@@ -375,8 +375,8 @@ const ShareEntryModal: React.FC<ShareEntryModalProps> = ({
         {error && (
           <div style={{
             padding: '0.75rem 1rem',
-            background: '#fee2e2',
-            color: '#dc2626',
+            background: 'var(--ck-red-light)',
+            color: 'var(--ck-red)',
             fontSize: '0.9rem'
           }}>
             {error}
@@ -386,7 +386,7 @@ const ShareEntryModal: React.FC<ShareEntryModalProps> = ({
         <div style={{ flex: 1, overflow: 'auto', padding: '1.5rem' }}>
           {/* No groups message */}
           {groups.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '2rem', color: '#9ca3af' }}>
+            <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--ck-ink3)' }}>
               <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>👥</div>
               <p>You need to create a group first before sharing.</p>
               <p style={{ fontSize: '0.85rem', marginTop: '0.5rem' }}>
@@ -398,12 +398,12 @@ const ShareEntryModal: React.FC<ShareEntryModalProps> = ({
               {/* Share to new group */}
               {availableGroups.length > 0 && (
                 <div style={{ marginBottom: '1.5rem' }}>
-                  <h3 style={{ margin: '0 0 1rem', fontSize: '0.95rem', fontWeight: 600, color: '#374151' }}>
+                  <h3 style={{ margin: '0 0 1rem', fontSize: '0.95rem', fontWeight: 600, color: 'var(--ck-ink2)' }}>
                     Share with a Group
                   </h3>
                   
                   <div style={{ marginBottom: '1rem' }}>
-                    <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.85rem', fontWeight: 500, color: '#6b7280' }}>
+                    <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.85rem', fontWeight: 500, color: 'var(--ck-ink2)' }}>
                       Select Group
                     </label>
                     <select
@@ -412,7 +412,7 @@ const ShareEntryModal: React.FC<ShareEntryModalProps> = ({
                       style={{
                         width: '100%',
                         padding: '0.75rem',
-                        border: '2px solid #e5e7eb',
+                        border: '2px solid var(--ck-border2)',
                         borderRadius: '0.5rem',
                         fontSize: '1rem',
                         background: 'white'
@@ -428,7 +428,7 @@ const ShareEntryModal: React.FC<ShareEntryModalProps> = ({
                   </div>
 
                   <div style={{ marginBottom: '1rem' }}>
-                    <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.85rem', fontWeight: 500, color: '#6b7280' }}>
+                    <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.85rem', fontWeight: 500, color: 'var(--ck-ink2)' }}>
                       Share Mode
                     </label>
                     <div style={{ display: 'flex', gap: '0.5rem' }}>
@@ -437,7 +437,7 @@ const ShareEntryModal: React.FC<ShareEntryModalProps> = ({
                         style={{
                           flex: 1,
                           padding: '0.75rem',
-                          border: `2px solid ${shareMode === 'readonly' ? theme.colors.primary : '#e5e7eb'}`,
+                          border: `2px solid ${shareMode === 'readonly' ? theme.colors.primary : 'var(--ck-border2)'}`,
                           borderRadius: '0.5rem',
                           background: shareMode === 'readonly' ? `${theme.colors.primary}10` : 'white',
                           cursor: 'pointer',
@@ -445,15 +445,15 @@ const ShareEntryModal: React.FC<ShareEntryModalProps> = ({
                         }}
                       >
                         <div style={{ fontSize: '1.25rem', marginBottom: '0.25rem' }}>👁️</div>
-                        <div style={{ fontWeight: 600, fontSize: '0.9rem', color: '#1f2937' }}>View Only</div>
-                        <div style={{ fontSize: '0.75rem', color: '#6b7280' }}>Can view but not copy</div>
+                        <div style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--ck-ink)' }}>View Only</div>
+                        <div style={{ fontSize: '0.75rem', color: 'var(--ck-ink2)' }}>Can view but not copy</div>
                       </button>
                       <button
                         onClick={() => setShareMode('copy')}
                         style={{
                           flex: 1,
                           padding: '0.75rem',
-                          border: `2px solid ${shareMode === 'copy' ? theme.colors.primary : '#e5e7eb'}`,
+                          border: `2px solid ${shareMode === 'copy' ? theme.colors.primary : 'var(--ck-border2)'}`,
                           borderRadius: '0.5rem',
                           background: shareMode === 'copy' ? `${theme.colors.primary}10` : 'white',
                           cursor: 'pointer',
@@ -461,8 +461,8 @@ const ShareEntryModal: React.FC<ShareEntryModalProps> = ({
                         }}
                       >
                         <div style={{ fontSize: '1.25rem', marginBottom: '0.25rem' }}>📋</div>
-                        <div style={{ fontWeight: 600, fontSize: '0.9rem', color: '#1f2937' }}>Allow Copy</div>
-                        <div style={{ fontSize: '0.75rem', color: '#6b7280' }}>Can copy to their Safe</div>
+                        <div style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--ck-ink)' }}>Allow Copy</div>
+                        <div style={{ fontSize: '0.75rem', color: 'var(--ck-ink2)' }}>Can copy to their Safe</div>
                       </button>
                     </div>
                   </div>
@@ -473,8 +473,8 @@ const ShareEntryModal: React.FC<ShareEntryModalProps> = ({
                     style={{
                       width: '100%',
                       padding: '0.875rem',
-                      background: selectedGroupId ? theme.colors.primary : '#e5e7eb',
-                      color: selectedGroupId ? 'white' : '#9ca3af',
+                      background: selectedGroupId ? theme.colors.primary : 'var(--ck-border2)',
+                      color: selectedGroupId ? 'white' : 'var(--ck-ink3)',
                       border: 'none',
                       borderRadius: '0.5rem',
                       cursor: selectedGroupId ? 'pointer' : 'not-allowed',
@@ -490,7 +490,7 @@ const ShareEntryModal: React.FC<ShareEntryModalProps> = ({
               {/* Existing shares */}
               {existingShares.length > 0 && (
                 <div>
-                  <h3 style={{ margin: '0 0 1rem', fontSize: '0.95rem', fontWeight: 600, color: '#374151' }}>
+                  <h3 style={{ margin: '0 0 1rem', fontSize: '0.95rem', fontWeight: 600, color: 'var(--ck-ink2)' }}>
                     Currently Shared With
                   </h3>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
@@ -504,18 +504,18 @@ const ShareEntryModal: React.FC<ShareEntryModalProps> = ({
                             alignItems: 'center',
                             justifyContent: 'space-between',
                             padding: '0.75rem 1rem',
-                            background: '#f9fafb',
+                            background: 'var(--ck-cream)',
                             borderRadius: '0.5rem',
-                            border: '1px solid #e5e7eb'
+                            border: '1px solid var(--ck-border2)'
                           }}
                         >
                           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                             <span style={{ fontSize: '1.25rem' }}>{group?.icon || '👥'}</span>
                             <div>
-                              <div style={{ fontWeight: 500, color: '#1f2937' }}>
+                              <div style={{ fontWeight: 500, color: 'var(--ck-ink)' }}>
                                 {group?.name || 'Unknown Group'}
                               </div>
-                              <div style={{ fontSize: '0.75rem', color: '#6b7280' }}>
+                              <div style={{ fontSize: '0.75rem', color: 'var(--ck-ink2)' }}>
                                 {share.shareMode === 'readonly' ? '👁️ View only' : '📋 Can copy'}
                                 {' · '}
                                 {new Date(share.sharedAt).toLocaleDateString()}
@@ -526,8 +526,8 @@ const ShareEntryModal: React.FC<ShareEntryModalProps> = ({
                             onClick={() => handleRevoke(share.id)}
                             style={{
                               padding: '0.375rem 0.75rem',
-                              background: '#fee2e2',
-                              color: '#dc2626',
+                              background: 'var(--ck-red-light)',
+                              color: 'var(--ck-red)',
                               border: 'none',
                               borderRadius: '0.375rem',
                               cursor: 'pointer',
@@ -545,7 +545,7 @@ const ShareEntryModal: React.FC<ShareEntryModalProps> = ({
               )}
 
               {availableGroups.length === 0 && existingShares.length > 0 && (
-                <p style={{ textAlign: 'center', color: '#6b7280', fontSize: '0.9rem', marginTop: '1rem' }}>
+                <p style={{ textAlign: 'center', color: 'var(--ck-ink2)', fontSize: '0.9rem', marginTop: '1rem' }}>
                   This entry is shared with all your groups.
                 </p>
               )}
@@ -556,16 +556,16 @@ const ShareEntryModal: React.FC<ShareEntryModalProps> = ({
         {/* Footer */}
         <div style={{
           padding: '1rem 1.5rem',
-          borderTop: '1px solid #e5e7eb',
-          background: '#f9fafb'
+          borderTop: '1px solid var(--ck-border2)',
+          background: 'var(--ck-cream)'
         }}>
           <button
             onClick={onClose}
             style={{
               width: '100%',
               padding: '0.75rem',
-              background: '#f3f4f6',
-              color: '#374151',
+              background: 'var(--ck-cream)',
+              color: 'var(--ck-ink2)',
               border: 'none',
               borderRadius: '0.5rem',
               cursor: 'pointer',

@@ -158,7 +158,7 @@ const ShareModal: React.FC<ShareModalProps> = ({
     <div style={{
       position: 'fixed',
       inset: 0,
-      background: 'rgba(0,0,0,0.5)',
+      background: 'rgba(26,23,20,0.45)',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
@@ -178,16 +178,16 @@ const ShareModal: React.FC<ShareModalProps> = ({
         {/* Header */}
         <div style={{
           padding: '1.5rem',
-          borderBottom: '1px solid #e5e7eb',
+          borderBottom: '1px solid var(--ck-border2)',
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center'
         }}>
           <div>
-            <h3 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 700, color: '#1f2937' }}>
+            <h3 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 700, color: 'var(--ck-ink)' }}>
               Share {getEntityTypeLabel()}
             </h3>
-            <p style={{ margin: '0.25rem 0 0', fontSize: '0.85rem', color: '#6b7280' }}>
+            <p style={{ margin: '0.25rem 0 0', fontSize: '0.85rem', color: 'var(--ck-ink2)' }}>
               {entityTitle}
             </p>
           </div>
@@ -198,7 +198,7 @@ const ShareModal: React.FC<ShareModalProps> = ({
               border: 'none',
               fontSize: '1.5rem',
               cursor: 'pointer',
-              color: '#9ca3af',
+              color: 'var(--ck-ink3)',
               padding: '0.25rem'
             }}
           >
@@ -209,7 +209,7 @@ const ShareModal: React.FC<ShareModalProps> = ({
         {/* Content */}
         <div style={{ flex: 1, overflowY: 'auto', padding: '1.5rem' }}>
           {loading ? (
-            <div style={{ textAlign: 'center', padding: '2rem', color: '#6b7280' }}>
+            <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--ck-ink2)' }}>
               Loading...
             </div>
           ) : (
@@ -217,8 +217,8 @@ const ShareModal: React.FC<ShareModalProps> = ({
               {error && (
                 <div style={{
                   padding: '0.75rem',
-                  background: '#fee2e2',
-                  color: '#dc2626',
+                  background: 'var(--ck-red-light)',
+                  color: 'var(--ck-red)',
                   borderRadius: '0.5rem',
                   marginBottom: '1rem',
                   fontSize: '0.85rem'
@@ -229,12 +229,12 @@ const ShareModal: React.FC<ShareModalProps> = ({
 
               {/* Share Form */}
               <div style={{ marginBottom: '1.5rem' }}>
-                <h4 style={{ margin: '0 0 0.75rem', fontSize: '0.9rem', fontWeight: 600, color: '#374151' }}>
+                <h4 style={{ margin: '0 0 0.75rem', fontSize: '0.9rem', fontWeight: 600, color: 'var(--ck-ink2)' }}>
                   Share with Group
                 </h4>
                 
                 <div style={{ marginBottom: '1rem' }}>
-                  <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.85rem', color: '#6b7280' }}>
+                  <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.85rem', color: 'var(--ck-ink2)' }}>
                     Select Group
                   </label>
                   <select
@@ -243,7 +243,7 @@ const ShareModal: React.FC<ShareModalProps> = ({
                     style={{
                       width: '100%',
                       padding: '0.75rem',
-                      border: '2px solid #e5e7eb',
+                      border: '2px solid var(--ck-border2)',
                       borderRadius: '0.5rem',
                       fontSize: '0.9rem',
                       background: 'white'
@@ -259,7 +259,7 @@ const ShareModal: React.FC<ShareModalProps> = ({
                 </div>
 
                 <div style={{ marginBottom: '1rem' }}>
-                  <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.85rem', color: '#6b7280' }}>
+                  <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.85rem', color: 'var(--ck-ink2)' }}>
                     Access Level
                   </label>
                   <div style={{ display: 'flex', gap: '0.5rem' }}>
@@ -268,8 +268,8 @@ const ShareModal: React.FC<ShareModalProps> = ({
                       style={{
                         flex: 1,
                         padding: '0.75rem',
-                        background: shareMode === 'readonly' ? theme.colors.primary : '#f3f4f6',
-                        color: shareMode === 'readonly' ? 'white' : '#374151',
+                        background: shareMode === 'readonly' ? theme.colors.primary : 'var(--ck-cream)',
+                        color: shareMode === 'readonly' ? 'white' : 'var(--ck-ink2)',
                         border: 'none',
                         borderRadius: '0.5rem',
                         cursor: 'pointer',
@@ -284,8 +284,8 @@ const ShareModal: React.FC<ShareModalProps> = ({
                       style={{
                         flex: 1,
                         padding: '0.75rem',
-                        background: shareMode === 'editable' ? theme.colors.primary : '#f3f4f6',
-                        color: shareMode === 'editable' ? 'white' : '#374151',
+                        background: shareMode === 'editable' ? theme.colors.primary : 'var(--ck-cream)',
+                        color: shareMode === 'editable' ? 'white' : 'var(--ck-ink2)',
                         border: 'none',
                         borderRadius: '0.5rem',
                         cursor: 'pointer',
@@ -304,8 +304,8 @@ const ShareModal: React.FC<ShareModalProps> = ({
                   style={{
                     width: '100%',
                     padding: '0.75rem',
-                    background: selectedGroupId && !sharing ? theme.colors.primary : '#e5e7eb',
-                    color: selectedGroupId && !sharing ? 'white' : '#9ca3af',
+                    background: selectedGroupId && !sharing ? theme.colors.primary : 'var(--ck-border2)',
+                    color: selectedGroupId && !sharing ? 'white' : 'var(--ck-ink3)',
                     border: 'none',
                     borderRadius: '0.5rem',
                     cursor: selectedGroupId && !sharing ? 'pointer' : 'not-allowed',
@@ -320,7 +320,7 @@ const ShareModal: React.FC<ShareModalProps> = ({
               {/* Existing Shares */}
               {existingShares.length > 0 && (
                 <div>
-                  <h4 style={{ margin: '0 0 0.75rem', fontSize: '0.9rem', fontWeight: 600, color: '#374151' }}>
+                  <h4 style={{ margin: '0 0 0.75rem', fontSize: '0.9rem', fontWeight: 600, color: 'var(--ck-ink2)' }}>
                     Currently Shared With
                   </h4>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
@@ -329,7 +329,7 @@ const ShareModal: React.FC<ShareModalProps> = ({
                         key={share.id}
                         style={{
                           padding: '0.75rem',
-                          background: '#f9fafb',
+                          background: 'var(--ck-cream)',
                           borderRadius: '0.5rem',
                           display: 'flex',
                           justifyContent: 'space-between',
@@ -337,10 +337,10 @@ const ShareModal: React.FC<ShareModalProps> = ({
                         }}
                       >
                         <div>
-                          <div style={{ fontWeight: 500, fontSize: '0.85rem', color: '#1f2937' }}>
+                          <div style={{ fontWeight: 500, fontSize: '0.85rem', color: 'var(--ck-ink)' }}>
                             {share.groupName || 'Group'}
                           </div>
-                          <div style={{ fontSize: '0.75rem', color: '#6b7280', marginTop: '0.25rem' }}>
+                          <div style={{ fontSize: '0.75rem', color: 'var(--ck-ink2)', marginTop: '0.25rem' }}>
                             {share.shareMode === 'readonly' ? '👁️ View Only' : '✏️ Can Edit'} • 
                             Shared {new Date(share.sharedAt).toLocaleDateString()}
                           </div>
@@ -349,8 +349,8 @@ const ShareModal: React.FC<ShareModalProps> = ({
                           onClick={() => handleRevoke(share.id)}
                           style={{
                             padding: '0.5rem 0.75rem',
-                            background: '#fee2e2',
-                            color: '#dc2626',
+                            background: 'var(--ck-red-light)',
+                            color: 'var(--ck-red)',
                             border: 'none',
                             borderRadius: '0.375rem',
                             cursor: 'pointer',
@@ -367,13 +367,13 @@ const ShareModal: React.FC<ShareModalProps> = ({
               )}
 
               {availableGroups.length === 0 && existingShares.length > 0 && (
-                <p style={{ textAlign: 'center', color: '#6b7280', fontSize: '0.85rem', marginTop: '1rem' }}>
+                <p style={{ textAlign: 'center', color: 'var(--ck-ink2)', fontSize: '0.85rem', marginTop: '1rem' }}>
                   Already shared with all your groups
                 </p>
               )}
 
               {groups.length === 0 && (
-                <p style={{ textAlign: 'center', color: '#6b7280', fontSize: '0.85rem' }}>
+                <p style={{ textAlign: 'center', color: 'var(--ck-ink2)', fontSize: '0.85rem' }}>
                   No groups available. Create a group first to share.
                 </p>
               )}

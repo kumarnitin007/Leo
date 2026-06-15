@@ -176,32 +176,34 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ show, onClose, inline = f
       <div
         className="settings-modal-content"
         onClick={inline ? undefined : (e) => e.stopPropagation()}
-        style={inline ? { background: 'white', borderRadius: '12px', border: '0.5px solid #e5e7eb', maxHeight: 'none', overflow: 'visible' } : undefined}
+        style={inline ? { background: 'transparent', maxHeight: 'none', overflow: 'visible' } : undefined}
       >
           {/* Header (hidden in inline mode — page already shows a header) */}
           {!inline && (
-          <div style={{ padding: '1.5rem', borderBottom: '2px solid #e5e7eb', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, background: 'white', zIndex: 10, borderRadius: '1rem 1rem 0 0' }}>
+          <div style={{ padding: '1.5rem', borderBottom: '2px solid var(--ck-border2)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, background: 'white', zIndex: 10, borderRadius: '1rem 1rem 0 0' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
               <span style={{ fontSize: '2rem' }}>{avatar.emoji}</span>
               <span style={{ fontSize: '1.5rem' }}>⚙️</span>
               <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold', margin: 0 }}>Settings</h2>
             </div>
-            <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer', color: '#6b7280' }}>✕</button>
+            <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer', color: 'var(--ck-ink2)' }}>✕</button>
           </div>
           )}
 
-          <div style={{ padding: '1.5rem' }}>
+          <div style={{ padding: inline ? 0 : '1.5rem' }}>
             {/* Profile */}
-            <div style={{ background: 'linear-gradient(to right, #eef2ff, #f5f3ff)', borderRadius: '1rem', padding: '1.5rem', marginBottom: '1.5rem', border: '1px solid #c7d2fe' }}>
+            <div style={{ background: 'var(--ck-white)', borderRadius: '1rem', padding: '1.5rem', marginBottom: '1.5rem', border: '1px solid var(--ck-border2)' }}>
+              {!inline && (
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
                 <span style={{ fontSize: '1.5rem' }}>👤</span>
-                <h3 style={{ fontSize: '1.25rem', fontWeight: 'bold', margin: 0 }}>Profile</h3>
+                <h3 style={{ fontSize: '1.25rem', fontWeight: 'bold', margin: 0, fontFamily: 'var(--ck-serif)', color: 'var(--ck-ink)' }}>Profile</h3>
               </div>
+              )}
               
               {/* User Level Badge */}
               {userLevel?.level && (
                 <div style={{
-                  background: userLevel.level.color || '#6b7280',
+                  background: userLevel.level.color || 'var(--ck-ink2)',
                   color: 'white',
                   padding: '0.75rem 1rem',
                   borderRadius: '0.75rem',
@@ -221,26 +223,26 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ show, onClose, inline = f
               
               <div style={{ marginBottom: '1rem' }}>
                 <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, marginBottom: '0.5rem' }}>Your Name</label>
-                <input type="text" value={editingUsername} onChange={(e) => setEditingUsername(e.target.value)} placeholder="Enter your name" maxLength={50} style={{ width: '100%', padding: '0.5rem 1rem', border: '1px solid #d1d5db', borderRadius: '0.5rem', fontSize: '1rem' }} />
+                <input type="text" value={editingUsername} onChange={(e) => setEditingUsername(e.target.value)} placeholder="Enter your name" maxLength={50} style={{ width: '100%', padding: '0.5rem 1rem', border: '1px solid var(--ck-border2)', borderRadius: '0.5rem', fontSize: '1rem' }} />
               </div>
               <div>
                 <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, marginBottom: '0.5rem' }}>Email (Optional)</label>
-                <input type="email" value={editingEmail} onChange={(e) => setEditingEmail(e.target.value)} placeholder="your.email@example.com" style={{ width: '100%', padding: '0.5rem 1rem', border: '1px solid #d1d5db', borderRadius: '0.5rem', fontSize: '1rem' }} />
+                <input type="email" value={editingEmail} onChange={(e) => setEditingEmail(e.target.value)} placeholder="your.email@example.com" style={{ width: '100%', padding: '0.5rem 1rem', border: '1px solid var(--ck-border2)', borderRadius: '0.5rem', fontSize: '1rem' }} />
               </div>
             </div>
 
             {/* Avatar */}
             <div style={{ 
-              background: 'linear-gradient(135deg, #fce7f3 0%, #fbcfe8 50%, #f9a8d4 100%)', 
+              background: 'var(--ck-white)', 
               borderRadius: '1rem', 
               padding: '1.5rem', 
               marginBottom: '1.5rem', 
-              border: '2px solid #ec4899',
-              boxShadow: '0 4px 12px rgba(236, 72, 153, 0.2)'
+              border: '1px solid var(--ck-border2)',
+              boxShadow: 'var(--ck-shadow)'
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
                 <span style={{ fontSize: '1.5rem' }}>🎭</span>
-                <h3 style={{ fontSize: '1.25rem', fontWeight: 'bold', margin: 0 }}>Choose Your Avatar</h3>
+                <h3 style={{ fontSize: '1.25rem', fontWeight: 'bold', margin: 0, fontFamily: 'var(--ck-serif)', color: 'var(--ck-ink)' }}>Choose Your Avatar</h3>
               </div>
               <div style={{ 
                 textAlign: 'center', 
@@ -259,30 +261,30 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ show, onClose, inline = f
                 }}>
                   {avatar.emoji}
                 </div>
-                <div style={{ fontSize: '1rem', fontWeight: 600, color: '#374151', marginBottom: '0.5rem' }}>
+                <div style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--ck-ink2)', marginBottom: '0.5rem' }}>
                   {avatar.name}
                 </div>
                 <button 
                   onClick={() => { setShowAvatarPicker(!showAvatarPicker); setAvatarSearch(''); }}
                   style={{ 
                     padding: '0.75rem 1.5rem', 
-                    background: showAvatarPicker ? 'linear-gradient(135deg, #ec4899, #be185d)' : 'linear-gradient(135deg, #f472b6, #ec4899)',
+                    background: showAvatarPicker ? 'linear-gradient(135deg, var(--ck-purple), var(--ck-purple-dark))' : 'linear-gradient(135deg, var(--ck-purple), var(--ck-purple))',
                     border: 'none',
                     borderRadius: '0.75rem', 
                     cursor: 'pointer', 
                     fontWeight: 600,
                     color: 'white',
                     fontSize: '0.95rem',
-                    boxShadow: '0 2px 8px rgba(236, 72, 153, 0.3)',
+                    boxShadow: '0 2px 8px rgba(107, 93, 232, 0.3)',
                     transition: 'all 0.2s ease'
                   }}
                   onMouseEnter={(e) => {
                     e.currentTarget.style.transform = 'translateY(-2px)';
-                    e.currentTarget.style.boxShadow = '0 4px 12px rgba(236, 72, 153, 0.4)';
+                    e.currentTarget.style.boxShadow = '0 4px 12px rgba(107, 93, 232, 0.4)';
                   }}
                   onMouseLeave={(e) => {
                     e.currentTarget.style.transform = 'translateY(0)';
-                    e.currentTarget.style.boxShadow = '0 2px 8px rgba(236, 72, 153, 0.3)';
+                    e.currentTarget.style.boxShadow = '0 2px 8px rgba(107, 93, 232, 0.3)';
                   }}
                 >
                   {showAvatarPicker ? '▲ Hide Picker' : '✨ Change Avatar'}
@@ -306,14 +308,14 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ show, onClose, inline = f
                       style={{
                         width: '100%',
                         padding: '0.75rem 1rem',
-                        border: '2px solid #fbcfe8',
+                        border: '2px solid var(--ck-purple-light)',
                         borderRadius: '0.75rem',
                         fontSize: '0.95rem',
                         outline: 'none',
                         transition: 'border-color 0.2s'
                       }}
-                      onFocus={(e) => e.currentTarget.style.borderColor = '#ec4899'}
-                      onBlur={(e) => e.currentTarget.style.borderColor = '#fbcfe8'}
+                      onFocus={(e) => e.currentTarget.style.borderColor = 'var(--ck-purple)'}
+                      onBlur={(e) => e.currentTarget.style.borderColor = 'var(--ck-purple-light)'}
                     />
                   </div>
                   
@@ -331,11 +333,11 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ show, onClose, inline = f
                           fontSize: '0.875rem', 
                           cursor: 'pointer', 
                           background: selectedCategory === cat 
-                            ? 'linear-gradient(135deg, #ec4899, #be185d)' 
-                            : 'linear-gradient(135deg, #f3f4f6, #e5e7eb)',
-                          color: selectedCategory === cat ? 'white' : '#374151',
+                            ? 'linear-gradient(135deg, var(--ck-purple), var(--ck-purple-dark))' 
+                            : 'linear-gradient(135deg, var(--ck-cream), var(--ck-border2))',
+                          color: selectedCategory === cat ? 'white' : 'var(--ck-ink2)',
                           transition: 'all 0.2s ease',
-                          boxShadow: selectedCategory === cat ? '0 2px 8px rgba(236, 72, 153, 0.3)' : 'none'
+                          boxShadow: selectedCategory === cat ? '0 2px 8px rgba(107, 93, 232, 0.3)' : 'none'
                         }}
                         onMouseEnter={(e) => {
                           if (selectedCategory !== cat) {
@@ -357,7 +359,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ show, onClose, inline = f
                   
                   {/* Avatar Grid */}
                   {filteredAvatars.length === 0 ? (
-                    <div style={{ textAlign: 'center', padding: '2rem', color: '#6b7280' }}>
+                    <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--ck-ink2)' }}>
                       No avatars found matching "{avatarSearch}"
                     </div>
                   ) : (
@@ -382,18 +384,18 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ show, onClose, inline = f
                           style={{ 
                             fontSize: '3rem', 
                             padding: '1rem', 
-                            border: avatar.id === av.id ? '3px solid #ec4899' : '2px solid #e5e7eb', 
+                            border: avatar.id === av.id ? '3px solid var(--ck-purple)' : '2px solid var(--ck-border2)', 
                             borderRadius: '1rem', 
                             background: avatar.id === av.id 
-                              ? 'linear-gradient(135deg, #fce7f3, #fbcfe8)' 
+                              ? 'linear-gradient(135deg, var(--ck-purple-light), var(--ck-purple-light))' 
                               : hoveredAvatar === av.id
-                              ? 'linear-gradient(135deg, #fef3c7, #fde68a)'
+                              ? 'linear-gradient(135deg, var(--ck-gold-light), var(--ck-gold-light))'
                               : 'white',
                             cursor: 'pointer',
                             transition: 'all 0.2s ease',
                             transform: hoveredAvatar === av.id ? 'scale(1.1) rotate(5deg)' : 'scale(1)',
                             boxShadow: avatar.id === av.id 
-                              ? '0 4px 12px rgba(236, 72, 153, 0.3)' 
+                              ? '0 4px 12px rgba(107, 93, 232, 0.3)' 
                               : hoveredAvatar === av.id
                               ? '0 4px 12px rgba(245, 158, 11, 0.3)'
                               : '0 2px 4px rgba(0,0,0,0.1)',
@@ -407,7 +409,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ show, onClose, inline = f
                               position: 'absolute',
                               top: '-8px',
                               right: '-8px',
-                              background: '#ec4899',
+                              background: 'var(--ck-purple)',
                               color: 'white',
                               borderRadius: '50%',
                               width: '24px',
@@ -417,7 +419,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ show, onClose, inline = f
                               justifyContent: 'center',
                               fontSize: '0.75rem',
                               fontWeight: 'bold',
-                              boxShadow: '0 2px 8px rgba(236, 72, 153, 0.4)'
+                              boxShadow: '0 2px 8px rgba(107, 93, 232, 0.4)'
                             }}>
                               ✓
                             </div>
@@ -431,14 +433,14 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ show, onClose, inline = f
             </div>
 
             {/* Themes */}
-            <div style={{ background: 'linear-gradient(to right, #f5f3ff, #ede9fe)', borderRadius: '1rem', padding: '1.5rem', marginBottom: '1.5rem', border: '1px solid #ddd6fe' }}>
+            <div style={{ background: 'var(--ck-white)', borderRadius: '1rem', padding: '1.5rem', marginBottom: '1.5rem', border: '1px solid var(--ck-border2)' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
                 <span style={{ fontSize: '1.5rem' }}>🎨</span>
-                <h3 style={{ fontSize: '1.25rem', fontWeight: 'bold', margin: 0 }}>Theme</h3>
+                <h3 style={{ fontSize: '1.25rem', fontWeight: 'bold', margin: 0, fontFamily: 'var(--ck-serif)', color: 'var(--ck-ink)' }}>Theme</h3>
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: '1rem', marginBottom: '1rem' }}>
                 {availableThemes.map(t => (
-                  <button key={t.id} onClick={() => setTheme(t.id)} style={{ padding: '1rem', borderRadius: '1rem', border: theme.id === t.id ? '3px solid ' + t.colors.primary : '1px solid #e5e7eb', background: `linear-gradient(135deg, ${t.gradient.from}, ${t.gradient.via}, ${t.gradient.to})`, cursor: 'pointer', textAlign: 'center' }} title={t.description}>
+                  <button key={t.id} onClick={() => setTheme(t.id)} style={{ padding: '1rem', borderRadius: '1rem', border: theme.id === t.id ? '3px solid ' + t.colors.primary : '1px solid var(--ck-border2)', background: `linear-gradient(135deg, ${t.gradient.from}, ${t.gradient.via}, ${t.gradient.to})`, cursor: 'pointer', textAlign: 'center' }} title={t.description}>
                     <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>{t.emoji}</div>
                     <div style={{ fontSize: '0.75rem', fontWeight: 'bold', color: t.gradient.textColor || 'white', textShadow: t.gradient.textColor ? 'none' : '0 1px 3px rgba(0,0,0,0.3)' }}>{t.name}</div>
                   </button>
@@ -448,18 +450,18 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ show, onClose, inline = f
                 <span style={{ fontSize: '2rem' }}>{theme.emoji}</span>
                 <div>
                   <h4 style={{ margin: 0, fontWeight: 'bold', fontSize: '1rem' }}>{theme.name}</h4>
-                  <p style={{ margin: 0, fontSize: '0.875rem', color: '#6b7280' }}>{theme.description}</p>
+                  <p style={{ margin: 0, fontSize: '0.875rem', color: 'var(--ck-ink2)' }}>{theme.description}</p>
                 </div>
               </div>
             </div>
 
             {/* Location for Weather */}
-            <div style={{ background: 'linear-gradient(to right, #fef3c7, #fde68a)', borderRadius: '1rem', padding: '1.5rem', marginBottom: '1.5rem', border: '1px solid #fbbf24' }}>
+            <div style={{ background: 'var(--ck-white)', borderRadius: '1rem', padding: '1.5rem', marginBottom: '1.5rem', border: '1px solid var(--ck-border2)' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
                 <span style={{ fontSize: '1.5rem' }}>📍</span>
-                <h3 style={{ fontSize: '1.25rem', fontWeight: 'bold', margin: 0 }}>Location for Weather</h3>
+                <h3 style={{ fontSize: '1.25rem', fontWeight: 'bold', margin: 0, fontFamily: 'var(--ck-serif)', color: 'var(--ck-ink)' }}>Location for Weather</h3>
               </div>
-              <p style={{ fontSize: '0.875rem', color: '#6b7280', marginBottom: '1rem' }}>
+              <p style={{ fontSize: '0.875rem', color: 'var(--ck-ink2)', marginBottom: '1rem' }}>
                 Enter your location to see weather forecasts on your dashboard
               </p>
               <div style={{ marginBottom: '1rem' }}>
@@ -469,7 +471,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ show, onClose, inline = f
                   value={location.zipCode || ''} 
                   onChange={(e) => setLocation({ ...location, zipCode: e.target.value })} 
                   placeholder="e.g., 10001 or SW1A 1AA" 
-                  style={{ width: '100%', padding: '0.5rem 1rem', border: '1px solid #d1d5db', borderRadius: '0.5rem', fontSize: '1rem' }} 
+                  style={{ width: '100%', padding: '0.5rem 1rem', border: '1px solid var(--ck-border2)', borderRadius: '0.5rem', fontSize: '1rem' }} 
                 />
               </div>
               <div style={{ marginBottom: '1rem' }}>
@@ -479,7 +481,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ show, onClose, inline = f
                   value={location.city || ''} 
                   onChange={(e) => setLocation({ ...location, city: e.target.value })} 
                   placeholder="e.g., New York" 
-                  style={{ width: '100%', padding: '0.5rem 1rem', border: '1px solid #d1d5db', borderRadius: '0.5rem', fontSize: '1rem' }} 
+                  style={{ width: '100%', padding: '0.5rem 1rem', border: '1px solid var(--ck-border2)', borderRadius: '0.5rem', fontSize: '1rem' }} 
                 />
               </div>
               <div>
@@ -490,15 +492,15 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ show, onClose, inline = f
                   onChange={(e) => setLocation({ ...location, country: e.target.value.toUpperCase().slice(0, 2) })} 
                   placeholder="e.g., US, GB, CA" 
                   maxLength={2}
-                  style={{ width: '100%', padding: '0.5rem 1rem', border: '1px solid #d1d5db', borderRadius: '0.5rem', fontSize: '1rem' }} 
+                  style={{ width: '100%', padding: '0.5rem 1rem', border: '1px solid var(--ck-border2)', borderRadius: '0.5rem', fontSize: '1rem' }} 
                 />
-                <small style={{ display: 'block', marginTop: '0.25rem', fontSize: '0.75rem', color: '#6b7280' }}>
+                <small style={{ display: 'block', marginTop: '0.25rem', fontSize: '0.75rem', color: 'var(--ck-ink2)' }}>
                   Use 2-letter ISO country code (US, GB, CA, etc.)
                 </small>
               </div>
               
               {/* Temperature Unit Toggle */}
-              <div style={{ marginTop: '1.5rem', paddingTop: '1rem', borderTop: '1px solid #fbbf24' }}>
+              <div style={{ marginTop: '1.5rem', paddingTop: '1rem', borderTop: '1px solid var(--ck-border2)' }}>
                 <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, marginBottom: '0.5rem' }}>Temperature Unit</label>
                 <div style={{ display: 'flex', gap: '0.5rem' }}>
                   <button
@@ -506,9 +508,9 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ show, onClose, inline = f
                     style={{
                       flex: 1,
                       padding: '0.75rem',
-                      border: temperatureUnit === 'celsius' ? '2px solid #f59e0b' : '1px solid #d1d5db',
+                      border: temperatureUnit === 'celsius' ? '2px solid var(--ck-gold)' : '1px solid var(--ck-border2)',
                       borderRadius: '0.5rem',
-                      background: temperatureUnit === 'celsius' ? '#fef3c7' : 'white',
+                      background: temperatureUnit === 'celsius' ? 'var(--ck-gold-light)' : 'white',
                       cursor: 'pointer',
                       fontWeight: temperatureUnit === 'celsius' ? 600 : 400,
                       fontSize: '1rem'
@@ -521,9 +523,9 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ show, onClose, inline = f
                     style={{
                       flex: 1,
                       padding: '0.75rem',
-                      border: temperatureUnit === 'fahrenheit' ? '2px solid #f59e0b' : '1px solid #d1d5db',
+                      border: temperatureUnit === 'fahrenheit' ? '2px solid var(--ck-gold)' : '1px solid var(--ck-border2)',
                       borderRadius: '0.5rem',
-                      background: temperatureUnit === 'fahrenheit' ? '#fef3c7' : 'white',
+                      background: temperatureUnit === 'fahrenheit' ? 'var(--ck-gold-light)' : 'white',
                       cursor: 'pointer',
                       fontWeight: temperatureUnit === 'fahrenheit' ? 600 : 400,
                       fontSize: '1rem'
@@ -532,60 +534,60 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ show, onClose, inline = f
                     °F Fahrenheit
                   </button>
                 </div>
-                <small style={{ display: 'block', marginTop: '0.5rem', fontSize: '0.75rem', color: '#6b7280' }}>
+                <small style={{ display: 'block', marginTop: '0.5rem', fontSize: '0.75rem', color: 'var(--ck-ink2)' }}>
                   {!temperatureUnit ? 'Auto-detected from country (most countries use °C, US uses °F)' : 'Saved to your profile and synced when signed in'}
                 </small>
               </div>
 
               {/* Birth Data for Astrology */}
-              <div style={{ marginTop: '1.5rem', paddingTop: '1rem', borderTop: '1px solid #fbbf24' }}>
+              <div style={{ marginTop: '1.5rem', paddingTop: '1rem', borderTop: '1px solid var(--ck-border2)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
                   <span style={{ fontSize: '1.25rem' }}>🔮</span>
-                  <span style={{ fontSize: '0.95rem', fontWeight: 700, color: '#92400e' }}>Birth Data (Astrology)</span>
+                  <span style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--ck-gold)' }}>Birth Data (Astrology)</span>
                 </div>
-                <p style={{ fontSize: '0.75rem', color: '#6b7280', marginBottom: '0.75rem' }}>
+                <p style={{ fontSize: '0.75rem', color: 'var(--ck-ink2)', marginBottom: '0.75rem' }}>
                   Used for natal chart &amp; personalized daily horoscope on the home page
                 </p>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.5rem', marginBottom: '0.75rem' }}>
                   <div>
                     <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '0.25rem' }}>Year</label>
-                    <input type="number" value={birthData.year || ''} onChange={(e) => setBirthData({ ...birthData, year: e.target.value ? Number(e.target.value) : undefined })} placeholder="1990" style={{ width: '100%', padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: '0.5rem', fontSize: '0.875rem' }} />
+                    <input type="number" value={birthData.year || ''} onChange={(e) => setBirthData({ ...birthData, year: e.target.value ? Number(e.target.value) : undefined })} placeholder="1990" style={{ width: '100%', padding: '0.5rem', border: '1px solid var(--ck-border2)', borderRadius: '0.5rem', fontSize: '0.875rem' }} />
                   </div>
                   <div>
                     <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '0.25rem' }}>Month</label>
-                    <input type="number" min={1} max={12} value={birthData.month || ''} onChange={(e) => setBirthData({ ...birthData, month: e.target.value ? Number(e.target.value) : undefined })} placeholder="5" style={{ width: '100%', padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: '0.5rem', fontSize: '0.875rem' }} />
+                    <input type="number" min={1} max={12} value={birthData.month || ''} onChange={(e) => setBirthData({ ...birthData, month: e.target.value ? Number(e.target.value) : undefined })} placeholder="5" style={{ width: '100%', padding: '0.5rem', border: '1px solid var(--ck-border2)', borderRadius: '0.5rem', fontSize: '0.875rem' }} />
                   </div>
                   <div>
                     <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '0.25rem' }}>Day</label>
-                    <input type="number" min={1} max={31} value={birthData.day || ''} onChange={(e) => setBirthData({ ...birthData, day: e.target.value ? Number(e.target.value) : undefined })} placeholder="15" style={{ width: '100%', padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: '0.5rem', fontSize: '0.875rem' }} />
+                    <input type="number" min={1} max={31} value={birthData.day || ''} onChange={(e) => setBirthData({ ...birthData, day: e.target.value ? Number(e.target.value) : undefined })} placeholder="15" style={{ width: '100%', padding: '0.5rem', border: '1px solid var(--ck-border2)', borderRadius: '0.5rem', fontSize: '0.875rem' }} />
                   </div>
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.5rem', marginBottom: '0.75rem' }}>
                   <div>
                     <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '0.25rem' }}>Hour (0-23)</label>
-                    <input type="number" min={0} max={23} value={birthData.hour ?? ''} onChange={(e) => setBirthData({ ...birthData, hour: e.target.value !== '' ? Number(e.target.value) : undefined })} placeholder="14" style={{ width: '100%', padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: '0.5rem', fontSize: '0.875rem' }} />
+                    <input type="number" min={0} max={23} value={birthData.hour ?? ''} onChange={(e) => setBirthData({ ...birthData, hour: e.target.value !== '' ? Number(e.target.value) : undefined })} placeholder="14" style={{ width: '100%', padding: '0.5rem', border: '1px solid var(--ck-border2)', borderRadius: '0.5rem', fontSize: '0.875rem' }} />
                   </div>
                   <div>
                     <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '0.25rem' }}>Minute</label>
-                    <input type="number" min={0} max={59} value={birthData.minute ?? ''} onChange={(e) => setBirthData({ ...birthData, minute: e.target.value !== '' ? Number(e.target.value) : undefined })} placeholder="30" style={{ width: '100%', padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: '0.5rem', fontSize: '0.875rem' }} />
+                    <input type="number" min={0} max={59} value={birthData.minute ?? ''} onChange={(e) => setBirthData({ ...birthData, minute: e.target.value !== '' ? Number(e.target.value) : undefined })} placeholder="30" style={{ width: '100%', padding: '0.5rem', border: '1px solid var(--ck-border2)', borderRadius: '0.5rem', fontSize: '0.875rem' }} />
                   </div>
                   <div>
                     <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '0.25rem' }}>Birth City</label>
-                    <input type="text" value={birthData.city || ''} onChange={(e) => setBirthData({ ...birthData, city: e.target.value })} placeholder="New York" style={{ width: '100%', padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: '0.5rem', fontSize: '0.875rem' }} />
+                    <input type="text" value={birthData.city || ''} onChange={(e) => setBirthData({ ...birthData, city: e.target.value })} placeholder="New York" style={{ width: '100%', padding: '0.5rem', border: '1px solid var(--ck-border2)', borderRadius: '0.5rem', fontSize: '0.875rem' }} />
                   </div>
                 </div>
-                <small style={{ fontSize: '0.7rem', color: '#6b7280' }}>
+                <small style={{ fontSize: '0.7rem', color: 'var(--ck-ink2)' }}>
                   Hour &amp; minute are optional — without them, houses &amp; ascendant won't be calculated.
                 </small>
               </div>
 
               {/* Safe / Financial defaults — same units as Safe → Financial exchange modal (₹ per $, €, £) */}
-              <div style={{ marginTop: '1.5rem', paddingTop: '1rem', borderTop: '1px solid #fbbf24' }}>
+              <div style={{ marginTop: '1.5rem', paddingTop: '1rem', borderTop: '1px solid var(--ck-border2)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem' }}>
                   <span style={{ fontSize: '1.25rem' }}>🏦</span>
-                  <span style={{ fontSize: '0.95rem', fontWeight: 700, color: '#92400e' }}>Financial dashboard defaults</span>
+                  <span style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--ck-gold)' }}>Financial dashboard defaults</span>
                 </div>
-                <p style={{ fontSize: '0.8rem', color: '#6b7280', marginBottom: '0.75rem' }}>
+                <p style={{ fontSize: '0.8rem', color: 'var(--ck-ink2)', marginBottom: '0.75rem' }}>
                   Used for <strong>Safe → Financial</strong> when you have not saved rates in that vault yet, or on a new device. Supported display currencies match the dashboard.
                 </p>
                 <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, marginBottom: '0.35rem' }}>Preferred display currency</label>
@@ -597,7 +599,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ show, onClose, inline = f
                       preferredDisplayCurrency: (e.target.value || undefined) as FinancialDisplayCurrencyPref | undefined,
                     }))
                   }
-                  style={{ width: '100%', padding: '0.5rem 0.75rem', borderRadius: '0.5rem', border: '1px solid #d1d5db', marginBottom: '0.75rem', fontSize: '0.95rem' }}
+                  style={{ width: '100%', padding: '0.5rem 0.75rem', borderRadius: '0.5rem', border: '1px solid var(--ck-border2)', marginBottom: '0.75rem', fontSize: '0.95rem' }}
                 >
                   <option value="">— Use app default (locale) —</option>
                   <option value="ORIGINAL">Original (mixed → INR)</option>
@@ -606,10 +608,10 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ show, onClose, inline = f
                   <option value="EUR">EUR (€)</option>
                   <option value="GBP">GBP (£)</option>
                 </select>
-                <div style={{ fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.35rem', color: '#374151' }}>Exchange rates (INR per 1 unit)</div>
+                <div style={{ fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.35rem', color: 'var(--ck-ink2)' }}>Exchange rates (INR per 1 unit)</div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.5rem' }}>
                   <div>
-                    <label style={{ fontSize: '0.7rem', color: '#6b7280' }}>1 USD = ₹</label>
+                    <label style={{ fontSize: '0.7rem', color: 'var(--ck-ink2)' }}>1 USD = ₹</label>
                     <input
                       type="number"
                       min={1}
@@ -625,11 +627,11 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ show, onClose, inline = f
                           },
                         }))
                       }
-                      style={{ width: '100%', padding: '0.4rem', borderRadius: '0.35rem', border: '1px solid #d1d5db' }}
+                      style={{ width: '100%', padding: '0.4rem', borderRadius: '0.35rem', border: '1px solid var(--ck-border2)' }}
                     />
                   </div>
                   <div>
-                    <label style={{ fontSize: '0.7rem', color: '#6b7280' }}>1 EUR = ₹</label>
+                    <label style={{ fontSize: '0.7rem', color: 'var(--ck-ink2)' }}>1 EUR = ₹</label>
                     <input
                       type="number"
                       min={1}
@@ -645,11 +647,11 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ show, onClose, inline = f
                           },
                         }))
                       }
-                      style={{ width: '100%', padding: '0.4rem', borderRadius: '0.35rem', border: '1px solid #d1d5db' }}
+                      style={{ width: '100%', padding: '0.4rem', borderRadius: '0.35rem', border: '1px solid var(--ck-border2)' }}
                     />
                   </div>
                   <div>
-                    <label style={{ fontSize: '0.7rem', color: '#6b7280' }}>1 GBP = ₹</label>
+                    <label style={{ fontSize: '0.7rem', color: 'var(--ck-ink2)' }}>1 GBP = ₹</label>
                     <input
                       type="number"
                       min={1}
@@ -665,7 +667,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ show, onClose, inline = f
                           },
                         }))
                       }
-                      style={{ width: '100%', padding: '0.4rem', borderRadius: '0.35rem', border: '1px solid #d1d5db' }}
+                      style={{ width: '100%', padding: '0.4rem', borderRadius: '0.35rem', border: '1px solid var(--ck-border2)' }}
                     />
                   </div>
                 </div>
@@ -673,12 +675,12 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ show, onClose, inline = f
             </div>
 
             {/* Dashboard Layout */}
-            <div style={{ background: 'linear-gradient(to right, #dbeafe, #bfdbfe)', borderRadius: '1rem', padding: '1.5rem', marginBottom: '1.5rem', border: '1px solid #93c5fd' }}>
+            <div style={{ background: 'var(--ck-white)', borderRadius: '1rem', padding: '1.5rem', marginBottom: '1.5rem', border: '1px solid var(--ck-border2)' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
                 <span style={{ fontSize: '1.5rem' }}>📐</span>
-                <h3 style={{ fontSize: '1.25rem', fontWeight: 'bold', margin: 0 }}>Dashboard Layout</h3>
+                <h3 style={{ fontSize: '1.25rem', fontWeight: 'bold', margin: 0, fontFamily: 'var(--ck-serif)', color: 'var(--ck-ink)' }}>Dashboard Layout</h3>
               </div>
-              <p style={{ fontSize: '0.875rem', color: '#6b7280', marginBottom: '1rem' }}>
+              <p style={{ fontSize: '0.875rem', color: 'var(--ck-ink2)', marginBottom: '1rem' }}>
                 Choose how tasks are displayed on your Today dashboard
               </p>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '1rem' }}>
@@ -689,18 +691,18 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ show, onClose, inline = f
                     style={{
                       padding: '1rem',
                       borderRadius: '1rem',
-                      border: dashboardLayout === layout.id ? '3px solid #3b82f6' : '1px solid #e5e7eb',
-                      background: dashboardLayout === layout.id ? '#eff6ff' : 'white',
+                      border: dashboardLayout === layout.id ? '3px solid var(--ck-purple)' : '1px solid var(--ck-border2)',
+                      background: dashboardLayout === layout.id ? 'var(--ck-purple-light)' : 'white',
                       cursor: 'pointer',
                       textAlign: 'center',
                       transition: 'all 0.2s'
                     }}
                   >
                     <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>{layout.icon}</div>
-                    <div style={{ fontSize: '0.875rem', fontWeight: 'bold', marginBottom: '0.25rem', color: '#1f2937' }}>
+                    <div style={{ fontSize: '0.875rem', fontWeight: 'bold', marginBottom: '0.25rem', color: 'var(--ck-ink)' }}>
                       {layout.name}
                     </div>
-                    <div style={{ fontSize: '0.75rem', color: '#6b7280' }}>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--ck-ink2)' }}>
                       {layout.description}
                     </div>
                   </button>
@@ -709,12 +711,12 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ show, onClose, inline = f
             </div>
 
             {/* AI Recommendations Opt-in */}
-            <div style={{ background: 'linear-gradient(to right, #ede9fe, #ddd6fe)', borderRadius: '1rem', padding: '1.5rem', marginBottom: '1.5rem', border: '1px solid #a78bfa' }}>
+            <div style={{ background: 'var(--ck-white)', borderRadius: '1rem', padding: '1.5rem', marginBottom: '1.5rem', border: '1px solid var(--ck-border2)' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem' }}>
                 <span style={{ fontSize: '1.5rem' }}>🤖</span>
-                <h3 style={{ fontSize: '1.25rem', fontWeight: 'bold', margin: 0 }}>AI Recommendations</h3>
+                <h3 style={{ fontSize: '1.25rem', fontWeight: 'bold', margin: 0, fontFamily: 'var(--ck-serif)', color: 'var(--ck-ink)' }}>AI Recommendations</h3>
               </div>
-              <p style={{ fontSize: '0.875rem', color: '#6b7280', marginBottom: '1rem', lineHeight: 1.5 }}>
+              <p style={{ fontSize: '0.875rem', color: 'var(--ck-ink2)', marginBottom: '1rem', lineHeight: 1.5 }}>
                 Enable AI-powered features like morning briefings and journal reflections.
                 When enabled, your tasks, events, journal mood, and recent entries are sent to OpenAI to generate personalised insights.
                 No data is stored externally — responses are saved only in your account.
@@ -728,8 +730,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ show, onClose, inline = f
                   cursor: 'pointer',
                   padding: '0.875rem 1rem',
                   borderRadius: '0.75rem',
-                  border: aiOptIn ? '2px solid #7c3aed' : '2px solid #d1d5db',
-                  background: aiOptIn ? '#f5f3ff' : 'white',
+                  border: aiOptIn ? '2px solid var(--ck-purple)' : '2px solid var(--ck-border2)',
+                  background: aiOptIn ? 'var(--ck-purple-light)' : 'white',
                   transition: 'all 0.2s',
                 }}
               >
@@ -737,7 +739,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ show, onClose, inline = f
                   width: 44,
                   height: 24,
                   borderRadius: 12,
-                  background: aiOptIn ? '#7c3aed' : '#d1d5db',
+                  background: aiOptIn ? 'var(--ck-purple)' : 'var(--ck-border2)',
                   position: 'relative',
                   transition: 'background 0.2s',
                   flexShrink: 0,
@@ -755,10 +757,10 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ show, onClose, inline = f
                   }} />
                 </div>
                 <div>
-                  <div style={{ fontSize: '0.95rem', fontWeight: 600, color: aiOptIn ? '#5b21b6' : '#374151' }}>
+                  <div style={{ fontSize: '0.95rem', fontWeight: 600, color: aiOptIn ? 'var(--ck-purple-dark)' : 'var(--ck-ink2)' }}>
                     {aiOptIn ? 'AI features enabled' : 'AI features disabled'}
                   </div>
-                  <div style={{ fontSize: '0.75rem', color: '#6b7280', marginTop: 2 }}>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--ck-ink2)', marginTop: 2 }}>
                     {aiOptIn ? 'Leo will provide daily briefings and journal reflections' : 'Toggle on to get personalised AI insights'}
                   </div>
                 </div>
@@ -783,7 +785,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ show, onClose, inline = f
                 💾 Save
               </button>
               {!inline && (
-                <button onClick={onClose} style={{ flex: 1, padding: '0.75rem', borderRadius: '0.75rem', border: 'none', fontWeight: 600, cursor: 'pointer', background: '#e5e7eb', fontSize: '1rem' }}>
+                <button onClick={onClose} style={{ flex: 1, padding: '0.75rem', borderRadius: '0.75rem', border: 'none', fontWeight: 600, cursor: 'pointer', background: 'var(--ck-border2)', fontSize: '1rem' }}>
                   Cancel
                 </button>
               )}

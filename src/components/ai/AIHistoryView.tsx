@@ -35,7 +35,7 @@ function projectMonthlySpend(dailySpends: DailySpend[]): number {
   return avgDaily * 30;
 }
 
-const AIHistoryView: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
+const AIHistoryView: React.FC<{ onBack?: () => void; hideHeader?: boolean }> = ({ onBack, hideHeader }) => {
   const { user } = useAuth();
   const [entries, setEntries] = useState<AIAuditEntry[]>([]);
   const [summary, setSummary] = useState<AIUsageSummary | null>(null);
@@ -102,8 +102,9 @@ const AIHistoryView: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
   };
 
   return (
-    <div style={{ maxWidth: 820, margin: '0 auto', padding: '0 16px 32px', fontFamily: 'var(--ck-font)', color: 'var(--ck-ink)' }}>
-      {/* Header */}
+    <div style={{ maxWidth: 820, margin: '0 auto', padding: hideHeader ? 0 : '0 16px 32px', fontFamily: 'var(--ck-font)', color: 'var(--ck-ink)' }}>
+      {/* Header (hidden when a parent pane already supplies the title) */}
+      {!hideHeader && (
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
         {onBack && (
           <button onClick={onBack} style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: 'var(--ck-ink2)' }}>←</button>
@@ -113,6 +114,7 @@ const AIHistoryView: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
           <p style={{ margin: '3px 0 0', fontSize: 12, color: 'var(--ck-ink3)' }}>Track every AI call, token usage, and projected costs</p>
         </div>
       </div>
+      )}
 
       {loading ? (
         <div style={{ textAlign: 'center', padding: 40, color: 'var(--ck-ink3)' }}>Loading AI history…</div>

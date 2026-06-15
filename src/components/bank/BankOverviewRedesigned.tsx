@@ -21,10 +21,9 @@ import type {
   TotalValueHistoryEntry,
 } from "../../types/bankRecords";
 import type { BankDashboardTheme } from "../../bank/bankDashboardTheme";
-import type { PortfolioHistoryChartPoint } from "../../bank/bankDashboardTypes";
+import type { PortfolioHistoryChartPoint, Next30DayRow, DisplayCurrencyMode } from "../../bank/bankDashboardTypes";
 import { convertCurrency, fmt, fmtFull, fmtDate } from "../../bank/bankDashboardFormat";
 import { CURRENCY_SYMBOLS } from "../../bank/bankDashboardConstants";
-import type { Next30DayRow, DisplayCurrencyMode } from "./BankOverviewTab";
 
 // ──────────────────────────────────────────────────────────────────
 // Redesigned Vault Overview screen (parallel to BankOverviewTab).

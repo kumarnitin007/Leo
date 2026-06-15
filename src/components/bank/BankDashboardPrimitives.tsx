@@ -4,22 +4,29 @@
 import React from "react";
 
 export function UrgencyBadge({ days }: { days: number | null }) {
-  const bs = (bg: string, color: string) => ({
+  // Outlined kit pills (light tint + colored border + colored text) — matches the
+  // app-wide badge style instead of the old filled chips.
+  const bs = (bg: string, border: string, color: string) => ({
     background: bg,
+    border: `1px solid ${border}`,
     color,
     padding: "2px 10px",
-    borderRadius: 20,
+    borderRadius: 999,
     fontSize: 11,
     fontWeight: 700,
     whiteSpace: "nowrap" as const,
   });
-  if (days === null) return <span style={bs("#f3f4f6", "#6b7280")}>No Date</span>;
-  if (days < 0) return <span style={bs("#f3f4f6", "#9ca3af")}>Matured</span>;
-  if (days === 0) return <span style={bs("#fef2f2", "#dc2626")}>TODAY!</span>;
-  if (days <= 30) return <span style={bs("#fef2f2", "#dc2626")}>🔴 {days}d</span>;
-  if (days <= 90) return <span style={bs("#fef9c3", "#ca8a04")}>🟡 {days}d</span>;
-  if (days <= 180) return <span style={bs("#dcfce7", "#16a34a")}>🟢 {days}d</span>;
-  return <span style={bs("#dbeafe", "#2563eb")}>{days}d</span>;
+  const neutral = bs("transparent", "var(--ck-border2)", "var(--ck-ink3)");
+  const red = bs("var(--ck-red-light)", "rgba(201,74,46,0.4)", "var(--ck-red)");
+  const gold = bs("var(--ck-gold-light)", "rgba(200,146,42,0.4)", "var(--ck-gold)");
+  const green = bs("var(--ck-green-light)", "rgba(29,158,117,0.4)", "var(--ck-green)");
+  if (days === null) return <span style={neutral}>No Date</span>;
+  if (days < 0) return <span style={neutral}>Matured</span>;
+  if (days === 0) return <span style={red}>TODAY!</span>;
+  if (days <= 30) return <span style={red}>🔴 {days}d</span>;
+  if (days <= 90) return <span style={gold}>🟡 {days}d</span>;
+  if (days <= 180) return <span style={green}>🟢 {days}d</span>;
+  return <span style={neutral}>{days}d</span>;
 }
 
 export function EmptyState({

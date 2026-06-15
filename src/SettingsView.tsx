@@ -103,6 +103,7 @@ const SettingsView: React.FC = () => {
         setOverride({
           title: tab.label,
           icon: tab.icon,
+          subtitle: tab.desc,
           onBack: () => setActiveTab(null),
         });
       }
@@ -163,7 +164,16 @@ const SettingsView: React.FC = () => {
               </Section>
             )}
             {activeTab === 'tags' && (
-              <TagsManager isMobile={isMobile} onMobileBack={() => setActiveTab(null)} />
+              isMobile ? (
+                <TagsManager isMobile onMobileBack={() => setActiveTab(null)} />
+              ) : (
+                <Section
+                  title="🏷️ Tags"
+                  subtitle="Categorise tasks, events, and journal entries with colour-coded tags."
+                >
+                  <TagsManager isMobile={false} hideHeading />
+                </Section>
+              )
             )}
             {activeTab === 'calendars' && <CalendarsPane />}
             {activeTab === 'groups' && <GroupsPane />}
@@ -224,26 +234,14 @@ const CalendarsPane: React.FC = () => (
     title="📅 Reference Calendars"
     subtitle="Enable holiday calendars from around the world. Each holiday opens a rich card with cultural insights."
   >
-    <div
-      style={{
-        background: 'var(--ck-white)',
-        border: '0.5px solid var(--ck-border2)',
-        borderRadius: 12,
-        padding: 16,
-      }}
-    >
-      <ReferenceCalendarBrowser />
-    </div>
+    <ReferenceCalendarBrowser />
   </Section>
 );
 
+// Groups renders its own card + purple header strip (now titled "Groups & Sharing"),
+// so we don't wrap it in a Section — that would double the header.
 const GroupsPane: React.FC = () => (
-  <Section
-    title="👥 Groups & Sharing"
-    subtitle="Create groups, invite family or friends, and share tasks, events and journal entries."
-  >
-    <GroupsManager onClose={() => { /* inline: no-op */ }} inline />
-  </Section>
+  <GroupsManager onClose={() => { /* inline: no-op */ }} inline />
 );
 
 const MobileMenu: React.FC<{
