@@ -73,6 +73,7 @@ function getFilterLabel(filter: SafeFilter, tags: Tag[]): string {
     case 'sharedByMe': return 'Shared by Me';
     case 'recent': return 'Recently Edited';
     case 'expiring': return 'Expiring Soon';
+    case 'uncategorized': return 'Uncategorized';
     case 'category':
     case 'tag': {
       const tag = tags.find(t => t.id === filter.value);
@@ -761,6 +762,7 @@ const SafeView: React.FC = () => {
         const expDate = new Date(e.expiresAt);
         return expDate <= thirtyDaysFromNow && expDate >= now;
       }).length,
+      uncategorized: entries.filter(e => !e.categoryTagId).length,
       byTag: {} as Record<string, number>,
     };
     
@@ -800,6 +802,8 @@ const SafeView: React.FC = () => {
         });
       case 'category':
         return entries.filter(e => e.categoryTagId === activeFilter.value);
+      case 'uncategorized':
+        return entries.filter(e => !e.categoryTagId);
       case 'tag':
         return entries.filter(e => e.tags && e.tags.includes(activeFilter.value!));
       default:
@@ -1404,6 +1408,7 @@ const SafeView: React.FC = () => {
                       entries={filteredEntries}
                       tags={tags}
                       encryptionKey={encryptionKey!}
+                      isMobile={isMobile}
                       onEntrySelect={(entry) => {
                         setSelectedEntry(entry);
                         setIsAdding(false);
@@ -1426,6 +1431,7 @@ const SafeView: React.FC = () => {
                           setSelectedEntry(null);
                           handleActivity();
                         }}
+                        onFavoriteToggled={loadEntries}
                       />
                     )}
                   </>
@@ -1582,6 +1588,8 @@ const SafeView: React.FC = () => {
         <SafeTags
           onClose={() => setShowSafeTags(false)}
           onTagsChange={loadTags}
+          entryCountsByTag={entryCounts.byTag}
+          documentCountsByTag={docEntryCounts.byTag}
         />
       )}
 

@@ -8,7 +8,7 @@
 import React, { useState, useEffect } from 'react';
 import { SafeEntry, Tag, SafeEntryEncryptedData } from '../types';
 import { CryptoKey } from '../utils/encryption';
-import { decryptSafeEntry, deleteSafeEntry, markSafeEntryAccessed } from '../storage';
+import { decryptSafeEntry, deleteSafeEntry, markSafeEntryAccessed, updateSafeEntry } from '../storage';
 import { generateTOTP, getTOTPRemainingSeconds } from '../utils/totp';
 import Portal from './Portal';
 import EntryComments from './EntryComments';
@@ -21,6 +21,8 @@ interface SafeEntryDetailProps {
   onEdit: (entry: SafeEntry) => void;
   onDelete: () => void;
   onClose: () => void;
+  /** Called after the favorite flag is toggled so the parent list can refresh. */
+  onFavoriteToggled?: () => void;
 }
 
 const SafeEntryDetail: React.FC<SafeEntryDetailProps> = ({
@@ -29,12 +31,15 @@ const SafeEntryDetail: React.FC<SafeEntryDetailProps> = ({
   encryptionKey,
   onEdit,
   onDelete,
-  onClose
+  onClose,
+  onFavoriteToggled
 }) => {
   const { user } = useAuth();
   const [encryptedData, setEncryptedData] = useState<SafeEntryEncryptedData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
+  const [isFav, setIsFav] = useState<boolean>(!!entry.isFavorite);
+  const [favBusy, setFavBusy] = useState(false);
   const [showCustomFields, setShowCustomFields] = useState<Record<number, boolean>>({});
   const [totpCode, setTotpCode] = useState<string | null>(null);
   const [totpRemaining, setTotpRemaining] = useState<number>(0);
@@ -42,6 +47,30 @@ const SafeEntryDetail: React.FC<SafeEntryDetailProps> = ({
   useEffect(() => {
     loadEntryData();
   }, [entry]);
+
+  useEffect(() => {
+    setIsFav(!!entry.isFavorite);
+  }, [entry.id, entry.isFavorite]);
+
+  // Favorite is a plaintext flag on the entry row, so we can toggle it without
+  // re-encrypting. Optimistically update, persist, and revert on failure.
+  const handleToggleFavorite = async () => {
+    if (favBusy) return;
+    const next = !isFav;
+    setIsFav(next);
+    setFavBusy(true);
+    try {
+      const ok = await updateSafeEntry(entry.id, { isFavorite: next });
+      if (!ok) throw new Error('update failed');
+      onFavoriteToggled?.();
+    } catch (error) {
+      console.error('Error toggling favorite:', error);
+      setIsFav(!next);
+      alert('Failed to update favorite. Please try again.');
+    } finally {
+      setFavBusy(false);
+    }
+  };
 
   // Update TOTP code - regenerate only when 30s window changes, update countdown every second
   useEffect(() => {
@@ -224,9 +253,34 @@ const SafeEntryDetail: React.FC<SafeEntryDetailProps> = ({
             justifyContent: 'space-between',
             alignItems: 'center'
           }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               <h2 style={{ margin: 0, fontSize: '1.25rem', color: 'white' }}>{entry.title}</h2>
-              {entry.isFavorite && <span>⭐</span>}
+              {entry.isShared ? (
+                isFav && <span title="Favorite">⭐</span>
+              ) : (
+                <button
+                  onClick={handleToggleFavorite}
+                  disabled={favBusy}
+                  title={isFav ? 'Remove from favorites' : 'Add to favorites'}
+                  aria-pressed={isFav}
+                  style={{
+                    background: 'rgba(255,255,255,0.2)',
+                    border: 'none',
+                    borderRadius: '50%',
+                    width: 32,
+                    height: 32,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    cursor: favBusy ? 'default' : 'pointer',
+                    fontSize: '1.05rem',
+                    lineHeight: 1,
+                    opacity: favBusy ? 0.6 : 1,
+                  }}
+                >
+                  {isFav ? '⭐' : '☆'}
+                </button>
+              )}
             </div>
             <button
               onClick={onClose}

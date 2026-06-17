@@ -1291,10 +1291,28 @@ export const deleteTag = async (tagId: string): Promise<void> => {
 // Aliases for backward compatibility
 export const addTag = saveTag;
 export const updateTag = async (tagId: string, updates: Partial<Tag>): Promise<void> => {
-  const tags = await getTags();
-  const tag = tags.find(t => t.id === tagId);
-  if (!tag) throw new Error('Tag not found');
-  await saveTag({ ...tag, ...updates });
+  const { client, userId } = await requireAuth();
+
+  // Update by id directly. Going through saveTag()'s upsert (on_conflict
+  // user_id,name) breaks renames: a new name has no matching (user_id,name)
+  // row, so it attempts an INSERT with the existing id → 409 primary-key conflict.
+  const dbUpdates: Record<string, unknown> = {};
+  if (updates.name !== undefined) dbUpdates.name = updates.name;
+  if (updates.color !== undefined) dbUpdates.color = updates.color;
+  if (updates.trackable !== undefined) dbUpdates.trackable = updates.trackable;
+  if (updates.description !== undefined) dbUpdates.description = updates.description;
+  if (updates.allowedSections !== undefined) dbUpdates.allowed_sections = updates.allowedSections || null;
+  if (updates.isSafeOnly !== undefined) dbUpdates.is_safe_only = updates.isSafeOnly;
+  if (updates.isSystemCategory !== undefined) dbUpdates.is_system_category = updates.isSystemCategory;
+  if (updates.parentId !== undefined) dbUpdates.parent_id = updates.parentId || null;
+
+  const { error } = await client
+    .from('myday_tags')
+    .update(dbUpdates)
+    .eq('id', tagId)
+    .eq('user_id', userId);
+
+  if (error) throw error;
 };
 
 // ===== USER SETTINGS =====

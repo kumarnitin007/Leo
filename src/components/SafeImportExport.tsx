@@ -43,15 +43,36 @@ const SafeImportExport: React.FC<SafeImportExportProps> = ({
   onClose,
   onTagsRefresh
 }) => {
-  const [activeTab, setActiveTab] = useState<'export' | 'import'>('export');
-  const [exportFormat, setExportFormat] = useState<'encrypted' | 'unencrypted' | 'csv'>('encrypted');
+  const [activeTab, setActiveTabState] = useState<'export' | 'import'>(() => {
+    const saved = localStorage.getItem('myday_safe_iexport_tab');
+    return saved === 'import' ? 'import' : 'export';
+  });
+  const setActiveTab = (tab: 'export' | 'import') => {
+    setActiveTabState(tab);
+    localStorage.setItem('myday_safe_iexport_tab', tab);
+  };
+  const [exportFormat, setExportFormatState] = useState<'encrypted' | 'unencrypted' | 'csv'>(() => {
+    const saved = localStorage.getItem('myday_safe_export_format');
+    return saved === 'unencrypted' || saved === 'csv' ? saved : 'encrypted';
+  });
+  const setExportFormat = (fmt: 'encrypted' | 'unencrypted' | 'csv') => {
+    setExportFormatState(fmt);
+    localStorage.setItem('myday_safe_export_format', fmt);
+  };
   const [isExporting, setIsExporting] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const [importPassword, setImportPassword] = useState('');
   const [importError, setImportError] = useState('');
   
   // CSV Import states
-  const [importFormat, setImportFormat] = useState<'encrypted' | 'csv'>('encrypted');
+  const [importFormat, setImportFormatState] = useState<'encrypted' | 'csv'>(() => {
+    const saved = localStorage.getItem('myday_safe_import_format');
+    return saved === 'csv' ? 'csv' : 'encrypted';
+  });
+  const setImportFormat = (fmt: 'encrypted' | 'csv') => {
+    setImportFormatState(fmt);
+    localStorage.setItem('myday_safe_import_format', fmt);
+  };
   const [csvFile, setCsvFile] = useState<File | null>(null);
   const [csvPreview, setCsvPreview] = useState<PreviewEntry[]>([]);
   const [categoryMapping, setCategoryMapping] = useState<Record<string, number>>({});

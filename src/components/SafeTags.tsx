@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Tag } from '../types';
-import { getSafeTags, createSafeTag, deleteTag } from '../storage';
+import { getSafeTags, createSafeTag, deleteTag, updateTag } from '../storage';
 import { TAG_UI, VaultScopePill } from './tags/tagUiShared';
 
 const SAFE_SWATCHES = [
@@ -11,15 +11,22 @@ const SAFE_SWATCHES = [
 interface SafeTagsProps {
   onClose?: () => void;
   onTagsChange?: () => void;
+  /** Number of password/entries mapped to each tag id. */
+  entryCountsByTag?: Record<string, number>;
+  /** Number of documents mapped to each tag id. */
+  documentCountsByTag?: Record<string, number>;
 }
 
-const SafeTags: React.FC<SafeTagsProps> = ({ onClose, onTagsChange }) => {
+const SafeTags: React.FC<SafeTagsProps> = ({ onClose, onTagsChange, entryCountsByTag = {}, documentCountsByTag = {} }) => {
   const [tags, setTags] = useState<Tag[]>([]);
   const [isCreating, setIsCreating] = useState(false);
   const [newTagName, setNewTagName] = useState('');
   const [newTagColor, setNewTagColor] = useState('#3B82F6');
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editColor, setEditColor] = useState('#3B82F6');
 
   const load = async () => {
     try {
@@ -58,6 +65,25 @@ const SafeTags: React.FC<SafeTagsProps> = ({ onClose, onTagsChange }) => {
       onTagsChange?.();
     } catch {
       setError('Failed to delete tag');
+    }
+  };
+
+  const startEdit = (tag: Tag) => {
+    setEditingId(tag.id);
+    setEditName(tag.name);
+    setEditColor(tag.color || '#3B82F6');
+    setError('');
+  };
+
+  const handleRename = async (tagId: string) => {
+    if (!editName.trim()) return;
+    try {
+      await updateTag(tagId, { name: editName.trim(), color: editColor });
+      setEditingId(null);
+      await load();
+      onTagsChange?.();
+    } catch {
+      setError('Failed to rename tag');
     }
   };
 
@@ -264,7 +290,11 @@ const SafeTags: React.FC<SafeTagsProps> = ({ onClose, onTagsChange }) => {
             gap: 10,
           }}
         >
-          {filtered.map((tag) => (
+          {filtered.map((tag) => {
+            const entryCount = entryCountsByTag[tag.id] || 0;
+            const docCount = documentCountsByTag[tag.id] || 0;
+            const isEditing = editingId === tag.id;
+            return (
             <div
               key={tag.id}
               className="vault-tag-card-wrap"
@@ -276,47 +306,125 @@ const SafeTags: React.FC<SafeTagsProps> = ({ onClose, onTagsChange }) => {
                 position: 'relative',
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
-                  <span style={{ width: 10, height: 10, borderRadius: '50%', flexShrink: 0, background: tag.color }} />
-                  <span style={{ fontSize: 13, fontWeight: 600, color: '#111', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {tag.name}
-                  </span>
-                </div>
-                <VaultScopePill />
-              </div>
-              <div style={{ marginTop: 10 }}>
-                <TagSectionMini />
-              </div>
-              <div
-                style={{
-                  borderTop: `1px solid ${TAG_UI.border}`,
-                  marginTop: 12,
-                  paddingTop: 10,
-                  display: 'flex',
-                  justifyContent: 'flex-end',
-                }}
-              >
-                <div className="vault-tag-card-del" style={{ opacity: 0, transition: 'opacity 0.15s' }}>
-                  <button
-                    type="button"
-                    onClick={() => void handleDelete(tag.id)}
+              {isEditing ? (
+                <>
+                  <input
+                    value={editName}
+                    onChange={(e) => setEditName(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') void handleRename(tag.id); if (e.key === 'Escape') setEditingId(null); }}
+                    autoFocus
                     style={{
-                      padding: '4px 10px',
-                      fontSize: 11,
-                      borderRadius: 6,
-                      border: 'none',
-                      background: 'transparent',
-                      color: TAG_UI.deleteText,
-                      cursor: 'pointer',
+                      width: '100%',
+                      boxSizing: 'border-box',
+                      padding: '8px 10px',
+                      borderRadius: 8,
+                      border: `1px solid ${TAG_UI.border}`,
+                      fontSize: 13,
+                      background: TAG_UI.paper,
+                    }}
+                  />
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 10, alignItems: 'center' }}>
+                    {SAFE_SWATCHES.map((c) => (
+                      <button
+                        key={c}
+                        type="button"
+                        onClick={() => setEditColor(c)}
+                        style={{
+                          width: 22,
+                          height: 22,
+                          borderRadius: '50%',
+                          background: c,
+                          border: editColor === c ? '2px solid #1D1D1D' : '2px solid rgba(255,255,255,0.85)',
+                          cursor: 'pointer',
+                          padding: 0,
+                        }}
+                      />
+                    ))}
+                  </div>
+                  <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+                    <button
+                      type="button"
+                      onClick={() => setEditingId(null)}
+                      style={{ flex: 1, padding: 8, borderRadius: 8, border: `1px solid ${TAG_UI.border}`, background: TAG_UI.paper, cursor: 'pointer', fontSize: 12 }}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void handleRename(tag.id)}
+                      style={{ flex: 2, padding: 8, borderRadius: 8, border: 'none', background: TAG_UI.btnDark, color: '#fff', fontWeight: 600, cursor: 'pointer', fontSize: 12 }}
+                    >
+                      Save
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+                      <span style={{ width: 10, height: 10, borderRadius: '50%', flexShrink: 0, background: tag.color }} />
+                      <span style={{ fontSize: 13, fontWeight: 600, color: '#111', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {tag.name}
+                      </span>
+                    </div>
+                    <VaultScopePill />
+                  </div>
+                  <div style={{ marginTop: 10, display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                    <span style={{ fontSize: 10, padding: '3px 8px', borderRadius: 999, border: `1px solid ${TAG_UI.border}`, color: '#374151', background: TAG_UI.paperAlt }}>
+                      🔐 {entryCount} {entryCount === 1 ? 'entry' : 'entries'}
+                    </span>
+                    <span style={{ fontSize: 10, padding: '3px 8px', borderRadius: 999, border: `1px solid ${TAG_UI.border}`, color: '#374151', background: TAG_UI.paperAlt }}>
+                      📄 {docCount} {docCount === 1 ? 'document' : 'documents'}
+                    </span>
+                  </div>
+                  <div
+                    style={{
+                      borderTop: `1px solid ${TAG_UI.border}`,
+                      marginTop: 12,
+                      paddingTop: 10,
+                      display: 'flex',
+                      justifyContent: 'flex-end',
+                      gap: 4,
                     }}
                   >
-                    Delete
-                  </button>
-                </div>
-              </div>
+                    <div className="vault-tag-card-del" style={{ opacity: 0, transition: 'opacity 0.15s', display: 'flex', gap: 4 }}>
+                      <button
+                        type="button"
+                        onClick={() => startEdit(tag)}
+                        style={{
+                          padding: '4px 10px',
+                          fontSize: 11,
+                          borderRadius: 6,
+                          border: 'none',
+                          background: 'transparent',
+                          color: '#374151',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        Rename
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void handleDelete(tag.id)}
+                        style={{
+                          padding: '4px 10px',
+                          fontSize: 11,
+                          borderRadius: 6,
+                          border: 'none',
+                          background: 'transparent',
+                          color: TAG_UI.deleteText,
+                          cursor: 'pointer',
+                        }}
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
-          ))}
+            );
+          })}
         </div>
 
         {filtered.length === 0 && (
@@ -345,19 +453,5 @@ const SafeTags: React.FC<SafeTagsProps> = ({ onClose, onTagsChange }) => {
     </div>
   );
 };
-
-/** Static hint — vault tags stay in Vault only */
-function TagSectionMini() {
-  return (
-    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-      <span style={{ fontSize: 10, padding: '3px 8px', borderRadius: 999, border: `1px solid ${TAG_UI.border}`, color: '#374151', background: TAG_UI.paperAlt }}>
-        🔐 Entries
-      </span>
-      <span style={{ fontSize: 10, padding: '3px 8px', borderRadius: 999, border: `1px solid ${TAG_UI.border}`, color: '#374151', background: TAG_UI.paperAlt }}>
-        📄 Documents
-      </span>
-    </div>
-  );
-}
 
 export default SafeTags;

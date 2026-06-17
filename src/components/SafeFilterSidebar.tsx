@@ -11,7 +11,7 @@ import React, { useState } from 'react';
 import { Tag } from '../types';
 
 export interface SafeFilter {
-  type: 'all' | 'favorites' | 'shared' | 'sharedByMe' | 'recent' | 'expiring' | 'category' | 'tag';
+  type: 'all' | 'favorites' | 'shared' | 'sharedByMe' | 'recent' | 'expiring' | 'category' | 'tag' | 'uncategorized';
   value?: string; // tag/category id
 }
 
@@ -26,6 +26,7 @@ interface SafeFilterSidebarProps {
     sharedByMe: number;
     recent: number;
     expiring: number;
+    uncategorized: number;
     byTag: Record<string, number>;
   };
   isCollapsed?: boolean;
@@ -46,8 +47,8 @@ const SafeFilterSidebar: React.FC<SafeFilterSidebarProps> = ({
 }) => {
   const [expandedSections, setExpandedSections] = useState({
     quickFilters: true,
-    categories: true,
-    tags: true,
+    categories: false,
+    tags: false,
   });
 
   const toggleSection = (section: keyof typeof expandedSections) => {
@@ -279,11 +280,17 @@ const SafeFilterSidebar: React.FC<SafeFilterSidebarProps> = ({
                     key={cat.id}
                     filter={{ type: 'category', value: cat.id }}
                     icon={getCategoryIcon(cat.name)}
-                    label={cat.name}
+                    label={getCategoryDisplayName(cat.name)}
                     count={entryCounts.byTag[cat.id] || 0}
                     color={cat.color}
                   />
                 ))}
+                <FilterButton
+                  filter={{ type: 'uncategorized' }}
+                  icon="📁"
+                  label="Uncategorized"
+                  count={entryCounts.uncategorized}
+                />
               </div>
             )}
           </>
@@ -328,8 +335,8 @@ const SafeFilterSidebar: React.FC<SafeFilterSidebarProps> = ({
       display: 'flex',
       flexDirection: 'column',
       gap: '0.25rem',
-      minHeight: '450px',
-      maxHeight: 'calc(100vh - 250px)',
+      minHeight: '820px',
+      maxHeight: 'calc(100vh - 120px)',
       overflowY: 'auto',
     }}>
       {/* Collapse button */}
@@ -384,11 +391,17 @@ const SafeFilterSidebar: React.FC<SafeFilterSidebarProps> = ({
                   key={cat.id}
                   filter={{ type: 'category', value: cat.id }}
                   icon={getCategoryIcon(cat.name)}
-                  label={cat.name}
+                  label={getCategoryDisplayName(cat.name)}
                   count={entryCounts.byTag[cat.id] || 0}
                   color={cat.color}
                 />
               ))}
+              <FilterButton
+                filter={{ type: 'uncategorized' }}
+                icon="📁"
+                label="Uncategorized"
+                count={entryCounts.uncategorized}
+              />
             </div>
           )}
         </>
@@ -422,10 +435,22 @@ const SafeFilterSidebar: React.FC<SafeFilterSidebarProps> = ({
   );
 };
 
+// Helper to shorten long category names for the narrow filter panel.
+// Underlying tag names/ids are unchanged — this only affects the label shown.
+function getCategoryDisplayName(name: string): string {
+  const short: Record<string, string> = {
+    'Stock Trading Account': 'Stock Trading',
+    'Identity Documents': 'Identity Docs',
+  };
+  return short[name] || name;
+}
+
 // Helper to get category icons
 function getCategoryIcon(name: string): string {
   const icons: Record<string, string> = {
     'Login': '🔑',
+    'Stock Trading Account': '📈',
+    'Identity Documents': '🪪',
     'Credit Card': '💳',
     'Identity': '🪪',
     'Bank Account': '🏦',

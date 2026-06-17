@@ -1,9 +1,15 @@
-import React, { useState, useMemo, useEffect, memo } from 'react';
+import React, { useState, useMemo, useEffect, useRef, useReducer, useCallback, memo } from 'react';
 import { useDebounce } from '../hooks/useDebounce';
-import { SafeEntry, Tag } from '../types';
+import { SafeEntry, Tag, SafeEntryEncryptedData } from '../types';
 import { CryptoKey } from '../utils/encryption';
-import { deleteSafeEntriesByTag, deleteSafeEntry } from '../storage';
+import { deleteSafeEntriesByTag, deleteSafeEntry, updateSafeEntry, decryptSafeEntry } from '../storage';
 import { getUnresolvedCommentCount } from '../services/commentService';
+import { useVirtualList } from '../hooks/useVirtualList';
+import ViewToggle, { VaultView } from './vault/ViewToggle';
+import SafeEntryRow, { LIST_GRID } from './vault/SafeEntryRow';
+
+const VAULT_VIEW_KEY = 'myday_safe_passwords_view';
+const LIST_ROW_HEIGHT = 48;
 
 interface SafeEntryCardProps {
   entry: SafeEntry;
@@ -12,6 +18,7 @@ interface SafeEntryCardProps {
   commentCount: number;
   onEntrySelect: (entry: SafeEntry) => void;
   onShare?: (entry: SafeEntry) => void;
+  onToggleFavorite: (entry: SafeEntry) => void;
   onSelectToggle: (id: string, selected: boolean) => void;
   getCategoryName: (id: string | undefined) => string;
   getExpiringDays: (entry: SafeEntry) => number | null;
@@ -26,6 +33,7 @@ const SafeEntryCard = memo(function SafeEntryCard({
   commentCount,
   onEntrySelect,
   onShare,
+  onToggleFavorite,
   onSelectToggle,
   getCategoryName,
   getExpiringDays,
@@ -140,25 +148,56 @@ const SafeEntryCard = memo(function SafeEntryCard({
               🔗
             </button>
           )}
-          {entry.isFavorite && <span>⭐</span>}
+          {entry.isShared ? (
+            entry.isFavorite && <span title="Favorite">⭐</span>
+          ) : (
+            <button
+              onClick={(e) => { e.stopPropagation(); onToggleFavorite(entry); }}
+              title={entry.isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+              aria-pressed={!!entry.isFavorite}
+              style={{
+                background: 'none',
+                border: 'none',
+                cursor: 'pointer',
+                padding: '0.25rem',
+                fontSize: '1rem',
+                lineHeight: 1,
+                opacity: entry.isFavorite ? 1 : 0.55,
+                transition: 'opacity 0.2s',
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.opacity = '1')}
+              onMouseLeave={(e) => (e.currentTarget.style.opacity = entry.isFavorite ? '1' : '0.55')}
+            >
+              {entry.isFavorite ? '⭐' : '☆'}
+            </button>
+          )}
         </div>
       </div>
 
-      {entry.url && <p style={{ margin: '0 0 0.5rem 0', color: '#3b82f6', wordBreak: 'break-all' }}>🔗 {entry.url}</p>}
+      {/* URL row — single line (truncated), reserve space even when empty so cards stay aligned */}
+      <p
+        title={entry.url || undefined}
+        style={{ margin: '0 0 0.5rem 0', color: '#3b82f6', minHeight: '1.25em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
+      >
+        {entry.url ? `🔗 ${entry.url}` : '\u00A0'}
+      </p>
 
-      <div style={{ display: 'inline-block', padding: '0.25rem 0.75rem', backgroundColor: categoryTag?.color || '#667eea', color: 'white', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 600, marginBottom: '0.5rem' }}>{categoryName}</div>
+      {/* Category (left) + tags (right) on a single row */}
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '0.5rem', marginBottom: '0.5rem' }}>
+        <div style={{ flexShrink: 0, padding: '0.25rem 0.75rem', backgroundColor: categoryTag?.color || '#667eea', color: 'white', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 600 }}>{categoryName}</div>
 
-      {entry.tags && entry.tags.length > 0 && (
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '0.5rem' }}>
-          {entry.tags.map(tagId => {
-            const tag = tags.find(t => t.id === tagId && !t.isSystemCategory);
-            if (!tag) return null;
-            return (
-              <div key={tagId} style={{ padding: '0.25rem 0.75rem', backgroundColor: tag.color || '#667eea', color: 'white', borderRadius: '6px', fontSize: '0.75rem' }}>{tag.name}</div>
-            );
-          })}
-        </div>
-      )}
+        {entry.tags && entry.tags.length > 0 && (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', justifyContent: 'flex-end' }}>
+            {entry.tags.map(tagId => {
+              const tag = tags.find(t => t.id === tagId && !t.isSystemCategory);
+              if (!tag) return null;
+              return (
+                <div key={tagId} style={{ padding: '0.25rem 0.75rem', backgroundColor: tag.color || '#667eea', color: 'white', borderRadius: '6px', fontSize: '0.75rem' }}>{tag.name}</div>
+              );
+            })}
+          </div>
+        )}
+      </div>
 
       {isExpiring && expiringDays !== null && (
         <div style={{ display: 'inline-block', padding: '0.25rem 0.75rem', backgroundColor: expiringDays <= 7 ? '#ef4444' : '#f59e0b', color: 'white', borderRadius: '6px', fontSize: '0.75rem' }}>⏰ Expires in {expiringDays} {expiringDays === 1 ? 'day' : 'days'}</div>
@@ -192,6 +231,90 @@ function formatTimeAgo(isoTimestamp: string): string {
   return `${diffMonths}mo ago`;
 }
 
+interface PasswordsListViewProps {
+  entries: SafeEntry[];
+  tags: Tag[];
+  encryptionKey: CryptoKey;
+  usernames: Record<string, string>;
+  ensureUsername: (entry: SafeEntry) => void;
+  commentCounts: Record<string, number>;
+  selectedIds: string[];
+  onEntrySelect: (entry: SafeEntry) => void;
+  onShare?: (entry: SafeEntry) => void;
+  onToggleFavorite: (entry: SafeEntry) => void;
+  onSelectToggle: (id: string, selected: boolean) => void;
+  getCategoryName: (id: string | undefined) => string;
+}
+
+const HEADER_LABELS = ['TITLE', 'USERNAME', 'PASSWORD', 'URL', 'CATEGORY', 'UPDATED'];
+
+const PasswordsListView: React.FC<PasswordsListViewProps> = ({
+  entries,
+  tags,
+  encryptionKey,
+  usernames,
+  ensureUsername,
+  commentCounts,
+  selectedIds,
+  onEntrySelect,
+  onShare,
+  onToggleFavorite,
+  onSelectToggle,
+  getCategoryName,
+}) => {
+  const { virtualItems, totalHeight, containerRef } = useVirtualList<SafeEntry>({
+    items: entries,
+    itemHeight: LIST_ROW_HEIGHT,
+    overscan: 6,
+  });
+
+  return (
+    <div style={{ border: '0.5px solid var(--ck-border2)', borderRadius: '10px', overflow: 'hidden', background: 'var(--ck-white)' }}>
+      {/* Column header */}
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: LIST_GRID,
+          gap: '0.75rem',
+          padding: '0.6rem 0.75rem',
+          background: 'var(--ck-purple-light)',
+          borderBottom: '0.5px solid var(--ck-border2)',
+          fontSize: '0.68rem',
+          fontWeight: 700,
+          letterSpacing: '0.5px',
+          color: 'var(--ck-ink3)',
+        }}
+      >
+        {HEADER_LABELS.map(l => <span key={l}>{l}</span>)}
+      </div>
+
+      {/* Virtualized rows */}
+      <div ref={containerRef} style={{ maxHeight: 'calc(100vh - 300px)', minHeight: '420px', overflowY: 'auto' }}>
+        <div style={{ height: totalHeight, position: 'relative' }}>
+          {virtualItems.map(({ item, style }) => (
+            <div key={item.id} style={style.position ? style : { height: LIST_ROW_HEIGHT }}>
+              <SafeEntryRow
+                entry={item}
+                tags={tags}
+                encryptionKey={encryptionKey}
+                username={usernames[item.id]}
+                onNeedUsername={ensureUsername}
+                commentCount={commentCounts[item.id] || 0}
+                isSelected={selectedIds.includes(item.id)}
+                onEntrySelect={onEntrySelect}
+                onShare={onShare}
+                onToggleFavorite={onToggleFavorite}
+                onSelectToggle={onSelectToggle}
+                getCategoryName={getCategoryName}
+              />
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};
+
 interface SafeEntryListProps {
   entries: SafeEntry[];
   tags: Tag[];
@@ -199,6 +322,7 @@ interface SafeEntryListProps {
   onEntrySelect: (entry: SafeEntry) => void;
   onEntrySaved: () => void;
   onShare?: (entry: SafeEntry) => void;
+  isMobile?: boolean;
 }
 
 const SafeEntryList: React.FC<SafeEntryListProps> = ({
@@ -207,7 +331,8 @@ const SafeEntryList: React.FC<SafeEntryListProps> = ({
   encryptionKey,
   onEntrySelect,
   onEntrySaved,
-  onShare
+  onShare,
+  isMobile = false
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const debouncedSearchQuery = useDebounce(searchQuery, 300);
@@ -215,6 +340,34 @@ const SafeEntryList: React.FC<SafeEntryListProps> = ({
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
   const [sortBy, setSortBy] = useState<'title' | 'updated' | 'expires'>('updated');
+
+  // List/Card view preference (desktop only) — persisted per-device.
+  // localStorage matches the existing Vault prefs (filter collapse, import/export
+  // tab) and avoids a server migration for a trivial UI toggle.
+  const [view, setViewState] = useState<VaultView>(
+    () => (localStorage.getItem(VAULT_VIEW_KEY) === 'list' ? 'list' : 'card')
+  );
+  const setView = (v: VaultView) => {
+    setViewState(v);
+    localStorage.setItem(VAULT_VIEW_KEY, v);
+  };
+  const effectiveView: VaultView = isMobile ? 'card' : view;
+
+  // Lazily-decrypted usernames for the list view, cached by entry id so scrolling
+  // back through a virtualized list doesn't re-decrypt. Passwords are never cached.
+  const usernameCacheRef = useRef<Record<string, string>>({});
+  const [, bumpUsernames] = useReducer((x: number) => x + 1, 0);
+  const ensureUsername = useCallback(async (entry: SafeEntry) => {
+    if (usernameCacheRef.current[entry.id] !== undefined) return;
+    try {
+      const data: SafeEntryEncryptedData = entry.decryptedData
+        ?? JSON.parse(await decryptSafeEntry(entry, encryptionKey));
+      usernameCacheRef.current[entry.id] = data.username || '';
+    } catch {
+      usernameCacheRef.current[entry.id] = '';
+    }
+    bumpUsernames();
+  }, [encryptionKey]);
 
   // selection
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -375,6 +528,8 @@ const SafeEntryList: React.FC<SafeEntryListProps> = ({
           <option value="expires">Expiry</option>
         </select>
 
+        {!isMobile && <ViewToggle value={view} onChange={setView} />}
+
         <button
           onClick={() => setShowFavoritesOnly(!showFavoritesOnly)}
           style={{
@@ -395,22 +550,23 @@ const SafeEntryList: React.FC<SafeEntryListProps> = ({
           <button onClick={() => setShowDeleteConfirm(true)} style={{ padding: '0.5rem 0.75rem', backgroundColor: '#ef4444', color: 'white', border: 'none', borderRadius: '0.5rem', fontSize: '0.875rem' }}>🗑️ ({entriesWithSelectedTag.length})</button>
         )}
 
-        {filteredEntries.length > 0 && (
-          (() => {
-            const allVisibleSelected = filteredEntries.every(e => selectedIds.includes(e.id));
-            return (
-              <button
-                onClick={() => {
-                  if (allVisibleSelected) setSelectedIds(prev => prev.filter(id => !filteredEntries.some(e => e.id === id)));
-                  else setSelectedIds(prev => Array.from(new Set([...prev, ...filteredEntries.map(e => e.id)])));
-                }}
-                style={{ padding: '0.5rem 0.75rem', backgroundColor: allVisibleSelected ? '#6b7280' : '#3b82f6', color: 'white', border: 'none', borderRadius: '0.5rem', fontSize: '0.875rem' }}
-              >
-                {allVisibleSelected ? 'Deselect' : `Select (${filteredEntries.length})`}
-              </button>
-            );
-          })()
-        )}
+        {(() => {
+          const hasEntries = filteredEntries.length > 0;
+          const allVisibleSelected = hasEntries && filteredEntries.every(e => selectedIds.includes(e.id));
+          return (
+            <button
+              disabled={!hasEntries}
+              onClick={() => {
+                if (!hasEntries) return;
+                if (allVisibleSelected) setSelectedIds(prev => prev.filter(id => !filteredEntries.some(e => e.id === id)));
+                else setSelectedIds(prev => Array.from(new Set([...prev, ...filteredEntries.map(e => e.id)])));
+              }}
+              style={{ padding: '0.5rem 0.75rem', backgroundColor: !hasEntries ? '#e5e7eb' : allVisibleSelected ? '#6b7280' : '#3b82f6', color: !hasEntries ? '#9ca3af' : 'white', border: 'none', borderRadius: '0.5rem', fontSize: '0.875rem', cursor: hasEntries ? 'pointer' : 'not-allowed' }}
+            >
+              {allVisibleSelected ? 'Deselect' : `Select (${filteredEntries.length})`}
+            </button>
+          );
+        })()}
 
         {selectedIds.length > 0 && (
           <button onClick={() => setShowSelectedDeleteConfirm(true)} style={{ padding: '0.5rem 0.75rem', backgroundColor: '#ef4444', color: 'white', border: 'none', borderRadius: '0.5rem', fontSize: '0.875rem' }}>🗑️ ({selectedIds.length})</button>
@@ -428,6 +584,31 @@ const SafeEntryList: React.FC<SafeEntryListProps> = ({
           <p style={{ fontSize: '1.25rem', margin: 0 }}>No entries found</p>
           <p style={{ margin: '0.5rem 0 0 0' }}>{searchQuery || selectedCategory || showFavoritesOnly ? 'Try adjusting your filters' : 'Click "Add Entry" to create your first entry'}</p>
         </div>
+      ) : effectiveView === 'list' ? (
+        <PasswordsListView
+          entries={filteredEntries}
+          tags={tags}
+          encryptionKey={encryptionKey}
+          usernames={usernameCacheRef.current}
+          ensureUsername={ensureUsername}
+          commentCounts={commentCounts}
+          selectedIds={selectedIds}
+          onEntrySelect={onEntrySelect}
+          onShare={onShare}
+          onToggleFavorite={async (e) => {
+            try {
+              const ok = await updateSafeEntry(e.id, { isFavorite: !e.isFavorite });
+              if (ok) onEntrySaved();
+            } catch (err) {
+              console.error('Error toggling favorite:', err);
+            }
+          }}
+          onSelectToggle={(id, selected) => {
+            if (selected) setSelectedIds(prev => [...prev, id]);
+            else setSelectedIds(prev => prev.filter(i => i !== id));
+          }}
+          getCategoryName={getCategoryName}
+        />
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '1rem' }}>
           {filteredEntries.map(entry => (
@@ -439,6 +620,14 @@ const SafeEntryList: React.FC<SafeEntryListProps> = ({
               commentCount={commentCounts[entry.id] || 0}
               onEntrySelect={onEntrySelect}
               onShare={onShare}
+              onToggleFavorite={async (e) => {
+                try {
+                  const ok = await updateSafeEntry(e.id, { isFavorite: !e.isFavorite });
+                  if (ok) onEntrySaved();
+                } catch (err) {
+                  console.error('Error toggling favorite:', err);
+                }
+              }}
               onSelectToggle={(id, selected) => {
                 if (selected) setSelectedIds(prev => [...prev, id]);
                 else setSelectedIds(prev => prev.filter(i => i !== id));

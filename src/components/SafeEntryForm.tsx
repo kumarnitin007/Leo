@@ -302,8 +302,24 @@ const SafeEntryForm: React.FC<SafeEntryFormProps> = ({
             title="Please enter a valid URL starting with http:// or https://"
           />
           {url && url.trim() && !url.match(/^https?:\/\/.+/i) && (
-            <p style={{ margin: '0.5rem 0 0 0', color: '#ef4444', fontSize: '0.875rem' }}>
+            <p style={{ margin: '0.5rem 0 0 0', color: '#ef4444', fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
               URL should start with http:// or https://
+              <button
+                type="button"
+                onClick={() => setUrl('https://' + url.trim().replace(/^\/+/, ''))}
+                style={{
+                  padding: '0.2rem 0.6rem',
+                  border: '0.5px solid var(--ck-purple)',
+                  background: 'var(--ck-purple-light)',
+                  color: 'var(--ck-purple)',
+                  borderRadius: '0.4rem',
+                  fontSize: '0.8rem',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                }}
+              >
+                Add https://
+              </button>
             </p>
           )}
         </div>
