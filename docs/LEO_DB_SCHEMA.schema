@@ -275,7 +275,7 @@ SELECT * FROM myday_gift_cards;
 
 ---
 
-**Last Updated**: 2026-05-04  
+**Last Updated**: 2026-06-18  
 **Status**: ✅ VERIFIED
 
 ---
@@ -284,6 +284,7 @@ SELECT * FROM myday_gift_cards;
 
 | Date | Change |
 |------|--------|
+| 2026-06-18 | Added `aiProvider` key (`'openai'` \| `'gemini'`) to the existing `extra_settings` (JSONB) bag on `myday_user_settings` (MYUS) — selects which AI engine powers all AI features. No schema/column change required. |
 | 2026-06-15 | Added `display_name` (text) column to `myday_user_settings` (MYUS) — canonical store for the Groups display name so it persists even with zero group memberships (previously only written to `myday_group_members`, which silently saved nothing when the user had no groups). |
 | 2026-05-04 | Added `myday_numerology_questions` (MYNQ) for the Plain-English numerology card's per-user custom questions feature. Limit defined in `src/numerology/numerologyInsights.ts` (`NUMEROLOGY_CUSTOM_Q_MAX`, default 5). Answers are NOT stored — they are regenerated daily and cached via `myday_astro_cache` (key `numerology_q_<questionId>_<YYYY-MM-DD>`). New `numerology_question` and `numerology_vibe` ability ids in `AIAbilityId` for `myday_ai_audit_log` tracking. |
 | 2026-04-17 | Added `myday_astrology_readings` (MYAR) for AI reading history (question, answers, timing, confidence, cost). Added `astro_reading` to AIAbilityId for audit tracking. |

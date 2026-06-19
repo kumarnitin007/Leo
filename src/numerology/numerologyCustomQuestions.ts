@@ -26,6 +26,7 @@
 import { getSupabaseClient } from '../lib/supabase';
 import { saveAstroCache, getAstroCache } from '../services/astroCacheService';
 import { logAICall } from '../services/ai/aiAuditService';
+import { getSelectedAIProvider } from '../services/ai/aiProvider';
 import { perfStart } from '../utils/perfLogger';
 import {
   NUMEROLOGY_CUSTOM_Q_MAX,
@@ -217,6 +218,7 @@ export async function getAnswerForQuestion(
         profileSummary,
         question: question.question,
         today: todayKey(today),
+        provider: getSelectedAIProvider(),
       }),
     });
     if (!r.ok) {

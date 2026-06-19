@@ -161,6 +161,8 @@ export interface UserSettings {
   financialPreferences?: FinancialPreferences;
   aiOptIn?: boolean;
   aiPersonality?: AIPersonality;
+  /** Which AI engine to use for all AI features. Defaults to 'openai'. */
+  aiProvider?: 'openai' | 'gemini';
   location?: {
     zipCode?: string;
     city?: string;

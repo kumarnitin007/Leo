@@ -1,4 +1,5 @@
 import { handleApiError, createErrorResponse } from './_utils/errorHandler.js';
+import { resolveAIProvider } from './_utils/aiProvider.js';
 
 /**
  * Unified astro proxy — all FreeAstroAPI calls go through this single
@@ -464,9 +465,9 @@ async function handleNumerology(req: any, res: any) {
 
 /* ── Ask AI — OpenAI-powered astro reading ────────────────────── */
 async function handleAskAI(req: any, res: any) {
-  const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
-  if (!OPENAI_API_KEY) {
-    return res.status(500).json(createErrorResponse('CONFIG_ERROR', 'OpenAI API key not configured'));
+  const ai = resolveAIProvider(req.body?.provider);
+  if (!ai.apiKey) {
+    return res.status(500).json(createErrorResponse('CONFIG_ERROR', 'AI service not configured'));
   }
 
   const { prompt, question } = req.body || {};
@@ -474,7 +475,7 @@ async function handleAskAI(req: any, res: any) {
     return res.status(400).json(createErrorResponse('VALIDATION_ERROR', 'A prompt with astrological context is required'));
   }
 
-  const MODEL = 'gpt-4o-mini';
+  const MODEL = ai.model;
   const COST_PER_1K_IN = 0.00015;
   const COST_PER_1K_OUT = 0.0006;
   const startTime = Date.now();
@@ -495,9 +496,9 @@ async function handleAskAI(req: any, res: any) {
       '}',
     ].join('\n');
 
-    const resp = await fetch('https://api.openai.com/v1/chat/completions', {
+    const resp = await fetch(ai.url, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${OPENAI_API_KEY}` },
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${ai.apiKey}` },
       body: JSON.stringify({
         model: MODEL,
         messages: [
@@ -512,8 +513,8 @@ async function handleAskAI(req: any, res: any) {
     const durationMs = Date.now() - startTime;
 
     if (!resp.ok) {
-      console.error('[astro:ask-ai] OpenAI error:', JSON.stringify(data).slice(0, 500));
-      return res.status(resp.status).json(createErrorResponse('EXTERNAL_API_ERROR', `OpenAI: ${resp.status}`));
+      console.error(`[astro:ask-ai] ${ai.provider} error:`, JSON.stringify(data).slice(0, 500));
+      return res.status(resp.status).json(createErrorResponse('EXTERNAL_API_ERROR', `${ai.provider}: ${resp.status}`));
     }
 
     const raw = data.choices?.[0]?.message?.content || '';
@@ -551,9 +552,9 @@ async function handleAskAI(req: any, res: any) {
  * English. Cached once/day in `myday_astro_cache` by the caller.
  */
 async function handleNumerologyVibe(req: any, res: any) {
-  const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
-  if (!OPENAI_API_KEY) {
-    return res.status(500).json(createErrorResponse('CONFIG_ERROR', 'OpenAI API key not configured'));
+  const ai = resolveAIProvider(req.body?.provider);
+  if (!ai.apiKey) {
+    return res.status(500).json(createErrorResponse('CONFIG_ERROR', 'AI service not configured'));
   }
 
   const { profileSummary, today } = req.body || {};
@@ -561,7 +562,7 @@ async function handleNumerologyVibe(req: any, res: any) {
     return res.status(400).json(createErrorResponse('VALIDATION_ERROR', 'profileSummary string is required'));
   }
 
-  const MODEL = 'gpt-4o-mini';
+  const MODEL = ai.model;
   const COST_PER_1K_IN = 0.00015;
   const COST_PER_1K_OUT = 0.0006;
   const startTime = Date.now();
@@ -579,9 +580,9 @@ async function handleNumerologyVibe(req: any, res: any) {
 
     const userContent = `Profile: ${profileSummary}\nToday: ${today || new Date().toISOString().slice(0, 10)}`;
 
-    const resp = await fetch('https://api.openai.com/v1/chat/completions', {
+    const resp = await fetch(ai.url, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${OPENAI_API_KEY}` },
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${ai.apiKey}` },
       body: JSON.stringify({
         model: MODEL,
         messages: [
@@ -596,8 +597,8 @@ async function handleNumerologyVibe(req: any, res: any) {
     const durationMs = Date.now() - startTime;
 
     if (!resp.ok) {
-      console.error('[astro:numerology-vibe] OpenAI error:', JSON.stringify(data).slice(0, 500));
-      return res.status(resp.status).json(createErrorResponse('EXTERNAL_API_ERROR', `OpenAI: ${resp.status}`));
+      console.error(`[astro:numerology-vibe] ${ai.provider} error:`, JSON.stringify(data).slice(0, 500));
+      return res.status(resp.status).json(createErrorResponse('EXTERNAL_API_ERROR', `${ai.provider}: ${resp.status}`));
     }
 
     const paragraph = (data.choices?.[0]?.message?.content || '').trim();
@@ -632,9 +633,9 @@ async function handleNumerologyVibe(req: any, res: any) {
  * question in `myday_astro_cache` by the caller.
  */
 async function handleNumerologyQuestion(req: any, res: any) {
-  const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
-  if (!OPENAI_API_KEY) {
-    return res.status(500).json(createErrorResponse('CONFIG_ERROR', 'OpenAI API key not configured'));
+  const ai = resolveAIProvider(req.body?.provider);
+  if (!ai.apiKey) {
+    return res.status(500).json(createErrorResponse('CONFIG_ERROR', 'AI service not configured'));
   }
 
   const { profileSummary, question, today } = req.body || {};
@@ -648,7 +649,7 @@ async function handleNumerologyQuestion(req: any, res: any) {
     return res.status(400).json(createErrorResponse('VALIDATION_ERROR', 'Question must be ≤ 240 characters'));
   }
 
-  const MODEL = 'gpt-4o-mini';
+  const MODEL = ai.model;
   const COST_PER_1K_IN = 0.00015;
   const COST_PER_1K_OUT = 0.0006;
   const startTime = Date.now();
@@ -664,9 +665,9 @@ async function handleNumerologyQuestion(req: any, res: any) {
 
     const userContent = `Profile: ${profileSummary}\nToday: ${today || new Date().toISOString().slice(0, 10)}\n\nQuestion: ${question.trim()}`;
 
-    const resp = await fetch('https://api.openai.com/v1/chat/completions', {
+    const resp = await fetch(ai.url, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${OPENAI_API_KEY}` },
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${ai.apiKey}` },
       body: JSON.stringify({
         model: MODEL,
         messages: [
@@ -681,8 +682,8 @@ async function handleNumerologyQuestion(req: any, res: any) {
     const durationMs = Date.now() - startTime;
 
     if (!resp.ok) {
-      console.error('[astro:numerology-question] OpenAI error:', JSON.stringify(data).slice(0, 500));
-      return res.status(resp.status).json(createErrorResponse('EXTERNAL_API_ERROR', `OpenAI: ${resp.status}`));
+      console.error(`[astro:numerology-question] ${ai.provider} error:`, JSON.stringify(data).slice(0, 500));
+      return res.status(resp.status).json(createErrorResponse('EXTERNAL_API_ERROR', `${ai.provider}: ${resp.status}`));
     }
 
     const answer = (data.choices?.[0]?.message?.content || '').trim();

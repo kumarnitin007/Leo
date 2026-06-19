@@ -1,6 +1,7 @@
 import { ExtractedItem } from '../src/services/imageScanning/types';
 import { applyRateLimit, RATE_LIMITS } from './_utils/rateLimit.js';
 import { handleApiError, createErrorResponse } from './_utils/errorHandler.js';
+import { resolveAIProvider } from './_utils/aiProvider.js';
 
 // OpenAI GPT-4 Vision API endpoint
 // Expects: OPENAI_API_KEY in environment variables
@@ -16,9 +17,11 @@ export default async function handler(req: any, res: any) {
     return; // Response already sent by rate limiter
   }
 
-  const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+  // Vision needs a vision-capable model. OpenAI uses gpt-4o (Vision); Gemini's
+  // default flash model is already multimodal.
+  const ai = resolveAIProvider(req.body?.provider, { openaiModel: 'gpt-4o' });
 
-  if (!OPENAI_API_KEY) {
+  if (!ai.apiKey) {
     res.status(500).json(createErrorResponse('CONFIG_ERROR', 'Image scanning not available'));
     return;
   }
@@ -55,15 +58,15 @@ export default async function handler(req: any, res: any) {
       return;
     }
 
-    // Call OpenAI Vision API
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    // Call the selected provider's Vision-capable chat endpoint
+    const response = await fetch(ai.url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${OPENAI_API_KEY}`
+        'Authorization': `Bearer ${ai.apiKey}`
       },
       body: JSON.stringify({
-        model: 'gpt-4-vision-preview',
+        model: ai.model,
         messages: [
           {
             role: 'user',
@@ -123,7 +126,7 @@ IMPORTANT: Return ONLY valid JSON, no markdown, no explanations.`
 
     if (!response.ok) {
       const error = await response.json();
-      console.error('OpenAI API error:', error);
+      console.error(`${ai.provider} API error:`, error);
       res.status(500).json(createErrorResponse('EXTERNAL_API_ERROR', 'Image analysis failed'));
       return;
     }

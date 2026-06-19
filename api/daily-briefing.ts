@@ -1,5 +1,6 @@
 import { applyRateLimit, RATE_LIMITS } from './_utils/rateLimit.js';
 import { handleApiError, createErrorResponse } from './_utils/errorHandler.js';
+import { resolveAIProvider } from './_utils/aiProvider.js';
 
 /**
  * POST /api/daily-briefing
@@ -68,9 +69,9 @@ export default async function handler(req: any, res: any) {
     return;
   }
 
-  const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
-  if (!OPENAI_API_KEY) {
-    console.error('[daily-briefing] OPENAI_API_KEY not configured');
+  const ai = resolveAIProvider(req.body?.provider);
+  if (!ai.apiKey) {
+    console.error(`[daily-briefing] API key not configured for provider: ${ai.provider}`);
     return res.status(500).json(createErrorResponse('CONFIG_ERROR', 'AI service not configured'));
   }
 
@@ -162,14 +163,14 @@ Respond ONLY with valid JSON matching this schema:
     const userMessage = sections.join('\n\n');
 
     // ── Call OpenAI ──────────────────────────────────────────────────
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    const response = await fetch(ai.url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${OPENAI_API_KEY}`,
+        'Authorization': `Bearer ${ai.apiKey}`,
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
+        model: ai.model,
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userMessage },
@@ -181,7 +182,7 @@ Respond ONLY with valid JSON matching this schema:
 
     if (!response.ok) {
       const err = await response.json();
-      console.error('[daily-briefing] OpenAI error:', err);
+      console.error(`[daily-briefing] ${ai.provider} error:`, err);
       return res.status(502).json(createErrorResponse('EXTERNAL_API_ERROR', 'AI service unavailable'));
     }
 
@@ -208,7 +209,7 @@ Respond ONLY with valid JSON matching this schema:
       usage: {
         prompt_tokens: data.usage?.prompt_tokens ?? 0,
         completion_tokens: data.usage?.completion_tokens ?? 0,
-        model: 'gpt-4o-mini',
+        model: ai.model,
       },
     };
 

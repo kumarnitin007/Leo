@@ -5,7 +5,7 @@
  */
 
 import { SafeEntry, SafeEntryEncryptedData, Tag } from '../types';
-import { encryptData } from './encryption';
+import { encryptData, decryptData } from './encryption';
 import { CryptoKey } from './encryption';
 
 /**
@@ -38,6 +38,7 @@ export interface PreviewEntry {
 export interface ImportSummary {
   total: number;
   imported: number;
+  updated?: number;
   skipped: number;
   categoryMapping: Record<string, number>;
   errors: string[];
@@ -324,40 +325,93 @@ export async function convertCSVRowsToEntries(
   existingEntries: SafeEntry[]
 ): Promise<SafeEntry[]> {
   const entries: SafeEntry[] = [];
-  // Create a set of existing entry keys (title + url) for duplicate detection
-  const existingKeys = new Set(
-    existingEntries.map(e => {
-      const title = (e.title || '').toLowerCase().trim();
-      const url = (e.url || '').toLowerCase().trim();
-      return `${title}|${url}`;
-    })
-  );
-  
-  for (const row of rows) {
-    // Check for duplicate (same title and URL)
-    const title = (row.account || '').toLowerCase().trim();
-    const url = (row.webSite || '').toLowerCase().trim();
-    const key = `${title}|${url}`;
-    
-    if (existingKeys.has(key)) {
-      continue; // Skip duplicate
+
+  // Identity = title + username (the user keeps these stable across re-imports).
+  // We decrypt existing entries once so we can compare ALL fields (password,
+  // notes, url) and UPDATE in place when something changed — instead of
+  // skipping the row as a duplicate. Reusing the existing entry's id makes
+  // importSafeEntries() update that row rather than insert a new one.
+  const identityKey = (title: string, username: string) =>
+    `${(title || '').toLowerCase().trim()}|${(username || '').toLowerCase().trim()}`;
+
+  interface ExistingMatch {
+    entry: SafeEntry;
+    data: SafeEntryEncryptedData | null; // null = could not decrypt (compare disabled)
+  }
+  const existingByIdentity = new Map<string, ExistingMatch>();
+
+  for (const e of existingEntries) {
+    let data: SafeEntryEncryptedData | null = null;
+    try {
+      const json = await decryptData(e.encryptedData, e.encryptedDataIv, encryptionKey);
+      data = JSON.parse(json) as SafeEntryEncryptedData;
+    } catch {
+      data = null; // keep the entry registered, but we won't risk overwriting it
     }
-    
-    // Detect category
+    const username = data?.username || '';
+    existingByIdentity.set(identityKey(e.title, username), { entry: e, data });
+  }
+
+  const norm = (s: string | undefined | null) => (s ?? '');
+
+  for (const row of rows) {
+    const match = existingByIdentity.get(identityKey(row.account, row.loginName));
+
+    // Detect category from the row
     const { categoryId } = detectCategory(row, categoryTags);
-    
-    // Prepare encrypted data
+
+    // Prepare encrypted data payload from the CSV row
     const encryptedData: SafeEntryEncryptedData = {
       username: row.loginName || undefined,
       password: row.password || undefined,
       notes: row.comments || undefined
     };
-    
-    // Encrypt the data
+
+    if (match) {
+      // If we couldn't decrypt the existing entry, don't risk clobbering it — skip.
+      if (!match.data) {
+        continue;
+      }
+
+      // Compare every field that the import can carry. Only update on a real change.
+      const urlChanged = norm(match.entry.url).trim() !== norm(row.webSite).trim();
+      const usernameChanged = norm(match.data.username) !== norm(row.loginName);
+      const passwordChanged = norm(match.data.password) !== norm(row.password);
+      const notesChanged = norm(match.data.notes) !== norm(row.comments);
+
+      if (!urlChanged && !usernameChanged && !passwordChanged && !notesChanged) {
+        continue; // True duplicate — nothing changed
+      }
+
+      // Something changed → update in place (reuse id + createdAt, keep
+      // user's existing category, tags and favorite flag).
+      const jsonData = JSON.stringify(encryptedData);
+      const { encrypted, iv } = await encryptData(jsonData, encryptionKey);
+      const existingTags = match.entry.tags || [];
+      const mergedTags = selectedTagId && !existingTags.includes(selectedTagId)
+        ? [...existingTags, selectedTagId]
+        : existingTags;
+
+      entries.push({
+        id: match.entry.id,
+        title: match.entry.title || row.account || 'Untitled',
+        url: row.webSite || undefined,
+        categoryTagId: match.entry.categoryTagId ?? categoryId,
+        tags: mergedTags,
+        isFavorite: match.entry.isFavorite || false,
+        expiresAt: match.entry.expiresAt,
+        encryptedData: encrypted,
+        encryptedDataIv: iv,
+        createdAt: match.entry.createdAt,
+        updatedAt: new Date().toISOString(),
+        lastAccessedAt: match.entry.lastAccessedAt
+      });
+      continue;
+    }
+
+    // No match → brand new entry
     const jsonData = JSON.stringify(encryptedData);
     const { encrypted, iv } = await encryptData(jsonData, encryptionKey);
-    
-    // Create entry
     const now = new Date().toISOString();
     entries.push({
       id: crypto.randomUUID(),
@@ -374,7 +428,7 @@ export async function convertCSVRowsToEntries(
       lastAccessedAt: now
     });
   }
-  
+
   return entries;
 }
 

@@ -298,11 +298,16 @@ const SafeImportExport: React.FC<SafeImportExportProps> = ({
       
       // Import entries
       const result = await importSafeEntries(entriesToImport, encryptionKey);
-      
+
+      // Split processed entries into new vs updated (updates reuse an existing id)
+      const existingIds = new Set(existingEntries.map(e => e.id));
+      const updatedCount = entriesToImport.filter(e => existingIds.has(e.id)).length;
+
       // Generate summary
       const summary: ImportSummary = {
         total: rows.length,
-        imported: result.success,
+        imported: Math.max(result.success - updatedCount, 0),
+        updated: updatedCount,
         skipped: rows.length - entriesToImport.length,
         categoryMapping: getCategoryMapping(rows, allTags),
         errors: []
@@ -846,10 +851,15 @@ const SafeImportExport: React.FC<SafeImportExportProps> = ({
                       <strong>Total entries:</strong> {importSummary.total}
                     </div>
                     <div style={{ marginBottom: '0.5rem' }}>
-                      <strong>Imported:</strong> {importSummary.imported}
+                      <strong>Imported (new):</strong> {importSummary.imported}
                     </div>
+                    {(importSummary.updated ?? 0) > 0 && (
+                      <div style={{ marginBottom: '0.5rem' }}>
+                        <strong>Updated (changed):</strong> {importSummary.updated}
+                      </div>
+                    )}
                     <div style={{ marginBottom: '0.5rem' }}>
-                      <strong>Skipped (duplicates):</strong> {importSummary.skipped}
+                      <strong>Skipped (unchanged):</strong> {importSummary.skipped}
                     </div>
                     <div style={{ marginTop: '1rem', marginBottom: '0.5rem' }}>
                       <strong>Category Mapping:</strong>

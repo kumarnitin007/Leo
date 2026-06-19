@@ -5,6 +5,7 @@
  */
 
 import { ScanResult, ExtractedItem } from './types';
+import { getSelectedAIProvider } from '../ai/aiProvider';
 
 export interface ScanHints {
   keywords?: string;
@@ -33,7 +34,8 @@ export async function scanImageWithOpenAI(
       body: JSON.stringify({
         image: base64Image,
         mimeType: imageFile.type,
-        hints: hints // FEAT-002: Pass context hints to API
+        hints: hints, // FEAT-002: Pass context hints to API
+        provider: getSelectedAIProvider()
       })
     });
     

@@ -1382,6 +1382,7 @@ export const loadUserSettings = async (): Promise<UserSettings> => {
         financialPreferences,
         aiOptIn: data.ai_opt_in ?? false,
         aiPersonality: data.ai_personality ?? undefined,
+        aiProvider: extraSettings.aiProvider === 'gemini' ? 'gemini' : 'openai',
         birthData: extraSettings.birthData ?? undefined,
       };
     }
@@ -1447,6 +1448,7 @@ export const saveUserSettings = async (settings: Partial<UserSettings>): Promise
   // Column: extra_settings JSONB DEFAULT '{}'::jsonb
   const extraFields: Record<string, unknown> = {};
   if (settings.birthData !== undefined) extraFields.birthData = settings.birthData;
+  if (settings.aiProvider !== undefined) extraFields.aiProvider = settings.aiProvider;
   if (Object.keys(extraFields).length > 0) {
     dbUpdates.extra_settings = extraFields;
   }

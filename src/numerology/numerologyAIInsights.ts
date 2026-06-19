@@ -22,6 +22,7 @@
 
 import { saveAstroCache, getAstroCache } from '../services/astroCacheService';
 import { logAICall } from '../services/ai/aiAuditService';
+import { getSelectedAIProvider } from '../services/ai/aiProvider';
 import { perfStart } from '../utils/perfLogger';
 import type { NumerologyProfile } from './numerologyEngine';
 import { compactProfileForPrompt } from './numerologyInsights';
@@ -73,7 +74,7 @@ export async function getDailyVibe(
     const r = await fetch('/api/astro?action=numerology-vibe', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ profileSummary, today: todayKey(today) }),
+      body: JSON.stringify({ profileSummary, today: todayKey(today), provider: getSelectedAIProvider() }),
     });
     if (!r.ok) {
       endPerf();

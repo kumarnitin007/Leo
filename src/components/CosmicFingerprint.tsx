@@ -13,6 +13,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import { saveAstroCache, getLastSuccessfulAstroCache, getAstroCache } from '../services/astroCacheService';
 import { perfStart } from '../utils/perfLogger';
 import { logAICall } from '../services/ai/aiAuditService';
+import { getSelectedAIProvider } from '../services/ai/aiProvider';
 import { useAuth } from '../contexts/AuthContext';
 import { getSupabaseClient } from '../lib/supabase';
 
@@ -317,7 +318,7 @@ export default function CosmicFingerprint() {
     setError(null);
 
     const bd = birthData;
-    const body = JSON.stringify({ year: bd.year, month: bd.month, day: bd.day, hour: bd.hour, minute: bd.minute, city: bd.city });
+    const body = JSON.stringify({ year: bd.year, month: bd.month, day: bd.day, hour: bd.hour, minute: bd.minute, city: bd.city, provider: getSelectedAIProvider() });
     const headers = { 'Content-Type': 'application/json' };
 
     const safeFetch = async (action: string, opts?: RequestInit) => {
@@ -589,7 +590,7 @@ export default function CosmicFingerprint() {
       const r = await fetch('/api/astro?action=ask-ai', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt, question: aiQuestion.trim() }),
+        body: JSON.stringify({ prompt, question: aiQuestion.trim(), provider: getSelectedAIProvider() }),
       });
       if (!r.ok) throw new Error(`AI reading failed: ${r.status}`);
       const data = await r.json();

@@ -64,6 +64,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ show, onClose, inline = f
   });
   const [aiOptIn, setAiOptIn] = useState(false);
   const [aiPersonality, setAiPersonality] = useState<AIPersonality>({});
+  const [aiProvider, setAiProvider] = useState<'openai' | 'gemini'>('openai');
   const [userLevel, setUserLevel] = useState<UserLevelAssignment | null>(null);
 
   // Load settings from storage
@@ -79,6 +80,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ show, onClose, inline = f
         setBirthData(settings.birthData || {});
         setAiOptIn(settings.aiOptIn ?? false);
         setAiPersonality(settings.aiPersonality ?? {});
+        setAiProvider(settings.aiProvider === 'gemini' ? 'gemini' : 'openai');
         setFinancialPreferences({
           preferredDisplayCurrency: settings.financialPreferences?.preferredDisplayCurrency,
           exchangeRates: {
@@ -116,6 +118,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ show, onClose, inline = f
         financialPreferences,
         aiOptIn,
         aiPersonality: aiOptIn ? aiPersonality : undefined,
+        aiProvider,
         birthData: birthData.year && birthData.month && birthData.day && birthData.city
           ? { year: birthData.year, month: birthData.month, day: birthData.day, hour: birthData.hour, minute: birthData.minute, city: birthData.city, timeKnown: birthData.hour != null }
           : undefined,
@@ -718,7 +721,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ show, onClose, inline = f
               </div>
               <p style={{ fontSize: '0.875rem', color: 'var(--ck-ink2)', marginBottom: '1rem', lineHeight: 1.5 }}>
                 Enable AI-powered features like morning briefings and journal reflections.
-                When enabled, your tasks, events, journal mood, and recent entries are sent to OpenAI to generate personalised insights.
+                When enabled, your tasks, events, journal mood, and recent entries are sent to your selected AI engine to generate personalised insights.
                 No data is stored externally — responses are saved only in your account.
               </p>
               <div
@@ -765,6 +768,47 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ show, onClose, inline = f
                   </div>
                 </div>
               </div>
+
+              {/* AI engine selector */}
+              {aiOptIn && (
+                <div style={{ marginTop: '1.25rem' }}>
+                  <div style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--ck-ink)', marginBottom: '0.5rem' }}>
+                    AI engine
+                  </div>
+                  <div style={{ display: 'flex', gap: '0.5rem' }}>
+                    {([
+                      { id: 'openai', label: 'OpenAI', desc: 'GPT-4o mini' },
+                      { id: 'gemini', label: 'Google Gemini', desc: 'Gemini 2.0 Flash' },
+                    ] as const).map(opt => (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        onClick={() => setAiProvider(opt.id)}
+                        style={{
+                          flex: 1,
+                          textAlign: 'left',
+                          padding: '0.75rem 0.875rem',
+                          borderRadius: '0.75rem',
+                          cursor: 'pointer',
+                          border: aiProvider === opt.id ? '2px solid var(--ck-purple)' : '1px solid var(--ck-border2)',
+                          background: aiProvider === opt.id ? 'var(--ck-purple-light)' : 'white',
+                          transition: 'all 0.2s',
+                        }}
+                      >
+                        <div style={{ fontSize: '0.9rem', fontWeight: 600, color: aiProvider === opt.id ? 'var(--ck-purple-dark)' : 'var(--ck-ink)' }}>
+                          {opt.label}
+                        </div>
+                        <div style={{ fontSize: '0.75rem', color: 'var(--ck-ink2)', marginTop: 2 }}>
+                          {opt.desc}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                  <p style={{ fontSize: '0.75rem', color: 'var(--ck-ink2)', marginTop: '0.5rem', lineHeight: 1.5 }}>
+                    Choose which engine powers AI features. Gemini offers a generous free tier; OpenAI is the default. Your administrator must configure the matching API key for the selected engine.
+                  </p>
+                </div>
+              )}
             </div>
 
             {/* AI Personality Profile (only when opted in) */}

@@ -12,6 +12,7 @@
 
 import { logAICall } from './aiAuditService';
 import { ABILITY_REGISTRY } from './abilityRegistry';
+import { getSelectedAIProvider, getModelPricing } from './aiProvider';
 import type { AIAbilityId, AICallResult, AIUsage } from './types';
 
 export interface AIClientCallParams {
@@ -41,7 +42,7 @@ export async function callAI<T = any>(
     const resp = await fetch(ability.endpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(params.requestPayload),
+      body: JSON.stringify({ ...params.requestPayload, provider: getSelectedAIProvider() }),
     });
 
     rawResponse = await resp.text();
@@ -121,9 +122,15 @@ function computeUsage(
   ability: { costPer1kInput: number; costPer1kOutput: number },
 ): AIUsage {
   const totalTokens = promptTokens + completionTokens;
+  // Price by the model that actually ran (e.g. a Gemini model) so the audit
+  // cost is accurate; fall back to the ability's configured price.
+  const pricing = getModelPricing(model, {
+    in: ability.costPer1kInput,
+    out: ability.costPer1kOutput,
+  });
   const costUsd =
-    (promptTokens / 1000) * ability.costPer1kInput +
-    (completionTokens / 1000) * ability.costPer1kOutput;
+    (promptTokens / 1000) * pricing.in +
+    (completionTokens / 1000) * pricing.out;
 
   return { promptTokens, completionTokens, totalTokens, model, costUsd };
 }
