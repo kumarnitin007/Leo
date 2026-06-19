@@ -37,6 +37,16 @@ import { getUserLevel, UserLevelAssignment } from '../services/userLevelService'
 import AIUsagePanel from './ai/AIUsagePanel';
 import AIPersonalityProfile from './ai/AIPersonalityProfile';
 
+type AIProviderOption = 'openai' | 'gemini' | 'anthropic' | 'xai' | 'deepseek';
+
+const AI_PROVIDER_OPTIONS: { id: AIProviderOption; label: string; desc: string; envKey: string }[] = [
+  { id: 'openai', label: 'OpenAI', desc: 'GPT-4o mini', envKey: 'OPENAI_API_KEY' },
+  { id: 'gemini', label: 'Google Gemini', desc: 'Gemini 2.0 Flash', envKey: 'GEMINI_API_KEY' },
+  { id: 'anthropic', label: 'Anthropic Claude', desc: 'Claude 3.5 Haiku', envKey: 'ANTHROPIC_API_KEY' },
+  { id: 'xai', label: 'xAI Grok', desc: 'Grok 2', envKey: 'XAI_API_KEY' },
+  { id: 'deepseek', label: 'DeepSeek', desc: 'DeepSeek Chat', envKey: 'DEEPSEEK_API_KEY' },
+];
+
 interface SettingsModalProps {
   show: boolean;
   onClose: () => void;
@@ -64,7 +74,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ show, onClose, inline = f
   });
   const [aiOptIn, setAiOptIn] = useState(false);
   const [aiPersonality, setAiPersonality] = useState<AIPersonality>({});
-  const [aiProvider, setAiProvider] = useState<'openai' | 'gemini'>('openai');
+  const [aiProvider, setAiProvider] = useState<AIProviderOption>('openai');
   const [userLevel, setUserLevel] = useState<UserLevelAssignment | null>(null);
 
   // Load settings from storage
@@ -80,7 +90,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ show, onClose, inline = f
         setBirthData(settings.birthData || {});
         setAiOptIn(settings.aiOptIn ?? false);
         setAiPersonality(settings.aiPersonality ?? {});
-        setAiProvider(settings.aiProvider === 'gemini' ? 'gemini' : 'openai');
+        setAiProvider(AI_PROVIDER_OPTIONS.some(o => o.id === settings.aiProvider) ? settings.aiProvider! : 'openai');
         setFinancialPreferences({
           preferredDisplayCurrency: settings.financialPreferences?.preferredDisplayCurrency,
           exchangeRates: {
@@ -775,17 +785,13 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ show, onClose, inline = f
                   <div style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--ck-ink)', marginBottom: '0.5rem' }}>
                     AI engine
                   </div>
-                  <div style={{ display: 'flex', gap: '0.5rem' }}>
-                    {([
-                      { id: 'openai', label: 'OpenAI', desc: 'GPT-4o mini' },
-                      { id: 'gemini', label: 'Google Gemini', desc: 'Gemini 2.0 Flash' },
-                    ] as const).map(opt => (
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '0.5rem' }}>
+                    {AI_PROVIDER_OPTIONS.map(opt => (
                       <button
                         key={opt.id}
                         type="button"
                         onClick={() => setAiProvider(opt.id)}
                         style={{
-                          flex: 1,
                           textAlign: 'left',
                           padding: '0.75rem 0.875rem',
                           borderRadius: '0.75rem',
@@ -805,7 +811,9 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ show, onClose, inline = f
                     ))}
                   </div>
                   <p style={{ fontSize: '0.75rem', color: 'var(--ck-ink2)', marginTop: '0.5rem', lineHeight: 1.5 }}>
-                    Choose which engine powers AI features. Gemini offers a generous free tier; OpenAI is the default. Your administrator must configure the matching API key for the selected engine.
+                    Choose which engine powers AI features. Each engine needs its matching API key configured on the server
+                    (<code style={{ fontSize: '0.7rem' }}>{AI_PROVIDER_OPTIONS.find(o => o.id === aiProvider)?.envKey}</code>).
+                    Gemini and DeepSeek offer generous free/low-cost tiers; OpenAI is the default.
                   </p>
                 </div>
               )}

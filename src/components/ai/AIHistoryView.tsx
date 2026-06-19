@@ -81,6 +81,9 @@ const AIHistoryView: React.FC<{ onBack?: () => void; hideHeader?: boolean }> = (
     all: baseInRange.length,
     openai: baseInRange.filter(e => providerOf(e.model) === 'openai').length,
     gemini: baseInRange.filter(e => providerOf(e.model) === 'gemini').length,
+    anthropic: baseInRange.filter(e => providerOf(e.model) === 'anthropic').length,
+    xai: baseInRange.filter(e => providerOf(e.model) === 'xai').length,
+    deepseek: baseInRange.filter(e => providerOf(e.model) === 'deepseek').length,
     other: baseInRange.filter(e => providerOf(e.model) === 'other').length,
   };
 
@@ -183,10 +186,13 @@ const AIHistoryView: React.FC<{ onBack?: () => void; hideHeader?: boolean }> = (
               { key: 'all' as const, label: 'All engines', count: providerCounts.all },
               { key: 'openai' as const, label: 'OpenAI', count: providerCounts.openai },
               { key: 'gemini' as const, label: 'Gemini', count: providerCounts.gemini },
+              ...(providerCounts.anthropic > 0 ? [{ key: 'anthropic' as const, label: 'Claude', count: providerCounts.anthropic }] : []),
+              ...(providerCounts.xai > 0 ? [{ key: 'xai' as const, label: 'Grok', count: providerCounts.xai }] : []),
+              ...(providerCounts.deepseek > 0 ? [{ key: 'deepseek' as const, label: 'DeepSeek', count: providerCounts.deepseek }] : []),
               ...(providerCounts.other > 0 ? [{ key: 'other' as const, label: 'Other', count: providerCounts.other }] : []),
             ]).map(p => {
               const active = providerFilter === p.key;
-              const accent = p.key === 'gemini' ? 'var(--ck-green)' : p.key === 'openai' ? 'var(--ck-purple)' : 'var(--ck-ink2)';
+              const accent = p.key === 'gemini' ? 'var(--ck-green)' : p.key === 'openai' ? 'var(--ck-purple)' : p.key === 'anthropic' ? '#c2683a' : p.key === 'xai' ? '#3a3a44' : p.key === 'deepseek' ? '#2f6df0' : 'var(--ck-ink2)';
               return (
                 <button
                   key={p.key}

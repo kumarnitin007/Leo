@@ -1382,7 +1382,9 @@ export const loadUserSettings = async (): Promise<UserSettings> => {
         financialPreferences,
         aiOptIn: data.ai_opt_in ?? false,
         aiPersonality: data.ai_personality ?? undefined,
-        aiProvider: extraSettings.aiProvider === 'gemini' ? 'gemini' : 'openai',
+        aiProvider: (['openai', 'gemini', 'anthropic', 'xai', 'deepseek'].includes(extraSettings.aiProvider)
+          ? extraSettings.aiProvider
+          : 'openai'),
         birthData: extraSettings.birthData ?? undefined,
       };
     }

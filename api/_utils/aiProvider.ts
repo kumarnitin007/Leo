@@ -1,28 +1,75 @@
 /**
  * AI provider resolver (server-side)
  *
- * Lets every AI route target either OpenAI or Google Gemini from a single place.
- * Gemini exposes an OpenAI-compatible Chat Completions endpoint, so callers can
- * keep their existing request/response shape (messages, max_tokens, temperature,
- * and a `usage` object with prompt_tokens / completion_tokens) and only swap the
- * base URL, auth key, and model.
+ * Lets every AI route target one of several providers from a single place.
+ * Each supported provider exposes an OpenAI-compatible Chat Completions
+ * endpoint, so callers keep their existing request/response shape (messages,
+ * max_tokens, temperature, and a `usage` object with prompt_tokens /
+ * completion_tokens) and only swap the base URL, auth key, and model.
  *
- * The desired provider is passed per-request in the body as `provider`
- * ('openai' | 'gemini'); anything else falls back to OpenAI.
+ * The desired provider is passed per-request in the body as `provider`;
+ * anything unknown falls back to OpenAI.
  *
- * Required env vars:
- * - OPENAI_API_KEY  (existing)
- * - GEMINI_API_KEY  (new — only needed when a user selects Gemini)
- * - GEMINI_MODEL    (optional override; defaults to gemini-2.0-flash)
+ * Required env vars (only the selected provider's key is needed):
+ * - OPENAI_API_KEY      OpenAI
+ * - GEMINI_API_KEY      Google Gemini
+ * - ANTHROPIC_API_KEY   Anthropic Claude
+ * - XAI_API_KEY         xAI Grok
+ * - DEEPSEEK_API_KEY    DeepSeek
+ *
+ * Optional per-provider model overrides:
+ * - OPENAI_MODEL, GEMINI_MODEL, ANTHROPIC_MODEL, XAI_MODEL, DEEPSEEK_MODEL
  */
 
-export type AIProviderId = 'openai' | 'gemini';
+export type AIProviderId = 'openai' | 'gemini' | 'anthropic' | 'xai' | 'deepseek';
+
+interface ProviderConfig {
+  url: string;
+  apiKeyEnv: string;
+  modelEnv: string;
+  defaultModel: string;
+}
+
+const PROVIDERS: Record<AIProviderId, ProviderConfig> = {
+  openai: {
+    url: 'https://api.openai.com/v1/chat/completions',
+    apiKeyEnv: 'OPENAI_API_KEY',
+    modelEnv: 'OPENAI_MODEL',
+    defaultModel: 'gpt-4o-mini',
+  },
+  gemini: {
+    url: 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions',
+    apiKeyEnv: 'GEMINI_API_KEY',
+    modelEnv: 'GEMINI_MODEL',
+    defaultModel: 'gemini-2.0-flash',
+  },
+  anthropic: {
+    url: 'https://api.anthropic.com/v1/chat/completions',
+    apiKeyEnv: 'ANTHROPIC_API_KEY',
+    modelEnv: 'ANTHROPIC_MODEL',
+    defaultModel: 'claude-3-5-haiku-20241022',
+  },
+  xai: {
+    url: 'https://api.x.ai/v1/chat/completions',
+    apiKeyEnv: 'XAI_API_KEY',
+    modelEnv: 'XAI_MODEL',
+    defaultModel: 'grok-2-latest',
+  },
+  deepseek: {
+    url: 'https://api.deepseek.com/v1/chat/completions',
+    apiKeyEnv: 'DEEPSEEK_API_KEY',
+    modelEnv: 'DEEPSEEK_MODEL',
+    defaultModel: 'deepseek-chat',
+  },
+};
 
 interface ResolveOpts {
   /** Override the OpenAI model for this call (e.g. a vision model). */
   openaiModel?: string;
   /** Override the Gemini model for this call. */
   geminiModel?: string;
+  /** Override the model for any provider (takes precedence over env/default). */
+  modelOverrides?: Partial<Record<AIProviderId, string>>;
 }
 
 interface ResolvedProvider {
@@ -32,28 +79,31 @@ interface ResolvedProvider {
   model: string;
 }
 
-const OPENAI_URL = 'https://api.openai.com/v1/chat/completions';
-const GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions';
-
-const DEFAULT_OPENAI_MODEL = 'gpt-4o-mini';
-const DEFAULT_GEMINI_MODEL = 'gemini-2.0-flash';
+function normalizeProvider(requested: unknown): AIProviderId {
+  return typeof requested === 'string' && requested in PROVIDERS
+    ? (requested as AIProviderId)
+    : 'openai';
+}
 
 export function resolveAIProvider(requested: unknown, opts: ResolveOpts = {}): ResolvedProvider {
-  const provider: AIProviderId = requested === 'gemini' ? 'gemini' : 'openai';
+  const provider = normalizeProvider(requested);
+  const cfg = PROVIDERS[provider];
 
-  if (provider === 'gemini') {
-    return {
-      provider,
-      url: GEMINI_URL,
-      apiKey: process.env.GEMINI_API_KEY,
-      model: opts.geminiModel || process.env.GEMINI_MODEL || DEFAULT_GEMINI_MODEL,
-    };
-  }
+  const legacyOverride =
+    provider === 'openai' ? opts.openaiModel :
+    provider === 'gemini' ? opts.geminiModel :
+    undefined;
+
+  const model =
+    opts.modelOverrides?.[provider] ||
+    legacyOverride ||
+    process.env[cfg.modelEnv] ||
+    cfg.defaultModel;
 
   return {
     provider,
-    url: OPENAI_URL,
-    apiKey: process.env.OPENAI_API_KEY,
-    model: opts.openaiModel || DEFAULT_OPENAI_MODEL,
+    url: cfg.url,
+    apiKey: process.env[cfg.apiKeyEnv],
+    model,
   };
 }

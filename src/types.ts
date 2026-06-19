@@ -162,7 +162,7 @@ export interface UserSettings {
   aiOptIn?: boolean;
   aiPersonality?: AIPersonality;
   /** Which AI engine to use for all AI features. Defaults to 'openai'. */
-  aiProvider?: 'openai' | 'gemini';
+  aiProvider?: 'openai' | 'gemini' | 'anthropic' | 'xai' | 'deepseek';
   location?: {
     zipCode?: string;
     city?: string;
