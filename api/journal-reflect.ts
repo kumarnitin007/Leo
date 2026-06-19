@@ -177,9 +177,13 @@ Respond ONLY with valid JSON:
     });
 
     if (!response.ok) {
-      const err = await response.json();
-      console.error(`[journal-reflect] ${ai.provider} error:`, err);
-      return res.status(502).json(createErrorResponse('EXTERNAL_API_ERROR', 'AI service unavailable'));
+      const errText = await response.text();
+      console.error(`[journal-reflect] ${ai.provider} error ${response.status} (model=${ai.model}):`, errText.slice(0, 800));
+      const detail = (() => { try { return JSON.parse(errText)?.error?.message || errText; } catch { return errText; } })();
+      return res.status(502).json(createErrorResponse(
+        'EXTERNAL_API_ERROR',
+        `${ai.provider} (${ai.model}) error ${response.status}: ${String(detail).slice(0, 300)}`,
+      ));
     }
 
     const data = await response.json() as any;

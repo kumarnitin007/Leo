@@ -29,19 +29,21 @@ export interface DailyBriefingResult {
 
 const SESSION_KEY = 'myday_briefing_cache';
 
-function getSessionCache(): DailyBriefingResult | null {
+function getSessionCache(userId: string): DailyBriefingResult | null {
   try {
     const raw = sessionStorage.getItem(SESSION_KEY);
     if (!raw) return null;
-    const c: DailyBriefingResult = JSON.parse(raw);
-    if (c.date === getTodayString()) return c;
+    const c: DailyBriefingResult & { _cacheUserId?: string } = JSON.parse(raw);
+    // Must match BOTH the signed-in user and today, else it's stale (e.g. a
+    // different user signed in on this device).
+    if (c._cacheUserId === userId && c.date === getTodayString()) return c;
     sessionStorage.removeItem(SESSION_KEY);
   } catch { /* ignore */ }
   return null;
 }
 
-function setSessionCache(b: DailyBriefingResult) {
-  try { sessionStorage.setItem(SESSION_KEY, JSON.stringify(b)); } catch { /* quota */ }
+function setSessionCache(b: DailyBriefingResult, userId: string) {
+  try { sessionStorage.setItem(SESSION_KEY, JSON.stringify({ ...b, _cacheUserId: userId })); } catch { /* quota */ }
 }
 
 async function loadDbCache(userId: string, date: string): Promise<DailyBriefingResult | null> {
@@ -150,10 +152,10 @@ function buildUserMessage(
  */
 export async function getCachedBriefing(userId: string): Promise<DailyBriefingResult | null> {
   const today = getTodayString();
-  const sc = getSessionCache();
+  const sc = getSessionCache(userId);
   if (sc) return sc;
   const dc = await loadDbCache(userId, today);
-  if (dc) { setSessionCache(dc); return dc; }
+  if (dc) { setSessionCache(dc, userId); return dc; }
   return null;
 }
 
@@ -200,12 +202,12 @@ export async function getDailyBriefing(
   const today = getTodayString();
 
   // 1. Session cache
-  const sc = getSessionCache();
+  const sc = getSessionCache(userId);
   if (sc) return sc;
 
   // 2. DB cache
   const dc = await loadDbCache(userId, today);
-  if (dc) { setSessionCache(dc); return dc; }
+  if (dc) { setSessionCache(dc, userId); return dc; }
 
   // 3. Gather context
   const [dashData, journalEntries, upcomingEvents, freshDigests, settings] = await Promise.all([
@@ -276,7 +278,7 @@ export async function getDailyBriefing(
   // 5. Persist
   saveDbCache(userId, briefingText, today, result.usage).catch(() => {});
   if (result.data.digests?.length) saveDigests(userId, result.data.digests).catch(() => {});
-  setSessionCache(briefing);
+  setSessionCache(briefing, userId);
 
   return briefing;
 }

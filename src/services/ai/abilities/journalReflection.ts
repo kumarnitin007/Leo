@@ -163,15 +163,22 @@ function buildUserMessage(ctx: UserMessageContext): string {
 
 const REFLECTION_SESSION_KEY = 'myday-journal-reflection';
 
-function getSessionReflection(): JournalReflectionResult | null {
+function getSessionReflection(userId: string): JournalReflectionResult | null {
   try {
     const raw = sessionStorage.getItem(REFLECTION_SESSION_KEY);
-    return raw ? JSON.parse(raw) : null;
+    if (!raw) return null;
+    const c: JournalReflectionResult & { _cacheUserId?: string } = JSON.parse(raw);
+    // Reject cache that belongs to a different user (e.g. after switching login).
+    if (c._cacheUserId && c._cacheUserId !== userId) {
+      sessionStorage.removeItem(REFLECTION_SESSION_KEY);
+      return null;
+    }
+    return c;
   } catch { return null; }
 }
 
-function setSessionReflection(r: JournalReflectionResult) {
-  try { sessionStorage.setItem(REFLECTION_SESSION_KEY, JSON.stringify(r)); } catch { /* quota */ }
+function setSessionReflection(r: JournalReflectionResult, userId: string) {
+  try { sessionStorage.setItem(REFLECTION_SESSION_KEY, JSON.stringify({ ...r, _cacheUserId: userId })); } catch { /* quota */ }
 }
 
 async function loadDbReflection(userId: string, date: string): Promise<JournalReflectionResult | null> {
@@ -205,10 +212,10 @@ async function loadDbReflection(userId: string, date: string): Promise<JournalRe
  * Returns today's reflection from session or DB cache — never calls the API.
  */
 export async function getCachedReflection(userId: string, date: string): Promise<JournalReflectionResult | null> {
-  const sc = getSessionReflection();
+  const sc = getSessionReflection(userId);
   if (sc && sc.date === date) return sc;
   const dc = await loadDbReflection(userId, date);
-  if (dc) { setSessionReflection(dc); return dc; }
+  if (dc) { setSessionReflection(dc, userId); return dc; }
   return null;
 }
 
@@ -365,6 +372,6 @@ export async function getJournalReflection(
     }], { onConflict: 'user_id,digest_type,response_date' }).then(() => {});
   }
 
-  setSessionReflection(reflectionResult);
+  setSessionReflection(reflectionResult, userId);
   return reflectionResult;
 }

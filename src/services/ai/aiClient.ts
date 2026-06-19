@@ -12,7 +12,7 @@
 
 import { logAICall } from './aiAuditService';
 import { ABILITY_REGISTRY } from './abilityRegistry';
-import { getSelectedAIProvider, getModelPricing } from './aiProvider';
+import { getSelectedAIProvider, getModelPricing, defaultModelForProvider } from './aiProvider';
 import type { AIAbilityId, AICallResult, AIUsage } from './types';
 
 export interface AIClientCallParams {
@@ -38,11 +38,14 @@ export async function callAI<T = any>(
   let success = true;
   let errorMessage: string | undefined;
 
+  const provider = getSelectedAIProvider();
+  console.log(`[AI] → ${params.abilityId} | requested engine=${provider} | endpoint=${ability.endpoint}`);
+
   try {
     const resp = await fetch(ability.endpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...params.requestPayload, provider: getSelectedAIProvider() }),
+      body: JSON.stringify({ ...params.requestPayload, provider }),
     });
 
     rawResponse = await resp.text();
@@ -58,12 +61,24 @@ export async function callAI<T = any>(
     const data: T & { usage?: { prompt_tokens: number; completion_tokens: number; model: string } } = JSON.parse(rawResponse);
     const durationMs = Date.now() - startMs;
 
+    const returnedModel = data.usage?.model ?? ability.model;
     const usage = computeUsage(
       data.usage?.prompt_tokens ?? 0,
       data.usage?.completion_tokens ?? 0,
-      data.usage?.model ?? ability.model,
+      returnedModel,
       ability,
     );
+
+    console.log(
+      `[AI] ✓ ${params.abilityId} | requested engine=${provider} | model returned=${data.usage?.model ?? '(none — server did not report a model)'} | ` +
+      `tokens=${usage.totalTokens} (in ${usage.promptTokens}/out ${usage.completionTokens}) | cost=$${usage.costUsd.toFixed(6)} | ${durationMs}ms`,
+    );
+    if (provider === 'gemini' && !/^gemini/i.test(returnedModel)) {
+      console.warn(
+        `[AI] ⚠ ${params.abilityId}: you selected Gemini but the server ran "${returnedModel}". ` +
+        `The API route is likely running older code (redeploy to Vercel / restart \`vercel dev\`) or GEMINI_API_KEY is not set for it.`,
+      );
+    }
 
     const result: AICallResult<T> = {
       data,
@@ -92,7 +107,10 @@ export async function callAI<T = any>(
 
   } catch (err: any) {
     const durationMs = Date.now() - startMs;
-    const usage = computeUsage(0, 0, ability.model, ability);
+    // Label the failed call with the engine the user actually requested, so the
+    // audit log / analytics don't misattribute a failed Gemini attempt to OpenAI.
+    const usage = computeUsage(0, 0, defaultModelForProvider(provider), ability);
+    console.warn(`[AI] ✗ ${params.abilityId} | requested engine=${provider} | failed: ${err?.message}`);
 
     // Audit failure
     logAICall({

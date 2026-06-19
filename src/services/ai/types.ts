@@ -96,5 +96,11 @@ export interface AIUsageSummary {
     tokens: number;
     costUsd: number;
   }>;
+  byModel: Record<string, {
+    calls: number;
+    tokens: number;
+    costUsd: number;
+  }>;
+  successCount: number;
   recentCalls: AIAuditEntry[];
 }

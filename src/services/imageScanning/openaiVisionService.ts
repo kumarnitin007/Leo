@@ -45,7 +45,8 @@ export async function scanImageWithOpenAI(
     }
     
     const result = await response.json();
-    
+    console.log(`[AI] ✓ image_scan | requested engine=${getSelectedAIProvider()} | items=${(result.items || []).length} | ${Date.now() - startTime}ms`);
+
     return {
       success: true,
       mode: 'smart',

@@ -476,8 +476,9 @@ async function handleAskAI(req: any, res: any) {
   }
 
   const MODEL = ai.model;
-  const COST_PER_1K_IN = 0.00015;
-  const COST_PER_1K_OUT = 0.0006;
+  // Gemini runs on the free tier → $0; OpenAI gpt-4o-mini rates otherwise.
+  const COST_PER_1K_IN = ai.provider === 'gemini' ? 0 : 0.00015;
+  const COST_PER_1K_OUT = ai.provider === 'gemini' ? 0 : 0.0006;
   const startTime = Date.now();
 
   try {
@@ -563,8 +564,9 @@ async function handleNumerologyVibe(req: any, res: any) {
   }
 
   const MODEL = ai.model;
-  const COST_PER_1K_IN = 0.00015;
-  const COST_PER_1K_OUT = 0.0006;
+  // Gemini runs on the free tier → $0; OpenAI gpt-4o-mini rates otherwise.
+  const COST_PER_1K_IN = ai.provider === 'gemini' ? 0 : 0.00015;
+  const COST_PER_1K_OUT = ai.provider === 'gemini' ? 0 : 0.0006;
   const startTime = Date.now();
 
   try {
@@ -650,8 +652,9 @@ async function handleNumerologyQuestion(req: any, res: any) {
   }
 
   const MODEL = ai.model;
-  const COST_PER_1K_IN = 0.00015;
-  const COST_PER_1K_OUT = 0.0006;
+  // Gemini runs on the free tier → $0; OpenAI gpt-4o-mini rates otherwise.
+  const COST_PER_1K_IN = ai.provider === 'gemini' ? 0 : 0.00015;
+  const COST_PER_1K_OUT = ai.provider === 'gemini' ? 0 : 0.0006;
   const startTime = Date.now();
 
   try {

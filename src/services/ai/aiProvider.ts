@@ -21,6 +21,15 @@ export function getSelectedAIProvider(): AIProviderId {
 }
 
 /**
+ * Display-only default model name for a provider. Used to label calls (e.g. a
+ * failed call) when the server didn't return a model. Must mirror the server
+ * defaults in api/_utils/aiProvider.ts.
+ */
+export function defaultModelForProvider(provider: AIProviderId): string {
+  return provider === 'gemini' ? 'gemini-2.0-flash' : 'gpt-4o-mini';
+}
+
+/**
  * Approximate token pricing (USD per 1K tokens) by model, used for the local
  * cost estimate in the audit log. Falls back to the ability's own price when a
  * model isn't listed. Keep in sync with provider pricing pages.
@@ -28,9 +37,11 @@ export function getSelectedAIProvider(): AIProviderId {
 const MODEL_PRICING: Record<string, { in: number; out: number }> = {
   'gpt-4o-mini': { in: 0.00015, out: 0.0006 },
   'gpt-4o': { in: 0.0025, out: 0.01 },
-  'gemini-2.0-flash': { in: 0.000075, out: 0.0003 },
-  'gemini-2.5-flash': { in: 0.0003, out: 0.0025 },
-  'gemini-2.5-flash-lite': { in: 0.0001, out: 0.0004 },
+  // Gemini is treated as $0 here because we run on its free tier. If you move
+  // to a paid Gemini plan, set the real per-1K rates below.
+  'gemini-2.0-flash': { in: 0, out: 0 },
+  'gemini-2.5-flash': { in: 0, out: 0 },
+  'gemini-2.5-flash-lite': { in: 0, out: 0 },
 };
 
 export function getModelPricing(

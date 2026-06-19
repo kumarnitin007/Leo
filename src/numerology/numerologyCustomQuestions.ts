@@ -226,6 +226,7 @@ export async function getAnswerForQuestion(
       return null;
     }
     const data = await r.json();
+    console.log(`[AI] ✓ numerology_question | requested engine=${getSelectedAIProvider()} | model returned=${data?.usage?.model ?? '(none)'} | tokens=${data?.usage?.total_tokens ?? 0} | cost=$${data?.usage?.cost_usd ?? 0}`);
     const answer = (data?.answer || '').trim();
     if (!answer) {
       endPerf();

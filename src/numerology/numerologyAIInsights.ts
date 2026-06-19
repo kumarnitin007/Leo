@@ -82,6 +82,7 @@ export async function getDailyVibe(
       return null;
     }
     const data = await r.json();
+    console.log(`[AI] ✓ numerology_vibe | requested engine=${getSelectedAIProvider()} | model returned=${data?.usage?.model ?? '(none)'} | tokens=${data?.usage?.total_tokens ?? 0} | cost=$${data?.usage?.cost_usd ?? 0}`);
     const paragraph = (data?.paragraph || '').trim();
     if (!paragraph) {
       endPerf();

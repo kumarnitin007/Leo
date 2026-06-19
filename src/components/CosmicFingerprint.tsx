@@ -594,6 +594,7 @@ export default function CosmicFingerprint() {
       });
       if (!r.ok) throw new Error(`AI reading failed: ${r.status}`);
       const data = await r.json();
+      console.log(`[AI] ✓ astro_reading | requested engine=${getSelectedAIProvider()} | model returned=${data?.usage?.model ?? '(none)'} | tokens=${data?.usage?.total_tokens ?? 0} | cost=$${data?.usage?.cost_usd ?? 0}`);
       endAI();
       setAiSimpleAnswer(data.simple || null);
       setAiDetailedAnswer(data.detailed || null);

@@ -12,6 +12,8 @@ import { loadAllDigestsForUser } from '../../services/ai/aiDigestService';
 import { ABILITY_REGISTRY } from '../../services/ai/abilityRegistry';
 import type { AIAuditEntry, AIUsageSummary, StoredDigest, AIAbilityId } from '../../services/ai/types';
 import AIQueryViewerModal from './AIQueryViewerModal';
+import { providerOf, providerLabel, providerColor, providerBg } from '../../services/ai/providerDisplay';
+import type { ProviderId } from '../../services/ai/providerDisplay';
 
 interface DailySpend { date: string; cost: number; tokens: number; calls: number; }
 
@@ -43,6 +45,7 @@ const AIHistoryView: React.FC<{ onBack?: () => void; hideHeader?: boolean }> = (
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<AIAbilityId | 'all'>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | 'passed' | 'failed'>('all');
+  const [providerFilter, setProviderFilter] = useState<'all' | ProviderId>('all');
   const [timeRange, setTimeRange] = useState<7 | 30 | 90>(30);
   const [queryViewer, setQueryViewer] = useState<{
     show: boolean; label: string; icon: string;
@@ -65,15 +68,37 @@ const AIHistoryView: React.FC<{ onBack?: () => void; hideHeader?: boolean }> = (
 
   useEffect(() => { loadData(); }, [loadData]);
 
-  const filtered = entries
-    .filter(e => filter === 'all' || e.abilityId === filter)
-    .filter(e => statusFilter === 'all' || (statusFilter === 'passed' ? e.success : !e.success));
   const sinceDate = new Date();
   sinceDate.setDate(sinceDate.getDate() - timeRange);
-  const inRange = filtered.filter(e => new Date(e.createdAt) >= sinceDate);
+
+  // Base scope = ability + status + time range (NOT engine). Used to count how
+  // many calls each engine has, so the engine pills can show live counts.
+  const baseInRange = entries
+    .filter(e => filter === 'all' || e.abilityId === filter)
+    .filter(e => statusFilter === 'all' || (statusFilter === 'passed' ? e.success : !e.success))
+    .filter(e => new Date(e.createdAt) >= sinceDate);
+  const providerCounts = {
+    all: baseInRange.length,
+    openai: baseInRange.filter(e => providerOf(e.model) === 'openai').length,
+    gemini: baseInRange.filter(e => providerOf(e.model) === 'gemini').length,
+    other: baseInRange.filter(e => providerOf(e.model) === 'other').length,
+  };
+
+  const inRange = baseInRange.filter(e => providerFilter === 'all' || providerOf(e.model) === providerFilter);
   const dailySpends = groupByDay(inRange);
   const projected = projectMonthlySpend(dailySpends);
   const maxDailyCost = Math.max(...dailySpends.map(d => d.cost), 0.0001);
+
+  // Per-engine breakdown for the visible range (respects all active filters)
+  const byEngine = inRange.reduce((acc, e) => {
+    const key = providerLabel(e.model);
+    if (!acc[key]) acc[key] = { model: e.model, calls: 0, tokens: 0, costUsd: 0 };
+    acc[key].calls += 1;
+    acc[key].tokens += e.totalTokens;
+    acc[key].costUsd += e.costUsd;
+    return acc;
+  }, {} as Record<string, { model: string; calls: number; tokens: number; costUsd: number }>);
+  const engineRows = Object.entries(byEngine).sort((a, b) => b[1].calls - a[1].calls);
 
   const handleViewQuery = (entry: AIAuditEntry) => {
     const ability = ABILITY_REGISTRY[entry.abilityId as AIAbilityId];
@@ -138,7 +163,7 @@ const AIHistoryView: React.FC<{ onBack?: () => void; hideHeader?: boolean }> = (
           </div>
 
           {/* Filters */}
-          <div style={{ display: 'flex', gap: 6, marginBottom: 16, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: 6, marginBottom: 10, flexWrap: 'wrap' }}>
             <button style={pill(filter === 'all')} onClick={() => setFilter('all')}>All</button>
             {Object.values(ABILITY_REGISTRY).map(a => (
               <button key={a.id} style={pill(filter === a.id)} onClick={() => setFilter(a.id)}>
@@ -149,6 +174,34 @@ const AIHistoryView: React.FC<{ onBack?: () => void; hideHeader?: boolean }> = (
             {([7, 30, 90] as const).map(d => (
               <button key={d} style={pill(timeRange === d)} onClick={() => setTimeRange(d)}>{d}d</button>
             ))}
+          </div>
+
+          {/* Engine (provider) filter */}
+          <div style={{ display: 'flex', gap: 6, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' }}>
+            <span style={{ fontSize: 10, color: 'var(--ck-ink3)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', marginRight: 2 }}>Engine</span>
+            {([
+              { key: 'all' as const, label: 'All engines', count: providerCounts.all },
+              { key: 'openai' as const, label: 'OpenAI', count: providerCounts.openai },
+              { key: 'gemini' as const, label: 'Gemini', count: providerCounts.gemini },
+              ...(providerCounts.other > 0 ? [{ key: 'other' as const, label: 'Other', count: providerCounts.other }] : []),
+            ]).map(p => {
+              const active = providerFilter === p.key;
+              const accent = p.key === 'gemini' ? 'var(--ck-green)' : p.key === 'openai' ? 'var(--ck-purple)' : 'var(--ck-ink2)';
+              return (
+                <button
+                  key={p.key}
+                  onClick={() => setProviderFilter(p.key)}
+                  style={{
+                    padding: '5px 12px', fontSize: 11, fontWeight: active ? 700 : 500,
+                    fontFamily: 'var(--ck-font)',
+                    color: active ? '#fff' : 'var(--ck-ink2)',
+                    background: active ? accent : 'var(--ck-white)',
+                    border: active ? '0.5px solid transparent' : '0.5px solid var(--ck-border2)',
+                    borderRadius: 20, cursor: 'pointer',
+                  }}
+                >{p.label} ({p.count})</button>
+              );
+            })}
           </div>
 
           {/* Daily Cost Bar Chart */}
@@ -205,6 +258,36 @@ const AIHistoryView: React.FC<{ onBack?: () => void; hideHeader?: boolean }> = (
             </div>
           )}
 
+          {/* By Engine Breakdown */}
+          {engineRows.length > 0 && (
+            <div style={{ ...cardStyle, marginBottom: 20 }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--ck-ink2)', marginBottom: 12 }}>By Engine</div>
+              {engineRows.map(([label, data]) => {
+                const totalCalls = inRange.length || 1;
+                const pct = (data.calls / totalCalls) * 100;
+                return (
+                  <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderBottom: '0.5px solid var(--ck-border)' }}>
+                    <span style={{
+                      fontSize: 10, fontWeight: 700, color: providerColor(data.model),
+                      background: providerBg(data.model), border: `1px solid ${providerColor(data.model)}33`,
+                      borderRadius: 999, padding: '3px 10px', whiteSpace: 'nowrap', minWidth: 64, textAlign: 'center',
+                    }}>{label}</span>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 11, color: 'var(--ck-ink3)', fontFamily: 'ui-monospace, monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{data.model || 'unknown'}</div>
+                      <div style={{ height: 4, background: 'var(--ck-cream)', borderRadius: 2, marginTop: 4 }}>
+                        <div style={{ height: 4, borderRadius: 2, width: `${pct}%`, background: providerColor(data.model) }} />
+                      </div>
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                      <div style={{ fontSize: 12, color: 'var(--ck-gold)', fontFamily: 'ui-monospace, monospace', fontWeight: 700 }}>${data.costUsd.toFixed(4)}</div>
+                      <div style={{ fontSize: 9, color: 'var(--ck-ink3)' }}>{data.calls}× · {data.tokens} tok</div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
           {/* Transaction Log */}
           <div style={cardStyle}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
@@ -236,7 +319,8 @@ const AIHistoryView: React.FC<{ onBack?: () => void; hideHeader?: boolean }> = (
             </div>
             {inRange.length === 0 && (
               <div style={{ padding: '20px 0', textAlign: 'center', color: 'var(--ck-ink3)', fontSize: 12 }}>
-                {statusFilter === 'failed' ? 'No failed AI calls in this period.' :
+                {providerFilter !== 'all' ? `No ${providerFilter === 'gemini' ? 'Gemini' : providerFilter === 'openai' ? 'OpenAI' : 'matching'} calls in this period — try "All engines" or a wider time range.` :
+                 statusFilter === 'failed' ? 'No failed AI calls in this period.' :
                  statusFilter === 'passed' ? 'No successful AI calls in this period.' :
                  'No AI calls in this period. Use the Morning Briefing or Journal Reflection to get started.'}
               </div>
@@ -258,12 +342,17 @@ const AIHistoryView: React.FC<{ onBack?: () => void; hideHeader?: boolean }> = (
                   }}>
                     <span style={{ fontSize: 16 }}>{ability?.icon || '🤖'}</span>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                         <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--ck-ink)' }}>{ability?.label || entry.abilityId}</span>
+                        <span style={{
+                          fontSize: 9, fontWeight: 700, color: providerColor(entry.model),
+                          background: providerBg(entry.model), border: `1px solid ${providerColor(entry.model)}33`,
+                          padding: '1px 7px', borderRadius: 999, whiteSpace: 'nowrap',
+                        }}>{providerLabel(entry.model)}</span>
                         {!entry.success && <span style={{ fontSize: 9, color: 'var(--ck-red)', background: 'var(--ck-red-light)', padding: '1px 6px', borderRadius: 4 }}>FAILED</span>}
                       </div>
                       <div style={{ fontSize: 10, color: 'var(--ck-ink3)', marginTop: 2 }}>
-                        {new Date(entry.createdAt).toLocaleString()} · {entry.durationMs}ms
+                        {new Date(entry.createdAt).toLocaleString()} · {entry.durationMs}ms · {entry.model}
                       </div>
                       {funQuote && (
                         <div style={{ fontSize: 10, color: 'var(--ck-purple)', fontStyle: 'italic', marginTop: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>

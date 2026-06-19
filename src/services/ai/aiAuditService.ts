@@ -98,16 +98,19 @@ export async function getUsageSummary(userId: string, days = 30): Promise<AIUsag
   const filtered = entries.filter(e => new Date(e.createdAt) >= since);
 
   const byAbility: AIUsageSummary['byAbility'] = {} as any;
+  const byModel: AIUsageSummary['byModel'] = {};
   let totalPromptTokens = 0;
   let totalCompletionTokens = 0;
   let totalTokens = 0;
   let totalCostUsd = 0;
+  let successCount = 0;
 
   for (const entry of filtered) {
     totalPromptTokens += entry.promptTokens;
     totalCompletionTokens += entry.completionTokens;
     totalTokens += entry.totalTokens;
     totalCostUsd += entry.costUsd;
+    if (entry.success) successCount++;
 
     const ab = entry.abilityId as AIAbilityId;
     if (!byAbility[ab]) {
@@ -116,6 +119,14 @@ export async function getUsageSummary(userId: string, days = 30): Promise<AIUsag
     byAbility[ab].calls++;
     byAbility[ab].tokens += entry.totalTokens;
     byAbility[ab].costUsd += entry.costUsd;
+
+    const model = entry.model || 'unknown';
+    if (!byModel[model]) {
+      byModel[model] = { calls: 0, tokens: 0, costUsd: 0 };
+    }
+    byModel[model].calls++;
+    byModel[model].tokens += entry.totalTokens;
+    byModel[model].costUsd += entry.costUsd;
   }
 
   return {
@@ -125,6 +136,8 @@ export async function getUsageSummary(userId: string, days = 30): Promise<AIUsag
     totalTokens,
     totalCostUsd,
     byAbility,
+    byModel,
+    successCount,
     recentCalls: filtered.slice(0, 20),
   };
 }
