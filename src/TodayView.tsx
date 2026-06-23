@@ -35,6 +35,7 @@ import TransitsWidget from './components/TransitsWidget';
 import CosmicFingerprint from './components/CosmicFingerprint';
 import NumerologyDashboard from './components/NumerologyDashboard';
 import ResolutionProgressWidget from './components/ResolutionProgressWidget';
+import UpcomingContactDatesWidget from './components/UpcomingContactDatesWidget';
 import FinancialAlertsWidget from './components/FinancialAlertsWidget';
 import DailyBriefingCard from './components/DailyBriefingCard';
 import { getDashboardTodos, getTodoGroups, toggleTodoItem } from './services/todoService';
@@ -2843,6 +2844,8 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
       </div>
 
       <div className="home-col-right home-widget-resolutions"><ResolutionProgressWidget /></div>
+
+      <div className="home-col-right home-widget-contact-dates"><UpcomingContactDatesWidget /></div>
 
       <div className="home-col-right home-widget-financial"><FinancialAlertsWidget onNavigateToSafe={() => onNavigate('safe')} /></div>
 

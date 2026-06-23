@@ -11,6 +11,7 @@ import { hasFitScopes } from '../integrations/google/GoogleAuthManager';
 import { useGoogleContacts } from '../integrations/google/hooks/useGoogleContacts';
 import { useAuth } from '../contexts/AuthContext';
 import { createContactEvents } from '../integrations/google/services/ContactEventsService';
+import ContactsViewerModal from './ContactsViewerModal';
 
 const TakeoutImportPanel = lazy(() => import('./TakeoutImportPanel'));
 
@@ -36,6 +37,7 @@ const GoogleServicesSection: React.FC = () => {
   const [expanded, setExpanded] = useState(true);
   const [disconnecting, setDisconnecting] = useState(false);
   const [creatingEvents, setCreatingEvents] = useState(false);
+  const [viewerOpen, setViewerOpen] = useState(false);
 
   const handleDisconnect = async () => {
     if (!confirm('Disconnect Google? This revokes access for all Google services.')) return;
@@ -273,6 +275,16 @@ const GoogleServicesSection: React.FC = () => {
                     {syncing ? '⏳ Syncing...' : '🔄 Sync Now'}
                   </button>
                   <button
+                    onClick={() => setViewerOpen(true)}
+                    style={{
+                      padding: '5px 12px', fontSize: 11, fontWeight: 600,
+                      background: '#fff', color: '#374151', border: '1px solid #D1D5DB',
+                      borderRadius: 8, cursor: 'pointer',
+                    }}
+                  >
+                    👁 View Contacts
+                  </button>
+                  <button
                     onClick={handleCreateCalendarEvents}
                     disabled={creatingEvents}
                     style={{
@@ -326,6 +338,8 @@ const GoogleServicesSection: React.FC = () => {
           )}
         </div>
       )}
+
+      <ContactsViewerModal isOpen={viewerOpen} onClose={() => setViewerOpen(false)} />
     </div>
   );
 };

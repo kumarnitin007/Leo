@@ -640,6 +640,44 @@ export async function getUnresolvedCommentCount(
 }
 
 /**
+ * Batched unresolved comment counts for many entries in ONE query (per chunk).
+ * Replaces the N+1 pattern of calling getUnresolvedCommentCount per entry.
+ * Returns a map of entryId -> count (entries with zero comments are omitted).
+ */
+export async function getUnresolvedCommentCountsForEntries(
+  entryIds: string[],
+  entryType: 'safe_entry' | 'document' | 'bank_list' | 'todo'
+): Promise<Record<string, number>> {
+  const result: Record<string, number> = {};
+  if (entryIds.length === 0) return result;
+
+  const supabase = getSupabaseClient();
+  const CHUNK = 150; // keep the .in() list well under URL length limits
+
+  for (let i = 0; i < entryIds.length; i += CHUNK) {
+    const chunk = entryIds.slice(i, i + CHUNK);
+    const { data, error } = await supabase
+      .from('myday_entry_comments')
+      .select('entry_id')
+      .eq('entry_type', entryType)
+      .eq('is_deleted', false)
+      .eq('is_resolved', false)
+      .in('entry_id', chunk);
+
+    if (error) {
+      console.error('[CommentService] ❌ Failed to batch count comments:', error);
+      continue;
+    }
+
+    (data || []).forEach((row: { entry_id: string }) => {
+      result[row.entry_id] = (result[row.entry_id] || 0) + 1;
+    });
+  }
+
+  return result;
+}
+
+/**
  * Update a comment (user can edit their own)
  */
 export async function updateComment(

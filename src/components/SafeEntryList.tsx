@@ -3,10 +3,11 @@ import { useDebounce } from '../hooks/useDebounce';
 import { SafeEntry, Tag, SafeEntryEncryptedData } from '../types';
 import { CryptoKey } from '../utils/encryption';
 import { deleteSafeEntriesByTag, deleteSafeEntry, updateSafeEntry, decryptSafeEntry } from '../storage';
-import { getUnresolvedCommentCount } from '../services/commentService';
+import { getUnresolvedCommentCountsForEntries } from '../services/commentService';
 import { useVirtualList } from '../hooks/useVirtualList';
 import ViewToggle, { VaultView } from './vault/ViewToggle';
 import SafeEntryRow, { LIST_GRID } from './vault/SafeEntryRow';
+import { PageSizeSelect, PaginationNav, getStoredPageSize, storePageSize } from './vault/VaultPagination';
 
 const VAULT_VIEW_KEY = 'myday_safe_passwords_view';
 const LIST_ROW_HEIGHT = 48;
@@ -24,6 +25,7 @@ interface SafeEntryCardProps {
   getExpiringDays: (entry: SafeEntry) => number | null;
   isExpiringSoon: (entry: SafeEntry) => boolean;
   formatTimeAgo: (timestamp: string) => string;
+  compact?: boolean;
 }
 
 const SafeEntryCard = memo(function SafeEntryCard({
@@ -39,6 +41,7 @@ const SafeEntryCard = memo(function SafeEntryCard({
   getExpiringDays,
   isExpiringSoon,
   formatTimeAgo,
+  compact = false,
 }: SafeEntryCardProps) {
   const categoryName = getCategoryName(entry.categoryTagId);
   const categoryTag = tags.find(t => t.id === entry.categoryTagId);
@@ -56,7 +59,7 @@ const SafeEntryCard = memo(function SafeEntryCard({
           ? 'rgba(238, 242, 255, 0.95)'
           : 'rgba(255,255,255,0.95)', 
         borderRadius: '8px', 
-        padding: '1.25rem', 
+        padding: compact ? '0.7rem 0.8rem' : '1.25rem', 
         cursor: 'pointer', 
         boxShadow: '0 2px 4px rgba(0,0,0,0.08)',
         border: entry.isShared && entry.sharedBy 
@@ -109,9 +112,9 @@ const SafeEntryCard = memo(function SafeEntryCard({
         />
       </label>
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '0.75rem' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flex: 1 }}>
-          <h3 style={{ margin: 0, fontSize: '1.1rem' }}>{entry.title}</h3>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: compact ? '0.4rem' : '0.75rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flex: 1, minWidth: 0 }}>
+          <h3 style={{ margin: 0, fontSize: compact ? '0.95rem' : '1.1rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{entry.title}</h3>
           {commentCount > 0 && (
             <span style={{
               background: '#3b82f6',
@@ -177,13 +180,13 @@ const SafeEntryCard = memo(function SafeEntryCard({
       {/* URL row — single line (truncated), reserve space even when empty so cards stay aligned */}
       <p
         title={entry.url || undefined}
-        style={{ margin: '0 0 0.5rem 0', color: '#3b82f6', minHeight: '1.25em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
+        style={{ margin: compact ? '0 0 0.3rem 0' : '0 0 0.5rem 0', color: '#3b82f6', fontSize: compact ? '0.8rem' : undefined, minHeight: compact ? '1.1em' : '1.25em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
       >
         {entry.url ? `🔗 ${entry.url}` : '\u00A0'}
       </p>
 
       {/* Category (left) + tags (right) on a single row */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '0.5rem', marginBottom: '0.5rem' }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '0.5rem', marginBottom: compact ? '0' : '0.5rem' }}>
         <div style={{ flexShrink: 0, padding: '0.25rem 0.75rem', backgroundColor: categoryTag?.color || '#667eea', color: 'white', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 600 }}>{categoryName}</div>
 
         {entry.tags && entry.tags.length > 0 && (
@@ -203,7 +206,9 @@ const SafeEntryCard = memo(function SafeEntryCard({
         <div style={{ display: 'inline-block', padding: '0.25rem 0.75rem', backgroundColor: expiringDays <= 7 ? '#ef4444' : '#f59e0b', color: 'white', borderRadius: '6px', fontSize: '0.75rem' }}>⏰ Expires in {expiringDays} {expiringDays === 1 ? 'day' : 'days'}</div>
       )}
 
-      <p style={{ marginTop: '0.75rem', fontSize: '0.75rem', color: '#6b7280' }}>Updated {new Date(entry.updatedAt).toLocaleDateString()}</p>
+      {!compact && (
+        <p style={{ marginTop: '0.75rem', fontSize: '0.75rem', color: '#6b7280' }}>Updated {new Date(entry.updatedAt).toLocaleDateString()}</p>
+      )}
     </div>
   );
 });
@@ -353,6 +358,12 @@ const SafeEntryList: React.FC<SafeEntryListProps> = ({
   };
   const effectiveView: VaultView = isMobile ? 'card' : view;
 
+  // Client-side pagination (display window only — search/filters/counts stay
+  // global because all metadata is already in memory). Page size persisted.
+  const [pageSize, setPageSizeState] = useState<number>(() => getStoredPageSize(isMobile));
+  const setPageSize = (n: number) => { setPageSizeState(n); storePageSize(n); };
+  const [page, setPage] = useState(1);
+
   // Lazily-decrypted usernames for the list view, cached by entry id so scrolling
   // back through a virtualized list doesn't re-decrypt. Passwords are never cached.
   const usernameCacheRef = useRef<Record<string, string>>({});
@@ -376,37 +387,8 @@ const SafeEntryList: React.FC<SafeEntryListProps> = ({
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showSelectedDeleteConfirm, setShowSelectedDeleteConfirm] = useState(false);
   
-  // comment counts
+  // comment counts (fetched only for the currently displayed page — see below)
   const [commentCounts, setCommentCounts] = useState<Record<string, number>>({});
-  
-  // Load comment counts for entries (PERF-003: Fixed N+1 query - now uses parallel fetching)
-  useEffect(() => {
-    const loadCommentCounts = async () => {
-      if (entries.length === 0) return;
-      
-      // Fetch all comment counts in parallel instead of sequentially
-      const results = await Promise.all(
-        entries.map(async (entry) => {
-          try {
-            const count = await getUnresolvedCommentCount(entry.id, 'safe_entry');
-            return { id: entry.id, count };
-          } catch {
-            return { id: entry.id, count: 0 };
-          }
-        })
-      );
-      
-      const counts: Record<string, number> = {};
-      results.forEach(({ id, count }) => {
-        if (count > 0) {
-          counts[id] = count;
-        }
-      });
-      setCommentCounts(counts);
-    };
-    
-    loadCommentCounts();
-  }, [entries]);
 
   const filteredEntries = useMemo(() => {
     let filtered = [...entries];
@@ -448,6 +430,42 @@ const SafeEntryList: React.FC<SafeEntryListProps> = ({
 
     return filtered;
   }, [entries, debouncedSearchQuery, selectedCategory, selectedTag, showFavoritesOnly, sortBy]);
+
+  // Reset to page 1 when the filter/search/sort/page-size inputs change.
+  useEffect(() => {
+    setPage(1);
+  }, [debouncedSearchQuery, selectedCategory, selectedTag, showFavoritesOnly, sortBy, pageSize]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredEntries.length / pageSize));
+  // Clamp the page if the result set shrank (e.g. after a delete).
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages);
+  }, [page, totalPages]);
+
+  const pagedEntries = useMemo(
+    () => filteredEntries.slice((page - 1) * pageSize, page * pageSize),
+    [filteredEntries, page, pageSize],
+  );
+
+  // Comment counts: fetch ONLY for the visible page in a single batched query
+  // (was N+1 per entry across the whole vault). Results are merged so paging
+  // back doesn't refetch.
+  const pagedIdsKey = pagedEntries.map(e => e.id).join(',');
+  useEffect(() => {
+    if (pagedEntries.length === 0) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const counts = await getUnresolvedCommentCountsForEntries(
+          pagedEntries.map(e => e.id),
+          'safe_entry',
+        );
+        if (!cancelled) setCommentCounts(prev => ({ ...prev, ...counts }));
+      } catch { /* ignore */ }
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pagedIdsKey]);
 
   const entriesWithSelectedTag = useMemo(() => {
     if (!selectedTag) return [] as SafeEntry[];
@@ -528,6 +546,8 @@ const SafeEntryList: React.FC<SafeEntryListProps> = ({
           <option value="expires">Expiry</option>
         </select>
 
+        <PageSizeSelect value={pageSize} onChange={setPageSize} />
+
         {!isMobile && <ViewToggle value={view} onChange={setView} />}
 
         <button
@@ -585,8 +605,9 @@ const SafeEntryList: React.FC<SafeEntryListProps> = ({
           <p style={{ margin: '0.5rem 0 0 0' }}>{searchQuery || selectedCategory || showFavoritesOnly ? 'Try adjusting your filters' : 'Click "Add Entry" to create your first entry'}</p>
         </div>
       ) : effectiveView === 'list' ? (
+        <>
         <PasswordsListView
-          entries={filteredEntries}
+          entries={pagedEntries}
           tags={tags}
           encryptionKey={encryptionKey}
           usernames={usernameCacheRef.current}
@@ -609,12 +630,16 @@ const SafeEntryList: React.FC<SafeEntryListProps> = ({
           }}
           getCategoryName={getCategoryName}
         />
+        <PaginationNav page={page} pageSize={pageSize} totalItems={filteredEntries.length} onPageChange={setPage} />
+        </>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '1rem' }}>
-          {filteredEntries.map(entry => (
+        <>
+        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(auto-fill, minmax(160px, 1fr))' : 'repeat(auto-fill, minmax(300px, 1fr))', gap: isMobile ? '0.6rem' : '1rem' }}>
+          {pagedEntries.map(entry => (
             <SafeEntryCard
               key={entry.id}
               entry={entry}
+              compact={isMobile}
               tags={tags}
               selectedIds={selectedIds}
               commentCount={commentCounts[entry.id] || 0}
@@ -639,6 +664,8 @@ const SafeEntryList: React.FC<SafeEntryListProps> = ({
             />
           ))}
         </div>
+        <PaginationNav page={page} pageSize={pageSize} totalItems={filteredEntries.length} onPageChange={setPage} />
+        </>
       )}
 
       {/* Bulk Delete Confirmation Modal for tag */}

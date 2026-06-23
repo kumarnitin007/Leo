@@ -13,9 +13,17 @@
 import { googleApiFetch } from '../GoogleApiClient';
 import { getSupabaseClient } from '../../../lib/supabase';
 import { GOOGLE_API } from '../constants';
-import type { GoogleContact, ContactRow } from '../types/contacts.types';
+import type {
+  GoogleContact,
+  ContactRow,
+  ContactDetails,
+} from '../types/contacts.types';
 
-const PERSON_FIELDS = 'names,emailAddresses,phoneNumbers,birthdays,events,biographies,photos,organizations';
+const PERSON_FIELDS = [
+  'names', 'nicknames', 'emailAddresses', 'phoneNumbers', 'addresses',
+  'organizations', 'occupations', 'birthdays', 'events', 'biographies',
+  'photos', 'urls', 'imClients', 'relations', 'userDefined',
+].join(',');
 const PAGE_SIZE = 200;
 const SYNC_TOKEN_KEY = 'myday_contacts_sync_token';
 
@@ -238,6 +246,119 @@ export async function updateContactTags(
     .eq('id', contactId);
 }
 
+/**
+ * Toggle/set the local favourite flag for a contact (by row id).
+ */
+export async function updateContactFavorite(
+  userId: string,
+  contactId: string,
+  isFavorite: boolean,
+): Promise<void> {
+  const client = getSupabaseClient();
+  if (!client) return;
+
+  await client
+    .from('myday_contacts')
+    .update({ is_favorite: isFavorite })
+    .eq('user_id', userId)
+    .eq('id', contactId);
+}
+
+// ── Upcoming dates (dashboard reminders) ───────────────────────────────
+
+export interface UpcomingContactDate {
+  contactId: string;
+  resourceName: string;
+  name: string | null;
+  photoUrl: string | null;
+  isFavorite: boolean;
+  type: 'birthday' | 'anniversary';
+  /** Stored value (MM-DD or YYYY-MM-DD). */
+  date: string;
+  /** Next occurrence as YYYY-MM-DD. */
+  nextDate: string;
+  daysUntil: number;
+  /** Age/years turning, when the original year is known. */
+  age: number | null;
+}
+
+function nextOccurrence(dateStr: string, from: Date): { nextDate: string; daysUntil: number; year: number | null } | null {
+  const parts = dateStr.split('-').map(Number);
+  let year: number | null = null;
+  let month: number;
+  let day: number;
+  if (parts.length === 3) {
+    [year, month, day] = parts;
+  } else if (parts.length === 2) {
+    [month, day] = parts;
+  } else {
+    return null;
+  }
+  if (!month || !day) return null;
+
+  const fromMid = new Date(from.getFullYear(), from.getMonth(), from.getDate());
+  let next = new Date(fromMid.getFullYear(), month - 1, day);
+  if (next.getTime() < fromMid.getTime()) {
+    next = new Date(fromMid.getFullYear() + 1, month - 1, day);
+  }
+  const daysUntil = Math.round((next.getTime() - fromMid.getTime()) / 86400000);
+  const nextDate = `${next.getFullYear()}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+  return { nextDate, daysUntil, year };
+}
+
+/**
+ * Contacts whose birthday/anniversary falls within the next `windowDays`.
+ * Favourites first, then by soonest. Used by the dashboard reminders widget.
+ */
+export async function getUpcomingContactDates(
+  userId: string,
+  windowDays = 30,
+): Promise<UpcomingContactDate[]> {
+  const client = getSupabaseClient();
+  if (!client) return [];
+
+  const { data } = await client
+    .from('myday_contacts')
+    .select('id, google_resource_name, name, photo_url, is_favorite, birthday, anniversary')
+    .eq('user_id', userId)
+    .or('birthday.not.is.null,anniversary.not.is.null');
+
+  if (!data?.length) return [];
+
+  const now = new Date();
+  const out: UpcomingContactDate[] = [];
+
+  for (const row of data as Array<Partial<ContactRow>>) {
+    const fields: { type: 'birthday' | 'anniversary'; value: string | null | undefined }[] = [
+      { type: 'birthday', value: row.birthday },
+      { type: 'anniversary', value: row.anniversary },
+    ];
+    for (const f of fields) {
+      if (!f.value) continue;
+      const occ = nextOccurrence(f.value, now);
+      if (!occ || occ.daysUntil > windowDays) continue;
+      out.push({
+        contactId: row.id!,
+        resourceName: row.google_resource_name || '',
+        name: row.name ?? null,
+        photoUrl: row.photo_url ?? null,
+        isFavorite: row.is_favorite ?? false,
+        type: f.type,
+        date: f.value,
+        nextDate: occ.nextDate,
+        daysUntil: occ.daysUntil,
+        age: occ.year ? Number(occ.nextDate.slice(0, 4)) - occ.year : null,
+      });
+    }
+  }
+
+  out.sort((a, b) => {
+    if (a.isFavorite !== b.isFavorite) return a.isFavorite ? -1 : 1;
+    return a.daysUntil - b.daysUntil;
+  });
+  return out;
+}
+
 // ── DB helpers ─────────────────────────────────────────────────────────
 
 async function upsertContacts(
@@ -247,6 +368,9 @@ async function upsertContacts(
   const client = getSupabaseClient();
   if (!client || !contacts.length) return { added: 0, updated: 0, total: 0 };
 
+  // NOTE: is_favorite and leo_tags are intentionally omitted so an upsert never
+  // clobbers a user's local favourite/tag choices on re-sync (new rows fall back
+  // to the DB column default of false / null).
   const rows = contacts.map(c => ({
     user_id: userId,
     google_resource_name: c.resourceName,
@@ -258,6 +382,7 @@ async function upsertContacts(
     photo_url: c.photoUrl,
     organization: c.organization,
     notes: c.notes,
+    raw_details: c.details ?? null,
     last_synced: new Date().toISOString(),
   }));
 
@@ -296,6 +421,13 @@ async function deleteContacts(userId: string, resourceNames: string[]): Promise<
 
 // ── Parse Google People API response ───────────────────────────────────
 
+function formatGoogleDate(d?: GoogleDate): string | null {
+  if (!d || !d.month || !d.day) return null;
+  const mm = String(d.month).padStart(2, '0');
+  const dd = String(d.day).padStart(2, '0');
+  return d.year ? `${d.year}-${mm}-${dd}` : `${mm}-${dd}`;
+}
+
 function parseConnection(conn: PeopleConnection): GoogleContact {
   const name = conn.names?.[0]?.displayName || null;
   const email = conn.emailAddresses?.[0]?.value || null;
@@ -304,31 +436,56 @@ function parseConnection(conn: PeopleConnection): GoogleContact {
   const organization = conn.organizations?.[0]?.name || null;
   const notes = conn.biographies?.[0]?.value || null;
 
-  let birthday: string | null = null;
-  if (conn.birthdays?.[0]?.date) {
-    const bd = conn.birthdays[0].date;
-    if (bd.month && bd.day) {
-      birthday = bd.year
-        ? `${bd.year}-${String(bd.month).padStart(2, '0')}-${String(bd.day).padStart(2, '0')}`
-        : `${String(bd.month).padStart(2, '0')}-${String(bd.day).padStart(2, '0')}`;
-    }
-  }
+  const birthday = formatGoogleDate(conn.birthdays?.[0]?.date);
+  const annEvent = conn.events?.find(e => (e.type || '').toLowerCase() === 'anniversary');
+  const anniversary = formatGoogleDate(annEvent?.date);
 
-  let anniversary: string | null = null;
-  const annEvent = conn.events?.find(e => e.type === 'anniversary');
-  if (annEvent?.date) {
-    const ad = annEvent.date;
-    if (ad.month && ad.day) {
-      anniversary = ad.year
-        ? `${ad.year}-${String(ad.month).padStart(2, '0')}-${String(ad.day).padStart(2, '0')}`
-        : `${String(ad.month).padStart(2, '0')}-${String(ad.day).padStart(2, '0')}`;
-    }
-  }
+  // Full detail (everything People returned) → stored as JSONB.
+  const details: ContactDetails = {
+    emails: (conn.emailAddresses || [])
+      .filter(e => e.value)
+      .map(e => ({ value: e.value!, type: e.type || null })),
+    phones: (conn.phoneNumbers || [])
+      .filter(p => p.value)
+      .map(p => ({ value: p.value!, type: p.type || null })),
+    addresses: (conn.addresses || []).map(a => ({
+      formatted: a.formattedValue || null,
+      type: a.type || null,
+      street: a.streetAddress || null,
+      city: a.city || null,
+      region: a.region || null,
+      postalCode: a.postalCode || null,
+      country: a.country || null,
+    })),
+    organizations: (conn.organizations || []).map(o => ({
+      name: o.name || null,
+      title: o.title || null,
+      department: o.department || null,
+    })),
+    occupations: (conn.occupations || []).map(o => o.value).filter(Boolean) as string[],
+    nicknames: (conn.nicknames || []).map(n => n.value).filter(Boolean) as string[],
+    urls: (conn.urls || [])
+      .filter(u => u.value)
+      .map(u => ({ value: u.value!, type: u.type || null })),
+    relations: (conn.relations || [])
+      .filter(r => r.person)
+      .map(r => ({ person: r.person!, type: r.type || null })),
+    ims: (conn.imClients || [])
+      .filter(i => i.username)
+      .map(i => ({ username: i.username!, protocol: i.protocol || null })),
+    events: (conn.events || [])
+      .map(e => ({ type: e.type || null, date: formatGoogleDate(e.date) }))
+      .filter((e): e is { type: string | null; date: string } => !!e.date),
+    userDefined: (conn.userDefined || [])
+      .filter(u => u.key && u.value)
+      .map(u => ({ key: u.key!, value: u.value! })),
+  };
 
   return {
     resourceName: conn.resourceName,
     name, email, phone, birthday, anniversary,
     photoUrl, organization, notes,
+    details,
   };
 }
 
@@ -343,6 +500,8 @@ function rowToContact(row: ContactRow): GoogleContact {
     photoUrl: row.photo_url,
     organization: row.organization,
     notes: row.notes,
+    isFavorite: row.is_favorite ?? false,
+    details: row.raw_details ?? null,
   };
 }
 
@@ -373,13 +532,28 @@ interface PeopleConnection {
   resourceName: string;
   metadata?: { deleted?: boolean };
   names?: { displayName: string }[];
-  emailAddresses?: { value: string }[];
-  phoneNumbers?: { value: string }[];
+  nicknames?: { value?: string }[];
+  emailAddresses?: { value?: string; type?: string }[];
+  phoneNumbers?: { value?: string; type?: string }[];
+  addresses?: {
+    formattedValue?: string;
+    type?: string;
+    streetAddress?: string;
+    city?: string;
+    region?: string;
+    postalCode?: string;
+    country?: string;
+  }[];
   birthdays?: { date: GoogleDate }[];
-  events?: { date: GoogleDate; type: string }[];
+  events?: { date: GoogleDate; type?: string }[];
   biographies?: { value: string }[];
   photos?: { url: string }[];
-  organizations?: { name: string }[];
+  organizations?: { name?: string; title?: string; department?: string }[];
+  occupations?: { value?: string }[];
+  urls?: { value?: string; type?: string }[];
+  relations?: { person?: string; type?: string }[];
+  imClients?: { username?: string; protocol?: string }[];
+  userDefined?: { key?: string; value?: string }[];
 }
 
 interface GoogleDate {
