@@ -11,19 +11,20 @@ import React from 'react';
 
 export const PAGE_SIZE_OPTIONS = [10, 20, 50, 100];
 export const PAGE_SIZE_KEY = 'myday_safe_page_size';
+export const PAGE_SIZE_KEY_DOCS = 'myday_safe_documents_page_size';
 
 /** Default page size: denser on mobile to reduce scrolling, lighter on desktop. */
-export function getStoredPageSize(isMobile: boolean): number {
+export function getStoredPageSize(isMobile: boolean, key: string = PAGE_SIZE_KEY): number {
   try {
-    const raw = localStorage.getItem(PAGE_SIZE_KEY);
+    const raw = localStorage.getItem(key);
     const n = raw ? parseInt(raw, 10) : NaN;
     if (PAGE_SIZE_OPTIONS.includes(n)) return n;
   } catch { /* ignore */ }
   return isMobile ? 50 : 20;
 }
 
-export function storePageSize(size: number): void {
-  try { localStorage.setItem(PAGE_SIZE_KEY, String(size)); } catch { /* ignore */ }
+export function storePageSize(size: number, key: string = PAGE_SIZE_KEY): void {
+  try { localStorage.setItem(key, String(size)); } catch { /* ignore */ }
 }
 
 export const PageSizeSelect: React.FC<{

@@ -1552,6 +1552,7 @@ const SafeView: React.FC = () => {
                             documents={filteredDocuments}
                             tags={tags}
                             encryptionKey={encryptionKey!}
+                            isMobile={isMobile}
                             onDocumentSaved={loadDocuments}
                             onAddDocument={() => setShowDocumentForm(true)}
                             onEditDocument={(doc) => setEditingDocument(doc)}
