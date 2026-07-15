@@ -290,6 +290,18 @@ const TradesDashboard: React.FC<TradesDashboardProps> = ({ userId, encryptionKey
     return any ? total : null;
   }, [heldTickers, quotes, optionValueByTicker]);
 
+  // Accounts each ticker appears in (within the current filter) — for display.
+  const accountsByTicker = useMemo(() => {
+    const m = new Map<string, Set<string>>();
+    accountTxns.forEach(t => {
+      if (!t.instrument) return;
+      if (!m.has(t.instrument)) m.set(t.instrument, new Set());
+      m.get(t.instrument)!.add(t.account || DEFAULT_ACCOUNT_BUCKET);
+    });
+    return m;
+  }, [accountTxns]);
+  const tickerAccounts = (ticker: string) => Array.from(accountsByTicker.get(ticker) || []).sort();
+
   interface TickerRow { ticker: string; name?: string; sharesHeld: number; income: number; optionsPremium: number; dividends: number; netCash: number; fullNetCash: number; }
   const tickerRows: TickerRow[] = useMemo(() => {
     if (tickerScope === 'held') {
@@ -616,7 +628,7 @@ const TradesDashboard: React.FC<TradesDashboardProps> = ({ userId, encryptionKey
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem' }}>
                   <thead>
                     <tr style={{ position: 'sticky', top: 0, background: '#f9fafb', zIndex: 1 }}>
-                      <Th>Ticker</Th><Th>Name</Th><Th align="right">Shares held</Th>
+                      <Th>Ticker</Th><Th>Name</Th><Th>Account</Th><Th align="right">Shares held</Th>
                       <Th align="right">Price</Th><Th align="right">Mkt value</Th><Th align="right">P/L (if sold)</Th><Th align="right">Income</Th>
                       <Th align="right">Premium</Th><Th align="right">Dividends</Th><Th align="right">Net cash</Th>
                     </tr>
@@ -633,7 +645,8 @@ const TradesDashboard: React.FC<TradesDashboardProps> = ({ userId, encryptionKey
                         onMouseEnter={e => (e.currentTarget.style.background = '#f8faff')}
                         onMouseLeave={e => (e.currentTarget.style.background = '')}>
                         <Td><strong style={{ color: '#4338ca' }}>{t.ticker}</strong></Td>
-                        <Td title={t.name} style={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#6b7280' }}>{t.name || '—'}</Td>
+                        <Td title={t.name} style={{ maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#6b7280' }}>{t.name || '—'}</Td>
+                        <Td><AccountBadges accounts={tickerAccounts(t.ticker)} /></Td>
                         <Td align="right">{held ? t.sharesHeld.toLocaleString('en-US', { maximumFractionDigits: 4 }) : '—'}</Td>
                         <Td align="right" title={q?.changePct != null ? `${q.changePct >= 0 ? '+' : ''}${q.changePct.toFixed(2)}% today` : undefined} style={{ color: q ? (q.change != null && q.change < 0 ? '#dc2626' : '#059669') : '#9ca3af' }}>{q ? formatCurrency(q.price) : '—'}</Td>
                         <Td align="right" style={{ fontWeight: 700 }}>{mktValue != null ? formatCurrency(mktValue) : '—'}</Td>
@@ -962,6 +975,7 @@ const PanelContent: React.FC<{
               <span style={{ fontSize: '0.85rem' }}>
                 <strong>{Math.abs(o.netContracts)}</strong> × ${o.strike} · exp {o.expiration}
               </span>
+              {o.account && <AccountBadges accounts={[o.account]} />}
               {mark != null && <span style={{ fontSize: '0.72rem', color: '#6b7280' }}>mark {formatCurrency(mark)}</span>}
               <span style={{ marginLeft: 'auto', textAlign: 'right' }}>
                 <span style={{ display: 'block', fontSize: '0.78rem', color: o.premium < 0 ? '#dc2626' : '#059669', fontWeight: 600 }}>
@@ -1034,7 +1048,7 @@ const OpenOptionsTable: React.FC<{
       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem' }}>
         <thead>
           <tr style={{ position: 'sticky', top: 0, background: '#f9fafb', zIndex: 1 }}>
-            <Th>Ticker</Th><Th>Position</Th><Th align="right">Contracts</Th><Th align="right">Strike</Th>
+            <Th>Ticker</Th><Th>Account</Th><Th>Position</Th><Th align="right">Contracts</Th><Th align="right">Strike</Th>
             <Th>Expiration</Th><Th align="right">Premium</Th><Th align="right">Mark</Th><Th align="right">Mkt value</Th>
           </tr>
         </thead>
@@ -1046,6 +1060,7 @@ const OpenOptionsTable: React.FC<{
             return (
               <tr key={i} style={{ borderTop: '1px solid #f1f1f1' }}>
                 <Td><button onClick={() => onTicker(o.ticker)} style={tickerLinkStyle}>{o.ticker}</button></Td>
+                <Td><AccountBadges accounts={[o.account || DEFAULT_ACCOUNT_BUCKET]} /></Td>
                 <Td>
                   <span style={{
                     background: o.side === 'short' ? '#fef3c7' : '#dcfce7',
@@ -1164,6 +1179,28 @@ const AccountsManager: React.FC<{
           <strong>{DEFAULT_ACCOUNT_BUCKET}</strong> · {unassigned} txns (default bucket for imports with no source)
         </div>
       )}
+    </div>
+  );
+};
+
+/** Compact account label — last segment of "Broker - Owner - Type". */
+const shortAccountLabel = (a: string) => {
+  if (!a || a === DEFAULT_ACCOUNT_BUCKET) return 'Unassigned';
+  const parts = a.split(' - ');
+  return parts.length > 1 ? parts[parts.length - 1] : a;
+};
+
+const AccountBadges: React.FC<{ accounts: string[] }> = ({ accounts }) => {
+  if (!accounts.length) return <span style={{ color: '#9ca3af' }}>—</span>;
+  return (
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+      {accounts.map(a => (
+        <span key={a} title={a} style={{
+          background: a === DEFAULT_ACCOUNT_BUCKET ? '#f3f4f6' : '#eef2ff',
+          color: a === DEFAULT_ACCOUNT_BUCKET ? '#6b7280' : '#4338ca',
+          borderRadius: 5, padding: '0.05rem 0.4rem', fontSize: '0.68rem', fontWeight: 700, whiteSpace: 'nowrap',
+        }}>{shortAccountLabel(a)}</span>
+      ))}
     </div>
   );
 };

@@ -8,6 +8,7 @@ import { RawTradeTxn, OptionType } from '../../types/trades';
 
 export interface OpenOption {
   ticker: string;
+  account?: string;         // brokerage account this position is in
   optionType: OptionType;   // CALL / PUT
   strike?: number;
   expiration?: string;      // ISO
@@ -30,10 +31,12 @@ export function computeOpenOptions(txns: RawTradeTxn[], asOf?: string): OpenOpti
   for (const t of txns) {
     if (t.kind !== 'option_premium') continue;               // STO/BTO/STC/BTC only
     if (!t.optionType || t.strike == null || !t.expiration) continue;
-    const key = `${t.instrument}|${t.optionType}|${t.strike}|${t.expiration}`;
+    // Keyed by account too, so the same contract in different accounts is
+    // tracked as separate positions.
+    const key = `${t.instrument}|${t.account || ''}|${t.optionType}|${t.strike}|${t.expiration}`;
     let o = map.get(key);
     if (!o) {
-      o = { ticker: t.instrument, optionType: t.optionType, strike: t.strike, expiration: t.expiration, netContracts: 0, side: 'long', premium: 0 };
+      o = { ticker: t.instrument, account: t.account, optionType: t.optionType, strike: t.strike, expiration: t.expiration, netContracts: 0, side: 'long', premium: 0 };
       map.set(key, o);
     }
     const q = t.quantity ?? 0;

@@ -1,6 +1,6 @@
 {
   "name": "myday",
-  "version": "1.4.167",
+  "version": "1.4.168",
   "type": "module",
   "scripts": {
     "dev": "vite",
