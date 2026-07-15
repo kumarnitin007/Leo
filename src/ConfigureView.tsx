@@ -3,6 +3,8 @@ import { Task, FrequencyType, IntervalUnit, Tag, TrackedMetricType, TrackedMetri
 import { loadData, addTask, updateTask, deleteTask, importSampleTasks, clearAllData, getTagsForSection } from './storage';
 import { generateId, getColorForTask } from './utils';
 import GenericFilterSidebar, { GenericFilter, FilterSection } from './components/GenericFilterSidebar';
+import SlideOverPanel from './components/SlideOverPanel';
+import FormCollapsible from './components/FormCollapsible';
 
 const TRACKED_UNITS: Record<TrackedMetricType, string> = {
   steps: 'steps',
@@ -534,17 +536,11 @@ const ConfigureView: React.FC = () => {
       </div>
 
       {/* Add/Edit Form */}
-      {isEditing && (
-        <div className="task-form-container" style={{
-          background: 'rgba(255, 255, 255, 0.95)',
-          borderRadius: '12px',
-          padding: '2rem',
-          border: '2px solid #e5e7eb',
-          boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)'
-        }}>
-          <h3 style={{ marginTop: 0, marginBottom: '1.5rem' }}>
-            {editingId ? 'Edit Task' : 'Add New Task'}
-          </h3>
+      <SlideOverPanel
+        isOpen={isEditing}
+        onClose={resetForm}
+        title={editingId ? 'Edit Task' : 'Add New Task'}
+      >
           <form className="task-form" onSubmit={handleSubmit}>
         <div className="form-group">
           <label>Task Name *</label>
@@ -557,6 +553,7 @@ const ConfigureView: React.FC = () => {
           />
         </div>
 
+        <FormCollapsible title="Details" subtitle="Description, category & tags">
         <div className="form-group">
           <label>Description</label>
           <textarea
@@ -656,6 +653,7 @@ const ConfigureView: React.FC = () => {
             </select>
           )}
         </div>
+        </FormCollapsible>
 
         <div className="form-row">
           <div className="form-group">
@@ -847,6 +845,7 @@ const ConfigureView: React.FC = () => {
           </div>
         )}
 
+        <FormCollapsible title="Advanced options" subtitle="Dates, color, dependencies, tracking & hold">
         {/* Date Range & One-Time Task Options */}
         <div style={{ 
           marginTop: '1.5rem', 
@@ -1350,6 +1349,7 @@ const ConfigureView: React.FC = () => {
             </div>
           )}
         </div>
+        </FormCollapsible>
 
           <div className="form-actions">
             <button type="button" className="ck-btn" onClick={resetForm}>
@@ -1360,8 +1360,7 @@ const ConfigureView: React.FC = () => {
             </button>
           </div>
         </form>
-        </div>
-      )}
+      </SlideOverPanel>
     </div>
   );
 };

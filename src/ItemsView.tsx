@@ -28,6 +28,8 @@ import {
   importSampleItems
 } from './storage';
 import GenericFilterSidebar, { GenericFilter, FilterSection } from './components/GenericFilterSidebar';
+import SlideOverPanel from './components/SlideOverPanel';
+import FormCollapsible from './components/FormCollapsible';
 
 interface ItemsViewProps {
   onNavigate?: (view: string) => void;
@@ -522,9 +524,11 @@ const ItemsView: React.FC<ItemsViewProps> = () => {
               )}
 
       {/* Add/Edit Form */}
-      {isEditing && (
-        <div className="ck-card ck-form" style={{ marginBottom: '1.25rem' }}>
-          <h3 style={{ marginTop: 0, marginBottom: '14px', fontFamily: 'var(--ck-serif)', fontWeight: 500, fontSize: '1.1rem' }}>{editingItem ? 'Edit Item' : 'Add New Item'}</h3>
+      <SlideOverPanel
+        isOpen={isEditing}
+        onClose={resetForm}
+        title={editingItem ? 'Edit Item' : 'Add New Item'}
+      >
           <form onSubmit={handleSubmit} className="event-form">
             <div className="form-row">
               <div className="form-group">
@@ -551,16 +555,6 @@ const ItemsView: React.FC<ItemsViewProps> = () => {
                   <option value="Note">📝 Note</option>
                 </select>
               </div>
-            </div>
-
-            <div className="form-group">
-              <label>Description</label>
-              <textarea
-                value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                placeholder="Additional details..."
-                rows={3}
-              />
             </div>
 
             {/* Category-specific fields */}
@@ -713,6 +707,17 @@ const ItemsView: React.FC<ItemsViewProps> = () => {
               </div>
             )}
 
+            <FormCollapsible title="Optional details" subtitle="Description, tags, priority & color">
+            <div className="form-group">
+              <label>Description</label>
+              <textarea
+                value={formData.description}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                placeholder="Additional details..."
+                rows={3}
+              />
+            </div>
+
             {/* Tags */}
             <div className="form-group">
               <label>Tags</label>
@@ -802,6 +807,7 @@ const ItemsView: React.FC<ItemsViewProps> = () => {
                 />
               </div>
             </div>
+            </FormCollapsible>
 
             <div className="ck-form-actions">
               <button type="submit" className="ck-btn ck-btn-primary">
@@ -812,8 +818,7 @@ const ItemsView: React.FC<ItemsViewProps> = () => {
               </button>
             </div>
           </form>
-        </div>
-      )}
+      </SlideOverPanel>
 
       {/* Items List */}
       <div>

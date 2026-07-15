@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Resolution, ResolutionMilestone, Task } from '../types';
-import Portal from './Portal';
+import SlideOverPanel from './SlideOverPanel';
+import FormCollapsible from './FormCollapsible';
 import '../styles/ResolutionModal.css';
 
 interface ResolutionModalProps {
@@ -132,18 +133,12 @@ const ResolutionModal: React.FC<ResolutionModalProps> = ({
     'Travel'
   ];
 
-  if (!isOpen) return null;
-
   return (
-    <Portal>
-      <div className="modal-overlay" onClick={onClose}>
-        <div className="resolution-modal" onClick={e => e.stopPropagation()}>
-          <div className="modal-header">
-            <h2>{resolution ? 'Edit Resolution' : 'New Resolution'}</h2>
-            <button className="close-btn" onClick={onClose}>✕</button>
-          </div>
-
-          <div className="modal-body">
+    <SlideOverPanel
+      isOpen={isOpen}
+      onClose={onClose}
+      title={resolution ? 'Edit Resolution' : 'New Resolution'}
+    >
             {/* Basic Info */}
             <div className="form-group">
               <label>Resolution Title *</label>
@@ -153,17 +148,6 @@ const ResolutionModal: React.FC<ResolutionModalProps> = ({
                 onChange={e => setTitle(e.target.value)}
                 placeholder="e.g., Run a Marathon, Learn Spanish"
                 className="form-input"
-              />
-            </div>
-
-            <div className="form-group">
-              <label>Description</label>
-              <textarea
-                value={description}
-                onChange={e => setDescription(e.target.value)}
-                placeholder="Why is this resolution important to you?"
-                className="form-textarea"
-                rows={3}
               />
             </div>
 
@@ -270,6 +254,18 @@ const ResolutionModal: React.FC<ResolutionModalProps> = ({
               </div>
             )}
 
+            <FormCollapsible title="Optional details" subtitle="Description, milestones & linked tasks">
+            <div className="form-group">
+              <label>Description</label>
+              <textarea
+                value={description}
+                onChange={e => setDescription(e.target.value)}
+                placeholder="Why is this resolution important to you?"
+                className="form-textarea"
+                rows={3}
+              />
+            </div>
+
             {/* Milestones */}
             {(progressMetric === 'milestone' || progressMetric === 'count') && (
               <div className="form-group">
@@ -334,31 +330,31 @@ const ResolutionModal: React.FC<ResolutionModalProps> = ({
                 <label>Link Tasks (Optional)</label>
                 <p className="form-help">Select tasks that help you achieve this resolution</p>
                 <div className="tasks-checklist">
-                  {tasks.map(task => (
-                    <label key={task.id} className="checklist-item">
-                      <input
-                        type="checkbox"
-                        checked={linkedTaskIds.includes(task.id)}
-                        onChange={() => handleToggleTask(task.id)}
-                      />
-                      <span>{task.name}</span>
-                      {task.category && <span className="task-category">{task.category}</span>}
-                    </label>
-                  ))}
+                  {tasks.map(task => {
+                    const isSelected = linkedTaskIds.includes(task.id);
+                    return (
+                      <label key={task.id} className={`checklist-item ${isSelected ? 'selected' : ''}`}>
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => handleToggleTask(task.id)}
+                        />
+                        <span>{task.name}</span>
+                        {task.category && <span className="task-category">{task.category}</span>}
+                      </label>
+                    );
+                  })}
                 </div>
               </div>
             )}
-          </div>
-
+            </FormCollapsible>
           <div className="modal-footer">
             <button onClick={onClose} className="btn-secondary">Cancel</button>
             <button onClick={handleSave} className="btn-primary">
               {resolution ? 'Update' : 'Create'} Resolution
             </button>
           </div>
-        </div>
-      </div>
-    </Portal>
+    </SlideOverPanel>
   );
 };
 

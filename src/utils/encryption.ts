@@ -104,6 +104,23 @@ export function generateIV(): Uint8Array {
 }
 
 /**
+ * Convert bytes to base64 in chunks.
+ * Using `String.fromCharCode(...bytes)` overflows the call stack for large
+ * buffers (e.g. big JSON blobs), so we process in fixed-size chunks.
+ */
+function bytesToBase64(bytes: Uint8Array): string {
+  const CHUNK = 0x8000; // 32KB
+  let binary = '';
+  for (let i = 0; i < bytes.length; i += CHUNK) {
+    binary += String.fromCharCode.apply(
+      null,
+      bytes.subarray(i, i + CHUNK) as unknown as number[]
+    );
+  }
+  return btoa(binary);
+}
+
+/**
  * Encrypt data using AES-256-GCM
  */
 export async function encryptData(
@@ -123,10 +140,9 @@ export async function encryptData(
     dataBuffer
   );
 
-  // Convert to base64 for storage
-  const encryptedArray = Array.from(new Uint8Array(encryptedBuffer));
-  const encryptedBase64 = btoa(String.fromCharCode(...encryptedArray));
-  const ivBase64 = btoa(String.fromCharCode(...iv));
+  // Convert to base64 for storage (chunked to avoid call-stack overflow on large data)
+  const encryptedBase64 = bytesToBase64(new Uint8Array(encryptedBuffer));
+  const ivBase64 = bytesToBase64(iv);
 
   return {
     encrypted: encryptedBase64,

@@ -32,7 +32,7 @@ const DailyBriefingCard: React.FC = () => {
   const [briefing, setBriefing] = useState<DailyBriefingResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(true);
   const [aiOptIn, setAiOptIn] = useState<boolean | null>(null);
   const [showQuery, setShowQuery] = useState(false);
   const [previewQuery, setPreviewQuery] = useState<{ systemPrompt: string; userMessage: string } | null>(null);

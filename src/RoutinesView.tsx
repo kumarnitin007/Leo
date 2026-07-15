@@ -20,6 +20,8 @@ import {
   initializeDefaultRoutines
 } from './storage';
 import GenericFilterSidebar, { GenericFilter, FilterSection } from './components/GenericFilterSidebar';
+import SlideOverPanel from './components/SlideOverPanel';
+import FormCollapsible from './components/FormCollapsible';
 
 interface RoutinesViewProps {
   onApplyRoutine?: (tasks: Task[]) => void;
@@ -234,9 +236,11 @@ const RoutinesView: React.FC<RoutinesViewProps> = ({ onApplyRoutine }) => {
       </div>
 
       {/* Create/Edit Form */}
-      {isCreating && (
-        <div className="routine-form-container">
-          <h3>{editingRoutine ? 'Edit Routine' : 'Create New Routine'}</h3>
+      <SlideOverPanel
+        isOpen={isCreating}
+        onClose={handleCancel}
+        title={editingRoutine ? 'Edit Routine' : 'Create New Routine'}
+      >
           <form className="routine-form" onSubmit={(e) => { e.preventDefault(); handleSave(); }}>
             <div className="form-row">
               <div className="form-group">
@@ -262,16 +266,6 @@ const RoutinesView: React.FC<RoutinesViewProps> = ({ onApplyRoutine }) => {
                   <option value="anytime">⏰ Anytime</option>
                 </select>
               </div>
-            </div>
-
-            <div className="form-group">
-              <label>Description</label>
-              <textarea
-                value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                placeholder="Describe this routine..."
-                rows={2}
-              />
             </div>
 
             <div className="form-group">
@@ -301,6 +295,18 @@ const RoutinesView: React.FC<RoutinesViewProps> = ({ onApplyRoutine }) => {
               </div>
             </div>
 
+            <FormCollapsible title="Description" subtitle="Optional">
+            <div className="form-group">
+              <label>Description</label>
+              <textarea
+                value={formData.description}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                placeholder="Describe this routine..."
+                rows={2}
+              />
+            </div>
+            </FormCollapsible>
+
             <div className="form-actions">
               <button type="submit" className="ck-btn ck-btn-primary">
                 {editingRoutine ? 'Update Routine' : 'Create Routine'}
@@ -310,8 +316,7 @@ const RoutinesView: React.FC<RoutinesViewProps> = ({ onApplyRoutine }) => {
               </button>
             </div>
           </form>
-        </div>
-      )}
+      </SlideOverPanel>
 
       {/* Main content with sidebar */}
       <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start' }}>

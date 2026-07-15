@@ -41,6 +41,8 @@ import SharedWithMeView from './components/SharedWithMeView';
 
 // Lazy load BankDashboard (PERF-002: heavy Recharts dependency ~200KB)
 const BankDashboard = lazy(() => import('./components/BankDashboard'));
+// Lazy load TradesDashboard (also pulls in Recharts)
+const TradesDashboard = lazy(() => import('./components/trades/TradesDashboard'));
 import SafeFilterSidebar, { SafeFilter } from './components/SafeFilterSidebar';
 import GenericFilterSidebar, { GenericFilter, FilterSection } from './components/GenericFilterSidebar';
 
@@ -109,7 +111,7 @@ const SafeView: React.FC = () => {
   const [showChangePassword, setShowChangePassword] = useState(false);
   const [showGroupsChat, setShowGroupsChat] = useState(false);
   const [showGroupsManager, setShowGroupsManager] = useState(false);
-  const [activeTab, setActiveTab] = useState<'entries' | 'documents' | 'financial'>('financial');
+  const [activeTab, setActiveTab] = useState<'entries' | 'documents' | 'financial' | 'trades'>('financial');
   const [showDocumentForm, setShowDocumentForm] = useState(false);
   const [editingDocument, setEditingDocument] = useState<DocumentVault | null>(null);
   
@@ -1095,6 +1097,7 @@ const SafeView: React.FC = () => {
             { id: 'financial', label: 'Financial', icon: '🏦', badge: pendingImportsCount },
             { id: 'entries', label: 'Passwords', icon: '🔐', badge: 0 },
             { id: 'documents', label: 'Documents', icon: '📄', badge: 0 },
+            { id: 'trades', label: 'Trades', icon: '📈', badge: 0 },
           ] as const).map(t => (
             <button
               key={t.id}
@@ -1152,7 +1155,7 @@ const SafeView: React.FC = () => {
               🔒 {remainingMinutes} min
             </span>
           )}
-          {activeTab !== 'financial' && (
+          {activeTab !== 'financial' && activeTab !== 'trades' && (
             <>
               <button onClick={() => setShowSharedWithMe(true)} title="Shared With Me" className="ck-btn ck-btn-sm">
                 🔗 Shared
@@ -1273,11 +1276,35 @@ const SafeView: React.FC = () => {
           {!isMobile && <span style={{ fontSize: '1.25rem' }}>📄</span>}
           <span>Documents</span>
         </button>
+        <button
+          onClick={() => setActiveTab('trades')}
+          className="safe-tab"
+          style={{
+            flex: 1,
+            padding: isMobile ? '0.45rem 0.5rem' : '0.75rem 1rem',
+            backgroundColor: activeTab === 'trades' ? '#3b82f6' : 'rgba(255,255,255,0.5)',
+            color: activeTab === 'trades' ? 'white' : '#6b7280',
+            border: activeTab === 'trades' ? 'none' : '2px solid rgba(0,0,0,0.1)',
+            borderRadius: isMobile ? '8px' : '12px',
+            cursor: 'pointer',
+            fontSize: isMobile ? '0.8rem' : '0.875rem',
+            fontWeight: 600,
+            transition: 'all 0.3s ease',
+            display: 'flex',
+            flexDirection: isMobile ? 'row' : 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '0.25rem'
+          }}
+        >
+          {!isMobile && <span style={{ fontSize: '1.25rem' }}>📈</span>}
+          <span>Trades</span>
+        </button>
       </div>
       )}
 
       {/* Add Button - Only show for entries and documents tabs */}
-      {activeTab !== 'financial' && (
+      {activeTab !== 'financial' && activeTab !== 'trades' && (
         <div style={{ 
           display: 'flex', 
           justifyContent: 'flex-end',
@@ -1452,6 +1479,18 @@ const SafeView: React.FC = () => {
                     encryptionKey={encryptionKey!}
                     onOpenGroupChat={() => setShowGroupsChat(true)}
                   />
+                </Suspense>
+              ) : activeTab === 'trades' ? (
+                /* Trades Tab - Robinhood import + dashboard */
+                <Suspense fallback={
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '200px', color: '#6b7280' }}>
+                    <div style={{ textAlign: 'center' }}>
+                      <div style={{ fontSize: '1.5rem', marginBottom: '0.5rem' }}>📈</div>
+                      <div>Loading Trades Dashboard...</div>
+                    </div>
+                  </div>
+                }>
+                  <TradesDashboard userId={user?.id} encryptionKey={encryptionKey!} />
                 </Suspense>
               ) : (
                 /* Documents Tab with Filter Sidebar */

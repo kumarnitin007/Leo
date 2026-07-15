@@ -22,12 +22,12 @@ type MilestoneItem = {
   daysRemaining: number;
 };
 
-type ViewMode = 'cards' | 'list' | 'counter';
+type ViewMode = 'counter' | 'list' | 'visual';
 
 const MilestonesModal: React.FC<MilestonesModalProps> = ({ onClose, onNavigate }) => {
   const [milestones, setMilestones] = useState<MilestoneItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [viewMode, setViewMode] = useState<ViewMode>('cards');
+  const [viewMode, setViewMode] = useState<ViewMode>('counter');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
 
   useEffect(() => {
@@ -261,9 +261,9 @@ const MilestonesModal: React.FC<MilestonesModalProps> = ({ onClose, onNavigate }
           <div className="milestones-toolbar">
             <div className="milestones-view-toggle" role="tablist" aria-label="View mode">
               {([
-                { id: 'cards', label: 'Cards' },
-                { id: 'list', label: 'List' },
                 { id: 'counter', label: 'Counter' },
+                { id: 'list', label: 'List' },
+                { id: 'visual', label: 'Visual' },
               ] as { id: ViewMode; label: string }[]).map(v => (
                 <button
                   key={v.id}
@@ -298,45 +298,6 @@ const MilestonesModal: React.FC<MilestonesModalProps> = ({ onClose, onNavigate }
             )}
           </div>
 
-          {viewMode === 'cards' && (
-            <div className="milestones-grid">
-              {visibleMilestones.map((milestone) => (
-                <div
-                  key={`${milestone.type}-${milestone.id}`}
-                  className="milestone-item"
-                >
-                  <div className="milestone-days-remaining">
-                    <div className={`days-badge ${badgeClass(milestone.daysRemaining)}`}>
-                      <span className="days-number">{Math.abs(milestone.daysRemaining)}</span>
-                      <span className="days-label">
-                        {milestone.daysRemaining < 0 ? 'DAYS AGO' : milestone.daysRemaining === 0 ? 'TODAY' : 'DAYS TO GO'}
-                      </span>
-                      <div className="milestone-name-in-badge">
-                        <h3>{milestone.name}</h3>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="milestone-content">
-                    <div className="milestone-date-row">
-                      <div className="milestone-date-box">
-                        <div className="date-content">
-                          <span className="date-icon">📅</span>
-                          <span className="date-text">{formatDate(milestone.date)}</span>
-                        </div>
-                      </div>
-                      {milestone.category && (
-                        <div className="milestone-category-box">
-                          <span className="category-text">{milestone.category}</span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-
           {viewMode === 'list' && (
             <div className="milestones-list">
               {visibleMilestones.map((milestone) => (
@@ -368,8 +329,44 @@ const MilestonesModal: React.FC<MilestonesModalProps> = ({ onClose, onNavigate }
                     {milestone.daysRemaining < 0 ? 'DAYS AGO' : milestone.daysRemaining === 0 ? 'TODAY' : 'DAYS TO GO'}
                   </span>
                   <span className="milestone-counter-name">{milestone.name}</span>
+                  <span className="milestone-counter-date">📅 {formatDate(milestone.date)}</span>
                 </div>
               ))}
+            </div>
+          )}
+
+          {viewMode === 'visual' && (
+            <div className="milestones-visual-grid">
+              {visibleMilestones.map((milestone) => {
+                const total = Math.abs(milestone.daysRemaining) || 1;
+                const progress = milestone.daysRemaining <= 0
+                  ? 100
+                  : Math.max(4, Math.min(100, Math.round((1 - Math.min(milestone.daysRemaining, 365) / 365) * 100)));
+                const emoji = milestone.daysRemaining < 0 ? '🏁'
+                  : milestone.daysRemaining === 0 ? '🎉'
+                  : milestone.daysRemaining <= 7 ? '🔥'
+                  : milestone.daysRemaining <= 30 ? '⏳' : '🎯';
+                return (
+                  <div key={`${milestone.type}-${milestone.id}`} className={`milestone-visual ${badgeClass(milestone.daysRemaining)}`}>
+                    <div className="milestone-visual-top">
+                      <span className="milestone-visual-emoji">{emoji}</span>
+                      <div className="milestone-visual-titles">
+                        <span className="milestone-visual-name">{milestone.name}</span>
+                        <span className="milestone-visual-date">{formatDate(milestone.date)}{milestone.category ? ` · ${milestone.category}` : ''}</span>
+                      </div>
+                    </div>
+                    <div className="milestone-visual-figure">
+                      <span className="milestone-visual-number">{Math.abs(milestone.daysRemaining)}</span>
+                      <span className="milestone-visual-unit">
+                        {milestone.daysRemaining < 0 ? 'days ago' : milestone.daysRemaining === 0 ? 'today' : total === 1 ? 'day to go' : 'days to go'}
+                      </span>
+                    </div>
+                    <div className="milestone-visual-track">
+                      <div className="milestone-visual-fill" style={{ width: `${progress}%` }} />
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
 

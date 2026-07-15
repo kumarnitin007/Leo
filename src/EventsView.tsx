@@ -26,6 +26,8 @@ import { Tag } from './types';
 import { ReferenceCalendarModal } from './components/ReferenceCalendarModal';
 import { ReferenceCalendarTemplateModal } from './components/ReferenceCalendarTemplateModal';
 import GenericFilterSidebar, { GenericFilter, FilterSection } from './components/GenericFilterSidebar';
+import SlideOverPanel from './components/SlideOverPanel';
+import FormCollapsible from './components/FormCollapsible';
 import packageJson from '../package.json';
 
 type EventFilter = GenericFilter;
@@ -871,9 +873,11 @@ const EventsView: React.FC<EventsViewProps> = () => {
       )}
 
       {/* Add/Edit Form */}
-      {isEditing && (
-        <div className="event-form-container">
-          <h3>{editingEvent ? 'Edit Event' : 'Add New Event'}</h3>
+      <SlideOverPanel
+        isOpen={isEditing}
+        onClose={resetForm}
+        title={editingEvent ? 'Edit Event' : 'Add New Event'}
+      >
           <form onSubmit={handleSubmit} className="event-form">
             <div className="form-row">
               <div className="form-group">
@@ -935,16 +939,6 @@ const EventsView: React.FC<EventsViewProps> = () => {
               </div>
             )}
 
-            <div className="form-group">
-              <label>Description <span style={{ fontSize: '0.85rem', color: '#6b7280', fontWeight: 'normal' }}>(Auto-filled, edit as needed)</span></label>
-              <textarea
-                value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                placeholder="Select a category to get a default description, or write your own..."
-                rows={2}
-              />
-            </div>
-
             <div className="form-row">
               <div className="form-group">
                 <label>Frequency *</label>
@@ -984,6 +978,17 @@ const EventsView: React.FC<EventsViewProps> = () => {
                 />
               </div>
             )}
+
+            <FormCollapsible title="Optional details" subtitle="Description, tags, notifications & more">
+            <div className="form-group">
+              <label>Description <span style={{ fontSize: '0.85rem', color: '#6b7280', fontWeight: 'normal' }}>(Auto-filled, edit as needed)</span></label>
+              <textarea
+                value={formData.description}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                placeholder="Select a category to get a default description, or write your own..."
+                rows={2}
+              />
+            </div>
 
             <div className="form-group">
               <label>Tags <span style={{ fontSize: '0.85rem', color: '#6b7280', fontWeight: 'normal' }}>(Optional)</span></label>
@@ -1126,6 +1131,7 @@ const EventsView: React.FC<EventsViewProps> = () => {
                 Event will still appear in Events tab and calendar views
               </small>
             </div>
+            </FormCollapsible>
 
             <div className="form-actions">
               <button type="submit" className="ck-btn ck-btn-primary">
@@ -1136,8 +1142,7 @@ const EventsView: React.FC<EventsViewProps> = () => {
               </button>
             </div>
           </form>
-        </div>
-      )}
+      </SlideOverPanel>
 
       {/* Events List */}
       <div className="events-list-container">
