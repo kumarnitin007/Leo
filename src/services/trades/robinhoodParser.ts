@@ -127,7 +127,7 @@ function detectSource(headerCells: string[]): TradeSource {
 
 export async function parseTradesFile(
   file: File,
-  opts: { tags: string[]; importBatchId: string }
+  opts: { tags: string[]; importBatchId: string; account?: string }
 ): Promise<ParsedTrades> {
   const warnings: string[] = [];
   const buf = await file.arrayBuffer();
@@ -223,6 +223,7 @@ export async function parseTradesFile(
     rows.push({
       id,
       source,
+      account: opts.account,
       activityDate,
       processDate: parseDate(cell(idx.processDate)) || undefined,
       settleDate: parseDate(cell(idx.settleDate)) || undefined,

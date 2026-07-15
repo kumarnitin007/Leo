@@ -18,6 +18,9 @@
 | 5 | MYDV | `myday_document_vaults` | Encrypted documents in Safe |
 | 6 | MYSSD | `myday_shared_safe_documents` | Shared documents (group-based) |
 | 7 | MYBR | `myday_bank_records` | Encrypted financial records (FDs, accounts, bills) |
+| 7a | MYTR | `myday_trades_records` | Encrypted trades blob (Robinhood imports, positions, accounts list, import batches) — one JSON blob per user |
+| 7b | MYTQ | `myday_ticker_quotes` | Cached stock quotes per user/ticker (price fallback + avoids API on every paint) — NON-encrypted |
+| 7c | MYTW | `myday_trade_watchlist` | Watchlist / favorite tickers (ticker + name only, NON-sensitive) |
 | 8 | MYGFM | `myday_group_finance_messages` | Group finance chat (FDs, alerts, docs) |
 | **Groups & Sharing** ||||
 | 9 | MYG | `myday_groups` | User-created sharing groups |
@@ -90,6 +93,9 @@
 | MYDV | `myday_document_vaults` |
 | MYSSD | `myday_shared_safe_documents` |
 | MYBR | `myday_bank_records` |
+| MYTR | `myday_trades_records` |
+| MYTQ | `myday_ticker_quotes` |
+| MYTW | `myday_trade_watchlist` |
 | MYGFM | `myday_group_finance_messages` |
 | MYG | `myday_groups` |
 | MYGM | `myday_group_members` |
@@ -275,7 +281,7 @@ SELECT * FROM myday_gift_cards;
 
 ---
 
-**Last Updated**: 2026-06-18  
+**Last Updated**: 2026-07-15  
 **Status**: ✅ VERIFIED
 
 ---
@@ -284,6 +290,8 @@ SELECT * FROM myday_gift_cards;
 
 | Date | Change |
 |------|--------|
+| 2026-07-15 | Added `myday_ticker_quotes` (MYTQ) and `myday_trade_watchlist` (MYTW) for the Trades feature. MYTQ caches last-fetched stock prices per user/ticker (`user_id`+`ticker` PK; price/currency/previous_close/change/change_pct/as_of) so the dashboard paints from DB and falls back to the last saved price when the market API is unreachable. MYTW stores watchlist/favorite tickers (`ticker`, `name` only — non-sensitive). Both are plain (non-encrypted) with per-user RLS. Migration: `database/create-trades-ticker-tables.sql`. Also: `myday_trades_records` load/save is now DB-only (localStorage fallback removed). |
+| 2026-07-15 | Added `myday_trades_records` (MYTR) for the Vault → Trades feature. Single encrypted JSON blob per user (`user_id` PK, `data` text = `{encrypted, iv}` of client-side AES-256-GCM `TradesData`, `updated_at`), mirroring `myday_bank_records`. Decrypted document schema is intentionally unfrozen. Migration: `database/create-trades-records-table.sql`. localStorage mirrors the same encrypted payload as an offline cache. |
 | 2026-06-22 | Added `raw_details` (JSONB) and `is_favorite` (boolean, default false) columns to `myday_contacts` (MYCON). `raw_details` stores the full People API contact (all emails, phones, addresses, organizations, occupations, urls, nicknames, relations, events, IMs, user-defined). `is_favorite` flags favourite contacts. Existing `birthday`/`anniversary` columns now surface in the dashboard "Upcoming Contact Dates" widget. `is_favorite`/`leo_tags` are preserved across syncs (not overwritten by upsert). |
 | 2026-06-18 | Added `aiProvider` key (`'openai'` \| `'gemini'`) to the existing `extra_settings` (JSONB) bag on `myday_user_settings` (MYUS) — selects which AI engine powers all AI features. No schema/column change required. |
 | 2026-06-15 | Added `display_name` (text) column to `myday_user_settings` (MYUS) — canonical store for the Groups display name so it persists even with zero group memberships (previously only written to `myday_group_members`, which silently saved nothing when the user had no groups). |

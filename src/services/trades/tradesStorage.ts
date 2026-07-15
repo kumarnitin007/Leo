@@ -1,18 +1,18 @@
 /**
  * Trades storage.
  *
- * Persists the Trades JSON document encrypted-at-rest in localStorage, keyed
- * per user. The whole document is encrypted with the vault master key (same
- * AES-256-GCM key used by the rest of the Vault), so trade data is never stored
- * in plaintext.
+ * Persists the Trades JSON document encrypted-at-rest with the vault master key
+ * (AES-256-GCM) — trade data is never stored in plaintext. The document is
+ * stored as a single opaque JSON blob so the schema stays unfrozen (no
+ * migrations needed as the shape evolves).
  *
- * The schema is intentionally not frozen: `data` is an opaque JSON blob, so it
- * can evolve without migrations. When we move to Supabase, only `load()` /
- * `save()` need to change (swap localStorage for a `myday_trades_records`
- * upsert of the same encrypted payload).
+ * Store: Supabase `myday_trades_records` (one encrypted blob per user →
+ * cross-device sync + durability). This is intentionally DB-only (no
+ * localStorage fallback) so what you see always reflects the database.
  */
 
 import { CryptoKey, encryptData, decryptData } from '../../utils/encryption';
+import getSupabaseClient from '../../lib/supabase';
 import {
   TradesData,
   RawTradeTxn,
@@ -21,26 +21,43 @@ import {
   TRADES_DATA_VERSION,
 } from '../../types/trades';
 
-const KEY_PREFIX = 'myday_trades_records_v1';
+const TABLE = 'myday_trades_records';
 
-function storageKey(userId?: string): string {
-  return `${KEY_PREFIX}:${userId || 'local'}`;
+type EncryptedPayload = { encrypted: string; iv: string };
+
+async function decryptPayload(raw: string, key: CryptoKey): Promise<TradesData | null> {
+  const { encrypted, iv } = JSON.parse(raw) as EncryptedPayload;
+  const json = await decryptData(encrypted, iv, key);
+  const data = JSON.parse(json) as TradesData;
+  if (!data || !Array.isArray(data.transactions)) return null;
+  return {
+    version: data.version ?? TRADES_DATA_VERSION,
+    accounts: Array.isArray(data.accounts) ? data.accounts : [],
+    transactions: data.transactions,
+    imports: Array.isArray(data.imports) ? data.imports : [],
+    updatedAt: data.updatedAt || new Date().toISOString(),
+  };
 }
 
 export async function loadTrades(userId: string | undefined, key: CryptoKey): Promise<TradesData> {
+  const client = getSupabaseClient();
+  if (!client || !userId) {
+    console.warn('[tradesStorage] Supabase not available — no trades loaded.');
+    return emptyTradesData();
+  }
   try {
-    const raw = localStorage.getItem(storageKey(userId));
-    if (!raw) return emptyTradesData();
-    const { encrypted, iv } = JSON.parse(raw) as { encrypted: string; iv: string };
-    const json = await decryptData(encrypted, iv, key);
-    const data = JSON.parse(json) as TradesData;
-    if (!data || !Array.isArray(data.transactions)) return emptyTradesData();
-    return {
-      version: data.version ?? TRADES_DATA_VERSION,
-      transactions: data.transactions,
-      imports: Array.isArray(data.imports) ? data.imports : [],
-      updatedAt: data.updatedAt || new Date().toISOString(),
-    };
+    const { data, error } = await client
+      .from(TABLE)
+      .select('data')
+      .eq('user_id', userId)
+      .maybeSingle();
+    if (error) {
+      console.error('[tradesStorage] Supabase load error:', error.message);
+      return emptyTradesData();
+    }
+    if (!data?.data) return emptyTradesData();
+    const parsed = await decryptPayload(data.data as string, key);
+    return parsed || emptyTradesData();
   } catch (err) {
     console.error('[tradesStorage] Failed to load trades:', err);
     return emptyTradesData();
@@ -52,9 +69,23 @@ export async function saveTrades(
   key: CryptoKey,
   data: TradesData
 ): Promise<void> {
+  const client = getSupabaseClient();
+  if (!client || !userId) {
+    throw new Error('Cannot save trades: Supabase is not available.');
+  }
   const payload: TradesData = { ...data, updatedAt: new Date().toISOString() };
   const { encrypted, iv } = await encryptData(JSON.stringify(payload), key);
-  localStorage.setItem(storageKey(userId), JSON.stringify({ encrypted, iv }));
+  const encryptedPayload = JSON.stringify({ encrypted, iv });
+  const { error } = await client
+    .from(TABLE)
+    .upsert(
+      { user_id: userId, data: encryptedPayload, updated_at: payload.updatedAt },
+      { onConflict: 'user_id' }
+    );
+  if (error) {
+    console.error('[tradesStorage] Supabase save failed:', error.message);
+    throw new Error(`Save failed: ${error.message}`);
+  }
 }
 
 export interface MergeResult {
@@ -69,7 +100,7 @@ export interface MergeResult {
 export function mergeTrades(
   existing: TradesData,
   incoming: RawTradeTxn[],
-  meta: { fileName: string; source: TradeImportBatch['source']; tags: string[]; dateRange?: { start: string; end: string } }
+  meta: { fileName: string; source: TradeImportBatch['source']; tags: string[]; account?: string; dateRange?: { start: string; end: string } }
 ): MergeResult {
   const existingIds = new Set(existing.transactions.map(t => t.id));
   const seenInBatch = new Set<string>();
@@ -89,6 +120,7 @@ export function mergeTrades(
     id: `batch_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
     fileName: meta.fileName,
     source: meta.source,
+    account: meta.account,
     importedAt: new Date().toISOString(),
     rowsParsed: incoming.length,
     added: added.length,
@@ -105,9 +137,16 @@ export function mergeTrades(
     (a, b) => (a.activityDate < b.activityDate ? 1 : a.activityDate > b.activityDate ? -1 : 0)
   );
 
+  // Preserve the managed account list and auto-add a newly used account/source.
+  const existingAccounts = Array.isArray(existing.accounts) ? existing.accounts : [];
+  const accounts = meta.account && !existingAccounts.includes(meta.account)
+    ? [...existingAccounts, meta.account]
+    : existingAccounts;
+
   return {
     data: {
       version: TRADES_DATA_VERSION,
+      accounts,
       transactions,
       imports: [batch, ...existing.imports],
       updatedAt: new Date().toISOString(),

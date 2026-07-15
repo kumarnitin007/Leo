@@ -10,6 +10,23 @@
 
 export type TradeSource = 'robinhood' | 'unknown';
 
+/**
+ * Seed suggestions for brokerage accounts / sources. The authoritative list is
+ * user-managed at runtime and stored in `TradesData.accounts`; these are only
+ * offered when the user hasn't created any of their own yet.
+ */
+export const TRADE_ACCOUNTS = [
+  'Robinhood - Nitin - Individual',
+  'Robinhood - Nitin - Roth',
+  'Fidelity - Nitin',
+  'Fidelity - Nitin - Roth',
+] as const;
+
+export type TradeAccount = typeof TRADE_ACCOUNTS[number];
+
+/** Bucket label for transactions with no explicit account/source. */
+export const DEFAULT_ACCOUNT_BUCKET = 'Unassigned';
+
 export type TradeKind =
   | 'option_premium' // STO / BTO / STC / BTC
   | 'option_event'   // OEXP / OASGN / OEXCS
@@ -32,6 +49,7 @@ export interface RawTradeTxn {
   processDate?: string;        // ISO
   settleDate?: string;         // ISO
 
+  account?: string;            // brokerage account this trade belongs to
   instrument: string;          // ticker symbol, may be '' for cash rows
   description: string;
   transCode: string;           // raw broker code (STO, BTO, Buy, CDIV, ...)
@@ -59,6 +77,7 @@ export interface TradeImportBatch {
   id: string;
   fileName: string;
   source: TradeSource;
+  account?: string;            // brokerage account assigned to this import
   importedAt: string;          // ISO
   rowsParsed: number;
   added: number;
@@ -70,6 +89,8 @@ export interface TradeImportBatch {
 
 export interface TradesData {
   version: number;
+  /** User-managed list of accounts / data sources (runtime editable). */
+  accounts: string[];
   transactions: RawTradeTxn[];
   imports: TradeImportBatch[];
   updatedAt: string;
@@ -79,6 +100,7 @@ export const TRADES_DATA_VERSION = 1;
 
 export const emptyTradesData = (): TradesData => ({
   version: TRADES_DATA_VERSION,
+  accounts: [],
   transactions: [],
   imports: [],
   updatedAt: new Date().toISOString(),

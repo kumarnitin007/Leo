@@ -9,10 +9,12 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { CryptoKey } from '../../utils/encryption';
 import { Tag } from '../../types';
-import { TradesData } from '../../types/trades';
+import { TradesData, TRADE_ACCOUNTS, DEFAULT_ACCOUNT_BUCKET } from '../../types/trades';
 import { getSafeTags, createSafeTag } from '../../storage';
 import { parseTradesFile, ParsedTrades } from '../../services/trades/robinhoodParser';
 import { mergeTrades, saveTrades, previewMerge } from '../../services/trades/tradesStorage';
+
+const LAST_ACCOUNT_KEY = 'myday_trades_last_account';
 
 interface TradesImportModalProps {
   existingData: TradesData;
@@ -30,6 +32,10 @@ const TradesImportModal: React.FC<TradesImportModalProps> = ({
   const [tags, setTags] = useState<Tag[]>([]);
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
   const [newTagName, setNewTagName] = useState('');
+  const [showTags, setShowTags] = useState(false);
+  const [account, setAccount] = useState<string>(() => {
+    try { return localStorage.getItem(LAST_ACCOUNT_KEY) || ''; } catch { return ''; }
+  });
   const [file, setFile] = useState<File | null>(null);
   const [parsed, setParsed] = useState<ParsedTrades | null>(null);
   const [parsing, setParsing] = useState(false);
@@ -39,6 +45,15 @@ const TradesImportModal: React.FC<TradesImportModalProps> = ({
   useEffect(() => {
     getSafeTags().then(setTags).catch(() => setTags([]));
   }, []);
+
+  // Managed sources (user list) + any already present on transactions, with the
+  // seed suggestions as a fallback for first-time users.
+  const accountOptions = useMemo(() => {
+    const set = new Set<string>(existingData.accounts || []);
+    existingData.transactions.forEach(t => { if (t.account) set.add(t.account); });
+    const arr = Array.from(set).sort();
+    return arr.length ? arr : [...TRADE_ACCOUNTS];
+  }, [existingData]);
 
   const preview = useMemo(() => {
     if (!parsed) return null;
@@ -84,12 +99,15 @@ const TradesImportModal: React.FC<TradesImportModalProps> = ({
     setImporting(true);
     setError(null);
     try {
-      // Re-stamp tags onto rows (in case tags changed after parse)
-      const rows = parsed.rows.map(r => ({ ...r, tags: selectedTagIds }));
+      const acct = account.trim() || undefined;   // empty → default (Unassigned) bucket
+      try { localStorage.setItem(LAST_ACCOUNT_KEY, acct || ''); } catch { /* ignore */ }
+      // Re-stamp tags + account onto rows (in case they changed after parse)
+      const rows = parsed.rows.map(r => ({ ...r, tags: selectedTagIds, account: acct }));
       const { data } = mergeTrades(existingData, rows, {
         fileName: file.name,
         source: parsed.source,
         tags: selectedTagIds,
+        account: acct,
         dateRange: parsed.dateRange,
       });
       await saveTrades(userId, encryptionKey, data);
@@ -172,55 +190,81 @@ const TradesImportModal: React.FC<TradesImportModalProps> = ({
           </div>
         )}
 
-        {/* Tags */}
-        <div style={{ marginBottom: '1.25rem' }}>
-          <label style={{ display: 'block', fontWeight: 600, marginBottom: '0.5rem', fontSize: '0.9rem' }}>
-            Tags for this upload <span style={{ color: '#9ca3af', fontWeight: 400 }}>(optional)</span>
+        {/* Account / source (optional — blank maps to the default bucket) */}
+        <div style={{ marginBottom: '1rem' }}>
+          <label style={{ display: 'block', fontWeight: 600, marginBottom: '0.4rem', fontSize: '0.9rem' }}>
+            Account / source <span style={{ color: '#9ca3af', fontWeight: 400 }}>(optional)</span>
           </label>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '0.6rem' }}>
-            {tags.length === 0 && <span style={{ color: '#9ca3af', fontSize: '0.85rem' }}>No tags yet — create one below.</span>}
-            {tags.map(tag => {
-              const active = selectedTagIds.includes(tag.id);
-              return (
+          <input
+            list="trades-account-list"
+            value={account}
+            onChange={e => setAccount(e.target.value)}
+            placeholder={`Pick a source or type a new one — blank = ${DEFAULT_ACCOUNT_BUCKET}`}
+            style={{ width: '100%', padding: '0.55rem 0.75rem', border: '1px solid #d1d5db', borderRadius: 8, fontSize: '0.9rem', background: '#fff' }}
+          />
+          <datalist id="trades-account-list">
+            {accountOptions.map(a => <option key={a} value={a} />)}
+          </datalist>
+        </div>
+
+        {/* Tags (collapsed to reduce clutter) */}
+        <div style={{ marginBottom: '1.25rem', border: '1px solid #eef0f2', borderRadius: 8 }}>
+          <button
+            type="button"
+            onClick={() => setShowTags(s => !s)}
+            style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.6rem 0.75rem', background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.9rem', fontWeight: 600, color: '#374151' }}
+          >
+            <span style={{ transform: showTags ? 'rotate(90deg)' : 'none', transition: 'transform 0.15s' }}>▸</span>
+            Tags <span style={{ color: '#9ca3af', fontWeight: 400 }}>(optional{selectedTagIds.length ? `, ${selectedTagIds.length} selected` : ''})</span>
+          </button>
+          {showTags && (
+            <div style={{ padding: '0 0.75rem 0.75rem' }}>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '0.6rem', maxHeight: 140, overflowY: 'auto' }}>
+                {tags.length === 0 && <span style={{ color: '#9ca3af', fontSize: '0.85rem' }}>No tags yet — create one below.</span>}
+                {tags.map(tag => {
+                  const active = selectedTagIds.includes(tag.id);
+                  return (
+                    <button
+                      key={tag.id}
+                      type="button"
+                      onClick={() => toggleTag(tag.id)}
+                      style={{
+                        padding: '0.3rem 0.65rem', borderRadius: 20, cursor: 'pointer', fontSize: '0.78rem', fontWeight: 600,
+                        border: `2px solid ${active ? tag.color : '#e5e7eb'}`,
+                        background: active ? `${tag.color}20` : '#fff',
+                        color: active ? tag.color : '#6b7280',
+                      }}
+                    >
+                      {tag.name}{active ? ' ✓' : ''}
+                    </button>
+                  );
+                })}
+              </div>
+              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <input
+                  type="text"
+                  value={newTagName}
+                  onChange={e => setNewTagName(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleCreateTag(); } }}
+                  placeholder="New tag name…"
+                  style={{ flex: 1, padding: '0.5rem 0.75rem', border: '1px solid #d1d5db', borderRadius: 8, fontSize: '0.85rem' }}
+                />
                 <button
-                  key={tag.id}
                   type="button"
-                  onClick={() => toggleTag(tag.id)}
-                  style={{
-                    padding: '0.35rem 0.7rem', borderRadius: 20, cursor: 'pointer', fontSize: '0.8rem', fontWeight: 600,
-                    border: `2px solid ${active ? tag.color : '#e5e7eb'}`,
-                    background: active ? `${tag.color}20` : '#fff',
-                    color: active ? tag.color : '#6b7280',
-                  }}
+                  onClick={handleCreateTag}
+                  disabled={!newTagName.trim()}
+                  className="ck-btn"
+                  style={{ whiteSpace: 'nowrap' }}
                 >
-                  {tag.name}{active ? ' ✓' : ''}
+                  + Add tag
                 </button>
-              );
-            })}
-          </div>
-          <div style={{ display: 'flex', gap: '0.5rem' }}>
-            <input
-              type="text"
-              value={newTagName}
-              onChange={e => setNewTagName(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleCreateTag(); } }}
-              placeholder="New tag name…"
-              style={{ flex: 1, padding: '0.5rem 0.75rem', border: '1px solid #d1d5db', borderRadius: 8, fontSize: '0.85rem' }}
-            />
-            <button
-              type="button"
-              onClick={handleCreateTag}
-              disabled={!newTagName.trim()}
-              className="ck-btn"
-              style={{ whiteSpace: 'nowrap' }}
-            >
-              + Add tag
-            </button>
-          </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Actions */}
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.6rem' }}>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '0.6rem' }}>
           <button onClick={onClose} className="ck-btn">Cancel</button>
           <button
             onClick={handleImport}

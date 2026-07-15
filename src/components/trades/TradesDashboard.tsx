@@ -4,7 +4,8 @@
  * Loads the encrypted trades blob, lets the user import Robinhood exports, and
  * visualizes trading activity/performance (options premium, dividends,
  * interest, per-ticker income, monthly cash flow) plus a filterable
- * transactions table.
+ * transactions table. Tickers and option-activity counts are clickable and
+ * open a right-side detail panel.
  */
 
 import React, { useEffect, useMemo, useState } from 'react';
@@ -14,11 +15,17 @@ import {
 } from 'recharts';
 import { CryptoKey } from '../../utils/encryption';
 import { Tag } from '../../types';
-import { TradesData, RawTradeTxn, emptyTradesData, TradeKind } from '../../types/trades';
+import { TradesData, RawTradeTxn, emptyTradesData, TradeKind, TRADE_ACCOUNTS, DEFAULT_ACCOUNT_BUCKET } from '../../types/trades';
 import { getSafeTags } from '../../storage';
 import { loadTrades, saveTrades } from '../../services/trades/tradesStorage';
-import { computeSummary, formatCurrency } from '../../services/trades/tradesAnalytics';
+import { computeSummary, computeOpenOptions, formatCurrency, TickerStats, OpenOption } from '../../services/trades/tradesAnalytics';
+import { fetchQuotes, fetchOptionQuotes, optionLegKey, Quote, OptionMark } from '../../services/trades/quotes';
+import {
+  loadWatchlist, addWatch, removeWatch, loadCachedQuotes, saveCachedQuotes, WatchItem, CachedQuote,
+} from '../../services/trades/tickerData';
 import TradesImportModal from './TradesImportModal';
+import SlideOverPanel from '../SlideOverPanel';
+import FormCollapsible from '../FormCollapsible';
 
 interface TradesDashboardProps {
   userId?: string;
@@ -41,45 +48,267 @@ const INCOME_COLORS = ['#6366f1', '#10b981', '#0ea5e9', '#f59e0b', '#ef4444'];
 const BAR_POSITIVE = '#10b981';
 const BAR_NEGATIVE = '#ef4444';
 
+const ACTIVITY_GROUPS: { key: 'opened' | 'closed' | 'expired' | 'assigned' | 'exercised'; label: string; codes: string[] }[] = [
+  { key: 'opened', label: 'Opened', codes: ['STO', 'BTO'] },
+  { key: 'closed', label: 'Closed', codes: ['STC', 'BTC'] },
+  { key: 'expired', label: 'Expired', codes: ['OEXP'] },
+  { key: 'assigned', label: 'Assigned', codes: ['OASGN'] },
+  { key: 'exercised', label: 'Exercised', codes: ['OEXCS'] },
+];
+
+interface PanelState {
+  title: string;
+  ticker?: string;
+  txns: RawTradeTxn[];
+}
+
 const TradesDashboard: React.FC<TradesDashboardProps> = ({ userId, encryptionKey }) => {
   const [data, setData] = useState<TradesData>(emptyTradesData());
   const [tags, setTags] = useState<Tag[]>([]);
   const [loading, setLoading] = useState(true);
   const [showImport, setShowImport] = useState(false);
 
-  // Filters
+  // View toggles
+  const [incomeView, setIncomeView] = useState<'chart' | 'numbers'>('chart');
+  const [tickerScope, setTickerScope] = useState<'held' | 'all' | 'options'>('held');
+  const [selectedAccounts, setSelectedAccounts] = useState<string[]>([]); // empty = all
+  const [datePreset, setDatePreset] = useState<string>('all');
+  const [customFrom, setCustomFrom] = useState('');
+  const [customTo, setCustomTo] = useState('');
+  const [panel, setPanel] = useState<PanelState | null>(null);
+
+  // Table filters
   const [search, setSearch] = useState('');
   const [tickerFilter, setTickerFilter] = useState('all');
   const [kindFilter, setKindFilter] = useState<'all' | TradeKind>('all');
+  const [favInput, setFavInput] = useState('');
+
+  // Live prices — cached in DB (paint from cache; refresh hits the market API).
+  const [quotes, setQuotes] = useState<Record<string, CachedQuote>>({});
+  const [optionQuotes, setOptionQuotes] = useState<Record<string, OptionMark>>({});
+  const [quotesAt, setQuotesAt] = useState<string | null>(null);
+  const [quotesLoading, setQuotesLoading] = useState(false);
+  const [quotesError, setQuotesError] = useState(false);
+  const [quotesFromCache, setQuotesFromCache] = useState(false);
+  const [watchlist, setWatchlist] = useState<WatchItem[]>([]);
 
   useEffect(() => {
     (async () => {
       setLoading(true);
-      const [loaded, safeTags] = await Promise.all([
+      const [loaded, safeTags, cached, watch] = await Promise.all([
         loadTrades(userId, encryptionKey),
         getSafeTags().catch(() => [] as Tag[]),
+        loadCachedQuotes(userId).catch(() => ({} as Record<string, CachedQuote>)),
+        loadWatchlist(userId).catch(() => [] as WatchItem[]),
       ]);
       setData(loaded);
       setTags(safeTags);
+      setWatchlist(watch);
+      // Paint from cached prices (no market API call on load).
+      if (Object.keys(cached).length) {
+        setQuotes(cached);
+        setQuotesFromCache(true);
+        const latest = Object.values(cached).map(q => q.asOf).filter(Boolean).sort();
+        setQuotesAt(latest.length ? (latest[latest.length - 1] as string) : null);
+      }
       setLoading(false);
     })();
   }, [userId, encryptionKey]);
 
-  const summary = useMemo(() => computeSummary(data.transactions), [data]);
+  // Filter list = managed sources ∪ sources seen on transactions (+ Unassigned).
+  const accounts = useMemo(() => {
+    const set = new Set<string>(data.accounts || []);
+    let hasUnassigned = false;
+    data.transactions.forEach(t => { if (t.account) set.add(t.account); else hasUnassigned = true; });
+    const arr = Array.from(set).sort();
+    if (hasUnassigned) arr.push(DEFAULT_ACCOUNT_BUCKET);
+    return arr;
+  }, [data.transactions, data.accounts]);
+
+  // Assignable sources for the manager / import re-assignment (seed fallback).
+  const assignableAccounts = useMemo(() => {
+    const set = new Set<string>(data.accounts || []);
+    data.transactions.forEach(t => { if (t.account) set.add(t.account); });
+    const arr = Array.from(set).sort();
+    return arr.length ? arr : [...TRADE_ACCOUNTS];
+  }, [data.accounts, data.transactions]);
+
+  const accountCounts = useMemo(() => {
+    const m = new Map<string, number>();
+    data.transactions.forEach(t => {
+      const k = t.account || DEFAULT_ACCOUNT_BUCKET;
+      m.set(k, (m.get(k) || 0) + 1);
+    });
+    return m;
+  }, [data.transactions]);
+
+  const [showAccounts, setShowAccounts] = useState(false);
+
+  // Account-scoped full history — used for share holdings & data recency.
+  // selectedAccounts empty = show all.
+  const accountTxns = useMemo(() => {
+    if (!selectedAccounts.length) return data.transactions;
+    const set = new Set(selectedAccounts);
+    return data.transactions.filter(t => set.has(t.account || DEFAULT_ACCOUNT_BUCKET));
+  }, [data.transactions, selectedAccounts]);
+
+  const accountFilterActive = selectedAccounts.length > 0 && selectedAccounts.length < accounts.length;
+
+  const { fromDate, toDate } = useMemo(() => computeDateBounds(datePreset, customFrom, customTo), [datePreset, customFrom, customTo]);
+  const inRange = (d: string) => {
+    if (!d) return true;
+    if (fromDate && d < fromDate) return false;
+    if (toDate && d > toDate) return false;
+    return true;
+  };
+  const dateFilterActive = !!(fromDate || toDate);
+
+  // Date-scoped transactions — used for income, charts, activity, table view.
+  const dateTxns = useMemo(
+    () => dateFilterActive ? accountTxns.filter(t => inRange(t.activityDate)) : accountTxns,
+    [accountTxns, fromDate, toDate, dateFilterActive]
+  );
+
+  // Holdings & names from full history; income from the date-scoped set.
+  const summaryFull = useMemo(() => computeSummary(accountTxns), [accountTxns]);
+  const summary = useMemo(() => computeSummary(dateTxns), [dateTxns]);
+
+  const fullByTicker = useMemo(() => new Map(summaryFull.byTicker.map(t => [t.ticker, t])), [summaryFull]);
+  const dateByTicker = useMemo(() => new Map(summary.byTicker.map(t => [t.ticker, t])), [summary]);
 
   const tagName = (id: string) => tags.find(t => t.id === id)?.name || id;
 
+  // Transactions table: account-scoped (not date-scoped) so ignored rows can be
+  // shown greyed out; date inclusion is flagged per row.
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return data.transactions.filter(t => {
+    return accountTxns.filter(t => {
       if (tickerFilter !== 'all' && t.instrument !== tickerFilter) return false;
       if (kindFilter !== 'all' && t.kind !== kindFilter) return false;
       if (q && !(`${t.instrument} ${t.description} ${t.transCode}`.toLowerCase().includes(q))) return false;
       return true;
     });
-  }, [data.transactions, search, tickerFilter, kindFilter]);
+  }, [accountTxns, search, tickerFilter, kindFilter]);
+  const includedCount = useMemo(() => filtered.filter(t => inRange(t.activityDate)).length, [filtered, fromDate, toDate]);
 
-  const topTickers = useMemo(() => summary.byTicker.slice(0, 12), [summary]);
+  // Sorted by absolute income so the biggest gains AND losses both surface.
+  // Bars all extend in the same direction (absIncome); losses are colored red.
+  const topTickers = useMemo(
+    () => [...summary.byTicker]
+      .sort((a, b) => Math.abs(b.income) - Math.abs(a.income))
+      .slice(0, 12)
+      .map(t => ({ ...t, name: t.name || fullByTicker.get(t.ticker)?.name, absIncome: Math.abs(t.income) })),
+    [summary, fullByTicker]
+  );
+
+  // "Currently held" = positive net shares only (from full history).
+  const heldTickers = useMemo(() => summaryFull.byTicker.filter(t => t.sharesHeld > 0.0001), [summaryFull]);
+
+  // All currently-open option legs (across tickers), from full account history.
+  const openOptions = useMemo(() => computeOpenOptions(accountTxns), [accountTxns]);
+
+  // Symbols to price = held positions ∪ watchlist favorites.
+  const priceSymbolsKey = useMemo(
+    () => Array.from(new Set([...heldTickers.map(t => t.ticker), ...watchlist.map(w => w.ticker)])).sort().join(','),
+    [heldTickers, watchlist]
+  );
+  const optionLegsKey = useMemo(
+    () => openOptions.map(o => optionLegKey(o.ticker, o.optionType, o.strike ?? 0, o.expiration ?? '')).sort().join(';'),
+    [openOptions]
+  );
+  // Explicit refresh only (never auto-called on paint): hits the market API,
+  // updates state, and writes the result back to the DB cache.
+  const loadQuotes = React.useCallback(async () => {
+    const symbols = priceSymbolsKey ? priceSymbolsKey.split(',') : [];
+    if (symbols.length === 0 && openOptions.length === 0) return;
+    setQuotesLoading(true);
+    setQuotesError(false);
+    try {
+      const [stockRes, optRes] = await Promise.all([
+        symbols.length ? fetchQuotes(symbols) : Promise.resolve({ quotes: {} as Record<string, Quote>, asOf: undefined }),
+        openOptions.length
+          ? fetchOptionQuotes(openOptions.map(o => ({ symbol: o.ticker, expiration: o.expiration || '', optionType: o.optionType, strike: o.strike ?? 0 })))
+          : Promise.resolve({} as Record<string, OptionMark>),
+      ]);
+      const asOf = stockRes.asOf || new Date().toISOString();
+      const fetched = Object.keys(stockRes.quotes).length > 0;
+      if (fetched) {
+        const cached: Record<string, CachedQuote> = {};
+        for (const [k, q] of Object.entries(stockRes.quotes)) cached[k] = { ...q, asOf };
+        // Merge over existing cache so tickers the API missed keep old prices.
+        setQuotes(prev => ({ ...prev, ...cached }));
+        setQuotesAt(asOf);
+        setQuotesFromCache(false);
+        saveCachedQuotes(userId, stockRes.quotes, asOf).catch(() => {});
+      } else {
+        // API returned nothing — keep whatever cache we already painted.
+        setQuotesError(true);
+      }
+      setOptionQuotes(optRes);
+    } catch {
+      setQuotesError(true);   // keep cached prices already in state
+    } finally {
+      setQuotesLoading(false);
+    }
+    // openOptions referenced via optionLegsKey for stable deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [priceSymbolsKey, optionLegsKey, userId]);
+
+  const holdingsMarketValue = useMemo(
+    () => heldTickers.reduce((sum, t) => sum + (quotes[t.ticker]?.price ?? 0) * t.sharesHeld, 0),
+    [heldTickers, quotes]
+  );
+
+  // Current liquidation value of an option leg (+asset for longs, −liability for
+  // shorts). netContracts already carries the sign; contract multiplier = 100.
+  const legMarketValue = React.useCallback((o: OpenOption): number | null => {
+    const m = optionQuotes[optionLegKey(o.ticker, o.optionType, o.strike ?? 0, o.expiration ?? '')];
+    if (!m || m.mark == null) return null;
+    return o.netContracts * m.mark * 100;
+  }, [optionQuotes]);
+
+  // Per-ticker sum of open-option liquidation values (only legs with a mark).
+  const optionValueByTicker = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const o of openOptions) {
+      const v = legMarketValue(o);
+      if (v == null) continue;
+      map.set(o.ticker, (map.get(o.ticker) ?? 0) + v);
+    }
+    return map;
+  }, [openOptions, legMarketValue]);
+
+  // Total P/L across held stocks that have a live price (net cash + market value).
+  const holdingsPL = useMemo(() => {
+    let total = 0; let any = false;
+    for (const t of heldTickers) {
+      const q = quotes[t.ticker];
+      if (!q) continue;
+      any = true;
+      total += t.netCash + q.price * t.sharesHeld + (optionValueByTicker.get(t.ticker) ?? 0);
+    }
+    return any ? total : null;
+  }, [heldTickers, quotes, optionValueByTicker]);
+
+  interface TickerRow { ticker: string; name?: string; sharesHeld: number; income: number; optionsPremium: number; dividends: number; netCash: number; fullNetCash: number; }
+  const tickerRows: TickerRow[] = useMemo(() => {
+    if (tickerScope === 'held') {
+      return heldTickers.map(full => {
+        const d = dateByTicker.get(full.ticker);
+        return {
+          ticker: full.ticker, name: full.name, sharesHeld: full.sharesHeld,
+          income: d?.income ?? 0, optionsPremium: d?.optionsPremium ?? 0,
+          dividends: d?.dividends ?? 0, netCash: d?.netCash ?? 0, fullNetCash: full.netCash,
+        };
+      }).sort((a, b) => b.income - a.income);
+    }
+    return summary.byTicker.map(t => ({
+      ticker: t.ticker, name: t.name || fullByTicker.get(t.ticker)?.name,
+      sharesHeld: fullByTicker.get(t.ticker)?.sharesHeld ?? 0,
+      income: t.income, optionsPremium: t.optionsPremium, dividends: t.dividends,
+      netCash: t.netCash, fullNetCash: fullByTicker.get(t.ticker)?.netCash ?? t.netCash,
+    }));
+  }, [tickerScope, heldTickers, summary, dateByTicker, fullByTicker]);
 
   const incomePie = useMemo(() => {
     const i = summary.income;
@@ -91,6 +320,90 @@ const TradesDashboard: React.FC<TradesDashboardProps> = ({ userId, encryptionKey
       { name: 'Tax', value: i.tax },
     ].filter(d => Math.abs(d.value) > 0.005);
   }, [summary]);
+  const incomeTotalAbs = useMemo(() => incomePie.reduce((a, d) => a + Math.abs(d.value), 0), [incomePie]);
+
+  const openTicker = (ticker: string) => {
+    if (!ticker) return;
+    const name = fullByTicker.get(ticker)?.name;
+    // Ticker detail shows full history (incl. original buys) for the account.
+    setPanel({ title: `📊 ${ticker}${name ? ` — ${name}` : ''}`, ticker, txns: accountTxns.filter(t => t.instrument === ticker) });
+  };
+
+  const openActivity = (label: string, codes: string[]) => {
+    setPanel({ title: `⚙️ Options ${label}`, txns: dateTxns.filter(t => codes.includes(t.transCode)) });
+  };
+
+  const openKind = (label: string, kinds: TradeKind[]) => {
+    setPanel({ title: `💰 ${label}`, txns: dateTxns.filter(t => kinds.includes(t.kind)) });
+  };
+
+  const persist = async (next: TradesData) => {
+    setData(next);
+    await saveTrades(userId, encryptionKey, next);
+  };
+
+  const addAccount = async (nameRaw: string) => {
+    const name = nameRaw.trim();
+    if (!name || (data.accounts || []).includes(name)) return;
+    await persist({ ...data, accounts: [...(data.accounts || []), name] });
+  };
+
+  const renameAccount = async (oldName: string, nextRaw: string) => {
+    const nextName = nextRaw.trim();
+    if (!nextName || nextName === oldName) return;
+    await persist({
+      ...data,
+      accounts: Array.from(new Set((data.accounts || []).map(a => (a === oldName ? nextName : a)))),
+      transactions: data.transactions.map(t => (t.account === oldName ? { ...t, account: nextName } : t)),
+      imports: data.imports.map(b => (b.account === oldName ? { ...b, account: nextName } : b)),
+    });
+    setSelectedAccounts(prev => prev.map(a => (a === oldName ? nextName : a)));
+  };
+
+  const deleteAccount = async (name: string) => {
+    if (!window.confirm(`Delete source "${name}"? Its transactions move to ${DEFAULT_ACCOUNT_BUCKET} (no data is lost).`)) return;
+    await persist({
+      ...data,
+      accounts: (data.accounts || []).filter(a => a !== name),
+      transactions: data.transactions.map(t => (t.account === name ? { ...t, account: undefined } : t)),
+      imports: data.imports.map(b => (b.account === name ? { ...b, account: undefined } : b)),
+    });
+    setSelectedAccounts(prev => prev.filter(a => a !== name));
+  };
+
+  const toggleAccountVisible = (name: string) => {
+    setSelectedAccounts(prev => {
+      const current = prev.length ? prev : [...accounts];
+      const next = current.includes(name) ? current.filter(a => a !== name) : [...current, name];
+      // If every option is selected, normalize back to "all" (empty).
+      if (next.length === accounts.length && accounts.every(a => next.includes(a))) return [];
+      return next;
+    });
+  };
+
+  const addFavorite = async (tickerRaw: string) => {
+    const ticker = tickerRaw.trim().toUpperCase();
+    if (!ticker || watchlist.some(w => w.ticker === ticker)) return;
+    const name = fullByTicker.get(ticker)?.name;
+    setWatchlist(prev => [...prev, { ticker, name }]);
+    await addWatch(userId, ticker, name);
+  };
+
+  const removeFavorite = async (ticker: string) => {
+    setWatchlist(prev => prev.filter(w => w.ticker !== ticker));
+    await removeWatch(userId, ticker);
+  };
+
+  const setBatchAccount = async (batchId: string, acct: string) => {
+    const account = acct || undefined;
+    const next: TradesData = {
+      ...data,
+      transactions: data.transactions.map(t => t.importBatchId === batchId ? { ...t, account } : t),
+      imports: data.imports.map(b => b.id === batchId ? { ...b, account } : b),
+    };
+    setData(next);
+    await saveTrades(userId, encryptionKey, next);
+  };
 
   const handleDeleteBatch = async (batchId: string) => {
     if (!window.confirm('Remove this import and all its transactions?')) return;
@@ -108,6 +421,11 @@ const TradesDashboard: React.FC<TradesDashboardProps> = ({ userId, encryptionKey
   }
 
   const hasData = data.transactions.length > 0;
+  const range = summary.dateRange;
+  const fullRange = summaryFull.dateRange;
+  const monthlyTitle = range ? `Monthly income (${range.start} – ${range.end})` : 'Monthly income';
+  const dataAgeDays = fullRange ? Math.max(0, Math.floor((Date.now() - new Date(fullRange.end + 'T00:00:00').getTime()) / 86400000)) : null;
+  const lastImportAt = data.imports[0]?.importedAt ? new Date(data.imports[0].importedAt).toLocaleDateString() : null;
 
   return (
     <div style={{ width: '100%' }}>
@@ -115,15 +433,54 @@ const TradesDashboard: React.FC<TradesDashboardProps> = ({ userId, encryptionKey
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem', marginBottom: '1.25rem' }}>
         <div>
           <h2 style={{ margin: 0, fontSize: '1.4rem' }}>📈 Trades</h2>
-          {summary.dateRange && (
+          {range && (
             <p style={{ margin: '0.25rem 0 0', color: '#6b7280', fontSize: '0.85rem' }}>
-              {summary.dateRange.start} → {summary.dateRange.end} · {summary.totalTransactions} transactions · {summary.tickersTraded} tickers
+              {range.start} → {range.end} · {summary.totalTransactions} transactions · {summary.tickersTraded} tickers
+              {dateFilterActive && <span style={{ color: '#4338ca', fontWeight: 600 }}> · filtered</span>}
+            </p>
+          )}
+          {fullRange && (
+            <p style={{ margin: '0.15rem 0 0', color: dataAgeDays != null && dataAgeDays > 7 ? '#d97706' : '#9ca3af', fontSize: '0.78rem' }}>
+              Data current through {fullRange.end}
+              {dataAgeDays != null && ` (${dataAgeDays === 0 ? 'today' : `${dataAgeDays} day${dataAgeDays === 1 ? '' : 's'} ago`})`}
+              {lastImportAt && ` · last import ${lastImportAt}`}
             </p>
           )}
         </div>
-        <button onClick={() => setShowImport(true)} className="ck-btn ck-btn-primary">
-          📥 Import trades
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+          {hasData && (
+            <select
+              value={datePreset}
+              onChange={e => setDatePreset(e.target.value)}
+              title="Date range"
+              style={{ ...selectStyle, fontWeight: 600 }}
+            >
+              <option value="all">All time</option>
+              <option value="ytd">Year to date</option>
+              <option value="12m">Last 12 months</option>
+              <option value="2025">2025 → today</option>
+              <option value="2024">2024 → today</option>
+              <option value="custom">Custom…</option>
+            </select>
+          )}
+          {hasData && datePreset === 'custom' && (
+            <>
+              <input type="date" value={customFrom} onChange={e => setCustomFrom(e.target.value)} title="From" style={selectStyle} />
+              <input type="date" value={customTo} onChange={e => setCustomTo(e.target.value)} title="To" style={selectStyle} />
+            </>
+          )}
+          {hasData && (heldTickers.length > 0 || watchlist.length > 0) && (
+            <button onClick={loadQuotes} disabled={quotesLoading} className="ck-btn" title="Fetch current prices from the market API and cache them">
+              {quotesLoading ? '⏳ Prices…' : '🔄 Refresh prices'}
+            </button>
+          )}
+          <button onClick={() => setShowAccounts(true)} className="ck-btn" title="Choose which accounts to show & manage sources">
+            ⚙️ Accounts{accountFilterActive ? ` (${selectedAccounts.length})` : ''}
+          </button>
+          <button onClick={() => setShowImport(true)} className="ck-btn ck-btn-primary">
+            📥 Import trades
+          </button>
+        </div>
       </div>
 
       {!hasData ? (
@@ -139,31 +496,64 @@ const TradesDashboard: React.FC<TradesDashboardProps> = ({ userId, encryptionKey
         <>
           {/* Summary cards */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '0.85rem', marginBottom: '1.5rem' }}>
-            <SummaryCard label="Options premium" value={summary.income.optionsPremium} accent="#6366f1" />
-            <SummaryCard label="Dividends" value={summary.income.dividends} accent="#10b981" />
-            <SummaryCard label="Interest" value={summary.income.interest} accent="#0ea5e9" />
-            <SummaryCard label="Stock lending" value={summary.income.lending} accent="#8b5cf6" />
-            <SummaryCard label="Total income" value={summary.income.total} accent="#111827" emphasize />
-            <SummaryCard label="Deposits" value={summary.deposits} accent="#64748b" />
+            <SummaryCard label="Options premium" value={summary.income.optionsPremium} accent="#6366f1" onClick={() => openKind('Options premium', ['option_premium'])} />
+            <SummaryCard label="Dividends" value={summary.income.dividends} accent="#10b981" onClick={() => openKind('Dividends', ['dividend'])} />
+            <SummaryCard label="Interest" value={summary.income.interest} accent="#0ea5e9" onClick={() => openKind('Interest', ['interest'])} />
+            <SummaryCard label="Stock lending" value={summary.income.lending} accent="#8b5cf6" onClick={() => openKind('Stock lending', ['lending'])} />
+            <SummaryCard label="Total income" value={summary.income.total} accent="#111827" emphasize onClick={() => openKind('Total income', ['option_premium', 'dividend', 'interest', 'lending', 'tax'])} />
+            <SummaryCard label="Deposits" value={summary.deposits} accent="#64748b" onClick={() => openKind('Deposits', ['deposit'])} />
           </div>
 
           {/* Charts row 1 */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1rem', marginBottom: '1rem' }}>
-            <ChartCard title="Income breakdown">
-              {incomePie.length === 0 ? <Empty /> : (
+            <ChartCard
+              title="Income breakdown"
+              action={
+                <div style={{ display: 'inline-flex', background: '#f1f5f9', borderRadius: 8, padding: 2 }}>
+                  <ToggleBtn active={incomeView === 'chart'} onClick={() => setIncomeView('chart')}>Chart</ToggleBtn>
+                  <ToggleBtn active={incomeView === 'numbers'} onClick={() => setIncomeView('numbers')}>Numbers</ToggleBtn>
+                </div>
+              }
+            >
+              {incomePie.length === 0 ? <Empty /> : incomeView === 'chart' ? (
                 <ResponsiveContainer width="100%" height={260}>
                   <PieChart>
-                    <Pie data={incomePie} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={90} label>
+                    <Pie
+                      data={incomePie}
+                      dataKey="value"
+                      nameKey="name"
+                      cx="50%"
+                      cy="50%"
+                      outerRadius={90}
+                      labelLine={false}
+                      label={(e: any) => {
+                        // Hide labels for tiny slices to avoid overlap; they
+                        // remain visible via tooltip, legend and Numbers view.
+                        const share = incomeTotalAbs > 0 ? Math.abs(Number(e.value)) / incomeTotalAbs : 0;
+                        return share >= 0.05 ? formatCurrency(Number(e.value)) : '';
+                      }}
+                    >
                       {incomePie.map((_, i) => <Cell key={i} fill={INCOME_COLORS[i % INCOME_COLORS.length]} />)}
                     </Pie>
                     <Tooltip formatter={(v: number) => formatCurrency(v)} />
                     <Legend />
                   </PieChart>
                 </ResponsiveContainer>
+              ) : (
+                <div style={{ padding: '0.25rem 0' }}>
+                  <NumberRow label="Premiums" value={summary.income.optionsPremium} color={INCOME_COLORS[0]} />
+                  <NumberRow label="Dividends" value={summary.income.dividends} color={INCOME_COLORS[1]} />
+                  <NumberRow label="Interest" value={summary.income.interest} color={INCOME_COLORS[2]} />
+                  <NumberRow label="Lending" value={summary.income.lending} color={INCOME_COLORS[3]} />
+                  <NumberRow label="Tax" value={summary.income.tax} color={INCOME_COLORS[4]} />
+                  <div style={{ borderTop: '2px solid #e5e7eb', marginTop: 6, paddingTop: 6 }}>
+                    <NumberRow label="Total income" value={summary.income.total} color="#111827" bold />
+                  </div>
+                </div>
               )}
             </ChartCard>
 
-            <ChartCard title="Monthly income (premiums + dividends + interest)">
+            <ChartCard title={monthlyTitle}>
               <ResponsiveContainer width="100%" height={260}>
                 <AreaChart data={summary.monthly} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
                   <defs>
@@ -182,99 +572,297 @@ const TradesDashboard: React.FC<TradesDashboardProps> = ({ userId, encryptionKey
             </ChartCard>
           </div>
 
-          {/* Top tickers */}
-          <ChartCard title="Income by ticker (options premium + dividends + lending)">
+          {/* Top tickers (clickable) */}
+          <ChartCard title="Income by ticker — click a bar for details">
+            <div style={{ display: 'flex', gap: '1rem', marginBottom: '0.5rem', fontSize: '0.72rem', color: '#6b7280' }}>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><span style={{ width: 10, height: 10, borderRadius: 2, background: BAR_POSITIVE }} /> Gain</span>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><span style={{ width: 10, height: 10, borderRadius: 2, background: BAR_NEGATIVE }} /> Loss</span>
+            </div>
             <ResponsiveContainer width="100%" height={Math.max(240, topTickers.length * 34)}>
               <BarChart data={topTickers} layout="vertical" margin={{ top: 4, right: 24, left: 8, bottom: 4 }}>
                 <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-                <XAxis type="number" tickFormatter={(v) => formatCurrency(v, { compact: true })} tick={{ fontSize: 11 }} />
+                <XAxis type="number" domain={[0, 'auto']} tickFormatter={(v) => formatCurrency(v, { compact: true })} tick={{ fontSize: 11 }} />
                 <YAxis type="category" dataKey="ticker" width={64} tick={{ fontSize: 12 }} />
-                <Tooltip formatter={(v: number) => formatCurrency(v)} />
-                <Bar dataKey="income" name="Income" radius={[0, 4, 4, 0]}>
+                <Tooltip content={<TickerBarTooltip />} />
+                <Bar dataKey="absIncome" name="Income" radius={[0, 4, 4, 0]} cursor="pointer"
+                  onClick={(d: any) => openTicker(d?.ticker || d?.payload?.ticker)}>
                   {topTickers.map((t, i) => <Cell key={i} fill={t.income >= 0 ? BAR_POSITIVE : BAR_NEGATIVE} />)}
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
           </ChartCard>
 
-          {/* Options activity */}
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem', margin: '1rem 0 1.5rem' }}>
-            <Pill label="Opened" value={summary.optionActivity.opened} />
-            <Pill label="Closed" value={summary.optionActivity.closed} />
-            <Pill label="Expired" value={summary.optionActivity.expired} />
-            <Pill label="Assigned" value={summary.optionActivity.assigned} />
-            <Pill label="Exercised" value={summary.optionActivity.exercised} />
-          </div>
-
-          {/* Imports list */}
-          {data.imports.length > 0 && (
-            <ChartCard title={`Imports (${data.imports.length})`}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-                {data.imports.map(b => (
-                  <div key={b.id} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.5rem 0.25rem', borderBottom: '1px solid #f1f1f1', fontSize: '0.85rem' }}>
-                    <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      📄 {b.fileName}
-                    </span>
-                    {b.tags.map(id => (
-                      <span key={id} style={{ background: '#ede9fe', color: '#6b21a8', borderRadius: 6, padding: '0.1rem 0.45rem', fontSize: '0.7rem', fontWeight: 600 }}>{tagName(id)}</span>
-                    ))}
-                    <span style={{ color: '#6b7280' }}>+{b.added} · {b.duplicates} dup</span>
-                    <button onClick={() => handleDeleteBatch(b.id)} className="ck-btn ck-btn-sm" title="Remove import">🗑️</button>
-                  </div>
-                ))}
+          {/* Portfolio / tickers table (clickable) */}
+          <ChartCard
+            title="Tickers"
+            action={
+              <div style={{ display: 'inline-flex', background: '#f1f5f9', borderRadius: 8, padding: 2 }}>
+                <ToggleBtn active={tickerScope === 'held'} onClick={() => setTickerScope('held')}>Currently held ({heldTickers.length})</ToggleBtn>
+                <ToggleBtn active={tickerScope === 'all'} onClick={() => setTickerScope('all')}>All traded ({summary.byTicker.length})</ToggleBtn>
+                <ToggleBtn active={tickerScope === 'options'} onClick={() => setTickerScope('options')}>Open options ({openOptions.length})</ToggleBtn>
               </div>
-            </ChartCard>
-          )}
-
-          {/* Transactions table */}
-          <ChartCard title={`Transactions (${filtered.length})`}>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '0.75rem' }}>
-              <input
-                type="text"
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-                placeholder="Search ticker / description…"
-                style={{ flex: 1, minWidth: 160, padding: '0.45rem 0.7rem', border: '1px solid #d1d5db', borderRadius: 8, fontSize: '0.85rem' }}
-              />
-              <select value={tickerFilter} onChange={e => setTickerFilter(e.target.value)} style={selectStyle}>
-                <option value="all">All tickers</option>
-                {summary.byTicker.map(t => <option key={t.ticker} value={t.ticker}>{t.ticker}</option>)}
-              </select>
-              <select value={kindFilter} onChange={e => setKindFilter(e.target.value as any)} style={selectStyle}>
-                <option value="all">All types</option>
-                {Object.entries(KIND_LABELS).map(([k, label]) => <option key={k} value={k}>{label}</option>)}
-              </select>
-            </div>
-
-            <div style={{ overflowX: 'auto', maxHeight: 460, overflowY: 'auto', border: '1px solid #eef0f2', borderRadius: 8 }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem' }}>
-                <thead>
-                  <tr style={{ position: 'sticky', top: 0, background: '#f9fafb', zIndex: 1 }}>
-                    <Th>Date</Th><Th>Ticker</Th><Th>Description</Th><Th>Code</Th>
-                    <Th align="right">Qty</Th><Th align="right">Price</Th><Th align="right">Amount</Th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filtered.slice(0, 300).map((t: RawTradeTxn) => (
-                    <tr key={t.id} style={{ borderTop: '1px solid #f1f1f1' }}>
-                      <Td>{t.activityDate}</Td>
-                      <Td><strong>{t.instrument || '—'}</strong></Td>
-                      <Td title={t.description} style={{ maxWidth: 260, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.description}</Td>
-                      <Td><span style={{ background: '#eef2ff', color: '#4338ca', borderRadius: 5, padding: '0.05rem 0.4rem', fontSize: '0.72rem', fontWeight: 700 }}>{t.transCode}</span></Td>
-                      <Td align="right">{t.quantityRaw ?? ''}</Td>
-                      <Td align="right">{t.price != null ? formatCurrency(t.price) : ''}</Td>
-                      <Td align="right" style={{ color: (t.amount ?? 0) < 0 ? '#dc2626' : '#059669', fontWeight: 600 }}>
-                        {t.amount != null ? formatCurrency(t.amount) : ''}
-                      </Td>
+            }
+          >
+            {tickerScope === 'options' ? (
+              openOptions.length === 0 ? (
+                <p style={{ color: '#9ca3af', margin: 0 }}>No open option positions.</p>
+              ) : (
+                <OpenOptionsTable openOptions={openOptions} optionQuotes={optionQuotes} legMarketValue={legMarketValue} onTicker={openTicker} />
+              )
+            ) : tickerRows.length === 0 ? (
+              <p style={{ color: '#9ca3af', margin: 0 }}>No {tickerScope === 'held' ? 'open share positions' : 'tickers'} found.</p>
+            ) : (
+              <div style={{ overflowX: 'auto', maxHeight: 360, overflowY: 'auto', border: '1px solid #eef0f2', borderRadius: 8 }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem' }}>
+                  <thead>
+                    <tr style={{ position: 'sticky', top: 0, background: '#f9fafb', zIndex: 1 }}>
+                      <Th>Ticker</Th><Th>Name</Th><Th align="right">Shares held</Th>
+                      <Th align="right">Price</Th><Th align="right">Mkt value</Th><Th align="right">P/L (if sold)</Th><Th align="right">Income</Th>
+                      <Th align="right">Premium</Th><Th align="right">Dividends</Th><Th align="right">Net cash</Th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            {filtered.length > 300 && (
-              <p style={{ margin: '0.5rem 0 0', fontSize: '0.78rem', color: '#9ca3af' }}>Showing first 300 of {filtered.length}. Use filters to narrow down.</p>
+                  </thead>
+                  <tbody>
+                    {tickerRows.map(t => {
+                      const q = quotes[t.ticker];
+                      const held = Math.abs(t.sharesHeld) > 0.0001;
+                      const mktValue = q && held ? q.price * t.sharesHeld : null;
+                      const optVal = optionValueByTicker.get(t.ticker) ?? 0;
+                      const pl = mktValue != null ? t.fullNetCash + mktValue + optVal : null;
+                      return (
+                      <tr key={t.ticker} onClick={() => openTicker(t.ticker)} style={{ borderTop: '1px solid #f1f1f1', cursor: 'pointer' }}
+                        onMouseEnter={e => (e.currentTarget.style.background = '#f8faff')}
+                        onMouseLeave={e => (e.currentTarget.style.background = '')}>
+                        <Td><strong style={{ color: '#4338ca' }}>{t.ticker}</strong></Td>
+                        <Td title={t.name} style={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#6b7280' }}>{t.name || '—'}</Td>
+                        <Td align="right">{held ? t.sharesHeld.toLocaleString('en-US', { maximumFractionDigits: 4 }) : '—'}</Td>
+                        <Td align="right" title={q?.changePct != null ? `${q.changePct >= 0 ? '+' : ''}${q.changePct.toFixed(2)}% today` : undefined} style={{ color: q ? (q.change != null && q.change < 0 ? '#dc2626' : '#059669') : '#9ca3af' }}>{q ? formatCurrency(q.price) : '—'}</Td>
+                        <Td align="right" style={{ fontWeight: 700 }}>{mktValue != null ? formatCurrency(mktValue) : '—'}</Td>
+                        <Td align="right" title={pl != null ? 'Net cash + current market value (stock + open options)' : undefined} style={{ color: pl == null ? '#9ca3af' : pl < 0 ? '#dc2626' : '#059669', fontWeight: 800 }}>{pl != null ? formatCurrency(pl) : '—'}</Td>
+                        <Td align="right" style={{ color: t.income < 0 ? '#dc2626' : '#059669', fontWeight: 700 }}>{formatCurrency(t.income)}</Td>
+                        <Td align="right">{formatCurrency(t.optionsPremium)}</Td>
+                        <Td align="right">{formatCurrency(t.dividends)}</Td>
+                        <Td align="right" style={{ color: t.netCash < 0 ? '#dc2626' : '#374151' }}>{formatCurrency(t.netCash)}</Td>
+                      </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            {tickerScope === 'held' && heldTickers.length > 0 && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem', marginTop: '0.6rem', fontSize: '0.82rem' }}>
+                <span style={{ color: quotesError ? '#d97706' : '#6b7280' }}>
+                  {quotesLoading ? 'Fetching prices…'
+                    : quotesError && quotesAt ? `⚠️ Live fetch failed — showing cached prices from ${new Date(quotesAt).toLocaleString()}`
+                    : quotesError ? '⚠️ Live prices unavailable right now'
+                    : quotesAt ? `Prices ${quotesFromCache ? 'cached' : 'as of'} ${new Date(quotesAt).toLocaleString()}`
+                    : 'Prices not loaded — hit Refresh prices'}
+                </span>
+                <span style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+                  {holdingsMarketValue > 0 && (
+                    <span style={{ fontWeight: 800 }}>Market value: {formatCurrency(holdingsMarketValue)}</span>
+                  )}
+                  {holdingsPL != null && (
+                    <span style={{ fontWeight: 800, color: holdingsPL < 0 ? '#dc2626' : '#059669' }}>
+                      P/L if sold: {formatCurrency(holdingsPL)}
+                    </span>
+                  )}
+                </span>
+              </div>
             )}
           </ChartCard>
+
+          {/* Watchlist / favorites */}
+          <ChartCard
+            title={`⭐ Favorites (${watchlist.length})`}
+            action={
+              <div style={{ display: 'flex', gap: '0.4rem' }}>
+                <input
+                  list="fav-ticker-list"
+                  value={favInput}
+                  onChange={e => setFavInput(e.target.value.toUpperCase())}
+                  onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addFavorite(favInput); setFavInput(''); } }}
+                  placeholder="Add ticker…"
+                  style={{ ...selectStyle, width: 130, textTransform: 'uppercase' }}
+                />
+                <datalist id="fav-ticker-list">
+                  {summary.byTicker.map(t => <option key={t.ticker} value={t.ticker}>{t.name || t.ticker}</option>)}
+                </datalist>
+                <button onClick={() => { addFavorite(favInput); setFavInput(''); }} disabled={!favInput.trim()} className="ck-btn">+ Add</button>
+              </div>
+            }
+          >
+            {watchlist.length === 0 ? (
+              <p style={{ color: '#9ca3af', margin: 0, fontSize: '0.88rem' }}>
+                Add tickers you follow to track their price without importing trades. Prices come from the cached quotes (hit <strong>Refresh prices</strong> to update).
+              </p>
+            ) : (
+              <div style={{ overflowX: 'auto', border: '1px solid #eef0f2', borderRadius: 8 }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem' }}>
+                  <thead>
+                    <tr style={{ background: '#f9fafb' }}>
+                      <Th>Ticker</Th><Th>Name</Th><Th align="right">Price</Th><Th align="right">Day</Th><Th align="right">You hold</Th>
+                      <Th align="right">Buy cost</Th><Th align="right">Value today</Th><Th align="right">P/L if sold</Th><Th align="right">{' '}</Th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {watchlist.map(w => {
+                      const q = quotes[w.ticker];
+                      const full = fullByTicker.get(w.ticker);
+                      const held = full && full.sharesHeld > 0.0001 ? full.sharesHeld : 0;
+                      const traded = !!full;
+                      const avgCost = full && full.sharesBought > 0 ? full.costBought / full.sharesBought : 0;
+                      const buyCost = held && avgCost ? avgCost * held : null;
+                      const valueToday = q && held ? q.price * held : null;
+                      // Total P/L if liquidated now = net cash (all realized flows,
+                      // incl. premiums/dividends) + current stock value + open options.
+                      // Matches the ticker panel's "P/L if sold now".
+                      const optVal = optionValueByTicker.get(w.ticker) ?? 0;
+                      const pl = valueToday != null ? (full?.netCash ?? 0) + valueToday + optVal : null;
+                      return (
+                        <tr key={w.ticker} style={{ borderTop: '1px solid #f1f1f1' }}>
+                          <Td>{traded
+                            ? <button onClick={() => openTicker(w.ticker)} style={tickerLinkStyle}>{w.ticker}</button>
+                            : <strong style={{ color: '#4338ca' }}>{w.ticker}</strong>}</Td>
+                          <Td style={{ maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#6b7280' }}>{w.name || full?.name || '—'}</Td>
+                          <Td align="right" style={{ fontWeight: 700 }}>{q ? formatCurrency(q.price) : '—'}</Td>
+                          <Td align="right" style={{ color: q?.change == null ? '#9ca3af' : q.change < 0 ? '#dc2626' : '#059669', fontWeight: 600 }}>
+                            {q?.changePct != null ? `${q.changePct >= 0 ? '+' : ''}${q.changePct.toFixed(2)}%` : '—'}
+                          </Td>
+                          <Td align="right">{held ? held.toLocaleString('en-US', { maximumFractionDigits: 4 }) : '—'}</Td>
+                          <Td align="right" title={buyCost != null ? `Avg cost ${formatCurrency(avgCost)}/sh × ${held}` : undefined}>{buyCost != null ? formatCurrency(buyCost) : '—'}</Td>
+                          <Td align="right" style={{ fontWeight: 700 }}>{valueToday != null ? formatCurrency(valueToday) : '—'}</Td>
+                          <Td align="right" title={pl != null ? 'Net cash (incl. premiums & dividends collected) + current value' : undefined} style={{ fontWeight: 800, color: pl == null ? '#9ca3af' : pl < 0 ? '#dc2626' : '#059669' }}>
+                            {pl != null ? `${pl >= 0 ? '+' : ''}${formatCurrency(pl)}` : '—'}
+                          </Td>
+                          <Td align="right"><button onClick={() => removeFavorite(w.ticker)} className="ck-btn ck-btn-sm" title="Remove from favorites">✕</button></Td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+                <p style={{ margin: '0.5rem 0 0', fontSize: '0.72rem', color: '#9ca3af' }}>
+                  <strong>P/L if sold</strong> is the total on the name — it credits option premiums &amp; dividends already collected, so it won't equal “Value today − Buy cost” (which is share price only).
+                </p>
+              </div>
+            )}
+          </ChartCard>
+
+          {/* Options activity (clickable) */}
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem', margin: '1rem 0 1.5rem' }}>
+            {ACTIVITY_GROUPS.map(g => (
+              <button
+                key={g.key}
+                onClick={() => openActivity(g.label, g.codes)}
+                style={{
+                  background: '#fff', border: '1px solid #eef0f2', borderRadius: 10, padding: '0.6rem 0.9rem',
+                  minWidth: 92, textAlign: 'center', cursor: 'pointer', transition: 'all 0.15s',
+                }}
+                onMouseEnter={e => { e.currentTarget.style.borderColor = '#c7d2fe'; e.currentTarget.style.boxShadow = '0 2px 8px rgba(99,102,241,0.15)'; }}
+                onMouseLeave={e => { e.currentTarget.style.borderColor = '#eef0f2'; e.currentTarget.style.boxShadow = 'none'; }}
+              >
+                <div style={{ fontSize: '1.25rem', fontWeight: 800, color: '#4338ca' }}>{summary.optionActivity[g.key]}</div>
+                <div style={{ fontSize: '0.72rem', color: '#6b7280', fontWeight: 600 }}>{g.label}</div>
+              </button>
+            ))}
+          </div>
+
+          {/* Imports (collapsed) */}
+          {data.imports.length > 0 && (
+            <div style={{ marginBottom: '1rem' }}>
+              <FormCollapsible title={`Imports (${data.imports.length})`}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                  {data.imports.map(b => (
+                    <div key={b.id} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.5rem 0.25rem', borderBottom: '1px solid #f1f1f1', fontSize: '0.85rem' }}>
+                      <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        📄 {b.fileName}
+                      </span>
+                      {b.tags.map(id => (
+                        <span key={id} style={{ background: '#ede9fe', color: '#6b21a8', borderRadius: 6, padding: '0.1rem 0.45rem', fontSize: '0.7rem', fontWeight: 600 }}>{tagName(id)}</span>
+                      ))}
+                      <select
+                        value={b.account || ''}
+                        onChange={e => setBatchAccount(b.id, e.target.value)}
+                        title="Assign account"
+                        style={{ padding: '0.25rem 0.4rem', border: `1px solid ${b.account ? '#d1d5db' : '#fca5a5'}`, borderRadius: 6, fontSize: '0.75rem', background: '#fff', maxWidth: 190 }}
+                      >
+                        <option value="">{DEFAULT_ACCOUNT_BUCKET}…</option>
+                        {assignableAccounts.map(a => <option key={a} value={a}>{a}</option>)}
+                      </select>
+                      <span style={{ color: '#6b7280' }}>+{b.added} · {b.duplicates} dup</span>
+                      <button onClick={() => handleDeleteBatch(b.id)} className="ck-btn ck-btn-sm" title="Remove import">🗑️</button>
+                    </div>
+                  ))}
+                </div>
+              </FormCollapsible>
+            </div>
+          )}
+
+          {/* Transactions (collapsed) */}
+          <div style={{ marginBottom: '1rem' }}>
+            <FormCollapsible title={`Transactions (${data.transactions.length})`}>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '0.75rem' }}>
+                <input
+                  type="text"
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                  placeholder="Search ticker / description…"
+                  style={{ flex: 1, minWidth: 160, padding: '0.45rem 0.7rem', border: '1px solid #d1d5db', borderRadius: 8, fontSize: '0.85rem' }}
+                />
+                <select value={tickerFilter} onChange={e => setTickerFilter(e.target.value)} style={selectStyle}>
+                  <option value="all">All tickers</option>
+                  {summary.byTicker.map(t => <option key={t.ticker} value={t.ticker}>{t.ticker}</option>)}
+                </select>
+                <select value={kindFilter} onChange={e => setKindFilter(e.target.value as any)} style={selectStyle}>
+                  <option value="all">All types</option>
+                  {Object.entries(KIND_LABELS).map(([k, label]) => <option key={k} value={k}>{label}</option>)}
+                </select>
+              </div>
+
+              {dateFilterActive && (
+                <p style={{ margin: '0 0 0.5rem', fontSize: '0.78rem', color: '#6b7280' }}>
+                  Date filter active — <strong style={{ color: '#059669' }}>{includedCount}</strong> of {filtered.length} rows counted; ignored rows are greyed out.
+                </p>
+              )}
+
+              <div style={{ overflowX: 'auto', maxHeight: 460, overflowY: 'auto', border: '1px solid #eef0f2', borderRadius: 8 }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem' }}>
+                  <thead>
+                    <tr style={{ position: 'sticky', top: 0, background: '#f9fafb', zIndex: 1 }}>
+                      {dateFilterActive && <Th>Incl.</Th>}
+                      <Th>Date</Th><Th>Ticker</Th><Th>Description</Th><Th>Code</Th>
+                      <Th align="right">Qty</Th><Th align="right">Price</Th><Th align="right">Amount</Th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filtered.slice(0, 300).map((t: RawTradeTxn) => {
+                      const included = inRange(t.activityDate);
+                      const dim = dateFilterActive && !included;
+                      return (
+                      <tr key={t.id} style={{ borderTop: '1px solid #f1f1f1', opacity: dim ? 0.45 : 1, background: dim ? '#fafafa' : undefined }}>
+                        {dateFilterActive && <Td>{included ? <span title="Counted" style={{ color: '#059669' }}>✓</span> : <span title="Ignored (outside date range)" style={{ color: '#9ca3af' }}>—</span>}</Td>}
+                        <Td>{t.activityDate}</Td>
+                        <Td>{t.instrument
+                          ? <button onClick={() => openTicker(t.instrument)} style={tickerLinkStyle}>{t.instrument}</button>
+                          : '—'}</Td>
+                        <Td title={t.description} style={{ maxWidth: 260, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.description}</Td>
+                        <Td><span style={{ background: '#eef2ff', color: '#4338ca', borderRadius: 5, padding: '0.05rem 0.4rem', fontSize: '0.72rem', fontWeight: 700 }}>{t.transCode}</span></Td>
+                        <Td align="right">{t.quantityRaw ?? ''}</Td>
+                        <Td align="right">{t.price != null ? formatCurrency(t.price) : ''}</Td>
+                        <Td align="right" style={{ color: (t.amount ?? 0) < 0 ? '#dc2626' : '#059669', fontWeight: 600 }}>
+                          {t.amount != null ? formatCurrency(t.amount) : ''}
+                        </Td>
+                      </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+              {filtered.length > 300 && (
+                <p style={{ margin: '0.5rem 0 0', fontSize: '0.78rem', color: '#9ca3af' }}>Showing first 300 of {filtered.length}. Use filters to narrow down.</p>
+              )}
+            </FormCollapsible>
+          </div>
         </>
       )}
 
@@ -287,18 +875,364 @@ const TradesDashboard: React.FC<TradesDashboardProps> = ({ userId, encryptionKey
           onImported={setData}
         />
       )}
+
+      {/* Accounts / sources manager */}
+      <SlideOverPanel isOpen={showAccounts} onClose={() => setShowAccounts(false)} title="⚙️ Accounts & sources" width={480}>
+        <AccountsManager
+          accounts={data.accounts || []}
+          visibleOptions={accounts}
+          selected={selectedAccounts}
+          counts={accountCounts}
+          onToggleVisible={toggleAccountVisible}
+          onShowAll={() => setSelectedAccounts([])}
+          onAdd={addAccount}
+          onRename={renameAccount}
+          onDelete={deleteAccount}
+        />
+      </SlideOverPanel>
+
+      {/* Detail panel */}
+      <SlideOverPanel isOpen={!!panel} onClose={() => setPanel(null)} title={panel?.title} width={620}>
+        {panel && <PanelContent
+          panel={panel}
+          stats={panel.ticker ? summary.byTicker.find(t => t.ticker === panel.ticker) : undefined}
+          quote={panel.ticker ? quotes[panel.ticker] : undefined}
+          heldShares={panel.ticker ? fullByTicker.get(panel.ticker)?.sharesHeld : undefined}
+          fullNetCash={panel.ticker ? fullByTicker.get(panel.ticker)?.netCash : undefined}
+          optionQuotes={optionQuotes}
+          optionValue={panel.ticker ? optionValueByTicker.get(panel.ticker) : undefined}
+        />}
+      </SlideOverPanel>
+    </div>
+  );
+};
+
+const PanelContent: React.FC<{
+  panel: PanelState;
+  stats?: TickerStats;
+  quote?: Quote;
+  heldShares?: number;
+  fullNetCash?: number;
+  optionQuotes?: Record<string, OptionMark>;
+  optionValue?: number;
+}> = ({ panel, stats, quote, heldShares, fullNetCash, optionQuotes = {}, optionValue }) => {
+  const sorted = useMemo(
+    () => [...panel.txns].sort((a, b) => (a.activityDate < b.activityDate ? 1 : a.activityDate > b.activityDate ? -1 : 0)),
+    [panel.txns]
+  );
+  const openOptions = useMemo(() => panel.ticker ? computeOpenOptions(panel.txns) : [], [panel.txns, panel.ticker]);
+  // Prefer full-history shares (panel opens with full account history).
+  const sharesHeld = heldShares ?? stats?.sharesHeld ?? 0;
+  const mktValue = quote && Math.abs(sharesHeld) > 0.0001 ? quote.price * sharesHeld : null;
+  const netCash = fullNetCash ?? stats?.netCash ?? 0;
+  const plIfSold = mktValue != null ? netCash + mktValue + (optionValue ?? 0) : null;
+  const hasPosition = panel.ticker && (Math.abs(sharesHeld) > 0.0001 || openOptions.length > 0);
+  return (
+    <div>
+      {hasPosition && (
+        <div style={{ border: '1px solid #e0e7ff', background: '#f5f7ff', borderRadius: 10, padding: '0.75rem 0.85rem', marginBottom: '1rem' }}>
+          <div style={{ fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.5px', color: '#4338ca', fontWeight: 800, marginBottom: '0.5rem' }}>Current position</div>
+          {Math.abs(sharesHeld) > 0.0001 && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', marginBottom: openOptions.length ? '0.5rem' : 0 }}>
+              <span style={{ background: '#dbeafe', color: '#1e40af', borderRadius: 6, padding: '0.1rem 0.45rem', fontSize: '0.7rem', fontWeight: 700 }}>STOCK</span>
+              <strong>{sharesHeld.toLocaleString('en-US', { maximumFractionDigits: 4 })}</strong> shares
+              {quote && <span style={{ fontSize: '0.78rem', color: '#6b7280' }}>@ {formatCurrency(quote.price)}</span>}
+              {mktValue != null && (
+                <span style={{ marginLeft: 'auto', fontSize: '0.82rem', fontWeight: 800 }}>{formatCurrency(mktValue)}</span>
+              )}
+            </div>
+          )}
+          {plIfSold != null && (
+            <div style={{ fontSize: '0.75rem', color: '#6b7280', marginTop: '0.35rem', paddingTop: '0.35rem', borderTop: '1px dashed #d7dcff' }}>
+              Net cash {formatCurrency(netCash)} + market value {formatCurrency(mktValue!)}
+              {optionValue ? ` ${optionValue < 0 ? '−' : '+'} options ${formatCurrency(Math.abs(optionValue))}` : ''} ={' '}
+              <strong style={{ color: plIfSold < 0 ? '#dc2626' : '#059669' }}>{formatCurrency(plIfSold)} P/L if sold now</strong>
+            </div>
+          )}
+          {openOptions.map((o, i) => {
+            const mark = optionQuotes[optionLegKey(o.ticker, o.optionType, o.strike ?? 0, o.expiration ?? '')]?.mark;
+            const val = mark != null ? o.netContracts * mark * 100 : null;
+            return (
+            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', padding: '0.15rem 0' }}>
+              <span style={{
+                background: o.side === 'short' ? '#fef3c7' : '#dcfce7',
+                color: o.side === 'short' ? '#92400e' : '#166534',
+                borderRadius: 6, padding: '0.1rem 0.45rem', fontSize: '0.7rem', fontWeight: 700,
+              }}>{o.side === 'short' ? 'SHORT' : 'LONG'} {o.optionType}</span>
+              <span style={{ fontSize: '0.85rem' }}>
+                <strong>{Math.abs(o.netContracts)}</strong> × ${o.strike} · exp {o.expiration}
+              </span>
+              {mark != null && <span style={{ fontSize: '0.72rem', color: '#6b7280' }}>mark {formatCurrency(mark)}</span>}
+              <span style={{ marginLeft: 'auto', textAlign: 'right' }}>
+                <span style={{ display: 'block', fontSize: '0.78rem', color: o.premium < 0 ? '#dc2626' : '#059669', fontWeight: 600 }}>
+                  {o.premium >= 0 ? '+' : ''}{formatCurrency(o.premium)} prem
+                </span>
+                {val != null && (
+                  <span style={{ display: 'block', fontSize: '0.72rem', color: val < 0 ? '#dc2626' : '#111827', fontWeight: 700 }}>
+                    {formatCurrency(val)} value
+                  </span>
+                )}
+              </span>
+            </div>
+            );
+          })}
+        </div>
+      )}
+      {stats && (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', gap: '0.6rem', marginBottom: '1rem' }}>
+          <MiniStat label="Income" value={formatCurrency(stats.income)} accent={stats.income < 0 ? '#dc2626' : '#059669'} />
+          <MiniStat label="Premium" value={formatCurrency(stats.optionsPremium)} />
+          <MiniStat label="Dividends" value={formatCurrency(stats.dividends)} />
+          <MiniStat label="Contracts" value={String(stats.contracts)} />
+          <MiniStat label="Shares held" value={Math.abs(stats.sharesHeld) > 0.0001 ? stats.sharesHeld.toLocaleString('en-US', { maximumFractionDigits: 4 }) : '0'} />
+          <MiniStat label="Net cash" value={formatCurrency(netCash)} accent={netCash < 0 ? '#dc2626' : '#374151'} />
+          {plIfSold != null && (
+            <MiniStat label="P/L if sold now" value={`${plIfSold >= 0 ? '+' : ''}${formatCurrency(plIfSold)}`} accent={plIfSold < 0 ? '#dc2626' : '#059669'} />
+          )}
+        </div>
+      )}
+      {stats?.firstDate && (
+        <p style={{ fontSize: '0.8rem', color: '#6b7280', margin: '0 0 0.75rem' }}>
+          Timeline: {stats.firstDate} → {stats.lastDate} · {panel.txns.length} transactions
+        </p>
+      )}
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+        {sorted.map(t => (
+          <div key={t.id} style={{ display: 'flex', gap: '0.6rem', alignItems: 'flex-start', padding: '0.55rem 0.65rem', border: '1px solid #eef0f2', borderRadius: 8, background: '#fff' }}>
+            <div style={{ minWidth: 76, fontSize: '0.72rem', color: '#6b7280', fontWeight: 600, paddingTop: 2 }}>{t.activityDate}</div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
+                <span style={{ background: '#eef2ff', color: '#4338ca', borderRadius: 5, padding: '0.05rem 0.4rem', fontSize: '0.7rem', fontWeight: 700 }}>{t.transCode}</span>
+                {t.instrument && <strong style={{ fontSize: '0.85rem' }}>{t.instrument}</strong>}
+                {t.optionType && <span style={{ fontSize: '0.72rem', color: '#6b7280' }}>{t.optionType} {t.strike ? `$${t.strike}` : ''} {t.expiration ? `exp ${t.expiration}` : ''}</span>}
+                {t.account && <span style={{ fontSize: '0.66rem', color: '#6b21a8', background: '#f3e8ff', borderRadius: 5, padding: '0.05rem 0.35rem', fontWeight: 600 }}>{t.account}</span>}
+              </div>
+              <div style={{ fontSize: '0.78rem', color: '#6b7280', marginTop: 2, whiteSpace: 'pre-line' }}>{t.description}</div>
+            </div>
+            <div style={{ textAlign: 'right', minWidth: 90 }}>
+              {t.amount != null && (
+                <div style={{ fontWeight: 700, fontSize: '0.85rem', color: t.amount < 0 ? '#dc2626' : '#059669' }}>{formatCurrency(t.amount)}</div>
+              )}
+              {t.quantityRaw && <div style={{ fontSize: '0.72rem', color: '#9ca3af' }}>{t.quantityRaw} {t.price != null ? `@ ${formatCurrency(t.price)}` : ''}</div>}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+const OpenOptionsTable: React.FC<{
+  openOptions: OpenOption[];
+  optionQuotes: Record<string, OptionMark>;
+  legMarketValue: (o: OpenOption) => number | null;
+  onTicker: (ticker: string) => void;
+}> = ({ openOptions, optionQuotes, legMarketValue, onTicker }) => (
+  <>
+    <div style={{ overflowX: 'auto', maxHeight: 360, overflowY: 'auto', border: '1px solid #eef0f2', borderRadius: 8 }}>
+      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem' }}>
+        <thead>
+          <tr style={{ position: 'sticky', top: 0, background: '#f9fafb', zIndex: 1 }}>
+            <Th>Ticker</Th><Th>Position</Th><Th align="right">Contracts</Th><Th align="right">Strike</Th>
+            <Th>Expiration</Th><Th align="right">Premium</Th><Th align="right">Mark</Th><Th align="right">Mkt value</Th>
+          </tr>
+        </thead>
+        <tbody>
+          {openOptions.map((o, i) => {
+            const mark = optionQuotes[optionLegKey(o.ticker, o.optionType, o.strike ?? 0, o.expiration ?? '')]?.mark;
+            const val = legMarketValue(o);
+            const dte = o.expiration ? Math.round((Date.parse(o.expiration + 'T00:00:00') - Date.now()) / 86400000) : null;
+            return (
+              <tr key={i} style={{ borderTop: '1px solid #f1f1f1' }}>
+                <Td><button onClick={() => onTicker(o.ticker)} style={tickerLinkStyle}>{o.ticker}</button></Td>
+                <Td>
+                  <span style={{
+                    background: o.side === 'short' ? '#fef3c7' : '#dcfce7',
+                    color: o.side === 'short' ? '#92400e' : '#166534',
+                    borderRadius: 6, padding: '0.1rem 0.45rem', fontSize: '0.7rem', fontWeight: 700,
+                  }}>{o.side === 'short' ? 'SHORT' : 'LONG'} {o.optionType}</span>
+                </Td>
+                <Td align="right">{Math.abs(o.netContracts)}</Td>
+                <Td align="right">{o.strike != null ? `$${o.strike}` : '—'}</Td>
+                <Td style={{ whiteSpace: 'nowrap' }}>{o.expiration}{dte != null && <span style={{ color: dte <= 7 ? '#d97706' : '#9ca3af', fontSize: '0.72rem' }}> · {dte}d</span>}</Td>
+                <Td align="right" style={{ color: o.premium < 0 ? '#dc2626' : '#059669', fontWeight: 600 }}>{o.premium >= 0 ? '+' : ''}{formatCurrency(o.premium)}</Td>
+                <Td align="right" style={{ color: '#6b7280' }}>{mark != null ? formatCurrency(mark) : '—'}</Td>
+                <Td align="right" style={{ fontWeight: 700, color: val == null ? '#9ca3af' : val < 0 ? '#dc2626' : '#111827' }}>{val != null ? formatCurrency(val) : '—'}</Td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+    <p style={{ margin: '0.5rem 0 0', fontSize: '0.75rem', color: '#9ca3af' }}>
+      Mark is the current option price (mid, else last) × 100 per contract. Longs are assets (+), shorts are liabilities to buy back (−).
+    </p>
+  </>
+);
+
+const AccountsManager: React.FC<{
+  accounts: string[];
+  visibleOptions: string[];
+  selected: string[];
+  counts: Map<string, number>;
+  onToggleVisible: (name: string) => void;
+  onShowAll: () => void;
+  onAdd: (name: string) => void;
+  onRename: (oldName: string, next: string) => void;
+  onDelete: (name: string) => void;
+}> = ({ accounts, visibleOptions, selected, counts, onToggleVisible, onShowAll, onAdd, onRename, onDelete }) => {
+  const [newName, setNewName] = useState('');
+  const [drafts, setDrafts] = useState<Record<string, string>>({});
+  const unassigned = counts.get(DEFAULT_ACCOUNT_BUCKET) || 0;
+  const allShown = selected.length === 0;
+  const isShown = (a: string) => allShown || selected.includes(a);
+
+  const draftFor = (a: string) => (drafts[a] !== undefined ? drafts[a] : a);
+  const add = () => { const n = newName.trim(); if (!n) return; onAdd(n); setNewName(''); };
+
+  return (
+    <div>
+      {/* Visibility filter (merged from the old top dropdown) */}
+      {visibleOptions.length > 0 && (
+        <div style={{ marginBottom: '1.25rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+            <span style={{ fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.5px', color: '#4338ca', fontWeight: 800 }}>Show data for</span>
+            <button onClick={onShowAll} disabled={allShown} className="ck-btn ck-btn-sm">All accounts</button>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+            {visibleOptions.map(a => (
+              <label key={a} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.3rem 0.4rem', borderRadius: 6, cursor: 'pointer', fontSize: '0.85rem', background: isShown(a) ? '#f5f7ff' : 'transparent' }}>
+                <input type="checkbox" checked={isShown(a)} onChange={() => onToggleVisible(a)} />
+                <span style={{ flex: 1 }}>{a}</span>
+                <span style={{ fontSize: '0.72rem', color: '#9ca3af' }}>{counts.get(a) || 0} txns</span>
+              </label>
+            ))}
+          </div>
+          <p style={{ margin: '0.5rem 0 0', fontSize: '0.72rem', color: '#9ca3af' }}>
+            {allShown ? 'Showing all accounts.' : `Showing ${selected.length} of ${visibleOptions.length}.`}
+          </p>
+        </div>
+      )}
+
+      <div style={{ borderTop: '1px solid #eef0f2', paddingTop: '1rem' }} />
+      <span style={{ fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.5px', color: '#4338ca', fontWeight: 800 }}>Manage sources</span>
+      <p style={{ margin: '0.35rem 0 1rem', fontSize: '0.82rem', color: '#6b7280', lineHeight: 1.5 }}>
+        Sources are chosen when importing (optional). Rename to update every transaction that uses it; delete moves its transactions to <strong>{DEFAULT_ACCOUNT_BUCKET}</strong> — no data is lost.
+      </p>
+
+      {/* Add new */}
+      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
+        <input
+          type="text"
+          value={newName}
+          onChange={e => setNewName(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); add(); } }}
+          placeholder="Add a source, e.g. Robinhood - Roth"
+          style={{ flex: 1, padding: '0.55rem 0.75rem', border: '1px solid #d1d5db', borderRadius: 8, fontSize: '0.88rem' }}
+        />
+        <button onClick={add} disabled={!newName.trim()} className="ck-btn ck-btn-primary" style={{ whiteSpace: 'nowrap' }}>+ Add</button>
+      </div>
+
+      {accounts.length === 0 && (
+        <p style={{ color: '#9ca3af', fontSize: '0.85rem' }}>No sources yet. Add one above, or just import — trades go to {DEFAULT_ACCOUNT_BUCKET} by default.</p>
+      )}
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+        {accounts.map(a => {
+          const draft = draftFor(a);
+          const changed = draft.trim() && draft.trim() !== a;
+          return (
+            <div key={a} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem', border: '1px solid #eef0f2', borderRadius: 10, background: '#fff' }}>
+              <input
+                value={draft}
+                onChange={e => setDrafts(d => ({ ...d, [a]: e.target.value }))}
+                style={{ flex: 1, padding: '0.4rem 0.55rem', border: '1px solid #e5e7eb', borderRadius: 6, fontSize: '0.85rem' }}
+              />
+              <span style={{ fontSize: '0.72rem', color: '#9ca3af', minWidth: 52, textAlign: 'right' }}>{counts.get(a) || 0} txns</span>
+              {changed && (
+                <button onClick={() => { onRename(a, draft); setDrafts(d => { const n = { ...d }; delete n[a]; return n; }); }} className="ck-btn ck-btn-sm" title="Save name">💾</button>
+              )}
+              <button onClick={() => onDelete(a)} className="ck-btn ck-btn-sm" title="Delete source">🗑️</button>
+            </div>
+          );
+        })}
+      </div>
+
+      {unassigned > 0 && (
+        <div style={{ marginTop: '1rem', padding: '0.5rem 0.65rem', background: '#f9fafb', border: '1px dashed #d1d5db', borderRadius: 10, fontSize: '0.82rem', color: '#6b7280' }}>
+          <strong>{DEFAULT_ACCOUNT_BUCKET}</strong> · {unassigned} txns (default bucket for imports with no source)
+        </div>
+      )}
     </div>
   );
 };
 
 const selectStyle: React.CSSProperties = { padding: '0.45rem 0.7rem', border: '1px solid #d1d5db', borderRadius: 8, fontSize: '0.85rem', background: '#fff' };
+const tickerLinkStyle: React.CSSProperties = { background: 'none', border: 'none', color: '#4338ca', fontWeight: 700, cursor: 'pointer', padding: 0, fontSize: '0.82rem' };
 
-const SummaryCard: React.FC<{ label: string; value: number; accent: string; emphasize?: boolean }> = ({ label, value, accent, emphasize }) => (
-  <div style={{
-    background: emphasize ? accent : '#fff', color: emphasize ? '#fff' : '#111827',
-    border: emphasize ? 'none' : '1px solid #eef0f2', borderRadius: 12, padding: '0.9rem 1rem',
-    boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
-  }}>
+const pad2 = (n: number) => (n < 10 ? `0${n}` : `${n}`);
+const toISO = (d: Date) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+
+/** Resolve a preset (or custom inputs) into inclusive ISO date bounds. */
+function computeDateBounds(preset: string, customFrom: string, customTo: string): { fromDate: string; toDate: string } {
+  const now = new Date();
+  switch (preset) {
+    case 'ytd': return { fromDate: `${now.getFullYear()}-01-01`, toDate: '' };
+    case '12m': {
+      const d = new Date(now); d.setFullYear(d.getFullYear() - 1);
+      return { fromDate: toISO(d), toDate: '' };
+    }
+    case '2025': return { fromDate: '2025-01-01', toDate: '' };
+    case '2024': return { fromDate: '2024-01-01', toDate: '' };
+    case 'custom': return { fromDate: customFrom || '', toDate: customTo || '' };
+    default: return { fromDate: '', toDate: '' };
+  }
+}
+
+const TickerBarTooltip: React.FC<any> = ({ active, payload }) => {
+  if (!active || !payload || !payload.length) return null;
+  const p = payload[0].payload as { ticker: string; name?: string; income: number };
+  return (
+    <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, padding: '0.5rem 0.7rem', boxShadow: '0 4px 12px rgba(0,0,0,0.12)' }}>
+      <div style={{ fontWeight: 800, color: '#4338ca' }}>{p.ticker}</div>
+      {p.name && <div style={{ fontSize: '0.78rem', color: '#6b7280', marginBottom: 2 }}>{p.name}</div>}
+      <div style={{ fontSize: '0.85rem', color: p.income < 0 ? '#dc2626' : '#059669', fontWeight: 700 }}>Income: {formatCurrency(p.income)}</div>
+    </div>
+  );
+};
+
+const ToggleBtn: React.FC<{ active: boolean; onClick: () => void; children: React.ReactNode }> = ({ active, onClick, children }) => (
+  <button onClick={onClick} style={{
+    border: 'none', cursor: 'pointer', borderRadius: 6, padding: '0.3rem 0.6rem', fontSize: '0.75rem', fontWeight: 700,
+    background: active ? '#fff' : 'transparent', color: active ? '#4338ca' : '#64748b',
+    boxShadow: active ? '0 1px 2px rgba(0,0,0,0.12)' : 'none',
+  }}>{children}</button>
+);
+
+const NumberRow: React.FC<{ label: string; value: number; color: string; bold?: boolean }> = ({ label, value, color, bold }) => (
+  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.4rem 0' }}>
+    <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.88rem', fontWeight: bold ? 800 : 600, color: '#374151' }}>
+      <span style={{ width: 10, height: 10, borderRadius: 3, background: color, display: 'inline-block' }} />
+      {label}
+    </span>
+    <span style={{ fontSize: '0.95rem', fontWeight: bold ? 800 : 700, color: value < 0 ? '#dc2626' : color }}>{formatCurrency(value)}</span>
+  </div>
+);
+
+const SummaryCard: React.FC<{ label: string; value: number; accent: string; emphasize?: boolean; onClick?: () => void }> = ({ label, value, accent, emphasize, onClick }) => (
+  <div
+    onClick={onClick}
+    role={onClick ? 'button' : undefined}
+    title={onClick ? 'Click for details' : undefined}
+    style={{
+      background: emphasize ? accent : '#fff', color: emphasize ? '#fff' : '#111827',
+      border: emphasize ? 'none' : '1px solid #eef0f2', borderRadius: 12, padding: '0.9rem 1rem',
+      boxShadow: '0 1px 3px rgba(0,0,0,0.05)', cursor: onClick ? 'pointer' : 'default', transition: 'transform 0.12s, box-shadow 0.12s',
+    }}
+    onMouseEnter={onClick ? (e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 4px 14px rgba(0,0,0,0.12)'; }) : undefined}
+    onMouseLeave={onClick ? (e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.05)'; }) : undefined}
+  >
     <div style={{ fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 700, color: emphasize ? 'rgba(255,255,255,0.85)' : '#9ca3af' }}>{label}</div>
     <div style={{ fontSize: '1.3rem', fontWeight: 800, marginTop: '0.2rem', color: emphasize ? '#fff' : (value < 0 ? '#dc2626' : accent) }}>
       {formatCurrency(value)}
@@ -306,17 +1240,20 @@ const SummaryCard: React.FC<{ label: string; value: number; accent: string; emph
   </div>
 );
 
-const ChartCard: React.FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => (
-  <div style={{ background: '#fff', border: '1px solid #eef0f2', borderRadius: 14, padding: '1rem 1.1rem', marginBottom: '1rem', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
-    <h3 style={{ margin: '0 0 0.85rem', fontSize: '0.98rem', color: '#374151' }}>{title}</h3>
-    {children}
+const MiniStat: React.FC<{ label: string; value: string; accent?: string }> = ({ label, value, accent }) => (
+  <div style={{ background: '#f9fafb', border: '1px solid #eef0f2', borderRadius: 10, padding: '0.5rem 0.6rem' }}>
+    <div style={{ fontSize: '0.66rem', textTransform: 'uppercase', letterSpacing: '0.4px', color: '#9ca3af', fontWeight: 700 }}>{label}</div>
+    <div style={{ fontSize: '0.95rem', fontWeight: 800, color: accent || '#1f2937' }}>{value}</div>
   </div>
 );
 
-const Pill: React.FC<{ label: string; value: number }> = ({ label, value }) => (
-  <div style={{ background: '#fff', border: '1px solid #eef0f2', borderRadius: 10, padding: '0.6rem 0.9rem', minWidth: 92, textAlign: 'center' }}>
-    <div style={{ fontSize: '1.25rem', fontWeight: 800, color: '#4338ca' }}>{value}</div>
-    <div style={{ fontSize: '0.72rem', color: '#6b7280', fontWeight: 600 }}>{label}</div>
+const ChartCard: React.FC<{ title: string; children: React.ReactNode; action?: React.ReactNode }> = ({ title, children, action }) => (
+  <div style={{ background: '#fff', border: '1px solid #eef0f2', borderRadius: 14, padding: '1rem 1.1rem', marginBottom: '1rem', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem', marginBottom: '0.85rem', flexWrap: 'wrap' }}>
+      <h3 style={{ margin: 0, fontSize: '0.98rem', color: '#374151' }}>{title}</h3>
+      {action}
+    </div>
+    {children}
   </div>
 );
 
