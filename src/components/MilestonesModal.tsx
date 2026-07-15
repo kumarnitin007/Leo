@@ -22,9 +22,13 @@ type MilestoneItem = {
   daysRemaining: number;
 };
 
+type ViewMode = 'cards' | 'list' | 'counter';
+
 const MilestonesModal: React.FC<MilestonesModalProps> = ({ onClose, onNavigate }) => {
   const [milestones, setMilestones] = useState<MilestoneItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [viewMode, setViewMode] = useState<ViewMode>('cards');
+  const [categoryFilter, setCategoryFilter] = useState<string>('all');
 
   useEffect(() => {
     loadMilestones();
@@ -190,6 +194,33 @@ const MilestonesModal: React.FC<MilestonesModalProps> = ({ onClose, onNavigate }
     return `${days} days to go`;
   };
 
+  const badgeClass = (days: number): string =>
+    days < 0 ? 'past' : days === 0 ? 'today' : 'upcoming';
+
+  const categories = Array.from(
+    new Set(milestones.map(m => m.category).filter((c): c is string => !!c))
+  ).sort();
+
+  const visibleMilestones = categoryFilter === 'all'
+    ? milestones
+    : milestones.filter(m => (m.category || 'Uncategorized') === categoryFilter);
+
+  const renderFooterNote = () => (
+    <div className="milestones-footer-note">
+      <span>
+        <strong>Add a milestone:</strong> tag any task or event with <strong>"milestone"</strong> — it lands here automatically with a live countdown.
+      </span>
+      {onNavigate && (
+        <button
+          className="milestones-footer-add"
+          onClick={() => { onClose(); onNavigate('tasks-events'); }}
+        >
+          + New milestone
+        </button>
+      )}
+    </div>
+  );
+
   return (
     <div className="milestones-modal-content">
       <div className="milestones-modal-header">
@@ -226,54 +257,124 @@ const MilestonesModal: React.FC<MilestonesModalProps> = ({ onClose, onNavigate }
           )}
         </div>
       ) : (
-        <div className="milestones-grid">
-          <div style={{ padding: '8px 12px', marginBottom: 8, background: '#f9f9f6', borderRadius: 8, border: '1px dashed #d5d3cc', fontSize: 12, color: '#888', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-            <span>Tag any task or event with <strong>"milestone"</strong> to track it here.</span>
-            {onNavigate && (
-              <button onClick={() => { onClose(); onNavigate('tasks-events'); }} style={{ background: 'none', border: '1px solid #ccc', borderRadius: 6, padding: '4px 10px', fontSize: 11, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap', color: '#555' }}>+ Add</button>
+        <>
+          <div className="milestones-toolbar">
+            <div className="milestones-view-toggle" role="tablist" aria-label="View mode">
+              {([
+                { id: 'cards', label: 'Cards' },
+                { id: 'list', label: 'List' },
+                { id: 'counter', label: 'Counter' },
+              ] as { id: ViewMode; label: string }[]).map(v => (
+                <button
+                  key={v.id}
+                  className={`milestones-view-btn ${viewMode === v.id ? 'active' : ''}`}
+                  onClick={() => setViewMode(v.id)}
+                  role="tab"
+                  aria-selected={viewMode === v.id}
+                >
+                  {v.label}
+                </button>
+              ))}
+            </div>
+
+            {categories.length > 0 && (
+              <div className="milestones-category-chips">
+                <button
+                  className={`milestones-chip ${categoryFilter === 'all' ? 'active' : ''}`}
+                  onClick={() => setCategoryFilter('all')}
+                >
+                  All
+                </button>
+                {categories.map(cat => (
+                  <button
+                    key={cat}
+                    className={`milestones-chip ${categoryFilter === cat ? 'active' : ''}`}
+                    onClick={() => setCategoryFilter(cat)}
+                  >
+                    {cat}
+                  </button>
+                ))}
+              </div>
             )}
           </div>
-          {milestones.map((milestone) => (
-            <div 
-              key={`${milestone.type}-${milestone.id}`} 
-              className="milestone-item"
-            >
-              <div className="milestone-days-remaining">
-                <div className={`days-badge ${milestone.daysRemaining < 0 ? 'past' : milestone.daysRemaining === 0 ? 'today' : 'upcoming'}`}>
-                  {milestone.daysRemaining < 0 ? (
-                    <span className="days-number">{Math.abs(milestone.daysRemaining)}</span>
-                  ) : milestone.daysRemaining === 0 ? (
-                    <span className="days-number">0</span>
-                  ) : (
-                    <span className="days-number">{milestone.daysRemaining}</span>
-                  )}
-                  <span className="days-label">
+
+          {viewMode === 'cards' && (
+            <div className="milestones-grid">
+              {visibleMilestones.map((milestone) => (
+                <div
+                  key={`${milestone.type}-${milestone.id}`}
+                  className="milestone-item"
+                >
+                  <div className="milestone-days-remaining">
+                    <div className={`days-badge ${badgeClass(milestone.daysRemaining)}`}>
+                      <span className="days-number">{Math.abs(milestone.daysRemaining)}</span>
+                      <span className="days-label">
+                        {milestone.daysRemaining < 0 ? 'DAYS AGO' : milestone.daysRemaining === 0 ? 'TODAY' : 'DAYS TO GO'}
+                      </span>
+                      <div className="milestone-name-in-badge">
+                        <h3>{milestone.name}</h3>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="milestone-content">
+                    <div className="milestone-date-row">
+                      <div className="milestone-date-box">
+                        <div className="date-content">
+                          <span className="date-icon">📅</span>
+                          <span className="date-text">{formatDate(milestone.date)}</span>
+                        </div>
+                      </div>
+                      {milestone.category && (
+                        <div className="milestone-category-box">
+                          <span className="category-text">{milestone.category}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {viewMode === 'list' && (
+            <div className="milestones-list">
+              {visibleMilestones.map((milestone) => (
+                <div key={`${milestone.type}-${milestone.id}`} className="milestone-list-row">
+                  <div className={`milestone-list-count ${badgeClass(milestone.daysRemaining)}`}>
+                    <span className="milestone-list-number">{Math.abs(milestone.daysRemaining)}</span>
+                    <span className="milestone-list-unit">
+                      {milestone.daysRemaining === 0 ? 'today' : milestone.daysRemaining < 0 ? 'days ago' : 'days'}
+                    </span>
+                  </div>
+                  <div className="milestone-list-main">
+                    <span className="milestone-list-name">{milestone.name}</span>
+                    <span className="milestone-list-meta">
+                      {formatDate(milestone.date)}{milestone.category ? ` · ${milestone.category}` : ''}
+                    </span>
+                  </div>
+                  <span className="milestone-list-status">{formatDaysRemaining(milestone.daysRemaining)}</span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {viewMode === 'counter' && (
+            <div className="milestones-counter-grid">
+              {visibleMilestones.map((milestone) => (
+                <div key={`${milestone.type}-${milestone.id}`} className={`milestone-counter ${badgeClass(milestone.daysRemaining)}`}>
+                  <span className="milestone-counter-number">{Math.abs(milestone.daysRemaining)}</span>
+                  <span className="milestone-counter-label">
                     {milestone.daysRemaining < 0 ? 'DAYS AGO' : milestone.daysRemaining === 0 ? 'TODAY' : 'DAYS TO GO'}
                   </span>
-                  <div className="milestone-name-in-badge">
-                    <h3>{milestone.name}</h3>
-                  </div>
+                  <span className="milestone-counter-name">{milestone.name}</span>
                 </div>
-              </div>
-              
-              <div className="milestone-content">
-                <div className="milestone-date-row">
-                  <div className="milestone-date-box">
-                    <div className="date-content">
-                      <span className="date-icon">📅</span>
-                      <span className="date-text">{formatDate(milestone.date)}</span>
-                    </div>
-                  </div>
-                  {milestone.category && (
-                    <div className="milestone-category-box">
-                      <span className="category-text">{milestone.category}</span>
-                    </div>
-                  )}
-                </div>
-              </div>
+              ))}
             </div>
-          ))}
-        </div>
+          )}
+
+          {renderFooterNote()}
+        </>
       )}
     </div>
   );
