@@ -62,6 +62,22 @@ type DashboardItem = {
   eventDate?: string; // Formatted event date for display
 };
 
+// Visual treatment for occasion cards (birthdays, anniversaries, etc.)
+const getOccasionVisual = (category?: string): { icon: string; gradient: string; accent: string } => {
+  const map: { [key: string]: { icon: string; gradient: string; accent: string } } = {
+    'Birthday':          { icon: '🎂', gradient: 'linear-gradient(135deg,#fff1f5,#ffe3ee)', accent: '#db2777' },
+    'Anniversary':       { icon: '💝', gradient: 'linear-gradient(135deg,#fdf2ff,#f3e6ff)', accent: '#9333ea' },
+    'Wedding':           { icon: '💍', gradient: 'linear-gradient(135deg,#fef6ff,#f5e9ff)', accent: '#a21caf' },
+    'Holiday':           { icon: '🎊', gradient: 'linear-gradient(135deg,#fff7ed,#ffedd5)', accent: '#ea580c' },
+    'Special Event':     { icon: '⭐', gradient: 'linear-gradient(135deg,#fffbeb,#fef3c7)', accent: '#d97706' },
+    'Graduation':        { icon: '🎓', gradient: 'linear-gradient(135deg,#eff6ff,#dbeafe)', accent: '#2563eb' },
+    'Death Anniversary': { icon: '🕯️', gradient: 'linear-gradient(135deg,#f8fafc,#eef2f7)', accent: '#64748b' },
+    'Memorial':          { icon: '🌹', gradient: 'linear-gradient(135deg,#f8fafc,#eef2f7)', accent: '#64748b' },
+    'Remembrance':       { icon: '🙏', gradient: 'linear-gradient(135deg,#f8fafc,#eef2f7)', accent: '#64748b' },
+  };
+  return map[category || ''] || { icon: '📅', gradient: 'linear-gradient(135deg,#f0f9ff,#e0f2fe)', accent: '#0284c7' };
+};
+
 interface TodayViewProps {
   onNavigate: (view: string) => void;
 }
@@ -1569,9 +1585,80 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
         </div>
       ) : (
         <>
+          {/* ── Occasions & Celebrations — events shown separately from tasks ── */}
+          {(() => {
+            const occasions = items
+              .filter(i => i.type === 'event')
+              .slice()
+              .sort((a, b) => (a.daysUntil ?? 9999) - (b.daysUntil ?? 9999));
+            if (occasions.length === 0) return null;
+            return (
+              <div className="occasions-section" style={{ marginBottom: '1.5rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, paddingLeft: 2 }}>
+                  <span style={{ fontSize: 16 }}>🎉</span>
+                  <span style={{ fontSize: 13, fontWeight: 700, letterSpacing: '0.02em', color: 'var(--ck-text, #1a1a1a)' }}>
+                    Occasions &amp; Celebrations
+                  </span>
+                  <span style={{ fontSize: 11, fontWeight: 600, color: '#9ca3af', background: 'var(--ck-purple-light, #f3f4f6)', borderRadius: 10, padding: '1px 8px' }}>
+                    {occasions.length}
+                  </span>
+                </div>
+                <div className="occasions-strip" style={{ display: 'flex', gap: 12, overflowX: 'auto', paddingBottom: 6, WebkitOverflowScrolling: 'touch' }}>
+                  {occasions.map(item => {
+                    const v = getOccasionVisual(item.category);
+                    const isToday = item.daysUntil === 0;
+                    return (
+                      <button
+                        key={item.id}
+                        onClick={() => handleItemClick(item)}
+                        className="occasion-card"
+                        style={{
+                          flex: '0 0 auto', width: 168, textAlign: 'left', cursor: 'pointer',
+                          border: isToday ? `2px solid ${v.accent}` : '1px solid rgba(0,0,0,0.06)',
+                          borderRadius: 16, padding: '14px 14px 12px', background: v.gradient,
+                          boxShadow: isToday ? `0 4px 14px ${v.accent}33` : '0 1px 3px rgba(0,0,0,0.05)',
+                          opacity: item.isCompleted ? 0.55 : 1, position: 'relative', transition: 'transform .12s ease',
+                        }}
+                        onMouseEnter={e => (e.currentTarget.style.transform = 'translateY(-2px)')}
+                        onMouseLeave={e => (e.currentTarget.style.transform = 'translateY(0)')}
+                      >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                          <span style={{ fontSize: 30, lineHeight: 1 }}>{v.icon}</span>
+                          {isToday ? (
+                            <span style={{ fontSize: 10, fontWeight: 800, color: '#fff', background: v.accent, borderRadius: 20, padding: '3px 8px', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                              Today
+                            </span>
+                          ) : item.daysUntil !== undefined ? (
+                            <span style={{ fontSize: 10, fontWeight: 700, color: v.accent, background: '#ffffffaa', borderRadius: 20, padding: '3px 8px' }}>
+                              in {item.daysUntil}d
+                            </span>
+                          ) : null}
+                        </div>
+                        <div style={{ fontSize: 14, fontWeight: 700, color: '#1f2937', marginTop: 10, lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as const }}>
+                          {item.name}
+                        </div>
+                        {item.eventDate && (
+                          <div style={{ fontSize: 11.5, color: v.accent, fontWeight: 600, marginTop: 4 }}>
+                            {item.eventDate}
+                          </div>
+                        )}
+                        {item.category && (
+                          <div style={{ fontSize: 10, color: '#6b7280', marginTop: 6 }}>{item.category}</div>
+                        )}
+                        {item.isCompleted && (
+                          <span style={{ position: 'absolute', bottom: 10, right: 12, fontSize: 14 }}>✓</span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })()}
+
           {isWarmPaper && (
             <div style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase' as const, letterSpacing: '0.08em', color: '#bbb', marginBottom: 8, paddingLeft: 2 }}>
-              Tasks &amp; Events
+              Tasks
             </div>
           )}
           <div className={`tasks-grid layout-${dashboardLayout}`}>
@@ -1588,7 +1675,9 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
               if (!aCompleted && bCompleted) return -1; // b goes to end
               return 0; // keep original order for items with same completion status
             })
-            .map((item, index) => {
+            .map((item, index) => ({ item, index }))
+            .filter(({ item }) => item.type === 'task') // events render in the Occasions section above
+            .map(({ item, index }) => {
             const progress = item.type === 'task' && item.task ? getTaskProgress(item.task) : null;
             const isCountBasedComplete = progress && progress.current >= progress.target;
             const taskStreak = item.type === 'task' ? getTaskStreak(item.id) : 0;
@@ -1960,6 +2049,11 @@ const TodayView: React.FC<TodayViewProps> = ({ onNavigate }) => {
             );
           })}
         </div>
+        {items.every(i => i.type === 'event') && (
+          <div className="no-tasks" style={{ padding: '1.5rem', textAlign: 'center', color: '#9ca3af' }}>
+            <p style={{ margin: 0 }}>No tasks scheduled for today — enjoy your occasions above 🎉</p>
+          </div>
+        )}
         </>
       )}
 

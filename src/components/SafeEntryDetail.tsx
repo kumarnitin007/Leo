@@ -38,6 +38,9 @@ const SafeEntryDetail: React.FC<SafeEntryDetailProps> = ({
   const [encryptedData, setEncryptedData] = useState<SafeEntryEncryptedData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
+  // Progressive disclosure: open with just the essentials (URL, username,
+  // password, 2FA) and reveal category/notes/extra fields/metadata on demand.
+  const [showDetails, setShowDetails] = useState(false);
   const [isFav, setIsFav] = useState<boolean>(!!entry.isFavorite);
   const [favBusy, setFavBusy] = useState(false);
   const [showCustomFields, setShowCustomFields] = useState<Record<number, boolean>>({});
@@ -332,6 +335,7 @@ const SafeEntryDetail: React.FC<SafeEntryDetailProps> = ({
               </button>
             </div>
           )}
+          {showDetails && (
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '1rem' }}>
             <span style={{
               padding: '0.25rem 0.5rem',
@@ -367,6 +371,7 @@ const SafeEntryDetail: React.FC<SafeEntryDetailProps> = ({
               })
             )}
           </div>
+          )}
 
       {/* Encrypted Information */}
       <div style={{ marginBottom: '1rem' }}>
@@ -458,7 +463,7 @@ const SafeEntryDetail: React.FC<SafeEntryDetailProps> = ({
           </div>
         )}
 
-        {encryptedData.notes && (
+        {showDetails && encryptedData.notes && (
           <div style={{
             marginBottom: '1rem',
             padding: '1rem',
@@ -478,7 +483,7 @@ const SafeEntryDetail: React.FC<SafeEntryDetailProps> = ({
           </div>
         )}
 
-        {encryptedData.expiryDate && (
+        {showDetails && encryptedData.expiryDate && (
           <div style={{
             marginBottom: '1rem',
             padding: '1rem',
@@ -540,7 +545,9 @@ const SafeEntryDetail: React.FC<SafeEntryDetailProps> = ({
           </div>
         )}
 
-        {/* Category-Specific Fields */}
+        {/* Category-Specific Fields + Custom Fields (revealed under "Show all details") */}
+        {showDetails && (
+        <>
         {getCategoryName() === 'Credit Card' && (encryptedData.cardNumber || encryptedData.cardholderName) && (
           <div style={{ marginBottom: '2rem' }}>
             <h4 style={{ marginBottom: '1rem', fontSize: '1rem' }}>Credit Card Details</h4>
@@ -1008,9 +1015,31 @@ const SafeEntryDetail: React.FC<SafeEntryDetailProps> = ({
             ))}
           </div>
         )}
+        </>
+        )}
       </div>
 
+      {/* Show all / Hide details toggle */}
+      <button
+        onClick={() => setShowDetails(v => !v)}
+        style={{
+          width: '100%',
+          padding: '0.6rem',
+          marginBottom: '1rem',
+          backgroundColor: '#f3f4f6',
+          color: '#374151',
+          border: '1px dashed #d1d5db',
+          borderRadius: '0.5rem',
+          cursor: 'pointer',
+          fontSize: '0.8rem',
+          fontWeight: 600
+        }}
+      >
+        {showDetails ? '▲ Hide extra details' : '▾ Show all details'}
+      </button>
+
       {/* Metadata */}
+      {showDetails && (
       <div style={{
         padding: '0.5rem',
         backgroundColor: '#f9fafb',
@@ -1025,6 +1054,7 @@ const SafeEntryDetail: React.FC<SafeEntryDetailProps> = ({
           <div>Last accessed: {new Date(entry.lastAccessedAt).toLocaleString()}</div>
         )}
       </div>
+      )}
 
       {/* Actions */}
       <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end', paddingTop: '0.75rem', borderTop: '1px solid #e5e7eb' }}>
@@ -1080,7 +1110,7 @@ const SafeEntryDetail: React.FC<SafeEntryDetailProps> = ({
       </div>
 
       {/* Comments Section - Only show for shared entries or entries user has shared */}
-      {(entry.isShared || entry.id) && user && (
+      {showDetails && (entry.isShared || entry.id) && user && (
         <EntryComments
           entryId={entry.id}
           entryType="safe_entry"

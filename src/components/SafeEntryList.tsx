@@ -104,16 +104,29 @@ const SafeEntryCard = memo(function SafeEntryCard({
           )}
         </div>
       )}
-      <label style={{ position: 'absolute', bottom: '8px', right: '8px' }} onClick={e => e.stopPropagation()}>
-        <input 
-          type="checkbox" 
-          checked={isSelected} 
-          onChange={e => { e.stopPropagation(); onSelectToggle(entry.id, e.target.checked); }} 
-        />
-      </label>
+      {/* Desktop: checkbox floats bottom-right. On mobile it moves inline into the
+          header (below) so it never overlaps the category/tag badges. */}
+      {!compact && (
+        <label style={{ position: 'absolute', bottom: '8px', right: '8px' }} onClick={e => e.stopPropagation()}>
+          <input 
+            type="checkbox" 
+            checked={isSelected} 
+            onChange={e => { e.stopPropagation(); onSelectToggle(entry.id, e.target.checked); }} 
+          />
+        </label>
+      )}
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: compact ? '0.4rem' : '0.75rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flex: 1, minWidth: 0 }}>
+          {compact && (
+            <input
+              type="checkbox"
+              checked={isSelected}
+              onClick={e => e.stopPropagation()}
+              onChange={e => { e.stopPropagation(); onSelectToggle(entry.id, e.target.checked); }}
+              style={{ width: 18, height: 18, flexShrink: 0, accentColor: '#3b82f6' }}
+            />
+          )}
           <h3 style={{ margin: 0, fontSize: compact ? '0.95rem' : '1.1rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{entry.title}</h3>
           {commentCount > 0 && (
             <span style={{
@@ -634,7 +647,7 @@ const SafeEntryList: React.FC<SafeEntryListProps> = ({
         </>
       ) : (
         <>
-        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(auto-fill, minmax(160px, 1fr))' : 'repeat(auto-fill, minmax(300px, 1fr))', gap: isMobile ? '0.6rem' : '1rem' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fill, minmax(300px, 1fr))', gap: isMobile ? '0.6rem' : '1rem' }}>
           {pagedEntries.map(entry => (
             <SafeEntryCard
               key={entry.id}
