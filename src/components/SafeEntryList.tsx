@@ -59,7 +59,7 @@ const SafeEntryCard = memo(function SafeEntryCard({
           ? 'rgba(238, 242, 255, 0.95)'
           : 'rgba(255,255,255,0.95)', 
         borderRadius: '8px', 
-        padding: compact ? '0.7rem 0.8rem' : '1.25rem', 
+        padding: compact ? '0.5rem 0.7rem' : '1.25rem', 
         cursor: 'pointer', 
         boxShadow: '0 2px 4px rgba(0,0,0,0.08)',
         border: entry.isShared && entry.sharedBy 
@@ -116,17 +116,8 @@ const SafeEntryCard = memo(function SafeEntryCard({
         </label>
       )}
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: compact ? '0.4rem' : '0.75rem' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: compact ? '0.25rem' : '0.75rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flex: 1, minWidth: 0 }}>
-          {compact && (
-            <input
-              type="checkbox"
-              checked={isSelected}
-              onClick={e => e.stopPropagation()}
-              onChange={e => { e.stopPropagation(); onSelectToggle(entry.id, e.target.checked); }}
-              style={{ width: 18, height: 18, flexShrink: 0, accentColor: '#3b82f6' }}
-            />
-          )}
           <h3 style={{ margin: 0, fontSize: compact ? '0.95rem' : '1.1rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{entry.title}</h3>
           {commentCount > 0 && (
             <span style={{
@@ -190,13 +181,15 @@ const SafeEntryCard = memo(function SafeEntryCard({
         </div>
       </div>
 
-      {/* URL row — single line (truncated), reserve space even when empty so cards stay aligned */}
-      <p
-        title={entry.url || undefined}
-        style={{ margin: compact ? '0 0 0.3rem 0' : '0 0 0.5rem 0', color: '#3b82f6', fontSize: compact ? '0.8rem' : undefined, minHeight: compact ? '1.1em' : '1.25em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
-      >
-        {entry.url ? `🔗 ${entry.url}` : '\u00A0'}
-      </p>
+      {/* URL row — hidden on mobile (compact) to keep rows short; reserves space on desktop for alignment */}
+      {!compact && (
+        <p
+          title={entry.url || undefined}
+          style={{ margin: '0 0 0.5rem 0', color: '#3b82f6', minHeight: '1.25em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
+        >
+          {entry.url ? `🔗 ${entry.url}` : '\u00A0'}
+        </p>
+      )}
 
       {/* Category (left) + tags (right) on a single row */}
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '0.5rem', marginBottom: compact ? '0' : '0.5rem' }}>
@@ -583,7 +576,8 @@ const SafeEntryList: React.FC<SafeEntryListProps> = ({
           <button onClick={() => setShowDeleteConfirm(true)} style={{ padding: '0.5rem 0.75rem', backgroundColor: '#ef4444', color: 'white', border: 'none', borderRadius: '0.5rem', fontSize: '0.875rem' }}>🗑️ ({entriesWithSelectedTag.length})</button>
         )}
 
-        {(() => {
+        {/* Bulk selection is desktop-only — on mobile, delete happens from the entry detail popup. */}
+        {!isMobile && (() => {
           const hasEntries = filteredEntries.length > 0;
           const allVisibleSelected = hasEntries && filteredEntries.every(e => selectedIds.includes(e.id));
           return (
@@ -601,7 +595,7 @@ const SafeEntryList: React.FC<SafeEntryListProps> = ({
           );
         })()}
 
-        {selectedIds.length > 0 && (
+        {!isMobile && selectedIds.length > 0 && (
           <button onClick={() => setShowSelectedDeleteConfirm(true)} style={{ padding: '0.5rem 0.75rem', backgroundColor: '#ef4444', color: 'white', border: 'none', borderRadius: '0.5rem', fontSize: '0.875rem' }}>🗑️ ({selectedIds.length})</button>
         )}
       </div>

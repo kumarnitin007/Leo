@@ -102,7 +102,7 @@ export interface TradesSummary {
 const sum = (arr: number[]) => arr.reduce((a, b) => a + b, 0);
 
 // Codes with an explicit direction.
-const SHARE_ADD_CODES = new Set(['Buy', 'REC']);      // bought / received-in
+const SHARE_ADD_CODES = new Set(['Buy', 'REC', 'DIST']);   // bought / received-in / split-spinoff shares
 const SHARE_REMOVE_CODES = new Set(['Sell']);         // sold
 // Corporate actions that move shares in OR out (symbol change, split, merger,
 // spinoff, conversion). Direction is taken from the quantity's "S" suffix,

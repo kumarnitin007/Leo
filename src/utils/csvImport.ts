@@ -383,9 +383,30 @@ export async function convertCSVRowsToEntries(
         continue; // True duplicate — nothing changed
       }
 
+      // Record which fields changed so the detail view can show a change history.
+      const changedFields: string[] = [];
+      if (urlChanged) changedFields.push('URL');
+      if (usernameChanged) changedFields.push('Username');
+      if (passwordChanged) changedFields.push('Password');
+      if (notesChanged) changedFields.push('Notes');
+
+      const changeHistory = [
+        ...(match.data.changeHistory || []),
+        { date: new Date().toISOString(), fields: changedFields, source: 'Import' },
+      ];
+
       // Something changed → update in place (reuse id + createdAt, keep
-      // user's existing category, tags and favorite flag).
-      const jsonData = JSON.stringify(encryptedData);
+      // user's existing category, tags and favorite flag). Merge over the
+      // existing decrypted data so we don't wipe fields the import doesn't
+      // carry (custom fields, TOTP, category-specific values, prior history).
+      const mergedData: SafeEntryEncryptedData = {
+        ...match.data,
+        username: row.loginName || undefined,
+        password: row.password || undefined,
+        notes: row.comments || undefined,
+        changeHistory,
+      };
+      const jsonData = JSON.stringify(mergedData);
       const { encrypted, iv } = await encryptData(jsonData, encryptionKey);
       const existingTags = match.entry.tags || [];
       const mergedTags = selectedTagId && !existingTags.includes(selectedTagId)

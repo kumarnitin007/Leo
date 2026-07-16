@@ -27,6 +27,14 @@ const SafeTags: React.FC<SafeTagsProps> = ({ onClose, onTagsChange, entryCountsB
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
   const [editColor, setEditColor] = useState('#3B82F6');
+  // On phones we open a dedicated edit popup instead of inline editing, and the
+  // whole card becomes tappable (no per-card Rename/Delete buttons to save space).
+  const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth <= 768);
+  useEffect(() => {
+    const onResize = () => setIsMobile(window.innerWidth <= 768);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
 
   const load = async () => {
     try {
@@ -298,15 +306,17 @@ const SafeTags: React.FC<SafeTagsProps> = ({ onClose, onTagsChange, entryCountsB
             <div
               key={tag.id}
               className="vault-tag-card-wrap"
+              onClick={isMobile ? () => startEdit(tag) : undefined}
               style={{
                 border: `0.5px solid ${TAG_UI.border}`,
                 borderRadius: 12,
                 padding: 14,
                 background: TAG_UI.paper,
                 position: 'relative',
+                cursor: isMobile ? 'pointer' : 'default',
               }}
             >
-              {isEditing ? (
+              {isEditing && !isMobile ? (
                 <>
                   <input
                     value={editName}
@@ -377,49 +387,56 @@ const SafeTags: React.FC<SafeTagsProps> = ({ onClose, onTagsChange, entryCountsB
                       📄 {docCount} {docCount === 1 ? 'document' : 'documents'}
                     </span>
                   </div>
-                  <div
-                    style={{
-                      borderTop: `1px solid ${TAG_UI.border}`,
-                      marginTop: 12,
-                      paddingTop: 10,
-                      display: 'flex',
-                      justifyContent: 'flex-end',
-                      gap: 4,
-                    }}
-                  >
-                    <div className="vault-tag-card-del" style={{ opacity: 0, transition: 'opacity 0.15s', display: 'flex', gap: 4 }}>
-                      <button
-                        type="button"
-                        onClick={() => startEdit(tag)}
-                        style={{
-                          padding: '4px 10px',
-                          fontSize: 11,
-                          borderRadius: 6,
-                          border: 'none',
-                          background: 'transparent',
-                          color: '#374151',
-                          cursor: 'pointer',
-                        }}
-                      >
-                        Rename
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => void handleDelete(tag.id)}
-                        style={{
-                          padding: '4px 10px',
-                          fontSize: 11,
-                          borderRadius: 6,
-                          border: 'none',
-                          background: 'transparent',
-                          color: TAG_UI.deleteText,
-                          cursor: 'pointer',
-                        }}
-                      >
-                        Delete
-                      </button>
+                  {/* Desktop: hover Rename/Delete. Mobile: tap the card to edit (popup below). */}
+                  {!isMobile ? (
+                    <div
+                      style={{
+                        borderTop: `1px solid ${TAG_UI.border}`,
+                        marginTop: 12,
+                        paddingTop: 10,
+                        display: 'flex',
+                        justifyContent: 'flex-end',
+                        gap: 4,
+                      }}
+                    >
+                      <div className="vault-tag-card-del" style={{ opacity: 0, transition: 'opacity 0.15s', display: 'flex', gap: 4 }}>
+                        <button
+                          type="button"
+                          onClick={() => startEdit(tag)}
+                          style={{
+                            padding: '4px 10px',
+                            fontSize: 11,
+                            borderRadius: 6,
+                            border: 'none',
+                            background: 'transparent',
+                            color: '#374151',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          Rename
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void handleDelete(tag.id)}
+                          style={{
+                            padding: '4px 10px',
+                            fontSize: 11,
+                            borderRadius: 6,
+                            border: 'none',
+                            background: 'transparent',
+                            color: TAG_UI.deleteText,
+                            cursor: 'pointer',
+                          }}
+                        >
+                          Delete
+                        </button>
+                      </div>
                     </div>
-                  </div>
+                  ) : (
+                    <div style={{ marginTop: 10, display: 'flex', justifyContent: 'flex-end' }}>
+                      <span style={{ fontSize: 11, color: TAG_UI.muted }}>Tap to edit ›</span>
+                    </div>
+                  )}
                 </>
               )}
             </div>
@@ -430,6 +447,63 @@ const SafeTags: React.FC<SafeTagsProps> = ({ onClose, onTagsChange, entryCountsB
         {filtered.length === 0 && (
           <div style={{ textAlign: 'center', padding: 32, color: TAG_UI.muted, border: `1px dashed ${TAG_UI.border}`, borderRadius: 12 }}>
             No vault tags yet. Create one to label passwords and documents consistently.
+          </div>
+        )}
+
+        {/* Mobile edit popup — opened by tapping a tag card */}
+        {isMobile && editingId && (
+          <div
+            onClick={() => setEditingId(null)}
+            style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', zIndex: 1300, padding: 0 }}
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              style={{ background: TAG_UI.paper, borderRadius: '18px 18px 0 0', width: '100%', maxWidth: 520, padding: '1.1rem 1.15rem 1.4rem', boxShadow: '0 -8px 30px rgba(0,0,0,0.18)' }}
+            >
+              <div style={{ width: 40, height: 4, borderRadius: 999, background: TAG_UI.border, margin: '0 auto 14px' }} />
+              <div style={{ fontSize: 15, fontWeight: 700, color: '#111', marginBottom: 14 }}>Edit tag</div>
+
+              <label style={{ fontSize: 11, color: TAG_UI.muted, fontWeight: 600 }}>Name</label>
+              <input
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                autoFocus
+                style={{ width: '100%', boxSizing: 'border-box', marginTop: 6, padding: '11px 12px', borderRadius: 10, border: `1px solid ${TAG_UI.border}`, fontSize: 15, background: TAG_UI.paper }}
+              />
+
+              <label style={{ fontSize: 11, color: TAG_UI.muted, fontWeight: 600, display: 'block', marginTop: 14 }}>Color</label>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginTop: 8, alignItems: 'center' }}>
+                {SAFE_SWATCHES.map((c) => (
+                  <button
+                    key={c}
+                    type="button"
+                    onClick={() => setEditColor(c)}
+                    style={{ width: 30, height: 30, borderRadius: '50%', background: c, border: editColor === c ? '3px solid #1D1D1D' : '2px solid rgba(255,255,255,0.85)', cursor: 'pointer', padding: 0 }}
+                  />
+                ))}
+                <label style={{ width: 30, height: 30, borderRadius: '50%', border: `2px dashed ${TAG_UI.border}`, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', overflow: 'hidden', position: 'relative' }}>
+                  <span style={{ fontSize: 13, color: TAG_UI.muted }}>+</span>
+                  <input type="color" value={editColor} onChange={(e) => setEditColor(e.target.value)} aria-label="Custom color" style={{ position: 'absolute', inset: -8, opacity: 0, width: '160%', cursor: 'pointer' }} />
+                </label>
+              </div>
+
+              <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
+                <button
+                  type="button"
+                  onClick={() => { const id = editingId; setEditingId(null); if (id) void handleDelete(id); }}
+                  style={{ padding: '12px 16px', borderRadius: 12, border: `1px solid #fecaca`, background: '#fff', color: TAG_UI.deleteText, fontWeight: 700, cursor: 'pointer', fontSize: 14 }}
+                >
+                  🗑 Delete
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void handleRename(editingId)}
+                  style={{ flex: 1, padding: '12px 16px', borderRadius: 12, border: 'none', background: TAG_UI.btnDark, color: '#fff', fontWeight: 700, cursor: 'pointer', fontSize: 14 }}
+                >
+                  Save
+                </button>
+              </div>
+            </div>
           </div>
         )}
 

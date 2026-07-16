@@ -236,6 +236,13 @@ export interface SafeCustomField {
 }
 
 // Encrypted data structure (stored as JSON blob in encrypted_data column)
+/** A single change-history record (e.g. from a re-import that modified fields). */
+export interface SafeChangeLogEntry {
+  date: string;        // ISO timestamp of the change
+  fields: string[];    // Human-readable names of the fields that changed
+  source?: string;     // Where the change came from (e.g. "Import")
+}
+
 export interface SafeEntryEncryptedData {
   // Core fields (always encrypted)
   username?: string;
@@ -244,6 +251,9 @@ export interface SafeEntryEncryptedData {
   
   // Custom fields (up to 5)
   customFields?: SafeCustomField[];
+
+  // Change history — appended when a re-import (or edit) modifies fields.
+  changeHistory?: SafeChangeLogEntry[];
   
   // Expiry date (encrypted)
   expiryDate?: string; // YYYY-MM-DD

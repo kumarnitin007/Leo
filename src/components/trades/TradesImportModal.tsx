@@ -69,7 +69,7 @@ const TradesImportModal: React.FC<TradesImportModalProps> = ({
       const result = await parseTradesFile(f, { tags: selectedTagIds, importBatchId: 'pending' });
       setParsed(result);
       if (result.source === 'unknown') {
-        setError('This file does not look like a Robinhood export. You can still import it, but columns may be misread.');
+        setError('This file does not look like a Robinhood or Fidelity export. You can still import it, but columns may be misread.');
       }
     } catch (err: any) {
       setError(err?.message || 'Failed to read file.');
@@ -148,7 +148,7 @@ const TradesImportModal: React.FC<TradesImportModalProps> = ({
         >
           <span style={{ fontSize: '1.75rem' }}>📄</span>
           <span style={{ fontWeight: 600, color: '#4338ca' }}>
-            {file ? file.name : 'Choose a Robinhood CSV or Excel file'}
+            {file ? file.name : 'Choose a Robinhood or Fidelity CSV / Excel file'}
           </span>
           <span style={{ fontSize: '0.8rem', color: '#6b7280' }}>Supports .csv, .xlsx, .xls</span>
           <input
@@ -172,7 +172,7 @@ const TradesImportModal: React.FC<TradesImportModalProps> = ({
         {parsed && (
           <div style={{ background: '#f9fafb', borderRadius: 10, padding: '1rem', marginBottom: '1rem', border: '1px solid #eef0f2' }}>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '0.75rem' }}>
-              <Stat label="Detected" value={parsed.source === 'robinhood' ? 'Robinhood' : 'Unknown'} />
+              <Stat label="Detected" value={parsed.source === 'robinhood' ? 'Robinhood' : parsed.source === 'fidelity' ? 'Fidelity' : 'Unknown'} />
               <Stat label="Rows parsed" value={String(parsed.rows.length)} />
               <Stat label="New" value={String(preview?.newCount ?? 0)} accent="#059669" />
               <Stat label="Duplicates" value={String(preview?.duplicateCount ?? 0)} accent="#d97706" />

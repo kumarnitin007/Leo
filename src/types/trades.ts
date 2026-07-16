@@ -8,7 +8,7 @@
  * lose source data as the parsed model changes.
  */
 
-export type TradeSource = 'robinhood' | 'unknown';
+export type TradeSource = 'robinhood' | 'fidelity' | 'unknown';
 
 /**
  * Seed suggestions for brokerage accounts / sources. The authoritative list is

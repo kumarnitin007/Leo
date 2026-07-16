@@ -1207,7 +1207,7 @@ const SafeView: React.FC = () => {
           }}
         >
           {!isMobile && <span style={{ fontSize: '1.25rem' }}>🏦</span>}
-          <span>Financial</span>
+          <span>{isMobile ? 'Bank' : 'Financial'}</span>
           {pendingImportsCount > 0 && (
             <span style={{
               position: 'absolute',
@@ -1250,7 +1250,7 @@ const SafeView: React.FC = () => {
           }}
         >
           {!isMobile && <span style={{ fontSize: '1.25rem' }}>🔐</span>}
-          <span>Passwords</span>
+          <span>{isMobile ? 'Pass' : 'Passwords'}</span>
         </button>
         <button
           onClick={() => setActiveTab('documents')}
@@ -1274,7 +1274,7 @@ const SafeView: React.FC = () => {
           }}
         >
           {!isMobile && <span style={{ fontSize: '1.25rem' }}>📄</span>}
-          <span>Documents</span>
+          <span>{isMobile ? 'Docs' : 'Documents'}</span>
         </button>
         <button
           onClick={() => setActiveTab('trades')}

@@ -41,6 +41,9 @@ const SafeEntryDetail: React.FC<SafeEntryDetailProps> = ({
   // Progressive disclosure: open with just the essentials (URL, username,
   // password, 2FA) and reveal category/notes/extra fields/metadata on demand.
   const [showDetails, setShowDetails] = useState(false);
+  // Which field was just copied — drives a transient inline "Copied" checkmark
+  // instead of a jarring alert() for the primary credential rows.
+  const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [isFav, setIsFav] = useState<boolean>(!!entry.isFavorite);
   const [favBusy, setFavBusy] = useState(false);
   const [showCustomFields, setShowCustomFields] = useState<Record<number, boolean>>({});
@@ -137,6 +140,14 @@ const SafeEntryDetail: React.FC<SafeEntryDetailProps> = ({
     });
   };
 
+  // Quiet copy for the primary rows: shows a brief inline checkmark on the button.
+  const copyField = (text: string, key: string) => {
+    navigator.clipboard.writeText(text).then(() => {
+      setCopiedKey(key);
+      setTimeout(() => setCopiedKey(k => (k === key ? null : k)), 1300);
+    });
+  };
+
   const handleDelete = async () => {
     if (window.confirm('Are you sure you want to delete this entry? This action cannot be undone.')) {
       try {
@@ -160,6 +171,25 @@ const SafeEntryDetail: React.FC<SafeEntryDetailProps> = ({
     const tag = tags.find(t => t.id === entry.categoryTagId);
     return tag?.color || '#667eea';
   };
+
+  // Shared visual language for the primary credential rows.
+  const fieldLabelStyle: React.CSSProperties = { fontSize: 11, fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase', color: '#98a2b3', marginBottom: 3 };
+  const fieldValueStyle: React.CSSProperties = { fontSize: 15, fontWeight: 600, color: '#1d2939', wordBreak: 'break-word' };
+  const iconBtnBase: React.CSSProperties = { flexShrink: 0, width: 38, height: 38, borderRadius: 10, border: 'none', cursor: 'pointer', fontSize: 15, fontWeight: 600, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' };
+  const CopyBtn: React.FC<{ text: string; k: string }> = ({ text, k }) => {
+    const done = copiedKey === k;
+    return (
+      <button
+        onClick={() => copyField(text, k)}
+        title="Copy"
+        aria-label="Copy"
+        style={{ ...iconBtnBase, background: done ? '#dcfce7' : '#eef2ff', color: done ? '#16a34a' : '#4f46e5' }}
+      >
+        {done ? '✓' : '⧉'}
+      </button>
+    );
+  };
+  const fieldRowStyle: React.CSSProperties = { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '12px 14px', background: '#fff', border: '1px solid #eef0f4', borderRadius: 12, marginBottom: 10, boxShadow: '0 1px 2px rgba(16,24,40,0.04)' };
 
   if (isLoading) {
     return (
@@ -249,17 +279,43 @@ const SafeEntryDetail: React.FC<SafeEntryDetailProps> = ({
         }}>
           {/* Header */}
           <div style={{
-            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-            padding: '1.25rem',
+            background: 'linear-gradient(135deg, #6d28d9 0%, #4f46e5 55%, #6366f1 100%)',
+            padding: '1.1rem 1.15rem',
             borderRadius: '1rem 1rem 0 0',
             display: 'flex',
             justifyContent: 'space-between',
-            alignItems: 'center'
+            alignItems: 'center',
+            gap: '0.75rem'
           }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <h2 style={{ margin: 0, fontSize: '1.25rem', color: 'white' }}>{entry.title}</h2>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.7rem', minWidth: 0 }}>
+              {/* Avatar */}
+              <div style={{
+                flexShrink: 0,
+                width: 44,
+                height: 44,
+                borderRadius: 12,
+                background: 'rgba(255,255,255,0.18)',
+                border: '1px solid rgba(255,255,255,0.25)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: 'white',
+                fontSize: '1.25rem',
+                fontWeight: 700,
+                textTransform: 'uppercase'
+              }}>
+                {(entry.title || '?').trim().charAt(0)}
+              </div>
+              <div style={{ minWidth: 0 }}>
+                <h2 style={{ margin: 0, fontSize: '1.15rem', color: 'white', lineHeight: 1.25, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{entry.title}</h2>
+                <div style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,0.75)', marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {getCategoryName()}
+                </div>
+              </div>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexShrink: 0 }}>
               {entry.isShared ? (
-                isFav && <span title="Favorite">⭐</span>
+                isFav && <span title="Favorite" style={{ fontSize: '1.1rem' }}>⭐</span>
               ) : (
                 <button
                   onClick={handleToggleFavorite}
@@ -267,11 +323,11 @@ const SafeEntryDetail: React.FC<SafeEntryDetailProps> = ({
                   title={isFav ? 'Remove from favorites' : 'Add to favorites'}
                   aria-pressed={isFav}
                   style={{
-                    background: 'rgba(255,255,255,0.2)',
+                    background: 'rgba(255,255,255,0.18)',
                     border: 'none',
                     borderRadius: '50%',
-                    width: 32,
-                    height: 32,
+                    width: 36,
+                    height: 36,
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
@@ -284,55 +340,44 @@ const SafeEntryDetail: React.FC<SafeEntryDetailProps> = ({
                   {isFav ? '⭐' : '☆'}
                 </button>
               )}
+              <button
+                onClick={onClose}
+                style={{
+                  background: 'rgba(255,255,255,0.18)',
+                  border: 'none',
+                  borderRadius: '50%',
+                  width: 36,
+                  height: 36,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  color: 'white',
+                  fontSize: '1.15rem'
+                }}
+              >
+                ✕
+              </button>
             </div>
-            <button
-              onClick={onClose}
-              style={{
-                background: 'rgba(255,255,255,0.2)',
-                border: 'none',
-                borderRadius: '50%',
-                width: 36,
-                height: 36,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                cursor: 'pointer',
-                color: 'white',
-                fontSize: '1.25rem'
-              }}
-            >
-              ✕
-            </button>
           </div>
 
           {/* Content */}
-          <div style={{ padding: '1.25rem' }}>
+          <div style={{ padding: '1.15rem' }}>
 
           {entry.url && (
-            <div style={{ marginBottom: '0.75rem' }}>
-              <a
-                href={entry.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                style={{ color: '#3b82f6', textDecoration: 'none', fontSize: '0.875rem' }}
-              >
-                🔗 {entry.url}
-              </a>
-              <button
-                onClick={() => handleCopyToClipboard(entry.url!, 'URL')}
-                style={{
-                  marginLeft: '0.5rem',
-                  padding: '0.125rem 0.375rem',
-                  backgroundColor: '#3b82f6',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '0.25rem',
-                  cursor: 'pointer',
-                  fontSize: '0.65rem'
-                }}
-              >
-                Copy
-              </button>
+            <div style={fieldRowStyle}>
+              <div style={{ minWidth: 0, flex: 1 }}>
+                <div style={fieldLabelStyle}>Website</div>
+                <a
+                  href={entry.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ color: '#4f46e5', textDecoration: 'none', fontSize: 15, fontWeight: 600, display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
+                >
+                  {entry.url.replace(/^https?:\/\//, '')}
+                </a>
+              </div>
+              <CopyBtn text={entry.url} k="url" />
             </div>
           )}
           {showDetails && (
@@ -377,88 +422,37 @@ const SafeEntryDetail: React.FC<SafeEntryDetailProps> = ({
       <div style={{ marginBottom: '1rem' }}>
         
         {encryptedData.username && (
-          <div style={{
-            marginBottom: '0.75rem',
-            padding: '0.75rem',
-            backgroundColor: '#f9fafb',
-            borderRadius: '0.5rem'
-          }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div>
-                <label style={{ display: 'block', marginBottom: '0.125rem', fontSize: '0.75rem', opacity: 0.7 }}>
-                  Username/Email
-                </label>
-                <div style={{ fontSize: '0.875rem', fontWeight: 500 }}>{encryptedData.username}</div>
-              </div>
-              <button
-                onClick={() => handleCopyToClipboard(encryptedData.username!, 'Username')}
-                style={{
-                  padding: '0.25rem 0.5rem',
-                  backgroundColor: '#3b82f6',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '0.25rem',
-                  cursor: 'pointer',
-                  fontSize: '0.7rem'
-                }}
-              >
-                Copy
-              </button>
+          <div style={fieldRowStyle}>
+            <div style={{ minWidth: 0, flex: 1 }}>
+              <div style={fieldLabelStyle}>Username / Email</div>
+              <div style={fieldValueStyle}>{encryptedData.username}</div>
             </div>
+            <CopyBtn text={encryptedData.username} k="username" />
           </div>
         )}
 
         {encryptedData.password && (
-          <div style={{
-            marginBottom: '0.75rem',
-            padding: '0.75rem',
-            backgroundColor: '#f9fafb',
-            borderRadius: '0.5rem'
-          }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div style={{ flex: 1 }}>
-                <label style={{ display: 'block', marginBottom: '0.125rem', fontSize: '0.75rem', opacity: 0.7 }}>
-                  Password
-                </label>
-                <div style={{ 
-                  fontSize: '0.875rem', 
-                  fontWeight: 500,
-                  fontFamily: 'monospace',
-                  wordBreak: 'break-all'
-                }}>
-                  {showPassword ? encryptedData.password : '•'.repeat(12)}
-                </div>
+          <div style={fieldRowStyle}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={fieldLabelStyle}>Password</div>
+              <div style={{
+                ...fieldValueStyle,
+                fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+                letterSpacing: showPassword ? 0 : '0.12em',
+              }}>
+                {showPassword ? encryptedData.password : '•'.repeat(12)}
               </div>
-              <div style={{ display: 'flex', gap: '0.25rem', marginLeft: '0.5rem' }}>
-                <button
-                  onClick={() => setShowPassword(!showPassword)}
-                  style={{
-                    padding: '0.25rem 0.5rem',
-                    backgroundColor: '#6b7280',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '0.25rem',
-                    cursor: 'pointer',
-                    fontSize: '0.7rem'
-                  }}
-                >
-                  {showPassword ? 'Hide' : 'Show'}
-                </button>
-                <button
-                  onClick={() => handleCopyToClipboard(encryptedData.password!, 'Password')}
-                  style={{
-                    padding: '0.25rem 0.5rem',
-                    backgroundColor: '#3b82f6',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '0.25rem',
-                    cursor: 'pointer',
-                    fontSize: '0.7rem'
-                  }}
-                >
-                  Copy
-                </button>
-              </div>
+            </div>
+            <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+              <button
+                onClick={() => setShowPassword(!showPassword)}
+                title={showPassword ? 'Hide' : 'Show'}
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+                style={{ ...iconBtnBase, background: '#f2f4f7', color: '#475467' }}
+              >
+                {showPassword ? '🙈' : '👁'}
+              </button>
+              <CopyBtn text={encryptedData.password} k="password" />
             </div>
           </div>
         )}
@@ -1024,19 +1018,57 @@ const SafeEntryDetail: React.FC<SafeEntryDetailProps> = ({
         onClick={() => setShowDetails(v => !v)}
         style={{
           width: '100%',
-          padding: '0.6rem',
+          padding: '0.7rem',
+          marginTop: '0.25rem',
           marginBottom: '1rem',
-          backgroundColor: '#f3f4f6',
-          color: '#374151',
-          border: '1px dashed #d1d5db',
-          borderRadius: '0.5rem',
+          backgroundColor: '#f8f9fc',
+          color: '#4f46e5',
+          border: '1px solid #e7e9f2',
+          borderRadius: '12px',
           cursor: 'pointer',
-          fontSize: '0.8rem',
-          fontWeight: 600
+          fontSize: '0.82rem',
+          fontWeight: 700,
+          letterSpacing: '0.01em'
         }}
       >
-        {showDetails ? '▲ Hide extra details' : '▾ Show all details'}
+        {showDetails ? '▲  Hide extra details' : '▾  Show all details'}
       </button>
+
+      {/* Change History */}
+      {showDetails && encryptedData.changeHistory && encryptedData.changeHistory.length > 0 && (
+        <div style={{ marginBottom: '1rem' }}>
+          <h4 style={{ margin: '0 0 0.6rem 0', fontSize: '0.9rem', color: '#1d2939' }}>Change history</h4>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {[...encryptedData.changeHistory].reverse().map((log, i) => (
+              <div key={i} style={{
+                padding: '0.6rem 0.75rem',
+                background: '#fff',
+                border: '1px solid #eef0f4',
+                borderRadius: 10,
+                boxShadow: '0 1px 2px rgba(16,24,40,0.04)'
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                  <span style={{ fontSize: 12.5, fontWeight: 600, color: '#475467' }}>
+                    {new Date(log.date).toLocaleString()}
+                  </span>
+                  {log.source && (
+                    <span style={{ fontSize: 10.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.03em', color: '#4f46e5', background: '#eef2ff', borderRadius: 6, padding: '2px 7px' }}>
+                      {log.source}
+                    </span>
+                  )}
+                </div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+                  {log.fields.length > 0 ? log.fields.map(f => (
+                    <span key={f} style={{ fontSize: 11.5, fontWeight: 600, color: '#0f766e', background: '#ccfbf1', borderRadius: 6, padding: '2px 8px' }}>{f}</span>
+                  )) : (
+                    <span style={{ fontSize: 11.5, color: '#98a2b3' }}>No field details</span>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Metadata */}
       {showDetails && (
@@ -1057,18 +1089,20 @@ const SafeEntryDetail: React.FC<SafeEntryDetailProps> = ({
       )}
 
       {/* Actions */}
-      <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end', paddingTop: '0.75rem', borderTop: '1px solid #e5e7eb' }}>
+      <div style={{ display: 'flex', gap: '0.6rem', paddingTop: '0.9rem', borderTop: '1px solid #eef0f4' }}>
         {entry.isShared && entry.shareMode === 'readonly' ? (
           <div style={{
-            padding: '0.5rem 1rem',
+            flex: 1,
+            padding: '0.75rem 1rem',
             backgroundColor: '#f3f4f6',
             color: '#6b7280',
-            border: '1px solid #d1d5db',
-            borderRadius: '0.375rem',
-            fontSize: '0.8rem',
-            fontWeight: 500,
+            border: '1px solid #e5e7eb',
+            borderRadius: '12px',
+            fontSize: '0.85rem',
+            fontWeight: 600,
             display: 'flex',
             alignItems: 'center',
+            justifyContent: 'center',
             gap: '0.5rem'
           }}>
             🔒 Read-only (Shared by {entry.sharedBy})
@@ -1078,14 +1112,16 @@ const SafeEntryDetail: React.FC<SafeEntryDetailProps> = ({
             <button
               onClick={() => onEdit(entry)}
               style={{
-                padding: '0.5rem 1rem',
-                backgroundColor: '#3b82f6',
+                flex: 1,
+                padding: '0.8rem',
+                background: 'linear-gradient(135deg, #6d28d9, #4f46e5)',
                 color: 'white',
                 border: 'none',
-                borderRadius: '0.375rem',
+                borderRadius: '12px',
                 cursor: 'pointer',
-                fontSize: '0.8rem',
-                fontWeight: 500
+                fontSize: '0.9rem',
+                fontWeight: 700,
+                boxShadow: '0 4px 12px rgba(79,70,229,0.28)'
               }}
             >
               ✎ Edit
@@ -1093,14 +1129,14 @@ const SafeEntryDetail: React.FC<SafeEntryDetailProps> = ({
             <button
               onClick={handleDelete}
               style={{
-                padding: '0.5rem 1rem',
-                backgroundColor: '#ef4444',
-                color: 'white',
-                border: 'none',
-                borderRadius: '0.375rem',
+                padding: '0.8rem 1.1rem',
+                backgroundColor: '#fff',
+                color: '#dc2626',
+                border: '1px solid #fecaca',
+                borderRadius: '12px',
                 cursor: 'pointer',
-                fontSize: '0.8rem',
-                fontWeight: 500
+                fontSize: '0.9rem',
+                fontWeight: 700
               }}
             >
               🗑 Delete
