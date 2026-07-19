@@ -14,6 +14,9 @@ create table if not exists myday_ticker_quotes (
   change         numeric,
   change_pct     numeric,
   as_of          timestamptz,
+  -- 'api' (fetched from the market API) or 'manual' (keyed in by the user for
+  -- symbols the API can't price, e.g. 529-plan portfolio codes).
+  price_source   text not null default 'api',
   updated_at     timestamptz not null default now(),
   primary key (user_id, ticker)
 );

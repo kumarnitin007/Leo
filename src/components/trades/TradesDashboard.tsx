@@ -21,7 +21,7 @@ import { loadTrades, saveTrades } from '../../services/trades/tradesStorage';
 import { computeSummary, computeOpenOptions, formatCurrency, TickerStats, OpenOption } from '../../services/trades/tradesAnalytics';
 import { fetchQuotes, fetchOptionQuotes, optionLegKey, Quote, OptionMark } from '../../services/trades/quotes';
 import {
-  loadWatchlist, addWatch, removeWatch, loadCachedQuotes, saveCachedQuotes, WatchItem, CachedQuote,
+  loadWatchlist, addWatch, removeWatch, loadCachedQuotes, saveCachedQuotes, saveManualQuote, WatchItem, CachedQuote,
 } from '../../services/trades/tickerData';
 import TradesImportModal from './TradesImportModal';
 import SlideOverPanel from '../SlideOverPanel';
@@ -62,6 +62,15 @@ interface PanelState {
   txns: RawTradeTxn[];
 }
 
+const hiddenAccountsKey = (uid?: string) => `myday_trades_hidden_accounts_${uid || 'anon'}`;
+function readHiddenAccounts(uid?: string): string[] {
+  try {
+    const raw = localStorage.getItem(hiddenAccountsKey(uid));
+    const arr = raw ? JSON.parse(raw) : [];
+    return Array.isArray(arr) ? arr.filter((x): x is string => typeof x === 'string') : [];
+  } catch { return []; }
+}
+
 const TradesDashboard: React.FC<TradesDashboardProps> = ({ userId, encryptionKey }) => {
   const [data, setData] = useState<TradesData>(emptyTradesData());
   const [tags, setTags] = useState<Tag[]>([]);
@@ -70,8 +79,11 @@ const TradesDashboard: React.FC<TradesDashboardProps> = ({ userId, encryptionKey
 
   // View toggles
   const [incomeView, setIncomeView] = useState<'chart' | 'numbers'>('chart');
-  const [tickerScope, setTickerScope] = useState<'held' | 'all' | 'options'>('held');
-  const [selectedAccounts, setSelectedAccounts] = useState<string[]>([]); // empty = all
+  const [tickerScope, setTickerScope] = useState<'held' | 'closed' | 'options'>('held');
+  // Accounts hidden from view (persisted per user). Empty = show all. Using a
+  // "hidden" list (rather than "selected") keeps newly-imported accounts visible
+  // by default and lets us persist the user's last choice.
+  const [hiddenAccounts, setHiddenAccounts] = useState<string[]>(() => readHiddenAccounts(userId));
   const [datePreset, setDatePreset] = useState<string>('all');
   const [customFrom, setCustomFrom] = useState('');
   const [customTo, setCustomTo] = useState('');
@@ -91,6 +103,10 @@ const TradesDashboard: React.FC<TradesDashboardProps> = ({ userId, encryptionKey
   const [quotesError, setQuotesError] = useState(false);
   const [quotesFromCache, setQuotesFromCache] = useState(false);
   const [watchlist, setWatchlist] = useState<WatchItem[]>([]);
+
+  // Inline manual price entry (for symbols the market API can't price).
+  const [editingPrice, setEditingPrice] = useState<string | null>(null);
+  const [priceDraft, setPriceDraft] = useState('');
 
   useEffect(() => {
     (async () => {
@@ -144,15 +160,24 @@ const TradesDashboard: React.FC<TradesDashboardProps> = ({ userId, encryptionKey
 
   const [showAccounts, setShowAccounts] = useState(false);
 
-  // Account-scoped full history — used for share holdings & data recency.
-  // selectedAccounts empty = show all.
-  const accountTxns = useMemo(() => {
-    if (!selectedAccounts.length) return data.transactions;
-    const set = new Set(selectedAccounts);
-    return data.transactions.filter(t => set.has(t.account || DEFAULT_ACCOUNT_BUCKET));
-  }, [data.transactions, selectedAccounts]);
+  // Persist the account visibility choice per user.
+  useEffect(() => {
+    try { localStorage.setItem(hiddenAccountsKey(userId), JSON.stringify(hiddenAccounts)); } catch { /* ignore */ }
+  }, [hiddenAccounts, userId]);
 
-  const accountFilterActive = selectedAccounts.length > 0 && selectedAccounts.length < accounts.length;
+  // Account-scoped full history — used for share holdings & data recency.
+  // hiddenAccounts empty = show all; otherwise exclude the hidden ones.
+  const accountTxns = useMemo(() => {
+    if (!hiddenAccounts.length) return data.transactions;
+    const hidden = new Set(hiddenAccounts);
+    return data.transactions.filter(t => !hidden.has(t.account || DEFAULT_ACCOUNT_BUCKET));
+  }, [data.transactions, hiddenAccounts]);
+
+  const visibleAccountCount = useMemo(
+    () => accounts.filter(a => !hiddenAccounts.includes(a)).length,
+    [accounts, hiddenAccounts]
+  );
+  const accountFilterActive = hiddenAccounts.length > 0 && visibleAccountCount < accounts.length;
 
   const { fromDate, toDate } = useMemo(() => computeDateBounds(datePreset, customFrom, customTo), [datePreset, customFrom, customTo]);
   const inRange = (d: string) => {
@@ -204,6 +229,11 @@ const TradesDashboard: React.FC<TradesDashboardProps> = ({ userId, encryptionKey
   // "Currently held" = positive net shares only (from full history).
   const heldTickers = useMemo(() => summaryFull.byTicker.filter(t => t.sharesHeld > 0.0001), [summaryFull]);
 
+  // "Closed / sold" = any ticker with realized sell activity (from full
+  // history). A stock can appear here AND in "Currently held" if it was partly
+  // sold — this surfaces past closed trades regardless of the current position.
+  const closedTickers = useMemo(() => summaryFull.byTicker.filter(t => t.sharesSold > 0.0001), [summaryFull]);
+
   // All currently-open option legs (across tickers), from full account history.
   const openOptions = useMemo(() => computeOpenOptions(accountTxns), [accountTxns]);
 
@@ -221,35 +251,45 @@ const TradesDashboard: React.FC<TradesDashboardProps> = ({ userId, encryptionKey
   const loadQuotes = React.useCallback(async () => {
     const symbols = priceSymbolsKey ? priceSymbolsKey.split(',') : [];
     if (symbols.length === 0 && openOptions.length === 0) return;
+    console.log(`[Trades] 🔄 Refresh prices — ${symbols.length} stock symbol(s), ${openOptions.length} open option leg(s)`);
     setQuotesLoading(true);
     setQuotesError(false);
-    try {
-      const [stockRes, optRes] = await Promise.all([
-        symbols.length ? fetchQuotes(symbols) : Promise.resolve({ quotes: {} as Record<string, Quote>, asOf: undefined }),
-        openOptions.length
-          ? fetchOptionQuotes(openOptions.map(o => ({ symbol: o.ticker, expiration: o.expiration || '', optionType: o.optionType, strike: o.strike ?? 0 })))
-          : Promise.resolve({} as Record<string, OptionMark>),
-      ]);
-      const asOf = stockRes.asOf || new Date().toISOString();
-      const fetched = Object.keys(stockRes.quotes).length > 0;
-      if (fetched) {
-        const cached: Record<string, CachedQuote> = {};
-        for (const [k, q] of Object.entries(stockRes.quotes)) cached[k] = { ...q, asOf };
-        // Merge over existing cache so tickers the API missed keep old prices.
-        setQuotes(prev => ({ ...prev, ...cached }));
-        setQuotesAt(asOf);
-        setQuotesFromCache(false);
-        saveCachedQuotes(userId, stockRes.quotes, asOf).catch(() => {});
-      } else {
-        // API returned nothing — keep whatever cache we already painted.
-        setQuotesError(true);
-      }
-      setOptionQuotes(optRes);
-    } catch {
-      setQuotesError(true);   // keep cached prices already in state
-    } finally {
-      setQuotesLoading(false);
+    // Stocks and options are fetched independently so a failure in one never
+    // discards the other's results.
+    const [stockRes, optRes] = await Promise.all([
+      symbols.length
+        ? fetchQuotes(symbols).catch(e => { console.error('[Trades] stock quotes failed:', e?.message || e); return { quotes: {} as Record<string, Quote>, asOf: undefined }; })
+        : Promise.resolve({ quotes: {} as Record<string, Quote>, asOf: undefined }),
+      openOptions.length
+        ? fetchOptionQuotes(openOptions.map(o => ({ symbol: o.ticker, expiration: o.expiration || '', optionType: o.optionType, strike: o.strike ?? 0 })))
+            .catch(e => { console.error('[Trades] option quotes failed:', e?.message || e); return {} as Record<string, OptionMark>; })
+        : Promise.resolve({} as Record<string, OptionMark>),
+    ]);
+
+    const asOf = stockRes.asOf || new Date().toISOString();
+    const stockCount = Object.keys(stockRes.quotes).length;
+    const optCount = Object.keys(optRes).length;
+
+    if (stockCount > 0) {
+      const cached: Record<string, CachedQuote> = {};
+      for (const [k, q] of Object.entries(stockRes.quotes)) cached[k] = { ...q, asOf };
+      // Merge over existing cache so tickers the API missed keep old prices.
+      setQuotes(prev => ({ ...prev, ...cached }));
+      setQuotesAt(asOf);
+      setQuotesFromCache(false);
+      saveCachedQuotes(userId, stockRes.quotes, asOf).catch(() => {});
     }
+    // Merge option marks so a partial/empty result doesn't blow away prior marks.
+    if (optCount > 0) setOptionQuotes(prev => ({ ...prev, ...optRes }));
+
+    // Only flag an error when nothing at all came back for what we asked for.
+    const stockFailed = symbols.length > 0 && stockCount === 0;
+    const optFailed = openOptions.length > 0 && optCount === 0;
+    if (stockFailed && (openOptions.length === 0 || optFailed)) setQuotesError(true);
+    if (optFailed) console.warn('[Trades] ⚠️ No option marks returned — check the [Quotes] logs above (dev servers may not run /api routes; options need Vercel/prod).');
+    console.log(`[Trades] ✅ Refresh done — stocks ${stockCount}/${symbols.length}, option marks ${optCount}/${openOptions.length}`);
+
+    setQuotesLoading(false);
     // openOptions referenced via optionLegsKey for stable deps
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [priceSymbolsKey, optionLegsKey, userId]);
@@ -258,6 +298,29 @@ const TradesDashboard: React.FC<TradesDashboardProps> = ({ userId, encryptionKey
     () => heldTickers.reduce((sum, t) => sum + (quotes[t.ticker]?.price ?? 0) * t.sharesHeld, 0),
     [heldTickers, quotes]
   );
+
+  // Held tickers with no price yet — the market API couldn't price them (e.g.
+  // 529-plan portfolio codes) or prices haven't been fetched. These can be
+  // filled in manually from the holdings table.
+  const missingPriced = useMemo(
+    () => heldTickers.filter(t => !quotes[t.ticker]).map(t => t.ticker),
+    [heldTickers, quotes]
+  );
+
+  const startEditPrice = (ticker: string, current?: number) => {
+    setEditingPrice(ticker);
+    setPriceDraft(current != null ? String(current) : '');
+  };
+  const cancelEditPrice = () => { setEditingPrice(null); setPriceDraft(''); };
+
+  const saveManualPrice = async (ticker: string) => {
+    const price = parseFloat(priceDraft);
+    if (!isFinite(price) || price <= 0) { cancelEditPrice(); return; }
+    const asOf = new Date().toISOString();
+    setQuotes(prev => ({ ...prev, [ticker]: { symbol: ticker, price, currency: 'USD', asOf, source: 'manual' } }));
+    cancelEditPrice();
+    await saveManualQuote(userId, ticker, price).catch(() => {});
+  };
 
   // Current liquidation value of an option leg (+asset for longs, −liability for
   // shorts). netContracts already carries the sign; contract multiplier = 100.
@@ -314,13 +377,16 @@ const TradesDashboard: React.FC<TradesDashboardProps> = ({ userId, encryptionKey
         };
       }).sort((a, b) => b.income - a.income);
     }
-    return summary.byTicker.map(t => ({
-      ticker: t.ticker, name: t.name || fullByTicker.get(t.ticker)?.name,
-      sharesHeld: fullByTicker.get(t.ticker)?.sharesHeld ?? 0,
-      income: t.income, optionsPremium: t.optionsPremium, dividends: t.dividends,
-      netCash: t.netCash, fullNetCash: fullByTicker.get(t.ticker)?.netCash ?? t.netCash,
-    }));
-  }, [tickerScope, heldTickers, summary, dateByTicker, fullByTicker]);
+    // 'closed' — tickers with realized sell activity (full history).
+    return closedTickers.map(full => {
+      const d = dateByTicker.get(full.ticker);
+      return {
+        ticker: full.ticker, name: full.name, sharesHeld: full.sharesHeld,
+        income: d?.income ?? 0, optionsPremium: d?.optionsPremium ?? 0,
+        dividends: d?.dividends ?? 0, netCash: d?.netCash ?? 0, fullNetCash: full.netCash,
+      };
+    }).sort((a, b) => b.fullNetCash - a.fullNetCash);
+  }, [tickerScope, heldTickers, closedTickers, dateByTicker]);
 
   const incomePie = useMemo(() => {
     const i = summary.income;
@@ -369,7 +435,7 @@ const TradesDashboard: React.FC<TradesDashboardProps> = ({ userId, encryptionKey
       transactions: data.transactions.map(t => (t.account === oldName ? { ...t, account: nextName } : t)),
       imports: data.imports.map(b => (b.account === oldName ? { ...b, account: nextName } : b)),
     });
-    setSelectedAccounts(prev => prev.map(a => (a === oldName ? nextName : a)));
+    setHiddenAccounts(prev => prev.map(a => (a === oldName ? nextName : a)));
   };
 
   const deleteAccount = async (name: string) => {
@@ -380,18 +446,14 @@ const TradesDashboard: React.FC<TradesDashboardProps> = ({ userId, encryptionKey
       transactions: data.transactions.map(t => (t.account === name ? { ...t, account: undefined } : t)),
       imports: data.imports.map(b => (b.account === name ? { ...b, account: undefined } : b)),
     });
-    setSelectedAccounts(prev => prev.filter(a => a !== name));
+    setHiddenAccounts(prev => prev.filter(a => a !== name));
   };
 
   const toggleAccountVisible = (name: string) => {
-    setSelectedAccounts(prev => {
-      const current = prev.length ? prev : [...accounts];
-      const next = current.includes(name) ? current.filter(a => a !== name) : [...current, name];
-      // If every option is selected, normalize back to "all" (empty).
-      if (next.length === accounts.length && accounts.every(a => next.includes(a))) return [];
-      return next;
-    });
+    setHiddenAccounts(prev => prev.includes(name) ? prev.filter(a => a !== name) : [...prev, name]);
   };
+  const showAllAccounts = () => setHiddenAccounts([]);
+  const hideAllAccounts = () => setHiddenAccounts([...accounts]);
 
   const addFavorite = async (tickerRaw: string) => {
     const ticker = tickerRaw.trim().toUpperCase();
@@ -487,7 +549,7 @@ const TradesDashboard: React.FC<TradesDashboardProps> = ({ userId, encryptionKey
             </button>
           )}
           <button onClick={() => setShowAccounts(true)} className="ck-btn" title="Choose which accounts to show & manage sources">
-            ⚙️ Accounts{accountFilterActive ? ` (${selectedAccounts.length})` : ''}
+            ⚙️ Accounts{accountFilterActive ? ` (${visibleAccountCount}/${accounts.length})` : ''}
           </button>
           <button onClick={() => setShowImport(true)} className="ck-btn ck-btn-primary">
             📥 Import trades
@@ -513,6 +575,13 @@ const TradesDashboard: React.FC<TradesDashboardProps> = ({ userId, encryptionKey
             <SummaryCard label="Interest" value={summary.income.interest} accent="#0ea5e9" onClick={() => openKind('Interest', ['interest'])} />
             <SummaryCard label="Stock lending" value={summary.income.lending} accent="#8b5cf6" onClick={() => openKind('Stock lending', ['lending'])} />
             <SummaryCard label="Total income" value={summary.income.total} accent="#111827" emphasize onClick={() => openKind('Total income', ['option_premium', 'dividend', 'interest', 'lending', 'tax'])} />
+            <SummaryCard
+              label="If sold now"
+              value={holdingsPL ?? 0}
+              valueOverride={holdingsPL == null ? '— refresh' : undefined}
+              accent={holdingsPL != null && holdingsPL < 0 ? '#dc2626' : '#059669'}
+              hint="Total profit/loss if you liquidated every current holding right now — realized cash (premiums, dividends, sales) plus the market value of shares & open options. Needs live prices (hit Refresh prices)."
+            />
             <SummaryCard label="Deposits" value={summary.deposits} accent="#64748b" onClick={() => openKind('Deposits', ['deposit'])} />
           </div>
 
@@ -610,7 +679,7 @@ const TradesDashboard: React.FC<TradesDashboardProps> = ({ userId, encryptionKey
             action={
               <div style={{ display: 'inline-flex', background: '#f1f5f9', borderRadius: 8, padding: 2 }}>
                 <ToggleBtn active={tickerScope === 'held'} onClick={() => setTickerScope('held')}>Currently held ({heldTickers.length})</ToggleBtn>
-                <ToggleBtn active={tickerScope === 'all'} onClick={() => setTickerScope('all')}>All traded ({summary.byTicker.length})</ToggleBtn>
+                <ToggleBtn active={tickerScope === 'closed'} onClick={() => setTickerScope('closed')}>Closed / sold ({closedTickers.length})</ToggleBtn>
                 <ToggleBtn active={tickerScope === 'options'} onClick={() => setTickerScope('options')}>Open options ({openOptions.length})</ToggleBtn>
               </div>
             }
@@ -619,10 +688,55 @@ const TradesDashboard: React.FC<TradesDashboardProps> = ({ userId, encryptionKey
               openOptions.length === 0 ? (
                 <p style={{ color: '#9ca3af', margin: 0 }}>No open option positions.</p>
               ) : (
-                <OpenOptionsTable openOptions={openOptions} optionQuotes={optionQuotes} legMarketValue={legMarketValue} onTicker={openTicker} />
+                <>
+                  {Object.keys(optionQuotes).length === 0 && (
+                    <p style={{ margin: '0 0 0.6rem', fontSize: '0.8rem', color: '#9333ea', background: '#faf5ff', border: '1px solid #e9d5ff', borderRadius: 8, padding: '0.5rem 0.7rem' }}>
+                      Live option marks aren't loaded — hit <strong>🔄 Refresh prices</strong> to value these positions. Marks aren't cached between sessions, so <strong>Mark</strong> and <strong>Mkt value</strong> stay blank until you refresh. Some illiquid or non-standard contracts may still not return a quote.
+                    </p>
+                  )}
+                  <OpenOptionsTable openOptions={openOptions} optionQuotes={optionQuotes} legMarketValue={legMarketValue} onTicker={openTicker} />
+                </>
               )
             ) : tickerRows.length === 0 ? (
-              <p style={{ color: '#9ca3af', margin: 0 }}>No {tickerScope === 'held' ? 'open share positions' : 'tickers'} found.</p>
+              <p style={{ color: '#9ca3af', margin: 0 }}>No {tickerScope === 'held' ? 'open share positions' : 'closed / sold positions'} found.</p>
+            ) : tickerScope === 'closed' ? (
+              <div style={{ overflowX: 'auto', maxHeight: 360, overflowY: 'auto', border: '1px solid #eef0f2', borderRadius: 8 }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem' }}>
+                  <thead>
+                    <tr style={{ position: 'sticky', top: 0, background: '#f9fafb', zIndex: 1 }}>
+                      <Th>Ticker</Th><Th>Name</Th><Th>Account</Th><Th align="right">Shares held</Th>
+                      <Th align="right">Avg buy</Th><Th align="right">Avg sell</Th>
+                      <Th align="right">Realized</Th><Th align="right">Income</Th>
+                      <Th align="right">Premium</Th><Th align="right">Dividends</Th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {tickerRows.map(t => {
+                      const full = fullByTicker.get(t.ticker);
+                      const held = Math.abs(t.sharesHeld) > 0.0001;
+                      const avgBuy = full && full.sharesBought > 0.0001 ? full.costBought / full.sharesBought : null;
+                      const avgSell = full && full.sharesSold > 0.0001 ? full.proceedsSold / full.sharesSold : null;
+                      const realized = t.fullNetCash;
+                      return (
+                        <tr key={t.ticker} onClick={() => openTicker(t.ticker)} style={{ borderTop: '1px solid #f1f1f1', cursor: 'pointer' }}
+                          onMouseEnter={e => (e.currentTarget.style.background = '#f8faff')}
+                          onMouseLeave={e => (e.currentTarget.style.background = '')}>
+                          <Td><strong style={{ color: '#4338ca' }}>{t.ticker}</strong></Td>
+                          <Td title={t.name} style={{ maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#6b7280' }}>{t.name || '—'}</Td>
+                          <Td><AccountBadges accounts={tickerAccounts(t.ticker)} /></Td>
+                          <Td align="right">{held ? t.sharesHeld.toLocaleString('en-US', { maximumFractionDigits: 4 }) : <span style={{ color: '#9ca3af' }} title="Position fully closed">closed</span>}</Td>
+                          <Td align="right" title={full && avgBuy != null ? `${full.sharesBought.toLocaleString('en-US', { maximumFractionDigits: 4 })} shares bought for ${formatCurrency(full.costBought)}` : undefined}>{avgBuy != null ? formatCurrency(avgBuy) : '—'}</Td>
+                          <Td align="right" title={full && avgSell != null ? `${full.sharesSold.toLocaleString('en-US', { maximumFractionDigits: 4 })} shares sold for ${formatCurrency(full.proceedsSold)}` : undefined}>{avgSell != null ? formatCurrency(avgSell) : '—'}</Td>
+                          <Td align="right" title="All cash in/out for this ticker: sale proceeds + option premiums + dividends − purchase cost. Ignores today's price." style={{ color: realized < 0 ? '#dc2626' : '#059669', fontWeight: 800 }}>{formatCurrency(realized)}</Td>
+                          <Td align="right" style={{ color: t.income < 0 ? '#dc2626' : '#059669', fontWeight: 700 }}>{formatCurrency(t.income)}</Td>
+                          <Td align="right">{formatCurrency(t.optionsPremium)}</Td>
+                          <Td align="right">{formatCurrency(t.dividends)}</Td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             ) : (
               <div style={{ overflowX: 'auto', maxHeight: 360, overflowY: 'auto', border: '1px solid #eef0f2', borderRadius: 8 }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem' }}>
@@ -648,7 +762,43 @@ const TradesDashboard: React.FC<TradesDashboardProps> = ({ userId, encryptionKey
                         <Td title={t.name} style={{ maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#6b7280' }}>{t.name || '—'}</Td>
                         <Td><AccountBadges accounts={tickerAccounts(t.ticker)} /></Td>
                         <Td align="right">{held ? t.sharesHeld.toLocaleString('en-US', { maximumFractionDigits: 4 }) : '—'}</Td>
-                        <Td align="right" title={q?.changePct != null ? `${q.changePct >= 0 ? '+' : ''}${q.changePct.toFixed(2)}% today` : undefined} style={{ color: q ? (q.change != null && q.change < 0 ? '#dc2626' : '#059669') : '#9ca3af' }}>{q ? formatCurrency(q.price) : '—'}</Td>
+                        <Td align="right" title={q?.changePct != null ? `${q.changePct >= 0 ? '+' : ''}${q.changePct.toFixed(2)}% today` : undefined} style={{ color: q ? (q.change != null && q.change < 0 ? '#dc2626' : '#059669') : '#9ca3af' }}>
+                          {editingPrice === t.ticker ? (
+                            <span onClick={e => e.stopPropagation()} style={{ display: 'inline-flex', gap: 3, alignItems: 'center', justifyContent: 'flex-end' }}>
+                              <input
+                                autoFocus
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                value={priceDraft}
+                                onChange={e => setPriceDraft(e.target.value)}
+                                onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); saveManualPrice(t.ticker); } else if (e.key === 'Escape') { e.preventDefault(); cancelEditPrice(); } }}
+                                placeholder="0.00"
+                                style={{ width: 72, padding: '0.15rem 0.35rem', border: '1px solid #a5b4fc', borderRadius: 5, fontSize: '0.8rem', textAlign: 'right' }}
+                              />
+                              <button onClick={() => saveManualPrice(t.ticker)} className="ck-btn ck-btn-sm" title="Save price" style={{ padding: '0.1rem 0.3rem' }}>✓</button>
+                              <button onClick={cancelEditPrice} className="ck-btn ck-btn-sm" title="Cancel" style={{ padding: '0.1rem 0.3rem' }}>✕</button>
+                            </span>
+                          ) : q ? (
+                            <span
+                              onClick={e => { e.stopPropagation(); startEditPrice(t.ticker, q.price); }}
+                              title={q.source === 'manual' ? 'Manually entered — click to edit' : 'Click to override price'}
+                              style={{ cursor: 'pointer' }}
+                            >
+                              {formatCurrency(q.price)}
+                              {q.source === 'manual' && <span style={{ color: '#9333ea', fontSize: '0.7rem', marginLeft: 3 }} title="Manual price">✎</span>}
+                            </span>
+                          ) : (
+                            <button
+                              onClick={e => { e.stopPropagation(); startEditPrice(t.ticker, undefined); }}
+                              className="ck-btn ck-btn-sm"
+                              title="No live price available — enter one manually"
+                              style={{ padding: '0.1rem 0.4rem', fontSize: '0.72rem' }}
+                            >
+                              ＋ price
+                            </button>
+                          )}
+                        </Td>
                         <Td align="right" style={{ fontWeight: 700 }}>{mktValue != null ? formatCurrency(mktValue) : '—'}</Td>
                         <Td align="right" title={pl != null ? 'Net cash + current market value (stock + open options)' : undefined} style={{ color: pl == null ? '#9ca3af' : pl < 0 ? '#dc2626' : '#059669', fontWeight: 800 }}>{pl != null ? formatCurrency(pl) : '—'}</Td>
                         <Td align="right" style={{ color: t.income < 0 ? '#dc2626' : '#059669', fontWeight: 700 }}>{formatCurrency(t.income)}</Td>
@@ -670,6 +820,9 @@ const TradesDashboard: React.FC<TradesDashboardProps> = ({ userId, encryptionKey
                     : quotesError ? '⚠️ Live prices unavailable right now'
                     : quotesAt ? `Prices ${quotesFromCache ? 'cached' : 'as of'} ${new Date(quotesAt).toLocaleString()}`
                     : 'Prices not loaded — hit Refresh prices'}
+                  {!quotesLoading && quotesAt && missingPriced.length > 0 && (
+                    <span style={{ color: '#9333ea' }}> · {missingPriced.length} without a live price — click <strong>＋ price</strong> in the table to enter manually</span>
+                  )}
                 </span>
                 <span style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
                   {holdingsMarketValue > 0 && (
@@ -682,6 +835,11 @@ const TradesDashboard: React.FC<TradesDashboardProps> = ({ userId, encryptionKey
                   )}
                 </span>
               </div>
+            )}
+            {tickerScope === 'closed' && (
+              <p style={{ margin: '0.6rem 0 0', fontSize: '0.72rem', color: '#9ca3af' }}>
+                Tickers you've sold (realized trades) — a name still held in part appears here too, with its remaining <strong>Shares held</strong> shown. <strong>Avg buy</strong>, <strong>Avg sell</strong> and <strong>Realized</strong> use full history and ignore today's price. <strong>Realized</strong> = sale proceeds + premiums + dividends − purchase cost. Income / Premium / Dividends follow the date filter.
+              </p>
             )}
           </ChartCard>
 
@@ -894,10 +1052,11 @@ const TradesDashboard: React.FC<TradesDashboardProps> = ({ userId, encryptionKey
         <AccountsManager
           accounts={data.accounts || []}
           visibleOptions={accounts}
-          selected={selectedAccounts}
+          hidden={hiddenAccounts}
           counts={accountCounts}
           onToggleVisible={toggleAccountVisible}
-          onShowAll={() => setSelectedAccounts([])}
+          onShowAll={showAllAccounts}
+          onHideAll={hideAllAccounts}
           onAdd={addAccount}
           onRename={renameAccount}
           onDelete={deleteAccount}
@@ -907,6 +1066,7 @@ const TradesDashboard: React.FC<TradesDashboardProps> = ({ userId, encryptionKey
       {/* Detail panel */}
       <SlideOverPanel isOpen={!!panel} onClose={() => setPanel(null)} title={panel?.title} width={620}>
         {panel && <PanelContent
+          key={panel.title}
           panel={panel}
           stats={panel.ticker ? summary.byTicker.find(t => t.ticker === panel.ticker) : undefined}
           quote={panel.ticker ? quotes[panel.ticker] : undefined}
@@ -929,9 +1089,20 @@ const PanelContent: React.FC<{
   optionQuotes?: Record<string, OptionMark>;
   optionValue?: number;
 }> = ({ panel, stats, quote, heldShares, fullNetCash, optionQuotes = {}, optionValue }) => {
+  const [codeFilter, setCodeFilter] = useState<'all' | string>('all');
   const sorted = useMemo(
     () => [...panel.txns].sort((a, b) => (a.activityDate < b.activityDate ? 1 : a.activityDate > b.activityDate ? -1 : 0)),
     [panel.txns]
+  );
+  // Transaction-code filter (Buy / Sell / CDIV / STO …) with per-code counts.
+  const codeCounts = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const t of panel.txns) if (t.transCode) m.set(t.transCode, (m.get(t.transCode) || 0) + 1);
+    return Array.from(m.entries()).sort((a, b) => b[1] - a[1]);
+  }, [panel.txns]);
+  const visibleTxns = useMemo(
+    () => codeFilter === 'all' ? sorted : sorted.filter(t => t.transCode === codeFilter),
+    [sorted, codeFilter]
   );
   const openOptions = useMemo(() => panel.ticker ? computeOpenOptions(panel.txns) : [], [panel.txns, panel.ticker]);
   // Prefer full-history shares (panel opens with full account history).
@@ -1011,8 +1182,17 @@ const PanelContent: React.FC<{
         </p>
       )}
 
+      {codeCounts.length > 1 && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem', marginBottom: '0.6rem' }}>
+          <FilterChip active={codeFilter === 'all'} onClick={() => setCodeFilter('all')}>All ({panel.txns.length})</FilterChip>
+          {codeCounts.map(([code, n]) => (
+            <FilterChip key={code} active={codeFilter === code} onClick={() => setCodeFilter(code)}>{code} ({n})</FilterChip>
+          ))}
+        </div>
+      )}
+
       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-        {sorted.map(t => (
+        {visibleTxns.map(t => (
           <div key={t.id} style={{ display: 'flex', gap: '0.6rem', alignItems: 'flex-start', padding: '0.55rem 0.65rem', border: '1px solid #eef0f2', borderRadius: 8, background: '#fff' }}>
             <div style={{ minWidth: 76, fontSize: '0.72rem', color: '#6b7280', fontWeight: 600, paddingTop: 2 }}>{t.activityDate}</div>
             <div style={{ flex: 1, minWidth: 0 }}>
@@ -1089,19 +1269,22 @@ const OpenOptionsTable: React.FC<{
 const AccountsManager: React.FC<{
   accounts: string[];
   visibleOptions: string[];
-  selected: string[];
+  hidden: string[];
   counts: Map<string, number>;
   onToggleVisible: (name: string) => void;
   onShowAll: () => void;
+  onHideAll: () => void;
   onAdd: (name: string) => void;
   onRename: (oldName: string, next: string) => void;
   onDelete: (name: string) => void;
-}> = ({ accounts, visibleOptions, selected, counts, onToggleVisible, onShowAll, onAdd, onRename, onDelete }) => {
+}> = ({ accounts, visibleOptions, hidden, counts, onToggleVisible, onShowAll, onHideAll, onAdd, onRename, onDelete }) => {
   const [newName, setNewName] = useState('');
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const unassigned = counts.get(DEFAULT_ACCOUNT_BUCKET) || 0;
-  const allShown = selected.length === 0;
-  const isShown = (a: string) => allShown || selected.includes(a);
+  const hiddenSet = new Set(hidden);
+  const isShown = (a: string) => !hiddenSet.has(a);
+  const allShown = visibleOptions.every(a => isShown(a));
+  const noneShown = visibleOptions.every(a => !isShown(a));
 
   const draftFor = (a: string) => (drafts[a] !== undefined ? drafts[a] : a);
   const add = () => { const n = newName.trim(); if (!n) return; onAdd(n); setNewName(''); };
@@ -1113,7 +1296,10 @@ const AccountsManager: React.FC<{
         <div style={{ marginBottom: '1.25rem' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
             <span style={{ fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.5px', color: '#4338ca', fontWeight: 800 }}>Show data for</span>
-            <button onClick={onShowAll} disabled={allShown} className="ck-btn ck-btn-sm">All accounts</button>
+            <span style={{ display: 'flex', gap: '0.4rem' }}>
+              <button onClick={onShowAll} disabled={allShown} className="ck-btn ck-btn-sm">Select all</button>
+              <button onClick={onHideAll} disabled={noneShown} className="ck-btn ck-btn-sm" title="Deselect every account (then pick the one you want)">Remove all</button>
+            </span>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
             {visibleOptions.map(a => (
@@ -1125,7 +1311,9 @@ const AccountsManager: React.FC<{
             ))}
           </div>
           <p style={{ margin: '0.5rem 0 0', fontSize: '0.72rem', color: '#9ca3af' }}>
-            {allShown ? 'Showing all accounts.' : `Showing ${selected.length} of ${visibleOptions.length}.`}
+            {allShown ? 'Showing all accounts.'
+              : noneShown ? 'No accounts selected — pick one above to see its data.'
+              : `Showing ${visibleOptions.filter(isShown).length} of ${visibleOptions.length}.`}
           </p>
         </div>
       )}
@@ -1239,6 +1427,18 @@ const TickerBarTooltip: React.FC<any> = ({ active, payload }) => {
   );
 };
 
+const FilterChip: React.FC<{ active: boolean; onClick: () => void; children: React.ReactNode }> = ({ active, onClick, children }) => (
+  <button
+    onClick={onClick}
+    style={{
+      border: active ? '1px solid #6366f1' : '1px solid #e5e7eb',
+      background: active ? '#eef2ff' : '#fff',
+      color: active ? '#4338ca' : '#6b7280',
+      borderRadius: 999, padding: '0.2rem 0.6rem', fontSize: '0.72rem', fontWeight: 700, cursor: 'pointer',
+    }}
+  >{children}</button>
+);
+
 const ToggleBtn: React.FC<{ active: boolean; onClick: () => void; children: React.ReactNode }> = ({ active, onClick, children }) => (
   <button onClick={onClick} style={{
     border: 'none', cursor: 'pointer', borderRadius: 6, padding: '0.3rem 0.6rem', fontSize: '0.75rem', fontWeight: 700,
@@ -1257,11 +1457,11 @@ const NumberRow: React.FC<{ label: string; value: number; color: string; bold?: 
   </div>
 );
 
-const SummaryCard: React.FC<{ label: string; value: number; accent: string; emphasize?: boolean; onClick?: () => void }> = ({ label, value, accent, emphasize, onClick }) => (
+const SummaryCard: React.FC<{ label: string; value: number; accent: string; emphasize?: boolean; onClick?: () => void; valueOverride?: string; hint?: string }> = ({ label, value, accent, emphasize, onClick, valueOverride, hint }) => (
   <div
     onClick={onClick}
     role={onClick ? 'button' : undefined}
-    title={onClick ? 'Click for details' : undefined}
+    title={hint || (onClick ? 'Click for details' : undefined)}
     style={{
       background: emphasize ? accent : '#fff', color: emphasize ? '#fff' : '#111827',
       border: emphasize ? 'none' : '1px solid #eef0f2', borderRadius: 12, padding: '0.9rem 1rem',
@@ -1271,8 +1471,8 @@ const SummaryCard: React.FC<{ label: string; value: number; accent: string; emph
     onMouseLeave={onClick ? (e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.05)'; }) : undefined}
   >
     <div style={{ fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 700, color: emphasize ? 'rgba(255,255,255,0.85)' : '#9ca3af' }}>{label}</div>
-    <div style={{ fontSize: '1.3rem', fontWeight: 800, marginTop: '0.2rem', color: emphasize ? '#fff' : (value < 0 ? '#dc2626' : accent) }}>
-      {formatCurrency(value)}
+    <div style={{ fontSize: '1.3rem', fontWeight: 800, marginTop: '0.2rem', color: emphasize ? '#fff' : (valueOverride ? '#9ca3af' : value < 0 ? '#dc2626' : accent) }}>
+      {valueOverride ?? formatCurrency(value)}
     </div>
   </div>
 );

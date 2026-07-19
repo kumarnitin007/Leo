@@ -19,7 +19,7 @@
 | 6 | MYSSD | `myday_shared_safe_documents` | Shared documents (group-based) |
 | 7 | MYBR | `myday_bank_records` | Encrypted financial records (FDs, accounts, bills) |
 | 7a | MYTR | `myday_trades_records` | Encrypted trades blob (Robinhood imports, positions, accounts list, import batches) — one JSON blob per user |
-| 7b | MYTQ | `myday_ticker_quotes` | Cached stock quotes per user/ticker (price fallback + avoids API on every paint) — NON-encrypted |
+| 7b | MYTQ | `myday_ticker_quotes` | Cached stock quotes per user/ticker (price fallback + avoids API on every paint). `price_source` = 'api' or 'manual' (user-entered for symbols the API can't price) — NON-encrypted |
 | 7c | MYTW | `myday_trade_watchlist` | Watchlist / favorite tickers (ticker + name only, NON-sensitive) |
 | 8 | MYGFM | `myday_group_finance_messages` | Group finance chat (FDs, alerts, docs) |
 | **Groups & Sharing** ||||
@@ -281,7 +281,7 @@ SELECT * FROM myday_gift_cards;
 
 ---
 
-**Last Updated**: 2026-07-15  
+**Last Updated**: 2026-07-18  
 **Status**: ✅ VERIFIED
 
 ---
@@ -290,6 +290,7 @@ SELECT * FROM myday_gift_cards;
 
 | Date | Change |
 |------|--------|
+| 2026-07-18 | Added `price_source` (text, not null, default `'api'`) column to `myday_ticker_quotes` (MYTQ). Distinguishes API-fetched prices from prices the user keys in manually for symbols the market API can't price (e.g. Fidelity 529-plan portfolio codes like NHX203002/NHB203006). Manual entry lives in the Vault → Trades holdings table. Migration: `database/add-ticker-quote-source.sql`. |
 | 2026-07-15 | Added `myday_ticker_quotes` (MYTQ) and `myday_trade_watchlist` (MYTW) for the Trades feature. MYTQ caches last-fetched stock prices per user/ticker (`user_id`+`ticker` PK; price/currency/previous_close/change/change_pct/as_of) so the dashboard paints from DB and falls back to the last saved price when the market API is unreachable. MYTW stores watchlist/favorite tickers (`ticker`, `name` only — non-sensitive). Both are plain (non-encrypted) with per-user RLS. Migration: `database/create-trades-ticker-tables.sql`. Also: `myday_trades_records` load/save is now DB-only (localStorage fallback removed). |
 | 2026-07-15 | Added `myday_trades_records` (MYTR) for the Vault → Trades feature. Single encrypted JSON blob per user (`user_id` PK, `data` text = `{encrypted, iv}` of client-side AES-256-GCM `TradesData`, `updated_at`), mirroring `myday_bank_records`. Decrypted document schema is intentionally unfrozen. Migration: `database/create-trades-records-table.sql`. localStorage mirrors the same encrypted payload as an offline cache. |
 | 2026-06-22 | Added `raw_details` (JSONB) and `is_favorite` (boolean, default false) columns to `myday_contacts` (MYCON). `raw_details` stores the full People API contact (all emails, phones, addresses, organizations, occupations, urls, nicknames, relations, events, IMs, user-defined). `is_favorite` flags favourite contacts. Existing `birthday`/`anniversary` columns now surface in the dashboard "Upcoming Contact Dates" widget. `is_favorite`/`leo_tags` are preserved across syncs (not overwritten by upsert). |

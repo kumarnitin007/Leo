@@ -65,6 +65,8 @@ export interface TickerStats {
   sharesHeld: number;       // net shares from Buy/Sell (approx current holding)
   sharesBought: number;     // total shares bought (Buy rows) — for avg cost basis
   costBought: number;       // total $ spent buying (Buy rows, positive)
+  sharesSold: number;       // total shares sold (Sell rows) — for avg sell price
+  proceedsSold: number;     // total $ received selling (Sell rows, positive)
   txnCount: number;
   firstDate?: string;       // earliest activity date
   lastDate?: string;        // latest activity date
@@ -139,7 +141,7 @@ export function computeSummary(txns: RawTradeTxn[]): TradesSummary {
       s = {
         ticker: t.instrument, optionsPremium: 0, dividends: 0, equityNet: 0, lending: 0,
         income: 0, netCash: 0, optionTrades: 0, contracts: 0, sharesHeld: 0,
-        sharesBought: 0, costBought: 0, txnCount: 0,
+        sharesBought: 0, costBought: 0, sharesSold: 0, proceedsSold: 0, txnCount: 0,
       };
       tickerMap.set(t.instrument, s);
     }
@@ -180,6 +182,9 @@ export function computeSummary(txns: RawTradeTxn[]): TradesSummary {
     if (t.transCode === 'Buy') {
       s.sharesBought += q;
       s.costBought += Math.abs(amt(t));
+    } else if (t.transCode === 'Sell') {
+      s.sharesSold += q;
+      s.proceedsSold += Math.abs(amt(t));
     }
   }
   for (const s of tickerMap.values()) {

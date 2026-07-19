@@ -62,9 +62,10 @@ export async function removeWatch(userId: string | undefined, ticker: string): P
 export async function loadCachedQuotes(userId?: string): Promise<Record<string, CachedQuote>> {
   const client = getSupabaseClient();
   if (!client || !userId) return {};
+  // select('*') tolerates schema variations (e.g. price_source added later).
   const { data, error } = await client
     .from(QUOTES_TABLE)
-    .select('ticker, price, currency, previous_close, change, change_pct, as_of')
+    .select('*')
     .eq('user_id', userId);
   if (error) { console.warn('[tickerData] loadCachedQuotes:', error.message); return {}; }
   const out: Record<string, CachedQuote> = {};
@@ -78,6 +79,7 @@ export async function loadCachedQuotes(userId?: string): Promise<Record<string, 
       changePct: r.change_pct != null ? Number(r.change_pct) : undefined,
       currency: r.currency || undefined,
       asOf: r.as_of || undefined,
+      source: r.price_source === 'manual' ? 'manual' : 'api',
     };
   }
   return out;
@@ -104,4 +106,34 @@ export async function saveCachedQuotes(
   if (rows.length === 0) return;
   const { error } = await client.from(QUOTES_TABLE).upsert(rows, { onConflict: 'user_id,ticker' });
   if (error) console.warn('[tickerData] saveCachedQuotes:', error.message);
+}
+
+/**
+ * Persist a user-entered price for a symbol the market API can't price
+ * (e.g. 529-plan portfolio codes). Flags it `price_source = 'manual'` so it's
+ * not mistaken for a live quote and survives future refreshes untouched.
+ * Requires the `price_source` column (migration: add-ticker-quote-source.sql).
+ */
+export async function saveManualQuote(
+  userId: string | undefined,
+  ticker: string,
+  price: number,
+  currency = 'USD'
+): Promise<void> {
+  const client = getSupabaseClient();
+  if (!client || !userId || !ticker || !isFinite(price)) return;
+  const now = new Date().toISOString();
+  const { error } = await client.from(QUOTES_TABLE).upsert(
+    {
+      user_id: userId,
+      ticker: ticker.toUpperCase(),
+      price,
+      currency,
+      as_of: now,
+      updated_at: now,
+      price_source: 'manual',
+    },
+    { onConflict: 'user_id,ticker' }
+  );
+  if (error) console.warn('[tickerData] saveManualQuote:', error.message);
 }
