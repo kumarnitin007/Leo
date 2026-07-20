@@ -46,3 +46,53 @@ create policy "Users manage own watchlist"
   for all
   using (auth.uid() = user_id)
   with check (auth.uid() = user_id);
+
+-- 3) Option mark cache — last fetched mark per open option leg. Same purpose as
+--    the quote cache above: paint the "Open options" tab from the DB on load
+--    instead of showing blank Mark / Market value until a manual refresh.
+create table if not exists myday_option_marks (
+  user_id     uuid not null references auth.users(id) on delete cascade,
+  leg_key     text not null,        -- SYMBOL|OPTIONTYPE|STRIKE|EXPIRATION
+  symbol      text not null,
+  option_type text,
+  strike      numeric,
+  expiration  date,
+  mark        numeric,
+  bid         numeric,
+  ask         numeric,
+  last        numeric,
+  as_of       timestamptz,
+  updated_at  timestamptz not null default now(),
+  primary key (user_id, leg_key)
+);
+
+alter table myday_option_marks enable row level security;
+drop policy if exists "Users manage own option marks" on myday_option_marks;
+create policy "Users manage own option marks"
+  on myday_option_marks
+  for all
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+
+-- 4) Upcoming corporate-event dates — factual scheduled dates (next earnings,
+--    ex-dividend, dividend pay) per ticker, shown on the dashboard + detail
+--    panel. Cached to avoid re-hitting the market data source on every paint.
+create table if not exists myday_ticker_events (
+  user_id            uuid not null references auth.users(id) on delete cascade,
+  ticker             text not null,
+  next_earnings_date date,
+  earnings_estimated boolean,
+  ex_dividend_date   date,
+  dividend_date      date,
+  as_of              timestamptz,
+  updated_at         timestamptz not null default now(),
+  primary key (user_id, ticker)
+);
+
+alter table myday_ticker_events enable row level security;
+drop policy if exists "Users manage own ticker events" on myday_ticker_events;
+create policy "Users manage own ticker events"
+  on myday_ticker_events
+  for all
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);

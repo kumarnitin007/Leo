@@ -32,6 +32,62 @@ export const DEFAULT_NOTIFICATION_SETTINGS: NotificationSettings = {
   resolutionAlertFrequency: 'weekly',
 };
 
+/* ── Option expiry reminders (Trades) ──────────────────────────
+ * Trades data is encrypted, so the dashboard writes a small NON-sensitive
+ * snapshot of open option legs to localStorage (same pattern as the financial
+ * alerts cache). The reminder check reads that snapshot — it never touches the
+ * Safe. The on/off + lead-time preference is client-only (localStorage) so it
+ * doesn't depend on the notification-settings table schema.
+ */
+const OPEN_OPTIONS_CACHE_KEY = 'leo_open_options_cache';
+const OPTION_EXPIRY_PREF_KEY = 'leo_option_expiry_pref';
+
+export interface CachedOpenOption {
+  ticker: string;
+  optionType: 'CALL' | 'PUT';
+  strike?: number;
+  expiration?: string;      // YYYY-MM-DD
+  side: 'long' | 'short';
+  contracts: number;
+  itm?: boolean;            // in-the-money (assignment risk) if the stock price is known
+}
+
+export interface OptionExpiryPref {
+  enabled: boolean;
+  days: number;             // notify when an open leg is within this many days of expiry
+}
+
+export const DEFAULT_OPTION_EXPIRY_PREF: OptionExpiryPref = { enabled: true, days: 3 };
+
+/** Called by TradesDashboard whenever open options/prices change. */
+export function updateOpenOptionsCache(legs: CachedOpenOption[]): void {
+  try {
+    localStorage.setItem(OPEN_OPTIONS_CACHE_KEY, JSON.stringify({ updatedAt: new Date().toISOString(), legs }));
+  } catch { /* ignore quota */ }
+}
+
+export function clearOpenOptionsCache(): void {
+  try { localStorage.removeItem(OPEN_OPTIONS_CACHE_KEY); } catch { /* ignore */ }
+}
+
+export function getOptionExpiryPref(): OptionExpiryPref {
+  try {
+    const raw = localStorage.getItem(OPTION_EXPIRY_PREF_KEY);
+    if (!raw) return DEFAULT_OPTION_EXPIRY_PREF;
+    const p = JSON.parse(raw) as Partial<OptionExpiryPref>;
+    return {
+      enabled: p.enabled ?? DEFAULT_OPTION_EXPIRY_PREF.enabled,
+      days: p.days ?? DEFAULT_OPTION_EXPIRY_PREF.days,
+    };
+  } catch {
+    return DEFAULT_OPTION_EXPIRY_PREF;
+  }
+}
+
+export function setOptionExpiryPref(pref: OptionExpiryPref): void {
+  try { localStorage.setItem(OPTION_EXPIRY_PREF_KEY, JSON.stringify(pref)); } catch { /* ignore */ }
+}
+
 /**
  * Check if browser supports notifications
  */
@@ -260,6 +316,62 @@ export const checkEventReminders = async (): Promise<void> => {
 };
 
 /**
+ * Check open option legs (from the non-sensitive cache) and remind about any
+ * expiring within the configured lead time, flagging in-the-money legs as
+ * assignment risk. Deduped per day + set signature so it fires at most once a
+ * day and again only if the set of expiring legs changes.
+ */
+export const checkOptionExpiryReminders = async (): Promise<void> => {
+  if (getNotificationPermission() !== 'granted') return;
+  const settings = await getNotificationSettings();
+  if (!settings.enabled) return;
+  const pref = getOptionExpiryPref();
+  if (!pref.enabled) return;
+
+  let cache: { updatedAt: string; legs: CachedOpenOption[] } | null = null;
+  try {
+    const raw = localStorage.getItem(OPEN_OPTIONS_CACHE_KEY);
+    cache = raw ? JSON.parse(raw) : null;
+  } catch { cache = null; }
+  if (!cache || !Array.isArray(cache.legs) || cache.legs.length === 0) return;
+  // Don't nag on stale data (dashboard not opened in a while).
+  if (Date.now() - new Date(cache.updatedAt).getTime() > 7 * 24 * 60 * 60 * 1000) return;
+
+  const startOfToday = new Date();
+  startOfToday.setHours(0, 0, 0, 0);
+  const soon = cache.legs
+    .filter(l => !!l.expiration)
+    .map(l => {
+      const exp = new Date(`${l.expiration}T00:00:00`);
+      const dte = Math.round((exp.getTime() - startOfToday.getTime()) / 86400000);
+      return { ...l, dte };
+    })
+    .filter(l => l.dte >= 0 && l.dte <= pref.days)
+    .sort((a, b) => a.dte - b.dte);
+  if (soon.length === 0) return;
+
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const signature = `${todayStr}|${soon.map(l => `${l.ticker}${l.optionType}${l.strike}${l.expiration}`).join(',')}`;
+  if (localStorage.getItem('last-option-expiry') === signature) return;
+
+  const when = (dte: number) => (dte === 0 ? 'today' : dte === 1 ? 'tomorrow' : `${dte}d`);
+  const label = (l: typeof soon[number]) =>
+    `${l.ticker} $${l.strike} ${l.optionType} (${when(l.dte)})${l.itm ? ' ⚠ITM' : ''}`;
+  const itmCount = soon.filter(l => l.itm).length;
+
+  const title = soon.length === 1
+    ? `⏰ Option expiring ${when(soon[0].dte)}`
+    : `⏰ ${soon.length} options expiring soon`;
+  const body =
+    soon.slice(0, 4).map(label).join(' · ') +
+    (soon.length > 4 ? ` +${soon.length - 4} more` : '') +
+    (itmCount ? ` — ${itmCount} in-the-money (assignment risk)` : '');
+
+  await showLocalNotification(title, body, { tag: 'option-expiry', data: { type: 'option-expiry' } });
+  localStorage.setItem('last-option-expiry', signature);
+};
+
+/**
  * Show streak milestone notification
  */
 export const showStreakMilestone = async (streakDays: number): Promise<void> => {
@@ -342,4 +454,8 @@ export const initializeNotifications = async (): Promise<void> => {
   
   // Initial check
   await checkEventReminders();
+
+  // Option expiry reminders (from the non-sensitive open-options cache).
+  await checkOptionExpiryReminders();
+  setInterval(() => { checkOptionExpiryReminders().catch(() => {}); }, 60 * 60 * 1000);
 };

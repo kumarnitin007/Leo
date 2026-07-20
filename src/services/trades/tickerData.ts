@@ -8,10 +8,11 @@
  */
 
 import getSupabaseClient from '../../lib/supabase';
-import { Quote } from './quotes';
+import { Quote, OptionMark } from './quotes';
 
 const QUOTES_TABLE = 'myday_ticker_quotes';
 const WATCH_TABLE = 'myday_trade_watchlist';
+const OPTION_MARKS_TABLE = 'myday_option_marks';
 
 export interface WatchItem {
   ticker: string;
@@ -136,4 +137,70 @@ export async function saveManualQuote(
     { onConflict: 'user_id,ticker' }
   );
   if (error) console.warn('[tickerData] saveManualQuote:', error.message);
+}
+
+/* ── Option mark cache ─────────────────────────────────────── */
+
+/**
+ * Load cached option marks keyed by leg_key (SYMBOL|TYPE|STRIKE|EXPIRATION),
+ * matching `optionLegKey()` from quotes.ts. Lets the Open options tab paint
+ * Mark / Market value from the DB on load instead of blanks.
+ */
+export async function loadCachedOptionMarks(
+  userId?: string
+): Promise<{ marks: Record<string, OptionMark>; asOf?: string }> {
+  const client = getSupabaseClient();
+  if (!client || !userId) return { marks: {} };
+  const { data, error } = await client
+    .from(OPTION_MARKS_TABLE)
+    .select('*')
+    .eq('user_id', userId);
+  if (error) { console.warn('[tickerData] loadCachedOptionMarks:', error.message); return { marks: {} }; }
+  const marks: Record<string, OptionMark> = {};
+  let asOf: string | undefined;
+  for (const r of data || []) {
+    if (r.mark == null || !r.leg_key) continue;
+    marks[r.leg_key] = {
+      mark: Number(r.mark),
+      last: r.last != null ? Number(r.last) : undefined,
+      bid: r.bid != null ? Number(r.bid) : undefined,
+      ask: r.ask != null ? Number(r.ask) : undefined,
+    };
+    if (r.as_of && (!asOf || r.as_of > asOf)) asOf = r.as_of;
+  }
+  return { marks, asOf };
+}
+
+/**
+ * Persist option marks. `marks` is keyed by leg_key; the key is split back into
+ * its columns (SYMBOL|TYPE|STRIKE|EXPIRATION) for the row.
+ */
+export async function saveCachedOptionMarks(
+  userId: string | undefined,
+  marks: Record<string, OptionMark>,
+  asOf: string
+): Promise<void> {
+  const client = getSupabaseClient();
+  if (!client || !userId) return;
+  const now = new Date().toISOString();
+  const rows = Object.entries(marks).map(([legKey, m]) => {
+    const [symbol, optionType, strike, expiration] = legKey.split('|');
+    return {
+      user_id: userId,
+      leg_key: legKey,
+      symbol: (symbol || '').toUpperCase(),
+      option_type: optionType || null,
+      strike: strike != null && strike !== '' ? Number(strike) : null,
+      expiration: expiration || null,
+      mark: m.mark,
+      bid: m.bid ?? null,
+      ask: m.ask ?? null,
+      last: m.last ?? null,
+      as_of: asOf,
+      updated_at: now,
+    };
+  });
+  if (rows.length === 0) return;
+  const { error } = await client.from(OPTION_MARKS_TABLE).upsert(rows, { onConflict: 'user_id,leg_key' });
+  if (error) console.warn('[tickerData] saveCachedOptionMarks:', error.message);
 }

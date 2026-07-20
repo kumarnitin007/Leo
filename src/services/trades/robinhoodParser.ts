@@ -100,6 +100,56 @@ function parseOptionMeta(description: string): { optionType?: OptionType; strike
   };
 }
 
+const MONTHS: Record<string, number> = {
+  JAN: 1, FEB: 2, MAR: 3, APR: 4, MAY: 5, JUN: 6,
+  JUL: 7, AUG: 8, SEP: 9, OCT: 10, NOV: 11, DEC: 12,
+};
+// OCC-style symbol Fidelity puts in the Symbol column, e.g. "-QQQ250321P00500000".
+const FID_OCC_RE = /^-?([A-Z]{1,6})(\d{2})(\d{2})(\d{2})([CP])(\d{5,8})$/;
+// Free-text form in the Action/Description, e.g.
+// "YOU SOLD OPENING TRANSACTION PUT (QQQ) ... MAR 21 25 $500 (100 SHS)".
+const FID_OPT_TEXT_RE = /\b(CALL|PUT)\b.*?\b([A-Z]{3})\s+(\d{1,2})\s+(\d{2,4})\b[^$]*\$\s*([\d,]+(?:\.\d+)?)/i;
+const FID_UNDERLYING_RE = /\((?:CALL|PUT)\)|\b(?:CALL|PUT)\s*\(([A-Z]{1,6})\)/i;
+
+/**
+ * Parse option strike/expiration/type from a Fidelity row. Fidelity has no
+ * dedicated columns for these, so recover them from the OCC symbol (preferred)
+ * or the Action/Description free text. Also returns the recovered underlying
+ * ticker so the row groups under the stock (not the OCC contract symbol).
+ */
+function parseFidelityOptionMeta(
+  symbol: string,
+  action: string,
+  description: string
+): { optionType?: OptionType; strike?: number; expiration?: string; underlying?: string } {
+  const occ = symbol.match(FID_OCC_RE);
+  if (occ) {
+    const yy = 2000 + parseInt(occ[2], 10);
+    const strikeRaw = parseInt(occ[6], 10);
+    // OCC strikes are ×1000; some exports drop trailing zeros — normalize on width.
+    const strike = occ[6].length >= 8 ? strikeRaw / 1000 : strikeRaw;
+    return {
+      underlying: occ[1],
+      optionType: occ[5] === 'C' ? 'CALL' : 'PUT',
+      strike,
+      expiration: `${yy}-${pad(parseInt(occ[3], 10))}-${pad(parseInt(occ[4], 10))}`,
+    };
+  }
+  const text = `${action} ${description}`;
+  const m = text.match(FID_OPT_TEXT_RE);
+  if (!m) return {};
+  const mon = MONTHS[m[2].toUpperCase()];
+  let year = parseInt(m[4], 10);
+  if (year < 100) year += 2000;
+  const under = text.match(FID_UNDERLYING_RE);
+  return {
+    optionType: m[1].toUpperCase() === 'CALL' ? 'CALL' : 'PUT',
+    strike: parseMoney(m[5]),
+    expiration: mon ? `${year}-${pad(mon)}-${pad(parseInt(m[3], 10))}` : undefined,
+    underlying: under && under[1] ? under[1].toUpperCase() : undefined,
+  };
+}
+
 /** djb2 string hash → short base36 id. */
 function hash(str: string): string {
   let h = 5381;
@@ -355,6 +405,7 @@ function parseFidelity(
   let minDate = '';
   let maxDate = '';
   let sawOptions = false;
+  let parsedOptions = false;
 
   for (let r = headerRowIdx + 1; r < matrix.length; r++) {
     const row = matrix[r];
@@ -372,7 +423,14 @@ function parseFidelity(
     let symbol = String(cell(idx.symbol) ?? '').trim().toUpperCase();
     const descCol = String(cell(idx.description) ?? '').trim();
     const { transCode, kind } = classifyFidelity(actionRaw);
-    if (kind === 'option_premium' || kind === 'option_event') sawOptions = true;
+    const isOption = kind === 'option_premium' || kind === 'option_event';
+    if (isOption) sawOptions = true;
+
+    // Options: recover strike/expiration/type + the underlying ticker so the
+    // contract groups under the stock rather than the raw OCC symbol.
+    const optionMeta = isOption ? parseFidelityOptionMeta(symbol, actionRaw, descCol) : {};
+    if (isOption && optionMeta.underlying) symbol = optionMeta.underlying;
+    if (isOption && (optionMeta.optionType || optionMeta.strike || optionMeta.expiration)) parsedOptions = true;
 
     // Recover the identifier for securities Fidelity leaves blank (529 plans,
     // delisted / reverse-split tickers).
@@ -420,6 +478,9 @@ function parseFidelity(
       quantityRaw: quantityRaw || undefined,
       price,
       amount,
+      optionType: optionMeta.optionType,
+      strike: optionMeta.strike,
+      expiration: optionMeta.expiration,
       tags: opts.tags,
       importBatchId: opts.importBatchId,
       importedAt,
@@ -433,7 +494,7 @@ function parseFidelity(
   }
 
   if (rows.length === 0) warnings.push('No transaction rows were found in the file.');
-  if (sawOptions) warnings.push('Fidelity option contracts were detected — premiums are counted, but strike/expiration details are not parsed yet.');
+  if (sawOptions && !parsedOptions) warnings.push('Fidelity option contracts were detected, but their strike/expiration could not be parsed from this export — premiums are still counted.');
 
   return {
     source: 'fidelity',

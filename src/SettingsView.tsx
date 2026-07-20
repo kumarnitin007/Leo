@@ -30,6 +30,7 @@ import IntegrationsView from './IntegrationsView';
 import TagsManager from './TagsManager';
 import SettingsModal from './components/SettingsModal';
 import DataExport from './components/DataExport';
+import BackupRestorePanel from './components/backup/BackupRestorePanel';
 import GroupsManager from './components/GroupsManager';
 import NotificationSettings from './components/NotificationSettings';
 import { ReferenceCalendarBrowser } from './components/ReferenceCalendarBrowser';
@@ -42,7 +43,8 @@ type SettingsTab =
   | 'calendars'
   | 'groups'
   | 'integrations'
-  | 'export';
+  | 'export'
+  | 'backup';
 
 const TABS: { id: SettingsTab; icon: string; label: string; desc: string; group: string }[] = [
   { id: 'profile',       icon: '👤', label: 'Profile',       desc: 'Theme, avatar, dashboard layout, AI', group: 'Personal' },
@@ -52,6 +54,7 @@ const TABS: { id: SettingsTab; icon: string; label: string; desc: string; group:
   { id: 'groups',        icon: '👥', label: 'Groups',        desc: 'Share with family & friends',         group: 'Connect' },
   { id: 'integrations',  icon: '🔌', label: 'Integrations',  desc: 'Google, Fitbit, weather, etc.',       group: 'Connect' },
   { id: 'export',        icon: '📤', label: 'Export',        desc: 'Download your data',                  group: 'Data' },
+  { id: 'backup',        icon: '🗄️', label: 'Backup',        desc: 'Encrypted backup & restore',          group: 'Data' },
 ];
 
 const SettingsView: React.FC = () => {
@@ -191,6 +194,14 @@ const SettingsView: React.FC = () => {
                 subtitle="Download all your data as JSON, CSV, or Excel."
               >
                 <DataExport />
+              </Section>
+            )}
+            {activeTab === 'backup' && (
+              <Section
+                title="🗄️ Backup & Restore"
+                subtitle="Create one encrypted file with everything (tasks, events, Safe, bank, trades…) and restore it later with duplicate detection."
+              >
+                <BackupRestorePanel />
               </Section>
             )}
           </div>

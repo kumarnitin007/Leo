@@ -14,6 +14,10 @@ import {
   showLocalNotification,
   NotificationSettings as NotificationSettingsType,
   DEFAULT_NOTIFICATION_SETTINGS,
+  getOptionExpiryPref,
+  setOptionExpiryPref,
+  OptionExpiryPref,
+  DEFAULT_OPTION_EXPIRY_PREF,
 } from '../services/notificationService';
 
 const NotificationSettings: React.FC = () => {
@@ -23,11 +27,18 @@ const NotificationSettings: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [optionExpiry, setOptionExpiry] = useState<OptionExpiryPref>(DEFAULT_OPTION_EXPIRY_PREF);
 
   useEffect(() => {
     loadSettings();
     setPermission(getNotificationPermission());
+    setOptionExpiry(getOptionExpiryPref());
   }, []);
+
+  const updateOptionExpiry = (next: OptionExpiryPref) => {
+    setOptionExpiry(next);
+    setOptionExpiryPref(next);
+  };
 
   const loadSettings = async () => {
     setLoading(true);
@@ -414,6 +425,65 @@ const NotificationSettings: React.FC = () => {
                   <option value="weekly">Weekly (recommended)</option>
                   <option value="monthly">Monthly</option>
                 </select>
+              </div>
+            )}
+          </div>
+
+          {/* Option Expiry Reminders (Trades) */}
+          <div style={{
+            background: 'white',
+            borderRadius: '1rem',
+            padding: '1.5rem',
+            marginBottom: '1.5rem',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.06)'
+          }}>
+            <h4 style={{ margin: '0 0 1rem', fontSize: '1rem', color: 'var(--ck-ink)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              ⏰ Option Expiry Reminders
+            </h4>
+
+            <label style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.75rem',
+              marginBottom: '1rem',
+              cursor: 'pointer'
+            }}>
+              <input
+                type="checkbox"
+                checked={optionExpiry.enabled}
+                onChange={(e) => updateOptionExpiry({ ...optionExpiry, enabled: e.target.checked })}
+                style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+              />
+              <span style={{ fontSize: '0.9rem', color: 'var(--ck-ink2)' }}>
+                Remind me when open options are near expiry (flags in-the-money / assignment risk)
+              </span>
+            </label>
+
+            {optionExpiry.enabled && (
+              <div style={{ marginLeft: '2rem' }}>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.85rem', color: 'var(--ck-ink2)' }}>
+                  Lead time:
+                </label>
+                <select
+                  value={optionExpiry.days}
+                  onChange={(e) => updateOptionExpiry({ ...optionExpiry, days: Number(e.target.value) })}
+                  style={{
+                    padding: '0.5rem',
+                    border: '2px solid var(--ck-border2)',
+                    borderRadius: '0.5rem',
+                    fontSize: '1rem',
+                    background: 'white'
+                  }}
+                >
+                  <option value={1}>1 day before</option>
+                  <option value={2}>2 days before</option>
+                  <option value={3}>3 days before</option>
+                  <option value={5}>5 days before</option>
+                  <option value={7}>7 days before</option>
+                </select>
+                <p style={{ margin: '0.5rem 0 0', fontSize: '0.8rem', color: 'var(--ck-ink3)' }}>
+                  Uses the open options from your last Trades visit — open the Trades tab to keep it current.
+                </p>
               </div>
             )}
           </div>

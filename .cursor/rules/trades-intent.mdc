@@ -1,0 +1,35 @@
+---
+description: Product intent & guardrails for the Vault → Trades section (analysis of the user's own history, never market prediction)
+globs: src/components/trades/**,src/services/trades/**,src/services/ai/abilities/tradesInsights.ts,api/trades-insights.ts,api/quote.ts
+alwaysApply: false
+---
+
+# Trades Section — Intent & Guardrails
+
+The Trades feature exists to **analyse what the user has already done** and help them
+understand it — NOT to predict the market or tell them what to buy/sell.
+
+## Do
+- Analyse the user's **past behaviour**: income mix, realized results, holding/holding-period
+  patterns, options premium efficiency, deposit vs. gains, etc.
+- Surface **where their biggest risks are** (concentration, ITM/near-expiry options,
+  unpriced holdings, over-reliance on one income source).
+- Highlight **which positions to follow closely** (largest exposure, biggest movers,
+  upcoming known catalysts like earnings/ex-dividend dates).
+- Surface **factual, scheduled information** around their tickers (earnings dates,
+  ex-dividend/dividend dates, splits) and, where a source exists, recent **news** — as
+  context, clearly attributed, never as a recommendation.
+- Frame everything as "analysis of your data — not financial advice." The user learns and
+  decides for themselves.
+
+## Don't
+- Don't **predict** future prices, returns, or market trends.
+- Don't give buy/sell/hold recommendations or price targets.
+- Don't invent data not present in the user's records or a cited source.
+- Don't imply certainty about outcomes.
+
+## When building AI features here
+- Build a compact, structured **digest from derived data** (never raw transactions) to keep
+  tokens low (see `tradesInsightsData.ts`).
+- System prompts must reinforce: analyse the provided snapshot only, flag risks, no
+  prediction, no advice.

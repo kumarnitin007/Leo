@@ -12,7 +12,9 @@ export type AIAbilityId =
   | 'journal_reflection'
   | 'astro_reading'
   | 'numerology_vibe'
-  | 'numerology_question';
+  | 'numerology_question'
+  | 'trades_insights'
+  | 'trades_qa';
 
 export interface AIAbilityMeta {
   id: AIAbilityId;

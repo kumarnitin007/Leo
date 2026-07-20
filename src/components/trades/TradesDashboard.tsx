@@ -21,9 +21,15 @@ import { loadTrades, saveTrades } from '../../services/trades/tradesStorage';
 import { computeSummary, computeOpenOptions, formatCurrency, TickerStats, OpenOption } from '../../services/trades/tradesAnalytics';
 import { fetchQuotes, fetchOptionQuotes, optionLegKey, Quote, OptionMark } from '../../services/trades/quotes';
 import {
-  loadWatchlist, addWatch, removeWatch, loadCachedQuotes, saveCachedQuotes, saveManualQuote, WatchItem, CachedQuote,
+  loadWatchlist, addWatch, removeWatch, loadCachedQuotes, saveCachedQuotes, saveManualQuote,
+  loadCachedOptionMarks, saveCachedOptionMarks, WatchItem, CachedQuote,
 } from '../../services/trades/tickerData';
+import { updateOpenOptionsCache } from '../../services/notificationService';
+import { buildPortfolioDigest } from '../../services/trades/tradesInsightsData';
+import { fetchTickerEvents, loadCachedTickerEvents, saveCachedTickerEvents, TickerEvents } from '../../services/trades/tickerEvents';
+import { fetchTickerNews, peekCachedNews, newsRelativeTime, NewsItem } from '../../services/trades/tickerNews';
 import TradesImportModal from './TradesImportModal';
+import TradesInsightsPanel from './TradesInsightsPanel';
 import SlideOverPanel from '../SlideOverPanel';
 import FormCollapsible from '../FormCollapsible';
 
@@ -98,10 +104,13 @@ const TradesDashboard: React.FC<TradesDashboardProps> = ({ userId, encryptionKey
   // Live prices — cached in DB (paint from cache; refresh hits the market API).
   const [quotes, setQuotes] = useState<Record<string, CachedQuote>>({});
   const [optionQuotes, setOptionQuotes] = useState<Record<string, OptionMark>>({});
+  const [tickerEvents, setTickerEvents] = useState<Record<string, TickerEvents>>({});
   const [quotesAt, setQuotesAt] = useState<string | null>(null);
   const [quotesLoading, setQuotesLoading] = useState(false);
   const [quotesError, setQuotesError] = useState(false);
   const [quotesFromCache, setQuotesFromCache] = useState(false);
+  // Human-readable failures from the last refresh (shown in the UI, not hidden).
+  const [refreshErrors, setRefreshErrors] = useState<string[]>([]);
   const [watchlist, setWatchlist] = useState<WatchItem[]>([]);
 
   // Inline manual price entry (for symbols the market API can't price).
@@ -111,21 +120,29 @@ const TradesDashboard: React.FC<TradesDashboardProps> = ({ userId, encryptionKey
   useEffect(() => {
     (async () => {
       setLoading(true);
-      const [loaded, safeTags, cached, watch] = await Promise.all([
+      const [loaded, safeTags, cached, watch, optCache, evCache] = await Promise.all([
         loadTrades(userId, encryptionKey),
         getSafeTags().catch(() => [] as Tag[]),
         loadCachedQuotes(userId).catch(() => ({} as Record<string, CachedQuote>)),
         loadWatchlist(userId).catch(() => [] as WatchItem[]),
+        loadCachedOptionMarks(userId).catch(() => ({ marks: {} as Record<string, OptionMark>, asOf: undefined as string | undefined })),
+        loadCachedTickerEvents(userId).catch(() => ({} as Record<string, TickerEvents>)),
       ]);
       setData(loaded);
       setTags(safeTags);
       setWatchlist(watch);
+      if (Object.keys(evCache).length) setTickerEvents(evCache);
       // Paint from cached prices (no market API call on load).
       if (Object.keys(cached).length) {
         setQuotes(cached);
         setQuotesFromCache(true);
         const latest = Object.values(cached).map(q => q.asOf).filter(Boolean).sort();
         setQuotesAt(latest.length ? (latest[latest.length - 1] as string) : null);
+      }
+      // Paint cached option marks so Mark / Market value aren't blank on load.
+      if (Object.keys(optCache.marks).length) {
+        setOptionQuotes(optCache.marks);
+        if (optCache.asOf) setQuotesAt(prev => (!prev || optCache.asOf! > prev ? optCache.asOf! : prev));
       }
       setLoading(false);
     })();
@@ -237,6 +254,26 @@ const TradesDashboard: React.FC<TradesDashboardProps> = ({ userId, encryptionKey
   // All currently-open option legs (across tickers), from full account history.
   const openOptions = useMemo(() => computeOpenOptions(accountTxns), [accountTxns]);
 
+  // Publish a NON-sensitive snapshot of open legs so the notification service
+  // can remind about upcoming expiries / assignment risk without the Safe key.
+  useEffect(() => {
+    updateOpenOptionsCache(openOptions.map(o => {
+      const px = quotes[o.ticker]?.price;
+      const itm = px != null && o.strike != null
+        ? (o.optionType === 'CALL' ? px >= o.strike : px <= o.strike)
+        : undefined;
+      return {
+        ticker: o.ticker,
+        optionType: o.optionType,
+        strike: o.strike,
+        expiration: o.expiration,
+        side: o.side,
+        contracts: Math.abs(o.netContracts),
+        itm,
+      };
+    }));
+  }, [openOptions, quotes]);
+
   // Symbols to price = held positions ∪ watchlist favorites.
   const priceSymbolsKey = useMemo(
     () => Array.from(new Set([...heldTickers.map(t => t.ticker), ...watchlist.map(w => w.ticker)])).sort().join(','),
@@ -254,16 +291,22 @@ const TradesDashboard: React.FC<TradesDashboardProps> = ({ userId, encryptionKey
     console.log(`[Trades] 🔄 Refresh prices — ${symbols.length} stock symbol(s), ${openOptions.length} open option leg(s)`);
     setQuotesLoading(true);
     setQuotesError(false);
-    // Stocks and options are fetched independently so a failure in one never
-    // discards the other's results.
-    const [stockRes, optRes] = await Promise.all([
+    setRefreshErrors([]);
+    // Each source is fetched independently so a failure in one never discards
+    // the others' results. Failures are collected and surfaced in the UI.
+    const errs: string[] = [];
+    const errMsg = (e: any) => (e?.message || String(e || 'unknown error'));
+    const [stockRes, optRes, evRes] = await Promise.all([
       symbols.length
-        ? fetchQuotes(symbols).catch(e => { console.error('[Trades] stock quotes failed:', e?.message || e); return { quotes: {} as Record<string, Quote>, asOf: undefined }; })
+        ? fetchQuotes(symbols).catch(e => { const m = errMsg(e); console.error('[Trades] ✗ stock quotes failed:', m); errs.push(`Prices — ${m}`); return { quotes: {} as Record<string, Quote>, asOf: undefined }; })
         : Promise.resolve({ quotes: {} as Record<string, Quote>, asOf: undefined }),
       openOptions.length
         ? fetchOptionQuotes(openOptions.map(o => ({ symbol: o.ticker, expiration: o.expiration || '', optionType: o.optionType, strike: o.strike ?? 0 })))
-            .catch(e => { console.error('[Trades] option quotes failed:', e?.message || e); return {} as Record<string, OptionMark>; })
+            .catch(e => { const m = errMsg(e); console.error('[Trades] ✗ option marks failed:', m); errs.push(`Option marks — ${m}`); return {} as Record<string, OptionMark>; })
         : Promise.resolve({} as Record<string, OptionMark>),
+      symbols.length
+        ? fetchTickerEvents(symbols).catch(e => { const m = errMsg(e); console.error('[Trades] ✗ upcoming dates failed:', m); errs.push(`Upcoming dates — ${m}`); return { events: {} as Record<string, TickerEvents>, asOf: undefined }; })
+        : Promise.resolve({ events: {} as Record<string, TickerEvents>, asOf: undefined }),
     ]);
 
     const asOf = stockRes.asOf || new Date().toISOString();
@@ -280,15 +323,25 @@ const TradesDashboard: React.FC<TradesDashboardProps> = ({ userId, encryptionKey
       saveCachedQuotes(userId, stockRes.quotes, asOf).catch(() => {});
     }
     // Merge option marks so a partial/empty result doesn't blow away prior marks.
-    if (optCount > 0) setOptionQuotes(prev => ({ ...prev, ...optRes }));
+    if (optCount > 0) {
+      setOptionQuotes(prev => ({ ...prev, ...optRes }));
+      saveCachedOptionMarks(userId, optRes, asOf).catch(() => {});
+    }
+    // Merge upcoming event dates (earnings / ex-div) and cache them.
+    const evCount = Object.keys(evRes.events).length;
+    if (evCount > 0) {
+      setTickerEvents(prev => ({ ...prev, ...evRes.events }));
+      saveCachedTickerEvents(userId, evRes.events, evRes.asOf || asOf).catch(() => {});
+    }
 
     // Only flag an error when nothing at all came back for what we asked for.
     const stockFailed = symbols.length > 0 && stockCount === 0;
     const optFailed = openOptions.length > 0 && optCount === 0;
     if (stockFailed && (openOptions.length === 0 || optFailed)) setQuotesError(true);
     if (optFailed) console.warn('[Trades] ⚠️ No option marks returned — check the [Quotes] logs above (dev servers may not run /api routes; options need Vercel/prod).');
-    console.log(`[Trades] ✅ Refresh done — stocks ${stockCount}/${symbols.length}, option marks ${optCount}/${openOptions.length}`);
+    console.log(`[Trades] ✅ Refresh done — stocks ${stockCount}/${symbols.length}, option marks ${optCount}/${openOptions.length}, dated tickers ${evCount}`);
 
+    setRefreshErrors(errs);
     setQuotesLoading(false);
     // openOptions referenced via optionLegsKey for stable deps
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -340,6 +393,37 @@ const TradesDashboard: React.FC<TradesDashboardProps> = ({ userId, encryptionKey
     }
     return map;
   }, [openOptions, legMarketValue]);
+
+  // Compact, token-optimized snapshot for the AI insights panel (built from
+  // derived data only — never raw transactions).
+  const portfolioDigest = useMemo(
+    () => buildPortfolioDigest({
+      summaryFull,
+      heldTickers,
+      closedTickers,
+      openOptions,
+      quotes,
+      optionMarks: optionQuotes,
+    }),
+    [summaryFull, heldTickers, closedTickers, openOptions, quotes, optionQuotes]
+  );
+
+  // Upcoming factual event dates (earnings / ex-div / dividend) for held +
+  // watchlist tickers, within the next 90 days, sorted soonest first.
+  const upcomingDates = useMemo(() => {
+    const today = new Date().toISOString().slice(0, 10);
+    const horizon = new Date(); horizon.setDate(horizon.getDate() + 90);
+    const horizonStr = horizon.toISOString().slice(0, 10);
+    const relevant = new Set([...heldTickers.map(t => t.ticker), ...watchlist.map(w => w.ticker)]);
+    const items: { ticker: string; kind: 'Earnings' | 'Ex-dividend' | 'Dividend pay'; date: string; estimated?: boolean }[] = [];
+    for (const e of Object.values(tickerEvents)) {
+      if (!relevant.has(e.ticker)) continue;
+      if (e.nextEarnings && e.nextEarnings >= today && e.nextEarnings <= horizonStr) items.push({ ticker: e.ticker, kind: 'Earnings', date: e.nextEarnings, estimated: e.earningsEstimated });
+      if (e.exDividend && e.exDividend >= today && e.exDividend <= horizonStr) items.push({ ticker: e.ticker, kind: 'Ex-dividend', date: e.exDividend });
+      if (e.dividendDate && e.dividendDate >= today && e.dividendDate <= horizonStr) items.push({ ticker: e.ticker, kind: 'Dividend pay', date: e.dividendDate });
+    }
+    return items.sort((a, b) => a.date.localeCompare(b.date));
+  }, [tickerEvents, heldTickers, watchlist]);
 
   // Total P/L across held stocks that have a live price (net cash + market value).
   const holdingsPL = useMemo(() => {
@@ -568,6 +652,30 @@ const TradesDashboard: React.FC<TradesDashboardProps> = ({ userId, encryptionKey
         </div>
       ) : (
         <>
+          {/* Refresh errors — surfaced, never hidden */}
+          {refreshErrors.length > 0 && (
+            <div style={{
+              display: 'flex', alignItems: 'flex-start', gap: '0.6rem',
+              background: '#fef2f2', border: '1px solid #fecaca', color: '#b91c1c',
+              borderRadius: 10, padding: '0.7rem 0.85rem', marginBottom: '1.25rem', fontSize: '0.85rem',
+            }}>
+              <span style={{ fontSize: '1rem', lineHeight: 1.2 }}>⚠️</span>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontWeight: 700, marginBottom: '0.2rem' }}>Last refresh had problems (showing any cached data):</div>
+                <ul style={{ margin: 0, paddingLeft: '1.1rem' }}>
+                  {refreshErrors.map((e, i) => <li key={i}>{e}</li>)}
+                </ul>
+                <div style={{ marginTop: '0.35rem', fontSize: '0.76rem', color: '#9b1c1c' }}>
+                  Market data comes from the <code>/api</code> routes — these need Vercel/prod (a plain dev server won't serve them). Check the browser console for details.
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: '0.4rem' }}>
+                <button onClick={loadQuotes} disabled={quotesLoading} className="ck-btn">Retry</button>
+                <button onClick={() => setRefreshErrors([])} className="ck-btn" title="Dismiss">✕</button>
+              </div>
+            </div>
+          )}
+
           {/* Summary cards */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '0.85rem', marginBottom: '1.5rem' }}>
             <SummaryCard label="Options premium" value={summary.income.optionsPremium} accent="#6366f1" onClick={() => openKind('Options premium', ['option_premium'])} />
@@ -584,6 +692,24 @@ const TradesDashboard: React.FC<TradesDashboardProps> = ({ userId, encryptionKey
             />
             <SummaryCard label="Deposits" value={summary.deposits} accent="#64748b" onClick={() => openKind('Deposits', ['deposit'])} />
           </div>
+
+          {/* AI Portfolio Insights (opt-in — no tokens spent until generated) */}
+          {userId && <TradesInsightsPanel userId={userId} digest={portfolioDigest} />}
+
+          {/* Upcoming factual dates — earnings & dividends (not predictions) */}
+          {upcomingDates.length > 0 && (
+            <div style={{ border: '1px solid #e5e7eb', borderRadius: 14, padding: '0.7rem 0.9rem', marginBottom: '1.5rem', background: '#fff' }}>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.5rem', marginBottom: '0.5rem', flexWrap: 'wrap' }}>
+                <span style={{ fontWeight: 700, fontSize: '0.9rem', color: '#111827' }}>📅 Upcoming dates</span>
+                <span style={{ fontSize: '0.72rem', color: '#9ca3af' }}>earnings &amp; dividends for your holdings &amp; watchlist · next 90 days</span>
+              </div>
+              <div style={{ display: 'flex', gap: '0.5rem', overflowX: 'auto', paddingBottom: '0.25rem' }}>
+                {upcomingDates.map((u, i) => (
+                  <EventChip key={`${u.ticker}-${u.kind}-${i}`} ticker={u.ticker} label={u.kind} date={u.date} estimated={u.estimated} />
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Charts row 1 */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1rem', marginBottom: '1rem' }}>
@@ -873,7 +999,7 @@ const TradesDashboard: React.FC<TradesDashboardProps> = ({ userId, encryptionKey
                   <thead>
                     <tr style={{ background: '#f9fafb' }}>
                       <Th>Ticker</Th><Th>Name</Th><Th align="right">Price</Th><Th align="right">Day</Th><Th align="right">You hold</Th>
-                      <Th align="right">Buy cost</Th><Th align="right">Value today</Th><Th align="right">P/L if sold</Th><Th align="right">{' '}</Th>
+                      <Th align="right">Buy cost</Th><Th align="right">Value today</Th><Th align="right">P/L if sold</Th><Th align="right">Earnings</Th><Th align="right">{' '}</Th>
                     </tr>
                   </thead>
                   <tbody>
@@ -905,6 +1031,11 @@ const TradesDashboard: React.FC<TradesDashboardProps> = ({ userId, encryptionKey
                           <Td align="right" style={{ fontWeight: 700 }}>{valueToday != null ? formatCurrency(valueToday) : '—'}</Td>
                           <Td align="right" title={pl != null ? 'Net cash (incl. premiums & dividends collected) + current value' : undefined} style={{ fontWeight: 800, color: pl == null ? '#9ca3af' : pl < 0 ? '#dc2626' : '#059669' }}>
                             {pl != null ? `${pl >= 0 ? '+' : ''}${formatCurrency(pl)}` : '—'}
+                          </Td>
+                          <Td align="right" style={{ whiteSpace: 'nowrap', color: '#6b7280' }} title="Next scheduled earnings date (hit Refresh prices to update)">
+                            {tickerEvents[w.ticker]?.nextEarnings
+                              ? `${fmtEventDate(tickerEvents[w.ticker].nextEarnings!)}${tickerEvents[w.ticker]?.earningsEstimated ? ' (est)' : ''}`
+                              : '—'}
                           </Td>
                           <Td align="right"><button onClick={() => removeFavorite(w.ticker)} className="ck-btn ck-btn-sm" title="Remove from favorites">✕</button></Td>
                         </tr>
@@ -1074,6 +1205,7 @@ const TradesDashboard: React.FC<TradesDashboardProps> = ({ userId, encryptionKey
           fullNetCash={panel.ticker ? fullByTicker.get(panel.ticker)?.netCash : undefined}
           optionQuotes={optionQuotes}
           optionValue={panel.ticker ? optionValueByTicker.get(panel.ticker) : undefined}
+          events={panel.ticker ? tickerEvents[panel.ticker] : undefined}
         />}
       </SlideOverPanel>
     </div>
@@ -1088,7 +1220,8 @@ const PanelContent: React.FC<{
   fullNetCash?: number;
   optionQuotes?: Record<string, OptionMark>;
   optionValue?: number;
-}> = ({ panel, stats, quote, heldShares, fullNetCash, optionQuotes = {}, optionValue }) => {
+  events?: TickerEvents;
+}> = ({ panel, stats, quote, heldShares, fullNetCash, optionQuotes = {}, optionValue, events }) => {
   const [codeFilter, setCodeFilter] = useState<'all' | string>('all');
   const sorted = useMemo(
     () => [...panel.txns].sort((a, b) => (a.activityDate < b.activityDate ? 1 : a.activityDate > b.activityDate ? -1 : 0)),
@@ -1163,6 +1296,20 @@ const PanelContent: React.FC<{
           })}
         </div>
       )}
+      {events && (events.nextEarnings || events.exDividend || events.dividendDate) && (
+        <div style={{ border: '1px solid #fde68a', background: '#fffbeb', borderRadius: 10, padding: '0.6rem 0.8rem', marginBottom: '1rem' }}>
+          <div style={{ fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.5px', color: '#b45309', fontWeight: 800, marginBottom: '0.4rem' }}>📅 Upcoming dates</div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+            {[
+              ...(events.nextEarnings ? [{ label: 'Earnings', date: events.nextEarnings, estimated: events.earningsEstimated }] : []),
+              ...(events.exDividend ? [{ label: 'Ex-dividend', date: events.exDividend, estimated: false }] : []),
+              ...(events.dividendDate ? [{ label: 'Dividend pay', date: events.dividendDate, estimated: false }] : []),
+            ]
+              .sort((a, b) => a.date.localeCompare(b.date))
+              .map((e, i) => <EventChip key={`${e.label}-${i}`} label={e.label} date={e.date} estimated={e.estimated} />)}
+          </div>
+        </div>
+      )}
       {stats && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', gap: '0.6rem', marginBottom: '1rem' }}>
           <MiniStat label="Income" value={formatCurrency(stats.income)} accent={stats.income < 0 ? '#dc2626' : '#059669'} />
@@ -1176,6 +1323,7 @@ const PanelContent: React.FC<{
           )}
         </div>
       )}
+      {panel.ticker && <TickerNews ticker={panel.ticker} />}
       {stats?.firstDate && (
         <p style={{ fontSize: '0.8rem', color: '#6b7280', margin: '0 0 0.75rem' }}>
           Timeline: {stats.firstDate} → {stats.lastDate} · {panel.txns.length} transactions
@@ -1483,6 +1631,116 @@ const MiniStat: React.FC<{ label: string; value: string; accent?: string }> = ({
     <div style={{ fontSize: '0.95rem', fontWeight: 800, color: accent || '#1f2937' }}>{value}</div>
   </div>
 );
+
+// ── Upcoming event dates (factual: earnings / dividends) ────────────────
+function daysFromToday(date: string): number {
+  const t = new Date(); t.setHours(0, 0, 0, 0);
+  const d = new Date(`${date}T00:00:00`);
+  return Math.round((d.getTime() - t.getTime()) / 86400000);
+}
+function fmtEventDate(date: string): string {
+  const md = new Date(`${date}T00:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  const n = daysFromToday(date);
+  const rel = n === 0 ? 'today' : n === 1 ? 'tomorrow' : n > 0 ? `in ${n}d` : `${Math.abs(n)}d ago`;
+  return `${md} · ${rel}`;
+}
+const EVENT_CHIP_COLORS: Record<string, { bg: string; color: string; border: string }> = {
+  Earnings: { bg: '#eef2ff', color: '#4338ca', border: '#c7d2fe' },
+  'Ex-dividend': { bg: '#ecfdf5', color: '#047857', border: '#a7f3d0' },
+  'Dividend pay': { bg: '#ecfdf5', color: '#047857', border: '#a7f3d0' },
+};
+const EventChip: React.FC<{ ticker?: string; label: string; date: string; estimated?: boolean }> = ({ ticker, label, date, estimated }) => {
+  const c = EVENT_CHIP_COLORS[label] || { bg: '#f3f4f6', color: '#374151', border: '#e5e7eb' };
+  return (
+    <span style={{
+      display: 'inline-flex', alignItems: 'center', gap: '0.35rem',
+      background: c.bg, border: `1px solid ${c.border}`, color: c.color,
+      borderRadius: 999, padding: '0.25rem 0.6rem', fontSize: '0.76rem', whiteSpace: 'nowrap',
+    }}>
+      {ticker && <strong>{ticker}</strong>}
+      <span style={{ fontWeight: 600 }}>{label}</span>
+      <span style={{ opacity: 0.85 }}>{fmtEventDate(date)}</span>
+      {estimated && <span style={{ fontSize: '0.66rem', opacity: 0.7 }}>(est)</span>}
+    </span>
+  );
+};
+
+// ── Recent news (context, not advice) — user-triggered per ticker ───────
+// Never calls the external API on its own: on open it only reads the session
+// cache; fetching fresh headlines is an explicit button click.
+const TickerNews: React.FC<{ ticker: string }> = ({ ticker }) => {
+  const cached = useMemo(() => peekCachedNews(ticker), [ticker]);
+  const [news, setNews] = useState<NewsItem[] | null>(cached ? cached.news : null);
+  const [configured, setConfigured] = useState(cached ? cached.configured : true);
+  const [loaded, setLoaded] = useState(!!cached);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const r = await fetchTickerNews(ticker);
+      setNews(r.news);
+      setConfigured(r.configured);
+      setLoaded(true);
+    } catch (e: any) {
+      const m = e?.message || String(e);
+      console.error(`[Trades] ✗ news fetch failed for ${ticker}:`, m);
+      setError(m);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div style={{ border: '1px solid #eef0f2', borderRadius: 10, padding: '0.6rem 0.8rem', marginBottom: '1rem' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem', marginBottom: loaded || error ? '0.5rem' : 0 }}>
+        <span style={{ fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.5px', color: '#6b7280', fontWeight: 800 }}>📰 Recent news</span>
+        <button className="ck-btn" onClick={load} disabled={loading} style={{ fontSize: '0.75rem', padding: '0.2rem 0.55rem' }}>
+          {loading ? '⏳' : loaded ? '🔄 Refresh' : '📰 Load news'}
+        </button>
+      </div>
+
+      {error && (
+        <div style={{ fontSize: '0.8rem', color: '#b91c1c', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, padding: '0.5rem 0.65rem' }}>
+          Couldn't load news: {error}
+          <div style={{ fontSize: '0.72rem', color: '#9b1c1c', marginTop: '0.2rem' }}>The news API runs on <code>/api</code> (Vercel/prod). See console for details.</div>
+        </div>
+      )}
+
+      {!error && loaded && !configured && (
+        <div style={{ fontSize: '0.8rem', color: '#b45309', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8, padding: '0.5rem 0.65rem' }}>
+          News isn't configured on the server — add a free <code>FINNHUB_API_KEY</code> to enable it.
+        </div>
+      )}
+
+      {!error && loaded && configured && news && news.length === 0 && (
+        <div style={{ fontSize: '0.8rem', color: '#9ca3af' }}>No recent news for {ticker}.</div>
+      )}
+
+      {!error && configured && news && news.length > 0 && (
+        <>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.55rem' }}>
+            {news.map((n, i) => (
+              <a key={i} href={n.url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none', color: 'inherit', display: 'block' }}>
+                <div style={{ fontSize: '0.85rem', color: '#1f2937', fontWeight: 600, lineHeight: 1.4 }}>{n.headline}</div>
+                <div style={{ fontSize: '0.72rem', color: '#9ca3af' }}>
+                  {n.source || 'News'}{n.datetime ? ` · ${newsRelativeTime(n.datetime)}` : ''}
+                </div>
+              </a>
+            ))}
+          </div>
+          <div style={{ fontSize: '0.68rem', color: '#c0c4cc', marginTop: '0.5rem' }}>Headlines via Finnhub · context only, not advice</div>
+        </>
+      )}
+
+      {!loaded && !error && !loading && (
+        <div style={{ fontSize: '0.78rem', color: '#9ca3af' }}>Tap “Load news” to fetch recent headlines for {ticker}.</div>
+      )}
+    </div>
+  );
+};
 
 const ChartCard: React.FC<{ title: string; children: React.ReactNode; action?: React.ReactNode }> = ({ title, children, action }) => (
   <div style={{ background: '#fff', border: '1px solid #eef0f2', borderRadius: 14, padding: '1rem 1.1rem', marginBottom: '1rem', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>

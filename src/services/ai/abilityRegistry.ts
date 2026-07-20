@@ -74,6 +74,30 @@ export const ABILITY_REGISTRY: Record<AIAbilityId, AIAbilityMeta> = {
     costPer1kInput: GPT4O_MINI_INPUT,
     costPer1kOutput: GPT4O_MINI_OUTPUT,
   },
+  trades_insights: {
+    id: 'trades_insights',
+    label: 'Portfolio Insights',
+    description: 'AI review of the trading portfolio — income mix, concentration risk, options/assignment risk, realized performance, and actionable suggestions (cached once/day)',
+    icon: '📈',
+    endpoint: '/api/trades-insights',
+    model: 'gpt-4o-mini',
+    maxTokens: 1000,
+    temperature: 0.4,
+    costPer1kInput: GPT4O_MINI_INPUT,
+    costPer1kOutput: GPT4O_MINI_OUTPUT,
+  },
+  trades_qa: {
+    id: 'trades_qa',
+    label: 'Portfolio Q&A',
+    description: 'Free-text question answered against a compact snapshot of the user\'s portfolio',
+    icon: '💬',
+    endpoint: '/api/trades-insights',
+    model: 'gpt-4o-mini',
+    maxTokens: 600,
+    temperature: 0.3,
+    costPer1kInput: GPT4O_MINI_INPUT,
+    costPer1kOutput: GPT4O_MINI_OUTPUT,
+  },
 };
 
 export function getAbilityMeta(id: AIAbilityId): AIAbilityMeta {

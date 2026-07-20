@@ -11,8 +11,10 @@
 
 const YAHOO = 'https://query1.finance.yahoo.com/v8/finance/chart';
 const YAHOO_OPTIONS = 'https://query1.finance.yahoo.com/v7/finance/options';
+const YAHOO_SUMMARY = 'https://query1.finance.yahoo.com/v10/finance/quoteSummary';
 const MAX_SYMBOLS = 60;
 const MAX_OPTION_SYMBOLS = 40;
+const MAX_EVENT_SYMBOLS = 60;
 // A real browser UA — Yahoo rejects unknown agents on the v7/crumb endpoints.
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
 
@@ -209,7 +211,67 @@ async function fetchOptionMarks(legs: OptionLegReq[]): Promise<Record<string, an
   return out;
 }
 
+/**
+ * Fetch upcoming corporate-event dates (next earnings, ex-dividend, dividend
+ * pay) per symbol from Yahoo's `calendarEvents` quoteSummary module. Needs the
+ * same cookie + crumb auth as the options endpoint. These are FACTUAL scheduled
+ * dates — not forecasts.
+ */
+async function fetchTickerEvents(symbols: string[]): Promise<Record<string, any>> {
+  const auth = await getYahooAuth();
+  const crumbQ = auth?.crumb ? `crumb=${encodeURIComponent(auth.crumb)}` : '';
+  const cookie = auth?.cookie;
+  const withCrumb = (url: string) => crumbQ ? `${url}${url.includes('?') ? '&' : '?'}${crumbQ}` : url;
+
+  const uniq = Array.from(new Set(symbols.map(s => s.toUpperCase()))).slice(0, MAX_EVENT_SYMBOLS);
+  const out: Record<string, any> = {};
+
+  await Promise.all(uniq.map(async (symbol) => {
+    const url = withCrumb(`${YAHOO_SUMMARY}/${encodeURIComponent(symbol)}?modules=calendarEvents`);
+    const json = await fetchOptionsUrl(url, 8000, cookie);
+    const ce = json?.quoteSummary?.result?.[0]?.calendarEvents;
+    if (!ce) return;
+    const earningsRaw: number[] = Array.isArray(ce.earnings?.earningsDate)
+      ? ce.earnings.earningsDate.map((d: any) => d?.raw).filter((n: any) => typeof n === 'number')
+      : [];
+    const nextEarnings = earningsRaw.length ? epochToDate(Math.min(...earningsRaw)) : undefined;
+    const exDividend = typeof ce.exDividendDate?.raw === 'number' ? epochToDate(ce.exDividendDate.raw) : undefined;
+    const dividendDate = typeof ce.dividendDate?.raw === 'number' ? epochToDate(ce.dividendDate.raw) : undefined;
+    if (nextEarnings || exDividend || dividendDate) {
+      out[symbol] = {
+        nextEarnings,
+        earningsEstimated: !!ce.earnings?.isEarningsDateEstimate,
+        exDividend,
+        dividendDate,
+      };
+    }
+  }));
+
+  return out;
+}
+
 export default async function handler(req: any, res: any) {
+  // Upcoming corporate-event dates (GET ?events=SYM1,SYM2).
+  const rawEvents = (req.query?.events || '') as string;
+  if (rawEvents) {
+    const evSymbols = String(rawEvents)
+      .split(',')
+      .map(s => s.trim().toUpperCase())
+      .filter(Boolean)
+      .slice(0, MAX_EVENT_SYMBOLS);
+    if (evSymbols.length === 0) return res.status(400).json({ error: 'events query param is empty' });
+    try {
+      console.log(`[quote:events] request for ${evSymbols.length} symbol(s)`);
+      const events = await fetchTickerEvents(evSymbols);
+      console.log(`[quote:events] resolved ${Object.keys(events).length}/${evSymbols.length}`);
+      res.setHeader('Cache-Control', 's-maxage=3600, stale-while-revalidate=7200');
+      return res.status(200).json({ events, asOf: new Date().toISOString() });
+    } catch (err: any) {
+      console.error('[quote:events] error:', err?.message || err);
+      return res.status(502).json({ error: 'Failed to fetch ticker events' });
+    }
+  }
+
   // Option marks (POST with { options: [...] }).
   const optionLegs = req.body?.options;
   if (Array.isArray(optionLegs) && optionLegs.length > 0) {
