@@ -556,8 +556,12 @@ export class VoiceCommandService {
             createdAt: new Date().toISOString()
           };
 
-          if ((storage as any).addMilestone) {
-            await (storage as any).addMilestone(milestone);
+          // Indirect lookup avoids a Rollup "not exported" warning for this
+          // optional/legacy storage helper that may not exist in the module.
+          const storageApi = storage as Record<string, any>;
+          const addMilestoneFn = storageApi['addMilestone'];
+          if (typeof addMilestoneFn === 'function') {
+            await addMilestoneFn(milestone);
             createdId = newId;
           }
 

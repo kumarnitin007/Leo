@@ -45,7 +45,9 @@ export async function callAI<T = any>(
     const resp = await fetch(ability.endpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...params.requestPayload, provider }),
+      // `task` lets the unified /api/ai endpoint dispatch to the right handler.
+      // Endpoints that route by other means (e.g. astro's ?action=) ignore it.
+      body: JSON.stringify({ ...params.requestPayload, task: params.abilityId, provider }),
     });
 
     rawResponse = await resp.text();

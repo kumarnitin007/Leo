@@ -1682,6 +1682,17 @@ const TickerNews: React.FC<{ ticker: string }> = ({ ticker }) => {
   const [loaded, setLoaded] = useState(!!cached);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // External link is only opened after the user confirms leaving the app.
+  const [pendingLink, setPendingLink] = useState<{ url: string; host: string } | null>(null);
+
+  const hostOf = (url: string): string => {
+    try { return new URL(url).hostname.replace(/^www\./, ''); } catch { return url; }
+  };
+  const confirmOpen = () => {
+    if (!pendingLink) return;
+    window.open(pendingLink.url, '_blank', 'noopener,noreferrer');
+    setPendingLink(null);
+  };
 
   const load = async () => {
     setLoading(true);
@@ -1730,16 +1741,48 @@ const TickerNews: React.FC<{ ticker: string }> = ({ ticker }) => {
         <>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.55rem' }}>
             {news.map((n, i) => (
-              <a key={i} href={n.url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none', color: 'inherit', display: 'block' }}>
+              <button
+                key={i}
+                type="button"
+                onClick={() => setPendingLink({ url: n.url, host: hostOf(n.url) })}
+                style={{ textAlign: 'left', background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: 'inherit', display: 'block', width: '100%' }}
+              >
                 <div style={{ fontSize: '0.85rem', color: '#1f2937', fontWeight: 600, lineHeight: 1.4 }}>{n.headline}</div>
                 <div style={{ fontSize: '0.72rem', color: '#9ca3af' }}>
-                  {n.source || 'News'}{n.datetime ? ` · ${newsRelativeTime(n.datetime)}` : ''}
+                  {n.source || 'News'}{n.datetime ? ` · ${newsRelativeTime(n.datetime)}` : ''} · 🔗 {hostOf(n.url)}
                 </div>
-              </a>
+              </button>
             ))}
           </div>
           <div style={{ fontSize: '0.68rem', color: '#c0c4cc', marginTop: '0.5rem' }}>Headlines via Finnhub · context only, not advice</div>
         </>
+      )}
+
+      {pendingLink && (
+        <div
+          onClick={() => setPendingLink(null)}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(17,24,39,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem', zIndex: 1000 }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{ background: '#fff', borderRadius: 14, padding: '1.1rem 1.15rem', maxWidth: 360, width: '100%', boxShadow: '0 12px 40px rgba(0,0,0,0.25)' }}
+          >
+            <div style={{ fontSize: '1rem', fontWeight: 800, color: '#111827', marginBottom: '0.4rem' }}>🔗 Leaving MyDay</div>
+            <div style={{ fontSize: '0.85rem', color: '#4b5563', lineHeight: 1.5, marginBottom: '0.35rem' }}>
+              This opens an external website in a new tab:
+            </div>
+            <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#1d4ed8', wordBreak: 'break-all', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 8, padding: '0.45rem 0.6rem', marginBottom: '0.8rem' }}>
+              {pendingLink.host}
+            </div>
+            <div style={{ fontSize: '0.72rem', color: '#9ca3af', marginBottom: '0.9rem' }}>
+              MyDay isn't responsible for third-party content. Continue only if you trust this source.
+            </div>
+            <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+              <button className="ck-btn" type="button" onClick={() => setPendingLink(null)} style={{ fontSize: '0.8rem' }}>Cancel</button>
+              <button className="ck-btn ck-btn-primary" type="button" onClick={confirmOpen} style={{ fontSize: '0.8rem' }}>Open site ↗</button>
+            </div>
+          </div>
+        </div>
       )}
 
       {!loaded && !error && !loading && (

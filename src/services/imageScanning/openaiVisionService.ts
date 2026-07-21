@@ -25,13 +25,14 @@ export async function scanImageWithOpenAI(
     // Convert image to base64
     const base64Image = await fileToBase64(imageFile);
     
-    // Call our Vercel API endpoint
-    const response = await fetch('/api/scan-image', {
+    // Call our unified Vercel AI endpoint (task-dispatched)
+    const response = await fetch('/api/ai', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
+        task: 'scan_image',
         image: base64Image,
         mimeType: imageFile.type,
         hints: hints, // FEAT-002: Pass context hints to API

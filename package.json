@@ -1,6 +1,6 @@
 {
   "name": "myday",
-  "version": "1.4.193",
+  "version": "1.4.195",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -27,7 +27,7 @@
     "xlsx": "^0.18.5"
   },
   "engines": {
-    "node": "20.x"
+    "node": "24.x"
   },
   "devDependencies": {
     "@testing-library/jest-dom": "^6.4.0",
