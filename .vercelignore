@@ -1,0 +1,12 @@
+# Vercel deployment excludes
+#
+# Files listed here are NOT uploaded to Vercel, so they do NOT count toward the
+# Hobby plan's 12-serverless-function limit. The code stays in the repo and still
+# compiles locally — this only affects what gets deployed.
+#
+# ── Fitbit (temporarily disabled) ─────────────────────────────────────────────
+# Paused to stay under the function limit. Fitbit integration is on hold; the
+# endpoints below are intact. TO RE-ENABLE: remove the two lines below (and make
+# sure total api/*.ts functions stay <= 12), then redeploy.
+api/fitbit-oauth-callback.ts
+api/fitbit-refresh-token.ts

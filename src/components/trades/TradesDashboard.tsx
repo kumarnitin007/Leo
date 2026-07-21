@@ -1222,7 +1222,14 @@ const PanelContent: React.FC<{
   optionValue?: number;
   events?: TickerEvents;
 }> = ({ panel, stats, quote, heldShares, fullNetCash, optionQuotes = {}, optionValue, events }) => {
-  const [codeFilter, setCodeFilter] = useState<'all' | string>('all');
+  // Multi-select transaction-code filter. Empty set = show all.
+  const [codeFilters, setCodeFilters] = useState<Set<string>>(new Set());
+  const toggleCodeFilter = (code: string) =>
+    setCodeFilters(prev => {
+      const next = new Set(prev);
+      next.has(code) ? next.delete(code) : next.add(code);
+      return next;
+    });
   const sorted = useMemo(
     () => [...panel.txns].sort((a, b) => (a.activityDate < b.activityDate ? 1 : a.activityDate > b.activityDate ? -1 : 0)),
     [panel.txns]
@@ -1234,8 +1241,8 @@ const PanelContent: React.FC<{
     return Array.from(m.entries()).sort((a, b) => b[1] - a[1]);
   }, [panel.txns]);
   const visibleTxns = useMemo(
-    () => codeFilter === 'all' ? sorted : sorted.filter(t => t.transCode === codeFilter),
-    [sorted, codeFilter]
+    () => codeFilters.size === 0 ? sorted : sorted.filter(t => codeFilters.has(t.transCode)),
+    [sorted, codeFilters]
   );
   const openOptions = useMemo(() => panel.ticker ? computeOpenOptions(panel.txns) : [], [panel.txns, panel.ticker]);
   // Prefer full-history shares (panel opens with full account history).
@@ -1332,9 +1339,9 @@ const PanelContent: React.FC<{
 
       {codeCounts.length > 1 && (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem', marginBottom: '0.6rem' }}>
-          <FilterChip active={codeFilter === 'all'} onClick={() => setCodeFilter('all')}>All ({panel.txns.length})</FilterChip>
+          <FilterChip active={codeFilters.size === 0} onClick={() => setCodeFilters(new Set())}>All ({panel.txns.length})</FilterChip>
           {codeCounts.map(([code, n]) => (
-            <FilterChip key={code} active={codeFilter === code} onClick={() => setCodeFilter(code)}>{code} ({n})</FilterChip>
+            <FilterChip key={code} active={codeFilters.has(code)} onClick={() => toggleCodeFilter(code)}>{code} ({n})</FilterChip>
           ))}
         </div>
       )}

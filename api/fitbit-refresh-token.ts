@@ -1,3 +1,10 @@
+/*
+ * ⚠️ TEMPORARILY DISABLED ON VERCEL (not deployed).
+ * Excluded via `.vercelignore` to stay under the Hobby plan's 12-function limit.
+ * The code below is intact and still compiles locally. Fitbit integration is on
+ * hold. TO RE-ENABLE: remove this file's entry from `.vercelignore` (keeping the
+ * total api/*.ts functions <= 12) and redeploy.
+ */
 import { handleApiError, createErrorResponse } from './_utils/errorHandler.js';
 
 /**
